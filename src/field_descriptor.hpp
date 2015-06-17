@@ -28,6 +28,7 @@
 
 extern int myrank, nprocs;
 
+template <class rnumber>
 class field_descriptor
 {
     public:
@@ -66,29 +67,29 @@ class field_descriptor
          * don't forget to delete the result once you're done with it.
          * the transposed descriptor is useful for io operations.
          * */
-        field_descriptor *get_transpose();
+        field_descriptor<rnumber> *get_transpose();
 
         /* we don't actually need the transposed descriptor to perform
          * the transpose operation: we only need the in/out fields.
          * */
         int transpose(
-                float *input,
-                float *output);
+                rnumber *input,
+                rnumber *output);
         int transpose(
-                fftwf_complex *input,
-                fftwf_complex *output = NULL);
+                rnumber *input[2],
+                rnumber *output[2] = NULL);
 
         int interleave(
-                float *input,
+                rnumber *input,
                 int dim);
         int interleave(
-                fftwf_complex *input,
+                rnumber *input[2],
                 int dim);
 
         int switch_endianness(
-                float *a);
+                rnumber *a);
         int switch_endianness(
-                fftwf_complex *a);
+                rnumber *a[2]);
 };
 
 
