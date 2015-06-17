@@ -31,6 +31,8 @@ extern int myrank, nprocs;
 template <class rnumber>
 class field_descriptor
 {
+    private:
+        typedef rnumber cnumber[2];
     public:
 
         /* data */
@@ -76,20 +78,20 @@ class field_descriptor
                 rnumber *input,
                 rnumber *output);
         int transpose(
-                rnumber *input[2],
-                rnumber *output[2] = NULL);
+                cnumber *input,
+                cnumber *output = NULL);
 
         int interleave(
                 rnumber *input,
                 int dim);
         int interleave(
-                rnumber *input[2],
+                cnumber *input,
                 int dim);
 
         int switch_endianness(
                 rnumber *a);
         int switch_endianness(
-                rnumber *a[2]);
+                cnumber *a);
 };
 
 
@@ -98,13 +100,13 @@ class field_descriptor
  * the arrays are assumed to use fftw layout.
  * */
 int fftwf_copy_complex_array(
-        field_descriptor *fi,
+        field_descriptor<float> *fi,
         fftwf_complex *ai,
-        field_descriptor *fo,
+        field_descriptor<float> *fo,
         fftwf_complex *ao);
 
 int fftwf_clip_zero_padding(
-        field_descriptor *f,
+        field_descriptor<float> *f,
         float *a);
 
 inline float btle(const float be)
