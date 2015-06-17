@@ -72,13 +72,13 @@ class Morton_shuffler
         /* members */
         int d; // number of components of the field
         // descriptor for N0 x N1 x N2 x d
-        field_descriptor *dinput;
+        field_descriptor<float> *dinput;
         // descriptor for (N0/8) x (N1/8) x (N2/8) x 8 x 8 x 8 x d
-        field_descriptor *drcubbie;
+        field_descriptor<float> *drcubbie;
         // descriptor for NZ x 8 x 8 x 8 x d
-        field_descriptor *dzcubbie;
+        field_descriptor<float> *dzcubbie;
         // descriptor for (NZ/nfiles) x 8 x 8 x 8 x d
-        field_descriptor *doutput;
+        field_descriptor<float> *doutput;
 
         // communicator to use for output
         MPI_Comm out_communicator;

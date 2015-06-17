@@ -52,7 +52,7 @@ p3DFFT_to_iR::p3DFFT_to_iR(
     // (which is generally an even number)
     n[0] = n0*n1;
     n[1] = n2;
-    this->f0c = new field_descriptor(2, n, MPI_COMPLEX8, MPI_COMM_WORLD);
+    this->f0c = new field_descriptor<float>(2, n, MPI_COMPLEX8, MPI_COMM_WORLD);
 
     // f1c will be pointing at the input array after it has been
     // transposed in 2D, therefore we have this correspondence:
@@ -60,13 +60,13 @@ p3DFFT_to_iR::p3DFFT_to_iR(
     n[0] = n2;
     n[1] = n0;
     n[2] = n1;
-    this->f1c = new field_descriptor(3, n, MPI_COMPLEX8, MPI_COMM_WORLD);
+    this->f1c = new field_descriptor<float>(3, n, MPI_COMPLEX8, MPI_COMM_WORLD);
 
     // the description for the fully transposed field
     n[0] = n2;
     n[1] = n1;
     n[2] = n0;
-    this->f2c = new field_descriptor(3, n, MPI_COMPLEX8, MPI_COMM_WORLD);
+    this->f2c = new field_descriptor<float>(3, n, MPI_COMPLEX8, MPI_COMM_WORLD);
 
     // following 3 arguments are dimensions for real space grid dimensions
     // f3r and f3c will be allocated in this call

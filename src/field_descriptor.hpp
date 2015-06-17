@@ -95,20 +95,6 @@ class field_descriptor
 };
 
 
-/* given two arrays of the same dimension, we do simple resizes in
- * Fourier space: either chop off high modes, or pad with zeros.
- * the arrays are assumed to use fftw layout.
- * */
-int fftwf_copy_complex_array(
-        field_descriptor<float> *fi,
-        fftwf_complex *ai,
-        field_descriptor<float> *fo,
-        fftwf_complex *ao);
-
-int fftwf_clip_zero_padding(
-        field_descriptor<float> *f,
-        float *a);
-
 inline float btle(const float be)
      {
          float le;

@@ -41,10 +41,10 @@ class p3DFFT_to_iR
     public:
         /* members */
         int howmany;
-        field_descriptor *f0c; // descriptor for 2D input
-        field_descriptor *f1c; // descriptor for 2D transposed input
-        field_descriptor *f2c; // descriptor for 3D fully transposed input
-        field_descriptor *f3c, *f3r; // descriptors for FFT
+        field_descriptor<float> *f0c; // descriptor for 2D input
+        field_descriptor<float> *f1c; // descriptor for 2D transposed input
+        field_descriptor<float> *f2c; // descriptor for 3D fully transposed input
+        field_descriptor<float> *f3c, *f3r; // descriptors for FFT
 
         fftwf_complex *c12; // array to store transposed input
         fftwf_complex *c3 ; // array to store resized Fourier data

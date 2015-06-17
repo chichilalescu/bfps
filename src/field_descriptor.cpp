@@ -482,3 +482,5 @@ field_descriptor<float>* field_descriptor<float>::get_transpose()
     return new field_descriptor<float>(this->ndims, n, this->mpi_dtype, this->comm);
 }
 
+template class field_descriptor<float>;
+

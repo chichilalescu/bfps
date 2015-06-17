@@ -53,15 +53,15 @@ Morton_shuffler::Morton_shuffler(
     n[1] = N1;
     n[2] = N2;
     n[3] = this->d;
-    this->dinput = new field_descriptor(4, n, MPI_FLOAT, MPI_COMM_WORLD);
+    this->dinput = new field_descriptor<float>(4, n, MPI_FLOAT, MPI_COMM_WORLD);
     n[0] = N0/8;
     n[1] = N1/8;
     n[2] = N2/8;
     n[3] = 8*8*8*this->d;
-    this->drcubbie = new field_descriptor(4, n, MPI_FLOAT, MPI_COMM_WORLD);
+    this->drcubbie = new field_descriptor<float>(4, n, MPI_FLOAT, MPI_COMM_WORLD);
     n[0] = (N0/8) * (N1/8) * (N2/8);
     n[1] = 8*8*8*this->d;
-    this->dzcubbie = new field_descriptor(2, n, MPI_FLOAT, MPI_COMM_WORLD);
+    this->dzcubbie = new field_descriptor<float>(2, n, MPI_FLOAT, MPI_COMM_WORLD);
 
     //set up output file descriptor
     int out_rank, out_nprocs;
@@ -78,7 +78,7 @@ Morton_shuffler::Morton_shuffler(
     n[0] = ((N0/8) * (N1/8) * (N2/8)) / nfiles;
     n[1] = 8*8*8*this->d;
     MPI_Comm_split(MPI_COMM_WORLD, this->out_group, out_rank, &this->out_communicator);
-    this->doutput = new field_descriptor(2, n, MPI_FLOAT, this->out_communicator);
+    this->doutput = new field_descriptor<float>(2, n, MPI_FLOAT, this->out_communicator);
 }
 
 Morton_shuffler::~Morton_shuffler()

@@ -28,9 +28,9 @@
 
 // should I use a template here?
 int fftwf_copy_complex_array(
-        field_descriptor *fi,
+        field_descriptor<float> *fi,
         fftwf_complex *ai,
-        field_descriptor *fo,
+        field_descriptor<float> *fo,
         fftwf_complex *ao)
 {
     if (((fi->ndims != 3) ||
@@ -135,7 +135,7 @@ int fftwf_copy_complex_array(
 }
 
 int fftwf_clip_zero_padding(
-        field_descriptor *f,
+        field_descriptor<float> *f,
         float *a,
         int howmany)
 {
@@ -156,18 +156,18 @@ int fftwf_clip_zero_padding(
 
 int fftwf_get_descriptors_3D(
         int n0, int n1, int n2,
-        field_descriptor **fr,
-        field_descriptor **fc)
+        field_descriptor<float> **fr,
+        field_descriptor<float> **fc)
 {
     int ntmp[3];
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2;
-   *fr = new field_descriptor(3, ntmp, MPI_FLOAT, MPI_COMM_WORLD);
+   *fr = new field_descriptor<float>(3, ntmp, MPI_FLOAT, MPI_COMM_WORLD);
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2/2+1;
-    *fc = new field_descriptor(3, ntmp, MPI_COMPLEX8, MPI_COMM_WORLD);
+    *fc = new field_descriptor<float>(3, ntmp, MPI_COMPLEX8, MPI_COMM_WORLD);
     return EXIT_SUCCESS;
 }
 
