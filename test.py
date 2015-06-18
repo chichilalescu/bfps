@@ -1,6 +1,9 @@
+#! /usr/bin/env python2
+
 import numpy as np
 import subprocess
 import pyfftw
+import matplotlib.pyplot as plt
 
 def run_test(
         test_name = 'test_FFT',
@@ -46,13 +49,29 @@ def generate_data_3D(
     a[ii] = 0
     return a
 
-Kdata0 = generate_data_3D(32, p = 2).astype(np.complex64)
+n = 32
+Kdata00 = generate_data_3D(n, p = 2).astype(np.complex64)
+Kdata01 = generate_data_3D(n, p = 2).astype(np.complex64)
+Kdata02 = generate_data_3D(n, p = 2).astype(np.complex64)
+Kdata0 = np.zeros(
+        Kdata00.shape + (3,),
+        Kdata00.dtype)
+Kdata0[..., 0] = Kdata00
+Kdata0[..., 1] = Kdata01
+Kdata0[..., 2] = Kdata02
 Kdata0.tofile("Kdata0")
 run_test('test_FFT')
 Kdata1 = np.fromfile('Kdata1', dtype = np.complex64).reshape(Kdata0.shape)
 
 print np.max(np.abs(Kdata0 - Kdata1))
+print np.max(np.abs(Kdata0))
 
+fig = plt.figure(figsize=(12, 6))
+a = fig.add_subplot(121)
+a.imshow(abs(Kdata0[4, :, :, 2]), interpolation = 'none')
+a = fig.add_subplot(122)
+a.imshow(abs(Kdata1[4, :, :, 2]), interpolation = 'none')
+fig.savefig('tmp.pdf', format = 'pdf')
 
 
 

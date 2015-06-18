@@ -28,7 +28,7 @@
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
 
-#define FLUID_SOLVER_DEFINITIONS(FFTW, R, C) \
+#define FLUID_SOLVER_DEFINITIONS(FFTW, R, C, MPI_RNUM, MPI_CNUM) \
  \
 template<> \
 fluid_solver<R>::fluid_solver( \
@@ -36,20 +36,29 @@ fluid_solver<R>::fluid_solver( \
         int ny, \
         int nz) \
 { \
-    get_descriptors_3D<R>(nz, ny, nx, &this->fr, &this->fc);\
-    this->cvorticity = FFTW(alloc_complex)(this->fc->local_size*3);\
-    this->cvelocity  = FFTW(alloc_complex)(this->fc->local_size*3);\
-    this->rvorticity = FFTW(alloc_real)(this->fc->local_size*6);\
-    this->rvelocity  = FFTW(alloc_real)(this->fc->local_size*6);\
+    int ntmp[4]; \
+    ntmp[0] = nz; \
+    ntmp[1] = ny; \
+    ntmp[2] = nx; \
+    ntmp[3] = 3; \
+    this->rd = new field_descriptor<R>( \
+            4, ntmp, MPI_RNUM, MPI_COMM_WORLD);\
+    ntmp[2] = nx/2 + 1; \
+    this->cd = new field_descriptor<R>( \
+            4, ntmp, MPI_CNUM, MPI_COMM_WORLD);\
+    this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
+    this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
+    this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
+    this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
     this->c2r_velocity  = new FFTW(plan);\
     this->r2c_velocity  = new FFTW(plan);\
  \
-    ptrdiff_t sizes[] = {this->fr->sizes[0], \
-                         this->fr->sizes[1], \
-                         this->fr->sizes[2]};\
+    ptrdiff_t sizes[] = {nz, \
+                         ny, \
+                         nx};\
  \
     *(FFTW(plan)*)this->c2r_vorticity = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, \
@@ -101,6 +110,9 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
     FFTW(free)(this->rvelocity);\
+ \
+    delete this->cd; \
+    delete this->rd; \
 } \
  \
 template<> \
@@ -112,10 +124,16 @@ void fluid_solver<R>::step() \
 
 /*****************************************************************************/
 /* now actually use the macro defined above                                  */
-FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_FLOAT, float, fftwf_complex)
-FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_DOUBLE, double, fftw_complex)
-//FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_LONG_DOUBLE, long double, fftwl_complex)
-//FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_QUAD, __float128, fftwq_complex)
+FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_FLOAT,
+                         float,
+                         fftwf_complex,
+                         MPI_REAL4,
+                         MPI_COMPLEX8)
+FLUID_SOLVER_DEFINITIONS(FFTW_MANGLE_DOUBLE,
+                         double,
+                         fftw_complex,
+                         MPI_REAL8,
+                         MPI_COMPLEX16)
 /*****************************************************************************/
 
 

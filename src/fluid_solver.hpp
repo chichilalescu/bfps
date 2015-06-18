@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include "field_descriptor.hpp"
+#include "vector_field.hpp"
 
 #ifndef FLUID_SOLVER
 
@@ -41,7 +42,7 @@ class fluid_solver
     private:
         typedef rnumber cnumber[2];
     public:
-        field_descriptor<rnumber> *fc, *fr;
+        field_descriptor<rnumber> *cd, *rd;
 
         /* fields */
         rnumber *rvorticity;
