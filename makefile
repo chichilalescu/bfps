@@ -62,7 +62,7 @@ base_files := \
 	fftwf_tools \
 	Morton_shuffler \
 	p3DFFT_to_iR \
-	field_solver
+	fluid_solver
 
 #headers := $(patsubst %, ./src/%.hpp, ${base_files})
 src := $(patsubst %, ./src/%.cpp, ${base_files})
