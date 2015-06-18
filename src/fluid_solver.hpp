@@ -56,7 +56,13 @@ class fluid_solver
         void *c2r_velocity;
         void *r2c_velocity;
 
-        fluid_solver();
+        /* parameters */
+        rnumber nu;
+
+        /* methods */
+
+        fluid_solver(
+                int nx, int ny, int nz);
         ~fluid_solver();
 
         void step();
