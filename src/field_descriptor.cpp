@@ -86,9 +86,9 @@ field_descriptor<rnumber>::field_descriptor(
         tsubsizes[i] = this->subsizes[i];
         tstarts[i] = this->starts[i];
     }
-    tsizes[ndims-1] *= sizeof(float);
-    tsubsizes[ndims-1] *= sizeof(float);
-    tstarts[ndims-1] *= sizeof(float);
+    tsizes[ndims-1] *= sizeof(rnumber);
+    tsubsizes[ndims-1] *= sizeof(rnumber);
+    tstarts[ndims-1] *= sizeof(rnumber);
     if (this->mpi_dtype == MPI_COMPLEX8)
     {
         tsizes[ndims-1] *= 2;
@@ -482,4 +482,5 @@ field_descriptor<float>* field_descriptor<float>::get_transpose()
 }
 
 template class field_descriptor<float>;
+template class field_descriptor<double>;
 

@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include "field_descriptor.hpp"
-#include "fftwf_tools.hpp"
+#include "fftw_tools.hpp"
 
 #ifndef MORTON_SHUFFLER
 

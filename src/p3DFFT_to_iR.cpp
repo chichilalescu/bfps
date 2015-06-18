@@ -69,7 +69,7 @@ p3DFFT_to_iR::p3DFFT_to_iR(
 
     // following 3 arguments are dimensions for real space grid dimensions
     // f3r and f3c will be allocated in this call
-    fftwf_get_descriptors_3D(
+    get_descriptors_3D<float>(
             N0, N1, N2,
             &this->f3r, &this->f3c);
 
@@ -141,7 +141,7 @@ int p3DFFT_to_iR::read(
         this->f1c->transpose(this->c12);
         DEBUG_MSG("p3DFFT_to_iR::read "
                   "fftwf_copy_complex_array(\n");
-        fftwf_copy_complex_array(
+        copy_complex_array<float>(
                 this->f2c, this->c12,
                 this->f3c, this->c3 + i*this->f3c->local_size);
     }
@@ -156,7 +156,7 @@ int p3DFFT_to_iR::read(
 
     DEBUG_MSG("p3DFFT_to_iR::read "
               "fftwf_clip_zero_padding(this->f3r, this->r3, 2);\n");
-    fftwf_clip_zero_padding(this->f3r, this->r3, this->howmany);
+    clip_zero_padding<float>(this->f3r, this->r3, this->howmany);
     DEBUG_MSG("p3DFFT_to_iR::read return\n");
     return EXIT_SUCCESS;
 }

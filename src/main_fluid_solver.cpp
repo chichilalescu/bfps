@@ -18,6 +18,7 @@
 *
 ************************************************************************/
 
+#include "base.hpp"
 #include "fluid_solver.hpp"
 #include <iostream>
 
@@ -29,10 +30,16 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
-    fluid_solver<float> fs;
+    fluid_solver<float> *fs;
+    fs = new fluid_solver<float>(32, 32, 32);
+    DEBUG_MSG("fluid_solver object created\n");
+
+    delete fs;
+    DEBUG_MSG("fluid_solver object deleted\n");
 
     // clean up
     fftwf_mpi_cleanup();
+    fftw_mpi_cleanup();
     MPI_Finalize();
     return EXIT_SUCCESS;
 }

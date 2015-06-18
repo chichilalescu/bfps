@@ -21,7 +21,7 @@
 
 
 #include "fluid_solver.hpp"
-#include "fftwf_tools.hpp"
+#include "fftw_tools.hpp"
 
 
 
@@ -36,7 +36,7 @@ fluid_solver<R>::fluid_solver( \
         int ny, \
         int nz) \
 { \
-    FFTW(get_descriptors_3D)(nz, ny, nx, &this->fr, &this->fc);\
+    get_descriptors_3D<R>(nz, ny, nx, &this->fr, &this->fc);\
     this->cvorticity = FFTW(alloc_complex)(this->fc->local_size*3);\
     this->cvelocity  = FFTW(alloc_complex)(this->fc->local_size*3);\
     this->rvorticity = FFTW(alloc_real)(this->fc->local_size*6);\

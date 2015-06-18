@@ -58,7 +58,7 @@ endif
 
 base_files := \
 	field_descriptor \
-	fftwf_tools \
+	fftw_tools \
 	Morton_shuffler \
 	p3DFFT_to_iR \
 	fluid_solver
