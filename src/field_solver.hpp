@@ -36,31 +36,32 @@ extern int myrank, nprocs;
  * I feel like I should quote:  Ugh.
  * */
 
-# define FLUID_SOLVER_PROTOTYPES(X, R, C) \
-class X(fluid_solver) \
-{ \
-    public: \
-        field_descriptor<R> *fc, *fr; \
- \
-        R *rvorticity; \
-        R *rvelocity ; \
-        C *cvorticity; \
-        C *cvelocity ; \
-        bool fields_allocated; \
- \
-        X(plan) c2r_vorticity; \
-        X(plan) r2c_vorticity; \
-        X(plan) c2r_velocity; \
-        X(plan) r2c_velocity; \
- \
- \
-        X(fluid_solver) (); \
-        ~X(fluid_solver) (); \
-}; \
+template <class rnumber>
+class fluid_solver
+{
+    private:
+        typedef rnumber cnumber[2];
+    public:
+        field_descriptor<rnumber> *fc, *fr;
 
-FLUID_SOLVER_PROTOTYPES(FFTW_MANGLE_DOUBLE, double, fftw_complex)
-FLUID_SOLVER_PROTOTYPES(FFTW_MANGLE_FLOAT, float, fftwf_complex)
-FLUID_SOLVER_PROTOTYPES(FFTW_MANGLE_LONG_DOUBLE, long double, fftwl_complex)
+        /* fields */
+        rnumber *rvorticity;
+        rnumber *rvelocity ;
+        cnumber *cvorticity;
+        cnumber *cvelocity ;
+        bool fields_allocated;
+
+        /* plans */
+        void *c2r_vorticity;
+        void *r2c_vorticity;
+        void *c2r_velocity;
+        void *r2c_velocity;
+
+        fluid_solver();
+        ~fluid_solver();
+
+        void step();
+};
 
 #endif//FLUID_SOLVER
 
