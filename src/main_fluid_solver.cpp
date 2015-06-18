@@ -21,6 +21,7 @@
 #include "base.hpp"
 #include "fluid_solver.hpp"
 #include <iostream>
+#include <fftw3-mpi.h>
 
 int myrank, nprocs;
 
@@ -33,6 +34,9 @@ int main(int argc, char *argv[])
     fluid_solver<float> *fs;
     fs = new fluid_solver<float>(32, 32, 32);
     DEBUG_MSG("fluid_solver object created\n");
+
+    fftwf_execute(*(fftwf_plan*)fs->c2r_vorticity);
+    fftwf_execute(*(fftwf_plan*)fs->r2c_vorticity);
 
     delete fs;
     DEBUG_MSG("fluid_solver object deleted\n");
