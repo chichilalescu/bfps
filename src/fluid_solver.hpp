@@ -49,27 +49,51 @@ class fluid_solver
         rnumber *rvelocity ;
         cnumber *cvorticity;
         cnumber *cvelocity ;
-        bool fields_allocated;
+
+        /* short names for velocity, and 4 vorticity fields */
+        rnumber *ru, *rv[4];
+        cnumber *cu, *cv[4];
 
         /* plans */
         void *c2r_vorticity;
         void *r2c_vorticity;
         void *c2r_velocity;
         void *r2c_velocity;
+        void *uc2r, *ur2c;
+        void *vr2c[3], *vc2r[3];
 
         /* simulation parameters */
         int iteration;
 
         /* physical parameters */
         rnumber nu;
+        rnumber dkx, dky, dkz, dk;
+
+        /* mode and dealiasing information */
+        double kMx, kMy, kMz, kM, kM2;
+        double *kx, *ky, *kz;
+        bool *knullx, *knully, *knullz;
+        int nonzerokx, nonzeroky, nonzerokz;
+        double *kshell;
+        int64_t *nshell;
+        int nshells;
 
 
         /* methods */
         fluid_solver(
-                int nx, int ny, int nz);
+                int nx,
+                int ny,
+                int nz,
+                double DKX = 1.0,
+                double DKY = 1.0,
+                double DKZ = 1.0);
+
+
+
         ~fluid_solver();
 
-        void step();
+        void omega_nonlin(int src);
+        void step(double dt);
 };
 
 #endif//FLUID_SOLVER
