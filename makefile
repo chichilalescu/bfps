@@ -62,6 +62,7 @@ base_files := \
 	Morton_shuffler \
 	p3DFFT_to_iR \
 	vector_field \
+	fluid_solver_base \
 	fluid_solver
 
 #headers := $(patsubst %, ./src/%.hpp, ${base_files})
