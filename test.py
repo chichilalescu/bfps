@@ -60,19 +60,5 @@ Kdata0[..., 0] = Kdata00
 Kdata0[..., 1] = Kdata01
 Kdata0[..., 2] = Kdata02
 Kdata0.tofile("Kdata0")
-run_test('test_step')
-Kdata1 = np.fromfile('Kdata1', dtype = np.complex64).reshape(Kdata0.shape)
-
-#print np.max(np.abs(Kdata0 - Kdata1))
-print np.max(np.abs(Kdata0))
-print np.max(np.abs(Kdata1))
-#
-#fig = plt.figure(figsize=(12, 6))
-#a = fig.add_subplot(121)
-#a.imshow(abs(Kdata0[4, :, :, 2]), interpolation = 'none')
-#a = fig.add_subplot(122)
-#a.imshow(abs(Kdata1[4, :, :, 2]), interpolation = 'none')
-#fig.savefig('tmp.pdf', format = 'pdf')
-
-
+run_test('test_step', ncpu = 1)
 

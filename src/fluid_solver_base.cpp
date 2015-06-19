@@ -40,6 +40,8 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKY, \
         double DKZ) \
 { \
+    this->iteration = 0; \
+ \
     int ntmp[4]; \
     ntmp[0] = nz; \
     ntmp[1] = ny; \
@@ -119,6 +121,27 @@ fluid_solver_base<R>::~fluid_solver_base() \
  \
     delete this->cd; \
     delete this->rd; \
+} \
+ \
+template<> \
+R fluid_solver_base<R>::correl_vec(C *a, C *b) \
+{ \
+    double val_process = 0.0, val; \
+    double k2; \
+    int factor = 1;\
+    CLOOP( \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            factor = (xindex == 0) ? 1 : 2; \
+            val_process += factor * ((*(a + cindex))[0] * (*(b + cindex))[0] + \
+                                     (*(a + cindex))[1] * (*(b + cindex))[1]); \
+            );\
+    MPI_Allreduce( \
+            (void*)(&val_process), \
+            (void*)(&val), \
+            1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD); \
+    return R(val); \
 }
 
 /*****************************************************************************/

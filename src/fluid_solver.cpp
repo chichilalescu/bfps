@@ -250,6 +250,7 @@ void fluid_solver<R>::step(double dt) \
             this->cv[3][cindex*3+2][1] = (this->cv[0][cindex*3+2][1]*factor0 + 2*(this->cv[1][cindex*3+2][1] + dt*this->cu[cindex*3+2][1])*factor1)/3; \
             ); \
  \
+    this->iteration++; \
 }
 /*****************************************************************************/
 

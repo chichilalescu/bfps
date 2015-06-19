@@ -68,6 +68,8 @@ class fluid_solver_base
                 double DKY = 1.0,
                 double DKZ = 1.0);
         ~fluid_solver_base();
+
+        rnumber correl_vec(cnumber *a, cnumber *b);
 };
 
 
