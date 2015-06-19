@@ -106,6 +106,13 @@ fluid_solver_base<R>::fluid_solver_base( \
         else \
             this->knullz[i] = true; \
     } \
+    this->kM = this->kMx; \
+    if (this->kM < this->kMy) this->kM = this->kMy; \
+    if (this->kM < this->kMz) this->kM = this->kMz; \
+    this->kM2 = this->kM * this->kM; \
+    this->dk = this->dkx; \
+    if (this->dk > this->dky) this->dk = this->dky; \
+    if (this->dk > this->dkz) this->dk = this->dkz; \
 } \
  \
 template<> \
@@ -133,14 +140,18 @@ R fluid_solver_base<R>::correl_vec(C *a, C *b) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            factor = (xindex == 0) ? 1 : 2; \
-            val_process += factor * ((*(a + cindex))[0] * (*(b + cindex))[0] + \
-                                     (*(a + cindex))[1] * (*(b + cindex))[1]); \
+            if (k2 < this->kM2) \
+            { \
+                factor = (xindex == 0) ? 1 : 2; \
+                val_process += factor * ((*(a + cindex))[0] * (*(b + cindex))[0] + \
+                                         (*(a + cindex))[1] * (*(b + cindex))[1]); \
+            } \
             );\
     MPI_Allreduce( \
             (void*)(&val_process), \
             (void*)(&val), \
             1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD); \
+    /*return R(val / (this->rd->full_size / 3)) / (this->rd->full_size / 3);*/ \
     return R(val); \
 }
 

@@ -25,6 +25,25 @@
 #include "fftw_tools.hpp"
 
 
+template <class rnumber>
+void fluid_solver<rnumber>::impose_zero_modes()
+{
+    this->cu[0][0] = 0.0;
+    this->cu[1][0] = 0.0;
+    this->cu[2][0] = 0.0;
+
+    this->cv[0][0][1] = 0.0;
+    this->cv[0][1][1] = 0.0;
+    this->cv[0][2][1] = 0.0;
+
+    this->cv[1][0][1] = 0.0;
+    this->cv[1][1][1] = 0.0;
+    this->cv[1][2][1] = 0.0;
+
+    this->cv[2][0][1] = 0.0;
+    this->cv[2][1][1] = 0.0;
+    this->cv[2][2][1] = 0.0;
+}
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
 
@@ -169,6 +188,7 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[cindex*3+1][1] = (this->kz[zindex]*this->cv[src][cindex*3+0][0] - this->kx[xindex]*this->cv[src][cindex*3+2][0]) / k2; \
             this->cu[cindex*3+2][1] = (this->kx[xindex]*this->cv[src][cindex*3+1][0] - this->ky[yindex]*this->cv[src][cindex*3+0][0]) / k2; \
             ); \
+    this->impose_zero_modes(); \
     /* get fields from Fourier space to real space */ \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[src])); \
@@ -187,12 +207,12 @@ void fluid_solver<R>::omega_nonlin( \
     /* $\imath k \times DFT(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
     CLOOP( \
-            tmpx0 = (this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
-            tmpy0 = (this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
-            tmpz0 = (this->kx[xindex]*this->cu[cindex*3+1][1] - this->ky[yindex]*this->cu[cindex*3+0][1]); \
-            tmpx1 = (this->ky[yindex]*this->cu[cindex*3+2][0] - this->kz[zindex]*this->cu[cindex*3+1][0]); \
-            tmpy1 = (this->kz[zindex]*this->cu[cindex*3+0][0] - this->kx[xindex]*this->cu[cindex*3+2][0]); \
-            tmpz1 = (this->kx[xindex]*this->cu[cindex*3+1][0] - this->ky[yindex]*this->cu[cindex*3+0][0]); \
+            tmpx0 = -(this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
+            tmpy0 = -(this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
+            tmpz0 = -(this->kx[xindex]*this->cu[cindex*3+1][1] - this->ky[yindex]*this->cu[cindex*3+0][1]); \
+            tmpx1 =  (this->ky[yindex]*this->cu[cindex*3+2][0] - this->kz[zindex]*this->cu[cindex*3+1][0]); \
+            tmpy1 =  (this->kz[zindex]*this->cu[cindex*3+0][0] - this->kx[xindex]*this->cu[cindex*3+2][0]); \
+            tmpz1 =  (this->kx[xindex]*this->cu[cindex*3+1][0] - this->ky[yindex]*this->cu[cindex*3+0][0]); \
             this->cu[cindex*3+0][0] = tmpx0;\
             this->cu[cindex*3+1][0] = tmpy0;\
             this->cu[cindex*3+2][0] = tmpz0;\

@@ -74,6 +74,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         void omega_nonlin(int src);
         void step(double dt);
+        void impose_zero_modes();
 };
 
 #endif//FLUID_SOLVER
