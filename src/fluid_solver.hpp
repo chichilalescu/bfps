@@ -23,6 +23,7 @@
 #include <iostream>
 #include "field_descriptor.hpp"
 #include "vector_field.hpp"
+#include "fluid_solver_base.hpp"
 
 #ifndef FLUID_SOLVER
 
@@ -37,22 +38,18 @@ extern int myrank, nprocs;
  * */
 
 template <class rnumber>
-class fluid_solver
+class fluid_solver:public fluid_solver_base<rnumber>
 {
-    private:
-        typedef rnumber cnumber[2];
     public:
-        field_descriptor<rnumber> *cd, *rd;
-
         /* fields */
         rnumber *rvorticity;
         rnumber *rvelocity ;
-        cnumber *cvorticity;
-        cnumber *cvelocity ;
+        typename fluid_solver_base<rnumber>::cnumber *cvorticity;
+        typename fluid_solver_base<rnumber>::cnumber *cvelocity ;
 
         /* short names for velocity, and 4 vorticity fields */
         rnumber *ru, *rv[4];
-        cnumber *cu, *cv[4];
+        typename fluid_solver_base<rnumber>::cnumber *cu, *cv[4];
 
         /* plans */
         void *c2r_vorticity;
@@ -62,22 +59,8 @@ class fluid_solver
         void *uc2r, *ur2c;
         void *vr2c[3], *vc2r[3];
 
-        /* simulation parameters */
-        int iteration;
-
         /* physical parameters */
         rnumber nu;
-        rnumber dkx, dky, dkz, dk;
-
-        /* mode and dealiasing information */
-        double kMx, kMy, kMz, kM, kM2;
-        double *kx, *ky, *kz;
-        bool *knullx, *knully, *knullz;
-        int nonzerokx, nonzeroky, nonzerokz;
-        double *kshell;
-        int64_t *nshell;
-        int nshells;
-
 
         /* methods */
         fluid_solver(
@@ -87,9 +70,6 @@ class fluid_solver
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0);
-
-
-
         ~fluid_solver();
 
         void omega_nonlin(int src);
