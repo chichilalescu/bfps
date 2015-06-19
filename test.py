@@ -61,10 +61,11 @@ Kdata0[..., 1] = Kdata01
 Kdata0[..., 2] = Kdata02
 Kdata0.tofile("Kdata0")
 run_test('test_step')
-#Kdata1 = np.fromfile('Kdata1', dtype = np.complex64).reshape(Kdata0.shape)
-#
+Kdata1 = np.fromfile('Kdata1', dtype = np.complex64).reshape(Kdata0.shape)
+
 #print np.max(np.abs(Kdata0 - Kdata1))
-#print np.max(np.abs(Kdata0))
+print np.max(np.abs(Kdata0))
+print np.max(np.abs(Kdata1))
 #
 #fig = plt.figure(figsize=(12, 6))
 #a = fig.add_subplot(121)

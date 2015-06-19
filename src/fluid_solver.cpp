@@ -171,7 +171,7 @@ fluid_solver<R>::fluid_solver( \
  \
     /* ``physical'' parameters etc */ \
  \
-    this->nu = 0.01; \
+    this->nu = 0.1; \
     this->dkx = DKX; \
     this->dky = DKY; \
     this->dkz = DKZ; \
