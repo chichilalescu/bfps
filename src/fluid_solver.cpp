@@ -107,8 +107,8 @@ fluid_solver<R>::fluid_solver( \
  \
     this->cv[1] = FFTW(alloc_complex)(this->cd->local_size);\
     this->cv[2] = FFTW(alloc_complex)(this->cd->local_size);\
-    this->rv[1] = (R*)(this->cv);\
-    this->rv[2] = (R*)(this->cv);\
+    this->rv[1] = (R*)(this->cv[1]);\
+    this->rv[2] = (R*)(this->cv[2]);\
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
@@ -149,7 +149,7 @@ fluid_solver<R>::fluid_solver( \
     this->vc2r[2] = new FFTW(plan);\
     this->vr2c[2] = new FFTW(plan);\
  \
-    *(FFTW(plan)*)this->vc2r[1] = FFTW(mpi_plan_many_dft_c2r)( \
+    *(FFTW(plan)*)(this->vc2r[1]) = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cv[1], this->rv[1], \
             MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
