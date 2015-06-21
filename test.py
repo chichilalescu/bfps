@@ -4,6 +4,7 @@ import numpy as np
 import subprocess
 import pyfftw
 import matplotlib.pyplot as plt
+import argparse
 
 def run_test(
         test_name = 'test_FFT',
@@ -49,16 +50,22 @@ def generate_data_3D(
     a[ii] = 0
     return a
 
-n = 32
-Kdata00 = generate_data_3D(n, p = 2).astype(np.complex64)
-Kdata01 = generate_data_3D(n, p = 2).astype(np.complex64)
-Kdata02 = generate_data_3D(n, p = 2).astype(np.complex64)
-Kdata0 = np.zeros(
-        Kdata00.shape + (3,),
-        Kdata00.dtype)
-Kdata0[..., 0] = Kdata00
-Kdata0[..., 1] = Kdata01
-Kdata0[..., 2] = Kdata02
-Kdata0.tofile("Kdata0")
-run_test('test_step', ncpu = 1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('test_name', type = str)
+    parser.add_argument('--ncpu', dest = 'ncpu', default = 2)
+    parser.add_argument('-n', dest = 'n', default = 32)
+    opt = parser.parse_args()
+
+    Kdata00 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
+    Kdata01 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
+    Kdata02 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
+    Kdata0 = np.zeros(
+            Kdata00.shape + (3,),
+            Kdata00.dtype)
+    Kdata0[..., 0] = Kdata00
+    Kdata0[..., 1] = Kdata01
+    Kdata0[..., 2] = Kdata02
+    Kdata0.tofile("Kdata0")
+    run_test(opt.test_name, ncpu = opt.ncpu)
 
