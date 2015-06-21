@@ -177,35 +177,44 @@ void fluid_solver<R>::omega_nonlin( \
     assert(src >= 0 && src < 3); \
     double k2; \
     /* compute velocity field */ \
+    this->low_pass_Fourier(this->cv[src], 3, this->kM); \
+    std::fill_n((R*)this->cu, this->rd->full_size, 0); \
+    DEBUG_MSG(">>>>>>>>>>>>>>nonlin start v %g\n", this->correl_vec(this->cv[src], this->cv[src])); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            this->cu[cindex*3+0][0] = (this->ky[yindex]*this->cv[src][cindex*3+2][1] - this->kz[zindex]*this->cv[src][cindex*3+1][1]) / k2; \
-            this->cu[cindex*3+1][0] = (this->kz[zindex]*this->cv[src][cindex*3+0][1] - this->kx[xindex]*this->cv[src][cindex*3+2][1]) / k2; \
-            this->cu[cindex*3+2][0] = (this->kx[xindex]*this->cv[src][cindex*3+1][1] - this->ky[yindex]*this->cv[src][cindex*3+0][1]) / k2; \
-            this->cu[cindex*3+0][1] = (this->ky[yindex]*this->cv[src][cindex*3+2][0] - this->kz[zindex]*this->cv[src][cindex*3+1][0]) / k2; \
-            this->cu[cindex*3+1][1] = (this->kz[zindex]*this->cv[src][cindex*3+0][0] - this->kx[xindex]*this->cv[src][cindex*3+2][0]) / k2; \
-            this->cu[cindex*3+2][1] = (this->kx[xindex]*this->cv[src][cindex*3+1][0] - this->ky[yindex]*this->cv[src][cindex*3+0][0]) / k2; \
+            this->cu[cindex*3+0][0] = ((this->ky[yindex]*this->cv[src][cindex*3+2][1] - this->kz[zindex]*this->cv[src][cindex*3+1][1]) / k2); \
+            this->cu[cindex*3+1][0] = ((this->kz[zindex]*this->cv[src][cindex*3+0][1] - this->kx[xindex]*this->cv[src][cindex*3+2][1]) / k2); \
+            this->cu[cindex*3+2][0] = ((this->kx[xindex]*this->cv[src][cindex*3+1][1] - this->ky[yindex]*this->cv[src][cindex*3+0][1]) / k2); \
+            this->cu[cindex*3+0][1] = ((this->ky[yindex]*this->cv[src][cindex*3+2][0] - this->kz[zindex]*this->cv[src][cindex*3+1][0]) / k2); \
+            this->cu[cindex*3+1][1] = ((this->kz[zindex]*this->cv[src][cindex*3+0][0] - this->kx[xindex]*this->cv[src][cindex*3+2][0]) / k2); \
+            this->cu[cindex*3+2][1] = ((this->kx[xindex]*this->cv[src][cindex*3+1][0] - this->ky[yindex]*this->cv[src][cindex*3+0][0]) / k2); \
             ); \
     this->impose_zero_modes(); \
+    this->symmetrize(this->cu, 3); \
+    std::fill_n(this->ru, this->rd->full_size, 0.); \
+    std::fill_n(this->rv[src], this->rd->full_size, 0.); \
     /* get fields from Fourier space to real space */ \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[src])); \
     /* compute cross product $u \times \omega$, and normalize */ \
     R tmpx0, tmpy0, tmpz0; \
     RLOOP ( \
-             tmpx0 = (this->ru[rindex*3+1]*this->rv[src][rindex*3+2] - this->ru[rindex*3+2]*this->rv[src][rindex*3+1]); \
-             tmpy0 = (this->ru[rindex*3+2]*this->rv[src][rindex*3+0] - this->ru[rindex*3+0]*this->rv[src][rindex*3+2]); \
-             tmpz0 = (this->ru[rindex*3+0]*this->rv[src][rindex*3+1] - this->ru[rindex*3+1]*this->rv[src][rindex*3+0]); \
-             this->ru[rindex*3+0] = tmpx0 / (this->rd->full_size / 3); \
-             this->ru[rindex*3+1] = tmpy0 / (this->rd->full_size / 3); \
-             this->ru[rindex*3+2] = tmpz0 / (this->rd->full_size / 3); \
+             tmpx0 = (this->ru[rindex*3+1]*this->rv[src][rindex*3+2] - this->ru[rindex*3+2]*this->rv[src][rindex*3+1]) / this->normalization_factor; \
+             tmpy0 = (this->ru[rindex*3+2]*this->rv[src][rindex*3+0] - this->ru[rindex*3+0]*this->rv[src][rindex*3+2]) / this->normalization_factor; \
+             tmpz0 = (this->ru[rindex*3+0]*this->rv[src][rindex*3+1] - this->ru[rindex*3+1]*this->rv[src][rindex*3+0]) / this->normalization_factor; \
+             this->ru[rindex*3+0] = tmpx0 / this->normalization_factor; \
+             this->ru[rindex*3+1] = tmpy0 / this->normalization_factor; \
+             this->ru[rindex*3+2] = tmpz0 / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
+    this->low_pass_Fourier(this->cu, 3, this->kM); \
+    this->symmetrize(this->cu, 3); \
     /* $\imath k \times DFT(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
+    FFTW(execute)(*((FFTW(plan)*)this->vc2r[src])); \
     CLOOP( \
             tmpx0 = -(this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
             tmpy0 = -(this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
@@ -213,13 +222,20 @@ void fluid_solver<R>::omega_nonlin( \
             tmpx1 =  (this->ky[yindex]*this->cu[cindex*3+2][0] - this->kz[zindex]*this->cu[cindex*3+1][0]); \
             tmpy1 =  (this->kz[zindex]*this->cu[cindex*3+0][0] - this->kx[xindex]*this->cu[cindex*3+2][0]); \
             tmpz1 =  (this->kx[xindex]*this->cu[cindex*3+1][0] - this->ky[yindex]*this->cu[cindex*3+0][0]); \
-            this->cu[cindex*3+0][0] = tmpx0;\
-            this->cu[cindex*3+1][0] = tmpy0;\
-            this->cu[cindex*3+2][0] = tmpz0;\
-            this->cu[cindex*3+0][1] = tmpx1;\
-            this->cu[cindex*3+1][1] = tmpy1;\
-            this->cu[cindex*3+2][1] = tmpz1;\
+            this->cu[cindex*3+0][0] = 0.0 /*tmpx0*/;\
+            this->cu[cindex*3+1][0] = 0.0 /*tmpy0*/;\
+            this->cu[cindex*3+2][0] = 0.0 /*tmpz0*/;\
+            this->cu[cindex*3+0][1] = 0.0 /*tmpx1*/;\
+            this->cu[cindex*3+1][1] = 0.0 /*tmpy1*/;\
+            this->cu[cindex*3+2][1] = 0.0 /*tmpz1*/;\
+            this->cv[src][cindex*3+0][0] /= this->normalization_factor; \
+            this->cv[src][cindex*3+0][1] /= this->normalization_factor; \
+            this->cv[src][cindex*3+1][0] /= this->normalization_factor; \
+            this->cv[src][cindex*3+1][1] /= this->normalization_factor; \
+            this->cv[src][cindex*3+2][0] /= this->normalization_factor; \
+            this->cv[src][cindex*3+2][1] /= this->normalization_factor; \
             ); \
+    DEBUG_MSG(">>>>>>>>>>>>>>nonlin end   v %g\n", this->correl_vec(this->cv[src], this->cv[src])); \
 } \
  \
 template<> \
@@ -227,6 +243,7 @@ void fluid_solver<R>::step(double dt) \
 { \
     double k2, factor0, factor1; \
     this->omega_nonlin(0); \
+    std::fill_n(this->rv[2], this->rd->full_size, 0); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -240,13 +257,18 @@ void fluid_solver<R>::step(double dt) \
             this->cv[1][cindex*3+2][1] = (this->cv[0][cindex*3+2][1] + dt*this->cu[cindex*3+2][1])*factor0; \
             ); \
  \
+    this->force_divfree(this->cv[1]); \
+    DEBUG_MSG(">>>>>>>>>>>>>>before nonlin1 v %g\n", this->correl_vec(this->cv[1], this->cv[1])); \
     this->omega_nonlin(1); \
+    DEBUG_MSG(">>>>>>>>>>>>>>after  nonlin1 v %g\n", this->correl_vec(this->cv[1], this->cv[1])); \
+    std::fill_n(this->rv[1], this->rd->full_size, 0); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
             factor0 = exp(-this->nu * k2 * dt/2); \
-            factor1 = exp( this->nu * k2 * dt/2); \
+            factor1 = exp(-this->nu * k2 * dt/2); \
+            if (factor0 > 1 || factor1 > 1) \
             this->cv[2][cindex*3+0][0] = (3*this->cv[0][cindex*3+0][0]*factor0 + (this->cv[1][cindex*3+0][0] + dt*this->cu[cindex*3+0][0])*factor1)*0.25; \
             this->cv[2][cindex*3+1][0] = (3*this->cv[0][cindex*3+1][0]*factor0 + (this->cv[1][cindex*3+1][0] + dt*this->cu[cindex*3+1][0])*factor1)*0.25; \
             this->cv[2][cindex*3+2][0] = (3*this->cv[0][cindex*3+2][0]*factor0 + (this->cv[1][cindex*3+2][0] + dt*this->cu[cindex*3+2][0])*factor1)*0.25; \
@@ -255,20 +277,26 @@ void fluid_solver<R>::step(double dt) \
             this->cv[2][cindex*3+2][1] = (3*this->cv[0][cindex*3+2][1]*factor0 + (this->cv[1][cindex*3+2][1] + dt*this->cu[cindex*3+2][1])*factor1)*0.25; \
             ); \
  \
+    this->force_divfree(this->cv[2]); \
+    DEBUG_MSG(">>>>>>>>>>>>>>before nonlin2 v %g\n", this->correl_vec(this->cv[2], this->cv[2])); \
     this->omega_nonlin(2); \
+    DEBUG_MSG(">>>>>>>>>>>>>>after  nonlin2 v %g\n", this->correl_vec(this->cv[2], this->cv[2])); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
             factor0 = exp(-this->nu * k2 * dt); \
             factor1 = exp(-this->nu * k2 * dt/2); \
-            this->cv[3][cindex*3+0][0] = (this->cv[0][cindex*3+0][0]*factor0 + 2*(this->cv[1][cindex*3+0][0] + dt*this->cu[cindex*3+0][0])*factor1)/3; \
-            this->cv[3][cindex*3+1][0] = (this->cv[0][cindex*3+1][0]*factor0 + 2*(this->cv[1][cindex*3+1][0] + dt*this->cu[cindex*3+1][0])*factor1)/3; \
-            this->cv[3][cindex*3+2][0] = (this->cv[0][cindex*3+2][0]*factor0 + 2*(this->cv[1][cindex*3+2][0] + dt*this->cu[cindex*3+2][0])*factor1)/3; \
-            this->cv[3][cindex*3+0][1] = (this->cv[0][cindex*3+0][1]*factor0 + 2*(this->cv[1][cindex*3+0][1] + dt*this->cu[cindex*3+0][1])*factor1)/3; \
-            this->cv[3][cindex*3+1][1] = (this->cv[0][cindex*3+1][1]*factor0 + 2*(this->cv[1][cindex*3+1][1] + dt*this->cu[cindex*3+1][1])*factor1)/3; \
-            this->cv[3][cindex*3+2][1] = (this->cv[0][cindex*3+2][1]*factor0 + 2*(this->cv[1][cindex*3+2][1] + dt*this->cu[cindex*3+2][1])*factor1)/3; \
-            ); \
+            this->cv[3][cindex*3+0][0] = (this->cv[0][cindex*3+0][0]*factor0 + 2*(this->cv[2][cindex*3+0][0] + dt*this->cu[cindex*3+0][0])*factor1)/3; \
+            this->cv[3][cindex*3+1][0] = (this->cv[0][cindex*3+1][0]*factor0 + 2*(this->cv[2][cindex*3+1][0] + dt*this->cu[cindex*3+1][0])*factor1)/3; \
+            this->cv[3][cindex*3+2][0] = (this->cv[0][cindex*3+2][0]*factor0 + 2*(this->cv[2][cindex*3+2][0] + dt*this->cu[cindex*3+2][0])*factor1)/3; \
+            this->cv[3][cindex*3+0][1] = (this->cv[0][cindex*3+0][1]*factor0 + 2*(this->cv[2][cindex*3+0][1] + dt*this->cu[cindex*3+0][1])*factor1)/3; \
+            this->cv[3][cindex*3+1][1] = (this->cv[0][cindex*3+1][1]*factor0 + 2*(this->cv[2][cindex*3+1][1] + dt*this->cu[cindex*3+1][1])*factor1)/3; \
+            this->cv[3][cindex*3+2][1] = (this->cv[0][cindex*3+2][1]*factor0 + 2*(this->cv[2][cindex*3+2][1] + dt*this->cu[cindex*3+2][1])*factor1)/3; \
+            );  \
+    this->force_divfree(this->cv[0]); \
+    DEBUG_MSG(">>>>>>>>>>>>>>3 u %g\n", this->correl_vec(this->cu, this->cu)); \
+    DEBUG_MSG(">>>>>>>>>>>>>>3 v %g\n", this->correl_vec(this->cv[3], this->cv[3])); \
  \
     this->iteration++; \
 }

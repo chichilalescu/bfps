@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include "base.hpp"
 #include "field_descriptor.hpp"
 
 #ifndef FLUID_SOLVER_BASE
@@ -42,6 +43,7 @@ class fluid_solver_base
         typedef rnumber cnumber[2];
     public:
         field_descriptor<rnumber> *cd, *rd;
+        ptrdiff_t normalization_factor;
 
         /* simulation parameters */
         int iteration;
@@ -69,6 +71,9 @@ class fluid_solver_base
                 double DKZ = 1.0);
         ~fluid_solver_base();
 
+        void low_pass_Fourier(cnumber *a, int howmany, double kmax);
+        void force_divfree(cnumber *a);
+        void symmetrize(cnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
 };
 

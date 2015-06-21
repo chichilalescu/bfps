@@ -8,13 +8,11 @@ vector_field<float> rv(fs->cd, fs->rvorticity);
 fs->cd->read(
         "Kdata0",
         (void*)fs->cvorticity);
+DEBUG_MSG("######### %g\n", fs->correl_vec(fs->cvorticity, fs->cvorticity));
 fftwf_execute(*(fftwf_plan*)fs->c2r_vorticity);
-//rv*(1. / (fs->rd->sizes[0]*fs->rd->sizes[1]*fs->rd->sizes[2]));
 fftwf_execute(*(fftwf_plan*)fs->r2c_vorticity);
-cv = cv*(1. / (fs->rd->sizes[0]*fs->rd->sizes[1]*fs->rd->sizes[2]));
-fs->cd->write(
-        "Kdata1",
-        (void*)fs->cvorticity);
+cv = cv*(1. / (fs->normalization_factor));
+DEBUG_MSG("######### %g\n", fs->correl_vec(fs->cvorticity, fs->cvorticity));
 
 DEBUG_MSG("full size is %ld\n", fs->rd->full_size);
 
