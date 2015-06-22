@@ -57,9 +57,10 @@ if __name__ == '__main__':
     parser.add_argument('-n', dest = 'n', default = 32)
     opt = parser.parse_args()
 
-    Kdata00 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
-    Kdata01 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
-    Kdata02 = generate_data_3D(opt.n, p = 2).astype(np.complex64)
+    np.random.seed(7547)
+    Kdata00 = generate_data_3D(opt.n, p = 1.5).astype(np.complex64)
+    Kdata01 = generate_data_3D(opt.n, p = 1.5).astype(np.complex64)
+    Kdata02 = generate_data_3D(opt.n, p = 1.5).astype(np.complex64)
     Kdata0 = np.zeros(
             Kdata00.shape + (3,),
             Kdata00.dtype)
