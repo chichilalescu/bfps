@@ -70,11 +70,13 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0);
-        ~fluid_solver();
+        ~fluid_solver(void);
 
+        void compute_vorticity(void);
+        void compute_velocity(rnumber (*vorticity)[2]);
         void omega_nonlin(int src);
         void step(double dt);
-        void impose_zero_modes();
+        void impose_zero_modes(void);
 };
 
 #endif//FLUID_SOLVER

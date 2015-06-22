@@ -171,27 +171,48 @@ fluid_solver<R>::~fluid_solver() \
 } \
  \
 template<> \
-void fluid_solver<R>::omega_nonlin( \
-        int src) \
+void fluid_solver<R>::compute_vorticity() \
 { \
-    assert(src >= 0 && src < 3); \
+    this->low_pass_Fourier(this->cu, 3, this->kM); \
+    CLOOP( \
+            this->cvorticity[cindex*3+0][0] = (this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
+            this->cvorticity[cindex*3+1][0] = (this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
+            this->cvorticity[cindex*3+2][0] = (this->kx[xindex]*this->cu[cindex*3+1][1] - this->ky[yindex]*this->cu[cindex*3+0][1]); \
+            this->cvorticity[cindex*3+0][1] = (this->ky[yindex]*this->cu[cindex*3+2][0] - this->kz[zindex]*this->cu[cindex*3+1][0]); \
+            this->cvorticity[cindex*3+1][1] = (this->kz[zindex]*this->cu[cindex*3+0][0] - this->kx[xindex]*this->cu[cindex*3+2][0]); \
+            this->cvorticity[cindex*3+2][1] = (this->kx[xindex]*this->cu[cindex*3+1][0] - this->ky[yindex]*this->cu[cindex*3+0][0]); \
+            ); \
+    this->impose_zero_modes(); \
+    this->symmetrize(this->cvorticity, 3); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_velocity(C *vorticity) \
+{ \
     double k2; \
-    /* compute velocity field */ \
-    this->low_pass_Fourier(this->cv[src], 3, this->kM); \
-    std::fill_n((R*)this->cu, this->cd->local_size*2, 0); \
+    this->low_pass_Fourier(vorticity, 3, this->kM); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            this->cu[cindex*3+0][0] = ((this->ky[yindex]*this->cv[src][cindex*3+2][1] - this->kz[zindex]*this->cv[src][cindex*3+1][1]) / k2); \
-            this->cu[cindex*3+1][0] = ((this->kz[zindex]*this->cv[src][cindex*3+0][1] - this->kx[xindex]*this->cv[src][cindex*3+2][1]) / k2); \
-            this->cu[cindex*3+2][0] = ((this->kx[xindex]*this->cv[src][cindex*3+1][1] - this->ky[yindex]*this->cv[src][cindex*3+0][1]) / k2); \
-            this->cu[cindex*3+0][1] = ((this->ky[yindex]*this->cv[src][cindex*3+2][0] - this->kz[zindex]*this->cv[src][cindex*3+1][0]) / k2); \
-            this->cu[cindex*3+1][1] = ((this->kz[zindex]*this->cv[src][cindex*3+0][0] - this->kx[xindex]*this->cv[src][cindex*3+2][0]) / k2); \
-            this->cu[cindex*3+2][1] = ((this->kx[xindex]*this->cv[src][cindex*3+1][0] - this->ky[yindex]*this->cv[src][cindex*3+0][0]) / k2); \
+            this->cu[cindex*3+0][0] = (this->ky[yindex]*vorticity[cindex*3+2][1] - this->kz[zindex]*vorticity[cindex*3+1][1]) / k2; \
+            this->cu[cindex*3+1][0] = (this->kz[zindex]*vorticity[cindex*3+0][1] - this->kx[xindex]*vorticity[cindex*3+2][1]) / k2; \
+            this->cu[cindex*3+2][0] = (this->kx[xindex]*vorticity[cindex*3+1][1] - this->ky[yindex]*vorticity[cindex*3+0][1]) / k2; \
+            this->cu[cindex*3+0][1] = (this->ky[yindex]*vorticity[cindex*3+2][0] - this->kz[zindex]*vorticity[cindex*3+1][0]) / k2; \
+            this->cu[cindex*3+1][1] = (this->kz[zindex]*vorticity[cindex*3+0][0] - this->kx[xindex]*vorticity[cindex*3+2][0]) / k2; \
+            this->cu[cindex*3+2][1] = (this->kx[xindex]*vorticity[cindex*3+1][0] - this->ky[yindex]*vorticity[cindex*3+0][0]) / k2; \
             ); \
     this->impose_zero_modes(); \
     this->symmetrize(this->cu, 3); \
+} \
+ \
+template<> \
+void fluid_solver<R>::omega_nonlin( \
+        int src) \
+{ \
+    assert(src >= 0 && src < 3); \
+    /* compute velocity */ \
+    this->compute_velocity(this->cv[src]); \
     /* get fields from Fourier space to real space */ \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[src])); \
