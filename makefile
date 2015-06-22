@@ -1,6 +1,6 @@
 ########################################################################
 #
-#  Copyright 2015 Johns Hopkins University
+#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Contact: turbulence@pha.jhu.edu
-# Website: http://turbulence.pha.jhu.edu/
+# Contact: Cristian.Lalescu@ds.mpg.de
 #
 ########################################################################
 
@@ -59,9 +58,12 @@ endif
 
 base_files := \
 	field_descriptor \
-	fftwf_tools \
+	fftw_tools \
 	Morton_shuffler \
-	p3DFFT_to_iR
+	p3DFFT_to_iR \
+	vector_field \
+	fluid_solver_base \
+	fluid_solver
 
 #headers := $(patsubst %, ./src/%.hpp, ${base_files})
 src := $(patsubst %, ./src/%.cpp, ${base_files})

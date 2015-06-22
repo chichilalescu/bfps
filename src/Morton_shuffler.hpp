@@ -1,6 +1,6 @@
 /***********************************************************************
 *
-*  Copyright 2015 Johns Hopkins University
+*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *
-* Contact: turbulence@pha.jhu.edu
-* Website: http://turbulence.pha.jhu.edu/
+* Contact: Cristian.Lalescu@ds.mpg.de
 *
 ************************************************************************/
 
@@ -23,7 +22,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include "field_descriptor.hpp"
-#include "fftwf_tools.hpp"
+#include "fftw_tools.hpp"
 
 #ifndef MORTON_SHUFFLER
 

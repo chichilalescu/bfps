@@ -1,6 +1,6 @@
 /***********************************************************************
 *
-*  Copyright 2015 Johns Hopkins University
+*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *
-* Contact: turbulence@pha.jhu.edu
-* Website: http://turbulence.pha.jhu.edu/
+* Contact: Cristian.Lalescu@ds.mpg.de
 *
 ************************************************************************/
 
@@ -87,9 +86,9 @@ field_descriptor<rnumber>::field_descriptor(
         tsubsizes[i] = this->subsizes[i];
         tstarts[i] = this->starts[i];
     }
-    tsizes[ndims-1] *= sizeof(float);
-    tsubsizes[ndims-1] *= sizeof(float);
-    tstarts[ndims-1] *= sizeof(float);
+    tsizes[ndims-1] *= sizeof(rnumber);
+    tsubsizes[ndims-1] *= sizeof(rnumber);
+    tstarts[ndims-1] *= sizeof(rnumber);
     if (this->mpi_dtype == MPI_COMPLEX8)
     {
         tsizes[ndims-1] *= 2;
@@ -483,4 +482,5 @@ field_descriptor<float>* field_descriptor<float>::get_transpose()
 }
 
 template class field_descriptor<float>;
+template class field_descriptor<double>;
 

@@ -1,6 +1,6 @@
 /***********************************************************************
 *
-*  Copyright 2015 Johns Hopkins University
+*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,8 +14,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *
-* Contact: turbulence@pha.jhu.edu
-* Website: http://turbulence.pha.jhu.edu/
+* Contact: Cristian.Lalescu@ds.mpg.de
 *
 ************************************************************************/
 
@@ -32,51 +31,44 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
     int n, N, nfiles, nfields;
-    int test_type = 0;
-    switch(argc)
+    if (argc == 5)
     {
-        case 6:
-            test_type = atoi(argv[5]);
-        case 5:
-            n = atoi(argv[1]);
-            N = atoi(argv[2]);
-            nfiles = atoi(argv[3]);
-            nfields = atoi(argv[4]);
-            break;
-        default:
-            std::cerr <<
-                "not enough (or too many) parameters.\naborting." <<
-                std::endl;
-            MPI_Finalize();
-            return EXIT_SUCCESS;
+        n = atoi(argv[1]);
+        N = atoi(argv[2]);
+        nfiles = atoi(argv[3]);
+        nfields = atoi(argv[4]);
+    }
+    else
+    {
+        std::cerr <<
+            "not enough (or too many) parameters.\naborting." <<
+            std::endl;
+        MPI_Finalize();
+        return EXIT_SUCCESS;
     }
     p3DFFT_to_iR *r = new p3DFFT_to_iR(
             (n/2+1), n, n,
             N, N, N,
-            nfields,
-            test_type);
+            nfields);
+
+    // initialize file names
+    char* ifile[nfields];
+    for (int i=0; i<nfields; i++)
+    {
+        ifile[i] = (char*)malloc(100*sizeof(char));
+        sprintf(ifile[i], "Kdata%d", i);
+    }
+
+    //read
+    r->read(ifile);
+    for (int i = 0; i<nfields; i++)
+        free(ifile[i]);
 
     Morton_shuffler *s = new Morton_shuffler(
             N, N, N, nfields, nfiles);
+    s->shuffle(r->r3, "Rdata");
 
-    if (test_type)
-    {
-        // initialize file names
-        char* ifile[nfields];
-        for (int i=0; i<nfields; i++)
-        {
-            ifile[i] = (char*)malloc(100*sizeof(char));
-            sprintf(ifile[i], "Kdata%d", i);
-        }
-
-        //read
-        r->read(ifile);
-        for (int i = 0; i<nfields; i++)
-            free(ifile[i]);
-        s->shuffle(r->r3, "Rdata");
-
-        delete s;
-    }
+    delete s;
     delete r;
 
     // clean up

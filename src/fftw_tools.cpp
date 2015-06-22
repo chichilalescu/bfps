@@ -1,6 +1,6 @@
 /***********************************************************************
 *
-*  Copyright 2015 Johns Hopkins University
+*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,24 +14,23 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *
-* Contact: turbulence@pha.jhu.edu
-* Website: http://turbulence.pha.jhu.edu/
+* Contact: Cristian.Lalescu@ds.mpg.de
 *
 ************************************************************************/
 
 #include <stdlib.h>
 #include <algorithm>
 #include <iostream>
-#include "fftwf_tools.hpp"
+#include "fftw_tools.hpp"
 
 
 
-// should I use a template here?
-int fftwf_copy_complex_array(
-        field_descriptor<float> *fi,
-        fftwf_complex *ai,
-        field_descriptor<float> *fo,
-        fftwf_complex *ao)
+template <class rnumber>
+int copy_complex_array(
+        field_descriptor<rnumber> *fi,
+        rnumber (*ai)[2],
+        field_descriptor<rnumber> *fo,
+        rnumber (*ao)[2])
 {
     if (((fi->ndims != 3) ||
          (fo->ndims != 3)) ||
@@ -47,7 +46,7 @@ int fftwf_copy_complex_array(
 
     // clean up destination, in case we're padding with zeros
     // (even if only for one dimension)
-    std::fill_n((float*)ao, fo->local_size, 0.0);
+    std::fill_n((rnumber*)ao, fo->local_size, 0.0);
 
     int64_t ii0, ii1;
     int64_t oi0, oi1;
@@ -75,9 +74,9 @@ int fftwf_copy_complex_array(
             (irank == fi->myrank))
         {
             std::copy(
-                    (float*)(ai + (ii0 - fi->starts[0]    )*fi->slice_size),
-                    (float*)(ai + (ii0 - fi->starts[0] + 1)*fi->slice_size),
-                    (float*)buffer);
+                    (rnumber*)(ai + (ii0 - fi->starts[0]    )*fi->slice_size),
+                    (rnumber*)(ai + (ii0 - fi->starts[0] + 1)*fi->slice_size),
+                    (rnumber*)buffer);
         }
         else
         {
@@ -120,9 +119,9 @@ int fftwf_copy_complex_array(
                         continue;
                 }
                 std::copy(
-                        (float*)(buffer + ii1*fi->sizes[2]),
-                        (float*)(buffer + ii1*fi->sizes[2] + min_fast_dim),
-                        (float*)(ao +
+                        (rnumber*)(buffer + ii1*fi->sizes[2]),
+                        (rnumber*)(buffer + ii1*fi->sizes[2] + min_fast_dim),
+                        (rnumber*)(ao +
                                  ((oi0 - fo->starts[0])*fo->sizes[1] +
                                   oi1)*fo->sizes[2]));
             }
@@ -134,14 +133,17 @@ int fftwf_copy_complex_array(
     return EXIT_SUCCESS;
 }
 
-int fftwf_clip_zero_padding(
-        field_descriptor<float> *f,
-        float *a,
+
+
+template <class rnumber>
+int clip_zero_padding(
+        field_descriptor<rnumber> *f,
+        rnumber *a,
         int howmany)
 {
     if (f->ndims != 3)
         return EXIT_FAILURE;
-    float *b = a;
+    rnumber *b = a;
     ptrdiff_t copy_size = f->sizes[2] * howmany;
     ptrdiff_t skip_size = copy_size + 2*howmany;
     for (int i0 = 0; i0 < f->subsizes[0]; i0++)
@@ -154,20 +156,46 @@ int fftwf_clip_zero_padding(
     return EXIT_SUCCESS;
 }
 
-int fftwf_get_descriptors_3D(
+
+
+template <class rnumber>
+int get_descriptors_3D(
         int n0, int n1, int n2,
-        field_descriptor<float> **fr,
-        field_descriptor<float> **fc)
+        field_descriptor<rnumber> **fr,
+        field_descriptor<rnumber> **fc)
 {
     int ntmp[3];
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2;
-   *fr = new field_descriptor<float>(3, ntmp, MPI_FLOAT, MPI_COMM_WORLD);
+   *fr = new field_descriptor<rnumber>(3, ntmp, MPI_FLOAT, MPI_COMM_WORLD);
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2/2+1;
-    *fc = new field_descriptor<float>(3, ntmp, MPI_COMPLEX8, MPI_COMM_WORLD);
+    *fc = new field_descriptor<rnumber>(3, ntmp, MPI_COMPLEX8, MPI_COMM_WORLD);
     return EXIT_SUCCESS;
 }
+
+#define FORCE_IMPLEMENTATION(rnumber) \
+template \
+int copy_complex_array<rnumber>( \
+        field_descriptor<rnumber> *fi, \
+        rnumber (*ai)[2], \
+        field_descriptor<rnumber> *fo, \
+        rnumber (*ao)[2]); \
+ \
+template \
+int clip_zero_padding<rnumber>( \
+        field_descriptor<rnumber> *f, \
+        rnumber *a, \
+        int howmany); \
+ \
+template \
+int get_descriptors_3D<rnumber>( \
+        int n0, int n1, int n2, \
+        field_descriptor<rnumber> **fr, \
+        field_descriptor<rnumber> **fc);
+
+FORCE_IMPLEMENTATION(float)
+FORCE_IMPLEMENTATION(double)
 
