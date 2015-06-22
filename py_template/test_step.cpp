@@ -13,7 +13,7 @@ DEBUG_MSG("field read\n");
 DEBUG_MSG("######### %d %g\n", fs->iteration, fs->correl_vec(fs->cvorticity, fs->cvorticity));
 for (int t = 0; t < 8; t++)
 {
-    fs->step(0.0001);
+    fs->step(0.01);
     DEBUG_MSG("######### %d %g\n", fs->iteration, fs->correl_vec(fs->cvorticity, fs->cvorticity));
 }
 
