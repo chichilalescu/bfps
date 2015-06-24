@@ -2,7 +2,6 @@
 
 import numpy as np
 import subprocess
-import pyfftw
 import matplotlib.pyplot as plt
 import argparse
 
