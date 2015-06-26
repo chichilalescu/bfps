@@ -6,18 +6,19 @@ class code(base):
     def __init__(self):
         super(code, self).__init__()
         self.includes = """
-                //@begincpp
+                //begincpp
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include <iostream>
                 #include <fftw3-mpi.h>
-                //@endcpp"""
+                //endcpp
+                """
         self.variables = 'int myrank, nprocs;\n'
-        self.variables = 'int iter0;\n'
+        self.variables += 'int iter0;\n'
         self.variables += 'char simname[256];\n'
         self.definitions = ''
         self.main_start ="""
-                //@begincpp
+                //begincpp
                 int main(int argc, char *argv[])
                 {
                     MPI_Init(&argc, &argv);
@@ -36,16 +37,18 @@ class code(base):
                         std::cerr << "myrank = " << myrank << ", simulation name is " << simname << std::endl;
                     }
                     read_parameters();
-                //@endcpp"""
+                //endcpp
+                """
         self.main_end = """
-                //@begincpp
+                //begincpp
                     // clean up
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
                     MPI_Finalize();
                     return EXIT_SUCCESS;
                 }
-                //@endcpp"""
+                //endcpp
+                """
         return None
     def write_src(self):
         with open('src/' + self.name + '.cpp', 'w') as outfile:

@@ -79,7 +79,7 @@ class base(object):
         key = self.parameters.keys()
         key.sort()
         for i in range(len(key)):
-            if type(self.source.parameters[key[i]]) == float:
+            if type(self.parameters[key[i]]) == float:
                 ofile.write(('{0} = {1:e}\n').format(key[i], self.parameters[key[i]]))
             else:
                 ofile.write('{0} = {1}\n'.format(key[i], self.parameters[key[i]]))
