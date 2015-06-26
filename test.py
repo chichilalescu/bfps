@@ -161,5 +161,8 @@ if __name__ == '__main__':
             ncpu = opt.ncpu)
     dtype = pickle.load(open('stats_dtype.pickle'))
     stats = np.fromfile('stats.bin', dtype = dtype)
-    print stats
+    fig = plt.figure(figsize = (6,6))
+    a = fig.add_subplot(111)
+    a.plot(stats['time'], stats['correl'])
+    fig.savefig('test.pdf', format = 'pdf')
 
