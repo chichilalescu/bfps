@@ -7,26 +7,6 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def run_test(
-        test_code = '\n;',
-        test_name = 'base_test',
-        ncpu = 4):
-    c = code()
-    # first, write file
-    with open('src/' + test_name + '.cpp', 'w') as outfile:
-        outfile.write(c.main_start)
-        outfile.write(test_code)
-        outfile.write(c.main_end)
-
-    # now compile code and run
-    if subprocess.call(['make', test_name + '.elf']) == 0:
-        subprocess.call(['time',
-                         'mpirun',
-                         '-np',
-                         '{0}'.format(ncpu),
-                         './' + test_name + '.elf'])
-    return None
-
 def generate_data_3D(
         n,
         dtype = np.complex128,
@@ -86,54 +66,66 @@ def basic_test(
             //@endcpp"""
     return src_txt
 
-def stat_test(
-        nsteps = 8):
-    nsteps_str = '{0}'.format(nsteps)
-    stats_dtype = np.dtype([('iteration', np.int32),
-                            ('time', np.float64),
-                            ('correl', np.float64)])
-    pickle.dump(
-            stats_dtype,
-            open('stats_dtype.pickle', 'w'))
-    src_txt = """
-            //@begincpp
-            fluid_solver<float> *fs;
-            fs = new fluid_solver<float>(32, 32, 32);
-            FILE *stat_file;
-            if (myrank == fs->cd->io_myrank)
-                stat_file = fopen("stats.bin", "wb");
-            double stats[3];
-            double dt = 0.01;
-
-            fs->cd->read(
-                    "Kdata0",
-                    (void*)fs->cvorticity);
-            fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
-            fs->force_divfree(fs->cvorticity);
-            fs->symmetrize(fs->cvorticity, 3);
-            stats[0] = 0.0;
-            stats[1] = fs->correl_vec(fs->cvorticity, fs->cvorticity);
-            if (myrank == fs->cd->io_myrank)
-            {
-                fwrite((void*)&fs->iteration, sizeof(int), 1, stat_file);
-                fwrite((void*)stats, sizeof(double), 2, stat_file);
-            }
-            for (int t = 0; t < """ + nsteps_str + """; t++)
-            {
-                fs->step(dt);
-                stats[0] += dt;
-                stats[1] = fs->correl_vec(fs->cvorticity, fs->cvorticity);
-                if (myrank == fs->cd->io_myrank)
+class stat_test(code):
+    def __init__(self, name = 'stat_test'):
+        super(stat_test, self).__init__()
+        self.name = name
+        self.parameters['niter_todo'] = 8
+        self.parameters['dt'] = 0.01
+        self.variables += ('double time;\n' +
+                           'dobule stats[2];\n')
+        self.variables += self.cdef_pars()
+        self.definitions += self.cread_pars()
+        self.definitions += """
+                //@begincpp
+                void do_stats()
                 {
-                    fwrite((void*)&fs->iteration, sizeof(int), 1, stat_file);
-                    fwrite((void*)stats, sizeof(double), 2, stat_file);
+                    fs->compute_velocity(fs->cvorticity);
+                    stats[0] = .5*fs->correl_vec(fs->cvelocity, fs->cvelocity);
+                    stats[1] = .5*fs->correl_vec(fs->cvorticity, fs->cvorticity);
+                    if (myrank == fs->cd->io_myrank)
+                    {
+                        fwrite((void*)&fs->iteration, sizeof(int), 1, stat_file);
+                        fwrite((void*)&time, sizeof(double), 1, stat_file);
+                        fwrite((void*)stats, sizeof(double), 2, stat_file);
+                    }
                 }
-            }
-            fclose(stat_file);
+                //@endcpp"""
+        self.stats_dtype = np.dtype([('iteration', np.int32),
+                                     ('time', np.float64),
+                                     ('energy', np.float64),
+                                     ('enstrophy', np.float64)])
+        pickle.dump(
+                self.stats_dtype,
+                open(self.name + '_dtype.pickle', 'w'))
+        self.main = """
+                //@begincpp
+                fluid_solver<float> *fs;
+                fs = new fluid_solver<float>(32, 32, 32);
+                FILE *stat_file;
+                if (myrank == fs->cd->io_myrank)
+                    stat_file = fopen("stats.bin", "wb");
 
-            delete fs;
-            //@endcpp"""
-    return src_txt
+                fs->cd->read(
+                        "Kdata0",
+                        (void*)fs->cvorticity);
+                fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
+                fs->force_divfree(fs->cvorticity);
+                fs->symmetrize(fs->cvorticity, 3);
+                time = 0.0;
+                fs->iteration = iter0;
+                do_stats();
+                for (int t = 0; t < niter_todo; t++)
+                {
+                    fs->step(dt);
+                    time += dt;
+                    do_stats();
+                }
+                fclose(stat_file);
+
+                delete fs;
+                //@endcpp"""
+        return None
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -154,15 +146,15 @@ if __name__ == '__main__':
     Kdata0[..., 1] = Kdata01
     Kdata0[..., 2] = Kdata02
     Kdata0.tofile("Kdata0")
-    run_test(
-            test_code = locals()[opt.test_name](
-                    nsteps = opt.nsteps),
-            test_name = opt.test_name,
-            ncpu = opt.ncpu)
+    c = code()
+    c.main = locals()[opt.test_name]()
+    c.write_src()
+    c.write_par()
+    c.run(ncpu = opt.ncpu)
     dtype = pickle.load(open('stats_dtype.pickle'))
     stats = np.fromfile('stats.bin', dtype = dtype)
     fig = plt.figure(figsize = (6,6))
     a = fig.add_subplot(111)
-    a.plot(stats['time'], stats['correl'])
+    a.plot(stats['time'], stats['energy'])
     fig.savefig('test.pdf', format = 'pdf')
 

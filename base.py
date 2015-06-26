@@ -1,8 +1,3 @@
-def CCODE(src_txt):
-    return src_txt.replace(';', ';\n')
-
-CPPCODE = CCODE
-
 class base(object):
     def __init__(self):
         self.iorank = 0
@@ -78,4 +73,16 @@ class base(object):
                 src_txt += ('fprintf(stderr, "myrank = %d, '
                           + key[i] + ' = %le\\n", myrank, ' + key[i] + ');\n')
         return src_txt
+    def write_par(self, simname = 'test'):
+        filename = simname + '_pars.txt'
+        ofile = open(filename, 'w')
+        key = self.parameters.keys()
+        key.sort()
+        for i in range(len(key)):
+            if type(self.source.parameters[key[i]]) == float:
+                ofile.write(('{0} = {1:e}\n').format(key[i], self.parameters[key[i]]))
+            else:
+                ofile.write('{0} = {1}\n'.format(key[i], self.parameters[key[i]]))
+        ofile.close()
+        return None
 

@@ -1,22 +1,41 @@
 from base import base
+import subprocess
 
 
 class code(base):
     def __init__(self):
-        self.main_start = """
+        super(code, self).__init__()
+        self.includes = """
                 //@begincpp
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include <iostream>
                 #include <fftw3-mpi.h>
-
-                int myrank, nprocs;
-
+                //@endcpp"""
+        self.variables = 'int myrank, nprocs;\n'
+        self.variables = 'int iter0;\n'
+        self.variables += 'char simname[256];\n'
+        self.definitions = ''
+        self.main_start ="""
+                //@begincpp
                 int main(int argc, char *argv[])
                 {
                     MPI_Init(&argc, &argv);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                    if (argc != 3)
+                    {
+                        std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
+                        MPI_Finalize();
+                        return EXIT_SUCCESS;
+                    }
+                    else
+                    {
+                        strcpy(simname, argv[1]);
+                        iter0 = atoi(argv[2]);
+                        std::cerr << "myrank = " << myrank << ", simulation name is " << simname << std::endl;
+                    }
+                    read_parameters();
                 //@endcpp"""
         self.main_end = """
                 //@begincpp
@@ -27,5 +46,28 @@ class code(base):
                     return EXIT_SUCCESS;
                 }
                 //@endcpp"""
+        return None
+    def write_src(self):
+        with open('src/' + self.name + '.cpp', 'w') as outfile:
+            outfile.write(self.includes)
+            outfile.write(self.variables)
+            outfile.write(self.definitions)
+            outfile.write(self.main_start)
+            outfile.write(self.main)
+            outfile.write(self.main_end)
+        return None
+    def run(self,
+            ncpu = 2,
+            simname = 'test',
+            iter0 = 0):
+        # compile code and run
+        if subprocess.call(['make', self.name + '.elf']) == 0:
+            subprocess.call(['time',
+                             'mpirun',
+                             '-np',
+                             '{0}'.format(ncpu),
+                             './' + self.name + '.elf',
+                             simname,
+                             '{0}'.format(iter0)])
         return None
 
