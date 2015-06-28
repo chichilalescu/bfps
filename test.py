@@ -73,6 +73,7 @@ class stat_test(code):
         self.name = name
         self.parameters['niter_todo'] = 8
         self.parameters['dt'] = 0.01
+        self.parameters['nu'] = 0.1
         self.includes += '#include <cstring>\n'
         self.variables += ('double t;\n' +
                            'FILE *stat_file;\n'
@@ -105,7 +106,8 @@ class stat_test(code):
         self.main = """
                 //begincpp
                 fluid_solver<float> *fs;
-                fs = new fluid_solver<float>(32, 32, 32);
+                fs = new fluid_solver<float>(nx, ny, nz);
+                fs->nu = nu;
                 if (myrank == fs->cd->io_myrank)
                     stat_file = fopen("stats.bin", "wb");
 
@@ -136,7 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('test_name', type = str)
     parser.add_argument('--ncpu', dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', dest = 'nsteps', default = 8)
-    parser.add_argument('-n', dest = 'n', default = 32)
+    parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
 
     np.random.seed(7547)
@@ -152,6 +154,10 @@ if __name__ == '__main__':
     Kdata0.tofile("Kdata0")
     c = stat_test(name = opt.test_name)
     c.write_src()
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    c.parameters['nu'] = 0.1
     c.write_par()
     c.run(ncpu = opt.ncpu)
     dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))

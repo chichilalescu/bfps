@@ -2,9 +2,9 @@ class base(object):
     def __init__(self):
         self.iorank = 0
         ### simulation parameters
-        self.parameters = {'nx' : 48,
-                           'ny' : 48,
-                           'nz' : 48}
+        self.parameters = {'nx' : 32,
+                           'ny' : 32,
+                           'nz' : 32}
         self.string_length = 512
         return None
     def cdef_pars(self):
