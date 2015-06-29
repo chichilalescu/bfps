@@ -171,7 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('test_name', type = str)
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--ncpu', dest = 'ncpu', default = 2)
-    parser.add_argument('--nsteps', dest = 'nsteps', default = 8)
+    parser.add_argument('--nsteps', dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
 
@@ -192,13 +192,13 @@ if __name__ == '__main__':
         c.parameters['ny'] = opt.n
         c.parameters['nz'] = opt.n
         c.parameters['nu'] = 0.1
-        c.parameters['dt'] = 0.01
+        c.parameters['dt'] = 0.004
         c.parameters['niter_todo'] = opt.nsteps
         c.write_par(simname = 'test1')
         Kdata0.tofile("test1_kvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test1')
-        c.parameters['dt'] = 0.005
-        c.parameters['niter_todo'] = opt.nsteps*2
+        c.parameters['dt'] /= 2
+        c.parameters['niter_todo'] *= 2
         c.write_par(simname = 'test2')
         Kdata0.tofile("test2_kvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test2')
@@ -241,8 +241,8 @@ if __name__ == '__main__':
     a.set_axis_off()
     plot_vel_cut('test2_rvelocity_i00000', a)
     a = fig.add_subplot(223)
-    plot_vel_cut('test1_rvelocity_i00008', a)
+    plot_vel_cut('test1_rvelocity_i{0:0>5x}'.format(stats1.shape[0]-1), a)
     a = fig.add_subplot(224)
-    plot_vel_cut('test2_rvelocity_i00010', a)
+    plot_vel_cut('test2_rvelocity_i{0:0>5x}'.format(stats2.shape[0]-1), a)
     fig.savefig('vel_cut.pdf', format = 'pdf')
 
