@@ -106,20 +106,30 @@ class stat_test(code):
         self.main = """
                 //begincpp
                 fluid_solver<float> *fs;
+                char fname[512];
                 fs = new fluid_solver<float>(nx, ny, nz);
                 fs->nu = nu;
+                fs->iteration = iter0;
                 if (myrank == fs->cd->io_myrank)
-                    stat_file = fopen("stats.bin", "wb");
+                    {
+                        sprintf(fname, "%s_stats.bin", simname);
+                        stat_file = fopen(fname, "wb");
+                    }
 
+                sprintf(fname, "%s_kvorticity_i%.5x", simname, fs->iteration);
                 fs->cd->read(
-                        "Kdata0",
+                        fname,
                         (void*)fs->cvorticity);
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
                 fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
                 t = 0.0;
-                fs->iteration = iter0;
                 do_stats(fs);
+                fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
+                sprintf(fname, "%s_rvelocity_i%.5x", simname, fs->iteration);
+                fs->rd->write(
+                        fname,
+                        (void*)fs->rvelocity);
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
                     fs->step(dt);
@@ -127,7 +137,15 @@ class stat_test(code):
                     do_stats(fs);
                 }
                 fclose(stat_file);
-
+                sprintf(fname, "%s_kvorticity_i%.5x", simname, fs->iteration);
+                fs->cd->write(
+                        fname,
+                        (void*)fs->cvorticity);
+                fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
+                sprintf(fname, "%s_rvelocity_i%.5x", simname, fs->iteration);
+                fs->rd->write(
+                        fname,
+                        (void*)fs->rvelocity);
                 delete fs;
                 //endcpp
                 """
@@ -151,19 +169,30 @@ if __name__ == '__main__':
     Kdata0[..., 0] = Kdata00
     Kdata0[..., 1] = Kdata01
     Kdata0[..., 2] = Kdata02
-    Kdata0.tofile("Kdata0")
     c = stat_test(name = opt.test_name)
     c.write_src()
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 0.1
-    c.write_par()
-    c.run(ncpu = opt.ncpu)
+    c.parameters['dt'] = 0.01
+    c.parameters['niter_todo'] = opt.nsteps
+    c.write_par(simname = 'test1')
+    Kdata0.tofile("test1_kvorticity_i00000")
+    c.run(ncpu = opt.ncpu, simname = 'test1')
+    c.parameters['dt'] = 0.005
+    c.parameters['niter_todo'] = opt.nsteps*2
+    c.write_par(simname = 'test2')
+    Kdata0.tofile("test2_kvorticity_i00000")
+    c.run(ncpu = opt.ncpu, simname = 'test2')
     dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
-    stats = np.fromfile('stats.bin', dtype = dtype)
+    stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
+    stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     fig = plt.figure(figsize = (6,6))
     a = fig.add_subplot(111)
-    a.plot(stats['t'], stats['energy'])
+    print stats1['energy']
+    print stats2['energy']
+    a.plot(stats1['t'], stats1['energy'])
+    a.plot(stats2['t'], stats2['energy'])
     fig.savefig('test.pdf', format = 'pdf')
 
