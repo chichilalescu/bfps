@@ -141,7 +141,7 @@ int clip_zero_padding(
         rnumber *a,
         int howmany)
 {
-    if (f->ndims != 3)
+    if (f->ndims < 3)
         return EXIT_FAILURE;
     rnumber *b = a;
     ptrdiff_t copy_size = f->sizes[2] * howmany;

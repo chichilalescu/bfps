@@ -195,12 +195,12 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            this->cu[cindex*3+0][0] = (this->ky[yindex]*vorticity[cindex*3+2][1] - this->kz[zindex]*vorticity[cindex*3+1][1]) / k2; \
-            this->cu[cindex*3+1][0] = (this->kz[zindex]*vorticity[cindex*3+0][1] - this->kx[xindex]*vorticity[cindex*3+2][1]) / k2; \
-            this->cu[cindex*3+2][0] = (this->kx[xindex]*vorticity[cindex*3+1][1] - this->ky[yindex]*vorticity[cindex*3+0][1]) / k2; \
-            this->cu[cindex*3+0][1] = (this->ky[yindex]*vorticity[cindex*3+2][0] - this->kz[zindex]*vorticity[cindex*3+1][0]) / k2; \
-            this->cu[cindex*3+1][1] = (this->kz[zindex]*vorticity[cindex*3+0][0] - this->kx[xindex]*vorticity[cindex*3+2][0]) / k2; \
-            this->cu[cindex*3+2][1] = (this->kx[xindex]*vorticity[cindex*3+1][0] - this->ky[yindex]*vorticity[cindex*3+0][0]) / k2; \
+            this->cu[cindex*3+0][0] = -(this->ky[yindex]*vorticity[cindex*3+2][1] - this->kz[zindex]*vorticity[cindex*3+1][1]) / k2; \
+            this->cu[cindex*3+1][0] = -(this->kz[zindex]*vorticity[cindex*3+0][1] - this->kx[xindex]*vorticity[cindex*3+2][1]) / k2; \
+            this->cu[cindex*3+2][0] = -(this->kx[xindex]*vorticity[cindex*3+1][1] - this->ky[yindex]*vorticity[cindex*3+0][1]) / k2; \
+            this->cu[cindex*3+0][1] =  (this->ky[yindex]*vorticity[cindex*3+2][0] - this->kz[zindex]*vorticity[cindex*3+1][0]) / k2; \
+            this->cu[cindex*3+1][1] =  (this->kz[zindex]*vorticity[cindex*3+0][0] - this->kx[xindex]*vorticity[cindex*3+2][0]) / k2; \
+            this->cu[cindex*3+2][1] =  (this->kx[xindex]*vorticity[cindex*3+1][0] - this->ky[yindex]*vorticity[cindex*3+0][0]) / k2; \
             ); \
     this->impose_zero_modes(); \
     this->symmetrize(this->cu, 3); \
@@ -227,6 +227,7 @@ void fluid_solver<R>::omega_nonlin( \
              this->ru[rindex*3+2] = tmpz0 / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
+    /* TODO: is 0 padding needed here? */ \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
     this->symmetrize(this->cu, 3); \
@@ -253,6 +254,8 @@ void fluid_solver<R>::omega_nonlin( \
             this->cv[src][cindex*3+2][0] /= this->normalization_factor; \
             this->cv[src][cindex*3+2][1] /= this->normalization_factor; \
             ); \
+    this->symmetrize(this->cu, 3); \
+    this->symmetrize(this->cv[src], 3); \
 } \
  \
 template<> \

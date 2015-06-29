@@ -157,7 +157,7 @@ R fluid_solver_base<R>::correl_vec(C *a, C *b) \
             (void*)(&val_process), \
             (void*)(&val), \
             1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD); \
-    return R(val / this->normalization_factor); \
+    return R(val); \
 } \
  \
 template<> \
