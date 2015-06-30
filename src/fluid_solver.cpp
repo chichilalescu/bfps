@@ -211,6 +211,23 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
 } \
  \
 template<> \
+void fluid_solver<R>::add_forcing(\
+        C *field, R factor) \
+{ \
+    ptrdiff_t cindex; \
+    if (this->cd->myrank == this->cd->rank[this->fmode]) \
+    { \
+        cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
+        field[cindex*3+2][1] -= this->famplitude*factor/2; \
+    } \
+    if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
+    { \
+        cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
+        field[cindex*3+2][1] += this->famplitude*factor/2; \
+    } \
+} \
+ \
+template<> \
 void fluid_solver<R>::omega_nonlin( \
         int src) \
 { \
@@ -251,8 +268,8 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[cindex*3+1][1] = tmpy1 / this->normalization_factor;\
             this->cu[cindex*3+2][1] = tmpz1 / this->normalization_factor;\
             ); \
+    this->add_forcing(this->cu, 1.0); \
     this->symmetrize(this->cu, 3); \
-    this->symmetrize(this->cv[src], 3); \
 } \
  \
 template<> \

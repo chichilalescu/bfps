@@ -74,6 +74,8 @@ class stat_test(code):
         self.parameters['niter_todo'] = 8
         self.parameters['dt'] = 0.01
         self.parameters['nu'] = 0.1
+        self.parameters['famplitude'] = 1.0
+        self.parameters['fmode'] = 1
         self.includes += '#include <cstring>\n'
         self.includes += '#include "fftw_tools.hpp"\n'
         self.variables += ('double t;\n' +
@@ -110,6 +112,8 @@ class stat_test(code):
                 char fname[512];
                 fs = new fluid_solver<float>(simname, nx, ny, nz);
                 fs->nu = nu;
+                fs->fmode = fmode;
+                fs->famplitude = famplitude;
                 fs->iteration = iter0;
                 if (myrank == fs->cd->io_myrank)
                     {
@@ -143,8 +147,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('test_name', type = str)
     parser.add_argument('--run', dest = 'run', action = 'store_true')
-    parser.add_argument('--ncpu', dest = 'ncpu', default = 2)
-    parser.add_argument('--nsteps', dest = 'nsteps', default = 16)
+    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
+    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
 
@@ -164,8 +168,8 @@ if __name__ == '__main__':
         c.parameters['nx'] = opt.n
         c.parameters['ny'] = opt.n
         c.parameters['nz'] = opt.n
-        c.parameters['nu'] = 0.1
-        c.parameters['dt'] = 0.004
+        c.parameters['nu'] = 1.0
+        c.parameters['dt'] = 0.05
         c.parameters['niter_todo'] = opt.nsteps
         c.write_par(simname = 'test1')
         Kdata0.tofile("test1_cvorticity_i00000")
@@ -174,7 +178,7 @@ if __name__ == '__main__':
         c.parameters['niter_todo'] *= 2
         c.write_par(simname = 'test2')
         Kdata0.tofile("test2_cvorticity_i00000")
-        c.run(ncpu = opt.ncpu, simname = 'test2')
+        #c.run(ncpu = opt.ncpu, simname = 'test2')
         Rdata = np.fromfile(
                 'test1_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
@@ -205,7 +209,7 @@ if __name__ == '__main__':
         axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
                                                Rdata0[..., 1]**2 +
                                                Rdata0[..., 2]**2)*.5))
-        return None
+        return Rdata0
 
     fig = plt.figure(figsize=(12, 12))
     a = fig.add_subplot(221)
@@ -214,8 +218,14 @@ if __name__ == '__main__':
     a.set_axis_off()
     plot_vel_cut('test2_rvelocity_i00000', a)
     a = fig.add_subplot(223)
-    plot_vel_cut('test1_rvelocity_i{0:0>5x}'.format(stats1.shape[0]-1), a)
+    tmp = plot_vel_cut('test1_rvelocity_i{0:0>5x}'.format(stats1.shape[0]-1), a)
     a = fig.add_subplot(224)
     plot_vel_cut('test2_rvelocity_i{0:0>5x}'.format(stats2.shape[0]-1), a)
     fig.savefig('vel_cut.pdf', format = 'pdf')
 
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    a.plot(tmp[0, :, 0, 0])
+    a.plot(tmp[0, :, 0, 1])
+    a.plot(tmp[0, :, 0, 2])
+    fig.savefig('ux_vs_y.pdf', format = 'pdf')
