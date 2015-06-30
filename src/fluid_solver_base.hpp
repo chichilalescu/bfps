@@ -92,7 +92,7 @@ class fluid_solver_base
 #define CLOOP(expression) \
  \
 { \
-    int cindex; \
+    ptrdiff_t cindex; \
     for (int yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
     for (int zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
     { \
@@ -109,7 +109,7 @@ class fluid_solver_base
 #define RLOOP(expression) \
  \
 { \
-    int rindex; \
+    ptrdiff_t rindex; \
     for (int zindex = 0; zindex < this->rd->subsizes[0]; zindex++) \
     for (int yindex = 0; yindex < this->rd->subsizes[1]; yindex++) \
     { \
