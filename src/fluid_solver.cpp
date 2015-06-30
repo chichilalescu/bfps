@@ -235,7 +235,6 @@ void fluid_solver<R>::omega_nonlin( \
     this->symmetrize(this->cu, 3); \
     /* $\imath k \times DFT(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
-/*    FFTW(execute)(*((FFTW(plan)*)this->vr2c[src]));*/ \
     CLOOP( \
             tmpx0 = -(this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
             tmpy0 = -(this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
@@ -249,12 +248,6 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[cindex*3+0][1] = tmpx1 / this->normalization_factor;\
             this->cu[cindex*3+1][1] = tmpy1 / this->normalization_factor;\
             this->cu[cindex*3+2][1] = tmpz1 / this->normalization_factor;\
-            /*this->cv[src][cindex*3+0][0] /= this->normalization_factor;*/ \
-            /*this->cv[src][cindex*3+0][1] /= this->normalization_factor;*/ \
-            /*this->cv[src][cindex*3+1][0] /= this->normalization_factor;*/ \
-            /*this->cv[src][cindex*3+1][1] /= this->normalization_factor;*/ \
-            /*this->cv[src][cindex*3+2][0] /= this->normalization_factor;*/ \
-            /*this->cv[src][cindex*3+2][1] /= this->normalization_factor;*/ \
             ); \
     this->symmetrize(this->cu, 3); \
     this->symmetrize(this->cv[src], 3); \
