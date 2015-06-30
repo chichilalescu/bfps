@@ -51,12 +51,14 @@ void fluid_solver<rnumber>::impose_zero_modes()
  \
 template<> \
 fluid_solver<R>::fluid_solver( \
+        const char *NAME, \
         int nx, \
         int ny, \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) : fluid_solver_base<R>(nx , ny , nz, \
+        double DKZ) : fluid_solver_base<R>(NAME, \
+                                           nx , ny , nz, \
                                            DKX, DKY, DKZ) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
@@ -306,6 +308,52 @@ void fluid_solver<R>::step(double dt) \
     this->force_divfree(this->cv[0]); \
  \
     this->iteration++; \
+} \
+ \
+template<> \
+int fluid_solver<R>::read(char field, char representation) \
+{ \
+    if ((field == 'v') && (representation == 'c')) \
+        return this->read_base("cvorticity", this->cvorticity); \
+    if ((field == 'v') && (representation == 'r')) \
+    { \
+        int read_result = this->read_base("rvorticity", this->rvorticity); \
+        if (!(read_result == EXIT_SUCCESS)) \
+            return read_result; \
+        else \
+        { \
+            FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
+            return EXIT_SUCCESS; \
+        } \
+    } \
+    if ((field == 'u') && (representation == 'c')) \
+        return this->read_base("cvelocity", this->cvelocity); \
+    if ((field == 'u') && (representation == 'r')) \
+        return this->read_base("rvelocity", this->rvelocity); \
+    return EXIT_FAILURE; \
+} \
+ \
+template<> \
+int fluid_solver<R>::write(char field, char representation) \
+{ \
+    if ((field == 'v') && (representation == 'c')) \
+        return this->write_base("cvorticity", this->cvorticity); \
+    if ((field == 'v') && (representation == 'r')) \
+    { \
+        FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
+        clip_zero_padding<R>(this->rd, this->rvorticity, 3); \
+        return this->write_base("rvorticity", this->rvorticity); \
+    } \
+    this->compute_velocity(this->cvorticity); \
+    if ((field == 'u') && (representation == 'c')) \
+        return this->write_base("cvelocity", this->cvelocity); \
+    if ((field == 'u') && (representation == 'r')) \
+    { \
+        FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
+        clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
+        return this->write_base("rvelocity", this->rvelocity); \
+    } \
+    return EXIT_FAILURE; \
 }
 /*****************************************************************************/
 
@@ -319,12 +367,12 @@ FLUID_SOLVER_DEFINITIONS(
         fftwf_complex,
         MPI_REAL4,
         MPI_COMPLEX8)
-FLUID_SOLVER_DEFINITIONS(
-        FFTW_MANGLE_DOUBLE,
-        double,
-        fftw_complex,
-        MPI_REAL8,
-        MPI_COMPLEX16)
+//FLUID_SOLVER_DEFINITIONS(
+//        FFTW_MANGLE_DOUBLE,
+//        double,
+//        fftw_complex,
+//        MPI_REAL8,
+//        MPI_COMPLEX16)
 /*****************************************************************************/
 
 

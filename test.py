@@ -108,7 +108,7 @@ class stat_test(code):
                 //begincpp
                 fluid_solver<float> *fs;
                 char fname[512];
-                fs = new fluid_solver<float>(nx, ny, nz);
+                fs = new fluid_solver<float>(simname, nx, ny, nz);
                 fs->nu = nu;
                 fs->iteration = iter0;
                 if (myrank == fs->cd->io_myrank)
@@ -116,28 +116,14 @@ class stat_test(code):
                         sprintf(fname, "%s_stats.bin", simname);
                         stat_file = fopen(fname, "wb");
                     }
-
-                sprintf(fname, "%s_kvorticity_i%.5x", simname, fs->iteration);
-                fs->cd->read(
-                        fname,
-                        (void*)fs->cvorticity);
+                fs->read('v', 'c');
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
                 fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
                 t = 0.0;
                 do_stats(fs);
-                fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
-                sprintf(fname, "%s_rvelocity_i%.5x", simname, fs->iteration);
-                clip_zero_padding<float>(fs->rd, fs->rvelocity, 3);
-                fs->rd->write(
-                        fname,
-                        (void*)fs->rvelocity);
-                fftwf_execute(*((fftwf_plan*)fs->c2r_vorticity));
-                sprintf(fname, "%s_rvorticity_i%.5x", simname, fs->iteration);
-                clip_zero_padding<float>(fs->rd, fs->rvorticity, 3);
-                fs->rd->write(
-                        fname,
-                        (void*)fs->rvorticity);
+                fs->write('u', 'r');
+                fs->write('v', 'r');
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
                     fs->step(dt);
@@ -145,22 +131,9 @@ class stat_test(code):
                     do_stats(fs);
                 }
                 fclose(stat_file);
-                sprintf(fname, "%s_kvorticity_i%.5x", simname, fs->iteration);
-                fs->cd->write(
-                        fname,
-                        (void*)fs->cvorticity);
-                fftwf_execute(*((fftwf_plan*)fs->c2r_vorticity));
-                sprintf(fname, "%s_rvorticity_i%.5x", simname, fs->iteration);
-                clip_zero_padding<float>(fs->rd, fs->rvorticity, 3);
-                fs->rd->write(
-                        fname,
-                        (void*)fs->rvorticity);
-                fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
-                sprintf(fname, "%s_rvelocity_i%.5x", simname, fs->iteration);
-                clip_zero_padding<float>(fs->rd, fs->rvelocity, 3);
-                fs->rd->write(
-                        fname,
-                        (void*)fs->rvelocity);
+                fs->write('v', 'c');
+                fs->write('v', 'r');
+                fs->write('u', 'r');
                 delete fs;
                 //endcpp
                 """
@@ -195,12 +168,12 @@ if __name__ == '__main__':
         c.parameters['dt'] = 0.004
         c.parameters['niter_todo'] = opt.nsteps
         c.write_par(simname = 'test1')
-        Kdata0.tofile("test1_kvorticity_i00000")
+        Kdata0.tofile("test1_cvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test1')
         c.parameters['dt'] /= 2
         c.parameters['niter_todo'] *= 2
         c.write_par(simname = 'test2')
-        Kdata0.tofile("test2_kvorticity_i00000")
+        Kdata0.tofile("test2_cvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test2')
         Rdata = np.fromfile(
                 'test1_rvorticity_i00000',

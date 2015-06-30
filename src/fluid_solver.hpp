@@ -64,6 +64,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         /* methods */
         fluid_solver(
+                const char *NAME,
                 int nx,
                 int ny,
                 int nz,
@@ -77,6 +78,9 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
+
+        int read(char field, char representation);
+        int write(char field, char representation);
 };
 
 #endif//FLUID_SOLVER

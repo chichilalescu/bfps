@@ -21,6 +21,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include "fluid_solver_base.hpp"
 #include "fftw_tools.hpp"
 
@@ -33,6 +34,7 @@
  \
 template<> \
 fluid_solver_base<R>::fluid_solver_base( \
+        const char *NAME, \
         int nx, \
         int ny, \
         int nz, \
@@ -40,6 +42,8 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKY, \
         double DKZ) \
 { \
+    strncpy(this->name, NAME, 256); \
+    this->name[255] = '\0'; \
     this->iteration = 0; \
  \
     int ntmp[4]; \
@@ -259,6 +263,38 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
     FFTW(free)(buffer); \
     delete mpistatus; \
 } \
+ \
+template<> \
+int fluid_solver_base<R>::read_base(const char *fname, R *data) \
+{ \
+    char full_name[512]; \
+    sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
+    return this->rd->read(full_name, (void*)data); \
+} \
+ \
+template<> \
+int fluid_solver_base<R>::read_base(const char *fname, C *data) \
+{ \
+    char full_name[512]; \
+    sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
+    return this->cd->read(full_name, (void*)data); \
+} \
+ \
+template<> \
+int fluid_solver_base<R>::write_base(const char *fname, R *data) \
+{ \
+    char full_name[512]; \
+    sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
+    return this->rd->write(full_name, (void*)data); \
+} \
+ \
+template<> \
+int fluid_solver_base<R>::write_base(const char *fname, C *data) \
+{ \
+    char full_name[512]; \
+    sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
+    return this->cd->write(full_name, (void*)data); \
+}
 
 /*****************************************************************************/
 
@@ -272,12 +308,12 @@ FLUID_SOLVER_BASE_DEFINITIONS(
         fftwf_complex,
         MPI_REAL4,
         MPI_COMPLEX8)
-FLUID_SOLVER_BASE_DEFINITIONS(
-        FFTW_MANGLE_DOUBLE,
-        double,
-        fftw_complex,
-        MPI_REAL8,
-        MPI_COMPLEX16)
+//FLUID_SOLVER_BASE_DEFINITIONS(
+//        FFTW_MANGLE_DOUBLE,
+//        double,
+//        fftw_complex,
+//        MPI_REAL8,
+//        MPI_COMPLEX16)
 /*****************************************************************************/
 
 

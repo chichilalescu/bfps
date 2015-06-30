@@ -46,6 +46,7 @@ class fluid_solver_base
         ptrdiff_t normalization_factor;
 
         /* simulation parameters */
+        char name[256];
         int iteration;
 
         /* physical parameters */
@@ -63,6 +64,7 @@ class fluid_solver_base
 
         /* methods */
         fluid_solver_base(
+                const char *NAME,
                 int nx,
                 int ny,
                 int nz,
@@ -75,6 +77,10 @@ class fluid_solver_base
         void force_divfree(cnumber *a);
         void symmetrize(cnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
+        int read_base(const char *fname, rnumber *data);
+        int read_base(const char *fname, cnumber *data);
+        int write_base(const char *fname, rnumber *data);
+        int write_base(const char *fname, cnumber *data);
 };
 
 
