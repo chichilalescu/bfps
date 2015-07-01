@@ -239,7 +239,7 @@ if __name__ == '__main__':
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 1.0
-    c.parameters['dt'] = 0.05
+    c.parameters['dt'] = 0.02
     c.parameters['niter_todo'] = opt.nsteps
     if opt.run:
         np.random.seed(7547)
@@ -301,7 +301,8 @@ if __name__ == '__main__':
     a = fig.add_subplot(111)
     ycoord = c.get_coord('y')
     a.plot(ycoord, ufin[0, :, 0, 0])
-    a.plot(ycoord,  np.sin(ycoord), dashes = (2, 2))
+    amp = c.parameters['famplitude'] / (c.parameters['fmode']**2 * c.parameters['nu'])
+    a.plot(ycoord, amp*np.sin(ycoord), dashes = (2, 2))
     a.plot(ycoord, vfin[0, :, 0, 2])
     a.plot(ycoord, -np.cos(ycoord), dashes = (2, 2))
     fig.savefig('ux_vs_y.pdf', format = 'pdf')
