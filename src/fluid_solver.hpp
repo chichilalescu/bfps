@@ -60,10 +60,13 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void *vr2c[3], *vc2r[3];
 
         /* physical parameters */
-        rnumber nu;
+        double nu;
+        int fmode;
+        double famplitude;
 
         /* methods */
         fluid_solver(
+                const char *NAME,
                 int nx,
                 int ny,
                 int nz,
@@ -77,6 +80,10 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
+        void add_forcing(rnumber (*field)[2], rnumber factor);
+
+        int read(char field, char representation);
+        int write(char field, char representation);
 };
 
 #endif//FLUID_SOLVER

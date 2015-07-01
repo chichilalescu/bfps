@@ -51,12 +51,14 @@ void fluid_solver<rnumber>::impose_zero_modes()
  \
 template<> \
 fluid_solver<R>::fluid_solver( \
+        const char *NAME, \
         int nx, \
         int ny, \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) : fluid_solver_base<R>(nx , ny , nz, \
+        double DKZ) : fluid_solver_base<R>(NAME, \
+                                           nx , ny , nz, \
                                            DKX, DKY, DKZ) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
@@ -74,8 +76,8 @@ fluid_solver<R>::fluid_solver( \
  \
     this->cv[1] = FFTW(alloc_complex)(this->cd->local_size);\
     this->cv[2] = FFTW(alloc_complex)(this->cd->local_size);\
-    this->rv[1] = (R*)(this->cv[1]);\
-    this->rv[2] = (R*)(this->cv[2]);\
+    this->rv[1] = FFTW(alloc_real)(this->cd->local_size*2);\
+    this->rv[2] = FFTW(alloc_real)(this->cd->local_size*2);\
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
@@ -164,6 +166,8 @@ fluid_solver<R>::~fluid_solver() \
  \
     FFTW(free)(this->cv[1]);\
     FFTW(free)(this->cv[2]);\
+    FFTW(free)(this->rv[1]);\
+    FFTW(free)(this->rv[2]);\
     FFTW(free)(this->cvorticity);\
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
@@ -195,15 +199,33 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            this->cu[cindex*3+0][0] = (this->ky[yindex]*vorticity[cindex*3+2][1] - this->kz[zindex]*vorticity[cindex*3+1][1]) / k2; \
-            this->cu[cindex*3+1][0] = (this->kz[zindex]*vorticity[cindex*3+0][1] - this->kx[xindex]*vorticity[cindex*3+2][1]) / k2; \
-            this->cu[cindex*3+2][0] = (this->kx[xindex]*vorticity[cindex*3+1][1] - this->ky[yindex]*vorticity[cindex*3+0][1]) / k2; \
-            this->cu[cindex*3+0][1] = (this->ky[yindex]*vorticity[cindex*3+2][0] - this->kz[zindex]*vorticity[cindex*3+1][0]) / k2; \
-            this->cu[cindex*3+1][1] = (this->kz[zindex]*vorticity[cindex*3+0][0] - this->kx[xindex]*vorticity[cindex*3+2][0]) / k2; \
-            this->cu[cindex*3+2][1] = (this->kx[xindex]*vorticity[cindex*3+1][0] - this->ky[yindex]*vorticity[cindex*3+0][0]) / k2; \
+            this->cu[cindex*3+0][0] = -(this->ky[yindex]*vorticity[cindex*3+2][1] - this->kz[zindex]*vorticity[cindex*3+1][1]) / k2; \
+            this->cu[cindex*3+1][0] = -(this->kz[zindex]*vorticity[cindex*3+0][1] - this->kx[xindex]*vorticity[cindex*3+2][1]) / k2; \
+            this->cu[cindex*3+2][0] = -(this->kx[xindex]*vorticity[cindex*3+1][1] - this->ky[yindex]*vorticity[cindex*3+0][1]) / k2; \
+            this->cu[cindex*3+0][1] =  (this->ky[yindex]*vorticity[cindex*3+2][0] - this->kz[zindex]*vorticity[cindex*3+1][0]) / k2; \
+            this->cu[cindex*3+1][1] =  (this->kz[zindex]*vorticity[cindex*3+0][0] - this->kx[xindex]*vorticity[cindex*3+2][0]) / k2; \
+            this->cu[cindex*3+2][1] =  (this->kx[xindex]*vorticity[cindex*3+1][0] - this->ky[yindex]*vorticity[cindex*3+0][0]) / k2; \
             ); \
     this->impose_zero_modes(); \
     this->symmetrize(this->cu, 3); \
+    this->low_pass_Fourier(this->cu, 3, this->kM); \
+} \
+ \
+template<> \
+void fluid_solver<R>::add_forcing(\
+        C *field, R factor) \
+{ \
+    ptrdiff_t cindex; \
+    if (this->cd->myrank == this->cd->rank[this->fmode]) \
+    { \
+        cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
+        field[cindex*3+2][0] -= this->famplitude*factor/2; \
+    } \
+    if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
+    { \
+        cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
+        field[cindex*3+2][0] -= this->famplitude*factor/2; \
+    } \
 } \
  \
 template<> \
@@ -227,12 +249,12 @@ void fluid_solver<R>::omega_nonlin( \
              this->ru[rindex*3+2] = tmpz0 / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
+    /* TODO: is 0 padding needed here? */ \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
     this->symmetrize(this->cu, 3); \
     /* $\imath k \times DFT(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
-    FFTW(execute)(*((FFTW(plan)*)this->vr2c[src])); \
     CLOOP( \
             tmpx0 = -(this->ky[yindex]*this->cu[cindex*3+2][1] - this->kz[zindex]*this->cu[cindex*3+1][1]); \
             tmpy0 = -(this->kz[zindex]*this->cu[cindex*3+0][1] - this->kx[xindex]*this->cu[cindex*3+2][1]); \
@@ -246,13 +268,9 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[cindex*3+0][1] = tmpx1 / this->normalization_factor;\
             this->cu[cindex*3+1][1] = tmpy1 / this->normalization_factor;\
             this->cu[cindex*3+2][1] = tmpz1 / this->normalization_factor;\
-            this->cv[src][cindex*3+0][0] /= this->normalization_factor; \
-            this->cv[src][cindex*3+0][1] /= this->normalization_factor; \
-            this->cv[src][cindex*3+1][0] /= this->normalization_factor; \
-            this->cv[src][cindex*3+1][1] /= this->normalization_factor; \
-            this->cv[src][cindex*3+2][0] /= this->normalization_factor; \
-            this->cv[src][cindex*3+2][1] /= this->normalization_factor; \
             ); \
+    this->add_forcing(this->cu, 1.0); \
+    this->symmetrize(this->cu, 3); \
 } \
  \
 template<> \
@@ -308,6 +326,52 @@ void fluid_solver<R>::step(double dt) \
     this->force_divfree(this->cv[0]); \
  \
     this->iteration++; \
+} \
+ \
+template<> \
+int fluid_solver<R>::read(char field, char representation) \
+{ \
+    if ((field == 'v') && (representation == 'c')) \
+        return this->read_base("cvorticity", this->cvorticity); \
+    if ((field == 'v') && (representation == 'r')) \
+    { \
+        int read_result = this->read_base("rvorticity", this->rvorticity); \
+        if (!(read_result == EXIT_SUCCESS)) \
+            return read_result; \
+        else \
+        { \
+            FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
+            return EXIT_SUCCESS; \
+        } \
+    } \
+    if ((field == 'u') && (representation == 'c')) \
+        return this->read_base("cvelocity", this->cvelocity); \
+    if ((field == 'u') && (representation == 'r')) \
+        return this->read_base("rvelocity", this->rvelocity); \
+    return EXIT_FAILURE; \
+} \
+ \
+template<> \
+int fluid_solver<R>::write(char field, char representation) \
+{ \
+    if ((field == 'v') && (representation == 'c')) \
+        return this->write_base("cvorticity", this->cvorticity); \
+    if ((field == 'v') && (representation == 'r')) \
+    { \
+        FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
+        clip_zero_padding<R>(this->rd, this->rvorticity, 3); \
+        return this->write_base("rvorticity", this->rvorticity); \
+    } \
+    this->compute_velocity(this->cvorticity); \
+    if ((field == 'u') && (representation == 'c')) \
+        return this->write_base("cvelocity", this->cvelocity); \
+    if ((field == 'u') && (representation == 'r')) \
+    { \
+        FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
+        clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
+        return this->write_base("rvelocity", this->rvelocity); \
+    } \
+    return EXIT_FAILURE; \
 }
 /*****************************************************************************/
 
@@ -321,12 +385,12 @@ FLUID_SOLVER_DEFINITIONS(
         fftwf_complex,
         MPI_REAL4,
         MPI_COMPLEX8)
-FLUID_SOLVER_DEFINITIONS(
-        FFTW_MANGLE_DOUBLE,
-        double,
-        fftw_complex,
-        MPI_REAL8,
-        MPI_COMPLEX16)
+//FLUID_SOLVER_DEFINITIONS(
+//        FFTW_MANGLE_DOUBLE,
+//        double,
+//        fftw_complex,
+//        MPI_REAL8,
+//        MPI_COMPLEX16)
 /*****************************************************************************/
 
 
