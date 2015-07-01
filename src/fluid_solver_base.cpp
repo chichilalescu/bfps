@@ -278,18 +278,22 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
                        -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
                 } \
             for (cc = 0; cc < howmany; cc++) { \
-                (*((data + (this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2] + cc)))[0] =  (*(buffer + cc))[0]; \
-                (*((data + (this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2] + cc)))[1] = -(*(buffer + cc))[1]; \
+                (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[0] =  (*(buffer + cc))[0]; \
+                (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[1] = -(*(buffer + cc))[1]; \
             } \
         } \
     } \
     FFTW(free)(buffer); \
     delete mpistatus; \
     /* put asymmetric data to 0 */\
-    if (this->cd->myrank == this->cd->rank[this->cd->sizes[0]/2]) \
+    /*if (this->cd->myrank == this->cd->rank[this->cd->sizes[0]/2]) \
     { \
-        data[(this->cd->sizes[0]/2 - this->cd->starts[0])*this->sizes[1]] \
-    } \
+        for (cc = 0; cc < howmany; cc++) \
+        { \
+            data[cc + howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]][0] = 0.0; \
+            data[cc + howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]][1] = 0.0; \
+        } \
+    }*/ \
 } \
  \
 template<> \

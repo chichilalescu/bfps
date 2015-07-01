@@ -260,17 +260,13 @@ if __name__ == '__main__':
                 'test_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
         tdata = Rdata.transpose(3, 0, 1, 2).copy()
-        tdata.tofile('input_for_vortex')
     dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
     stats = np.fromfile('test_stats.bin', dtype = dtype)
-    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats['t'], stats['energy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 3])
     a = fig.add_subplot(122)
     a.plot(stats['t'], stats['enstrophy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2)
     fig.savefig('test.pdf', format = 'pdf')
 
     fig = plt.figure(figsize=(12, 12))
