@@ -218,12 +218,12 @@ void fluid_solver<R>::add_forcing(\
     if (this->cd->myrank == this->cd->rank[this->fmode]) \
     { \
         cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
-        field[cindex*3+2][1] -= this->famplitude*factor/2; \
+        field[cindex*3+2][0] -= this->famplitude*factor/2; \
     } \
     if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
     { \
         cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]; \
-        field[cindex*3+2][1] += this->famplitude*factor/2; \
+        field[cindex*3+2][0] -= this->famplitude*factor/2; \
     } \
 } \
  \
