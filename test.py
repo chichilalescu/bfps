@@ -145,16 +145,26 @@ class stat_test(code):
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')
         return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]
+    def plot_vel_cut(
+            self,
+            axis,
+            simname = 'test',
+            field = 'velocity',
+            iteration = 0):
+        axis.set_axis_off()
+        Rdata0 = np.fromfile(
+                simname + '_r' + field + '_i{0:0>5x}'.format(iteration),
+                dtype = np.float32).reshape((self.parameters['nz'],
+                                             self.parameters['ny'],
+                                             self.parameters['nx'], 3))
+        energy = np.sum(Rdata0[13, :, :, :]**2, axis = 2)*.5
+        axis.imshow(energy, interpolation='none')
+        axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
+                                               Rdata0[..., 1]**2 +
+                                               Rdata0[..., 2]**2)*.5))
+        return Rdata0
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('test_name', type = str)
-    parser.add_argument('--run', dest = 'run', action = 'store_true')
-    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
-    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
-    parser.add_argument('-n', type = int, dest = 'n', default = 32)
-    opt = parser.parse_args()
-
+def convergence_test(opt):
     c = stat_test(name = opt.test_name)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -202,18 +212,6 @@ if __name__ == '__main__':
     a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2)
     fig.savefig('test.pdf', format = 'pdf')
 
-    def plot_vel_cut(fname, axis):
-        axis.set_axis_off()
-        Rdata0 = np.fromfile(
-                fname,
-                dtype = np.float32).reshape((opt.n, opt.n, opt.n, 3))
-        energy = np.sum(Rdata0[13, :, :, :]**2, axis = 2)*.5
-        axis.imshow(energy, interpolation='none')
-        axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
-                                               Rdata0[..., 1]**2 +
-                                               Rdata0[..., 2]**2)*.5))
-        return Rdata0
-
     fig = plt.figure(figsize=(12, 12))
     a = fig.add_subplot(221)
     plot_vel_cut('test1_rvelocity_i00000', a)
@@ -225,11 +223,86 @@ if __name__ == '__main__':
     a = fig.add_subplot(224)
     plot_vel_cut('test2_rvelocity_i{0:0>5x}'.format(stats2.shape[0]-1), a)
     fig.savefig('vel_cut.pdf', format = 'pdf')
+    return None
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('test_name', type = str)
+    parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
+    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
+    parser.add_argument('-n', type = int, dest = 'n', default = 32)
+    opt = parser.parse_args()
+
+    c = stat_test(name = opt.test_name)
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    c.parameters['nu'] = 1.0
+    c.parameters['dt'] = 0.05
+    c.parameters['niter_todo'] = opt.nsteps
+    if opt.run:
+        np.random.seed(7547)
+        Kdata00 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
+        Kdata01 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
+        Kdata02 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
+        Kdata0 = np.zeros(
+                Kdata00.shape + (3,),
+                Kdata00.dtype)
+        Kdata0[..., 0] = Kdata00
+        Kdata0[..., 1] = Kdata01
+        Kdata0[..., 2] = Kdata02
+        c.write_src()
+        c.write_par(simname = 'test')
+        Kdata0.tofile("test_cvorticity_i00000")
+        c.run(ncpu = opt.ncpu, simname = 'test')
+        Rdata = np.fromfile(
+                'test_rvorticity_i00000',
+                dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
+        tdata = Rdata.transpose(3, 0, 1, 2).copy()
+        tdata.tofile('input_for_vortex')
+    dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
+    stats = np.fromfile('test_stats.bin', dtype = dtype)
+    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    fig = plt.figure(figsize = (12,6))
+    a = fig.add_subplot(121)
+    a.plot(stats['t'], stats['energy'])
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 3])
+    a = fig.add_subplot(122)
+    a.plot(stats['t'], stats['enstrophy'])
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2)
+    fig.savefig('test.pdf', format = 'pdf')
+
+    fig = plt.figure(figsize=(12, 12))
+    a = fig.add_subplot(221)
+    c.plot_vel_cut(a,
+            simname = 'test',
+            field = 'velocity',
+            iteration = 0)
+    a = fig.add_subplot(222)
+    a.set_axis_off()
+    c.plot_vel_cut(a,
+            simname = 'test',
+            field = 'vorticity',
+            iteration = 0)
+    a = fig.add_subplot(223)
+    ufin = c.plot_vel_cut(a,
+            simname = 'test',
+            field = 'velocity',
+            iteration = stats.shape[0]-1)
+    a = fig.add_subplot(224)
+    vfin = c.plot_vel_cut(a,
+            simname = 'test',
+            field = 'vorticity',
+            iteration = stats.shape[0]-1)
+    fig.savefig('field_cut.pdf', format = 'pdf')
 
     fig = plt.figure()
     a = fig.add_subplot(111)
     ycoord = c.get_coord('y')
-    a.plot(ycoord, tmp[0, :, 0, 0])
-    a.plot(ycoord, np.sin(ycoord))
+    a.plot(ycoord, ufin[0, :, 0, 0])
+    a.plot(ycoord,  np.sin(ycoord), dashes = (2, 2))
+    a.plot(ycoord, vfin[0, :, 0, 2])
+    a.plot(ycoord, -np.cos(ycoord), dashes = (2, 2))
     fig.savefig('ux_vs_y.pdf', format = 'pdf')
 

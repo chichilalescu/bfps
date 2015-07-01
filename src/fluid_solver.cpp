@@ -208,6 +208,7 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
             ); \
     this->impose_zero_modes(); \
     this->symmetrize(this->cu, 3); \
+    this->low_pass_Fourier(this->cu, 3, this->kM); \
 } \
  \
 template<> \
