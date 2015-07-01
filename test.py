@@ -142,6 +142,9 @@ class stat_test(code):
                 //endcpp
                 """
         return None
+    def get_coord(self, direction):
+        assert(direction == 'x' or direction == 'y' or direction == 'z')
+        return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -152,6 +155,13 @@ if __name__ == '__main__':
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
 
+    c = stat_test(name = opt.test_name)
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    c.parameters['nu'] = 1.0
+    c.parameters['dt'] = 0.05
+    c.parameters['niter_todo'] = opt.nsteps
     if opt.run:
         np.random.seed(7547)
         Kdata00 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
@@ -163,14 +173,7 @@ if __name__ == '__main__':
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
-        c = stat_test(name = opt.test_name)
         c.write_src()
-        c.parameters['nx'] = opt.n
-        c.parameters['ny'] = opt.n
-        c.parameters['nz'] = opt.n
-        c.parameters['nu'] = 1.0
-        c.parameters['dt'] = 0.05
-        c.parameters['niter_todo'] = opt.nsteps
         c.write_par(simname = 'test1')
         Kdata0.tofile("test1_cvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test1')
@@ -225,7 +228,8 @@ if __name__ == '__main__':
 
     fig = plt.figure()
     a = fig.add_subplot(111)
-    a.plot(tmp[0, :, 0, 0])
-    a.plot(tmp[0, :, 0, 1])
-    a.plot(tmp[0, :, 0, 2])
+    ycoord = c.get_coord('y')
+    a.plot(ycoord, tmp[0, :, 0, 0])
+    a.plot(ycoord, np.sin(ycoord))
     fig.savefig('ux_vs_y.pdf', format = 'pdf')
+
