@@ -96,7 +96,7 @@ class fluid_solver_base
     for (int yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
     for (int zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
     { \
-        cindex = (yindex * this->cd->sizes[1] + zindex)*this->cd->sizes[2]; \
+        cindex = (yindex * this->cd->subsizes[1] + zindex)*this->cd->subsizes[2]; \
     for (int xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
         { \
             expression; \
@@ -113,7 +113,7 @@ class fluid_solver_base
     for (int zindex = 0; zindex < this->rd->subsizes[0]; zindex++) \
     for (int yindex = 0; yindex < this->rd->subsizes[1]; yindex++) \
     { \
-        rindex = (zindex * this->rd->sizes[1] + yindex)*this->rd->sizes[2]; \
+        rindex = (zindex * this->rd->subsizes[1] + yindex)*(this->rd->subsizes[2]+2); \
     for (int xindex = 0; xindex < this->rd->subsizes[2]; xindex++) \
         { \
             expression; \

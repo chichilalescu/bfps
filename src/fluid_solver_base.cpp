@@ -118,6 +118,12 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
+    /*for (i = 0; i<this->cd->sizes[2]; i++) \
+        DEBUG_MSG("kx[%d] = %lg\n", i, this->kx[i]);*/ \
+    /*for (i = 0; i<this->cd->subsizes[0]; i++) \
+        DEBUG_MSG("ky[%d] = %lg\n", i, this->ky[i]);*/ \
+    /*for (i = 0; i<this->cd->sizes[1]; i++) \
+        DEBUG_MSG("kz[%d] = %lg\n", i, this->kz[i]);*/ \
 } \
  \
 template<> \
@@ -170,12 +176,25 @@ void fluid_solver_base<R>::low_pass_Fourier(C *a, const int howmany, const doubl
     double k2; \
     const double km2 = kmax*kmax; \
     const int howmany2 = 2*howmany; \
+    /*DEBUG_MSG("entered low_pass_Fourier, kmax=%lg km2=%lg howmany2=%d\n", kmax, km2, howmany2);*/ \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
+            /*DEBUG_MSG("kx=%lg ky=%lg kz=%lg k2=%lg\n", \
+                      this->kx[xindex], \
+                      this->ky[yindex], \
+                      this->kz[zindex], \
+                      k2);*/ \
             if (k2 >= km2) \
-                std::fill_n((R*)(a + howmany*cindex), howmany2, 0.0); \
+            { \
+                for (int tcounter = 0; tcounter < howmany; tcounter++) \
+                { \
+                    a[howmany*cindex+tcounter][0] = 0.0; \
+                    a[howmany*cindex+tcounter][1] = 0.0; \
+                } \
+                /*std::fill_n((R*)(a + howmany*cindex), howmany2, 0.0);*/ \
+            } \
             );\
 } \
  \
@@ -211,21 +230,22 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
 { \
     ptrdiff_t ii, cc; \
     MPI_Status *mpistatus = new MPI_Status[1]; \
-    C *buffer; \
-    buffer = FFTW(alloc_complex)(howmany*this->cd->sizes[1]); \
     if (this->cd->myrank == this->cd->rank[0]) \
     { \
         for (cc = 0; cc < howmany; cc++) \
-            (*(data+cc))[1] = 0.0; \
+            data[cc][1] = 0.0; \
         for (ii = 1; ii < this->cd->sizes[1]/2; ii++) \
             for (cc = 0; cc < howmany; cc++) { \
-                ( *(data + howmany*(this->cd->sizes[1] - ii)*this->cd->sizes[2]+cc))[0] = \
-                 (*(data + howmany*ii*this->cd->sizes[2]+cc))[0]; \
-                ( *(data + howmany*(this->cd->sizes[1] - ii)*this->cd->sizes[2]+cc))[1] = \
-                -(*(data + howmany*ii*this->cd->sizes[2]+cc))[1]; \
+                ( *(data + cc + howmany*(this->cd->sizes[1] - ii)*this->cd->sizes[2]))[0] = \
+                 (*(data + cc + howmany*(                     ii)*this->cd->sizes[2]))[0]; \
+                ( *(data + cc + howmany*(this->cd->sizes[1] - ii)*this->cd->sizes[2]))[1] = \
+                -(*(data + cc + howmany*(                     ii)*this->cd->sizes[2]))[1]; \
                 } \
     } \
-    int yy; \
+    C *buffer; \
+    buffer = FFTW(alloc_complex)(howmany*this->cd->sizes[1]); \
+    ptrdiff_t yy; \
+    ptrdiff_t tindex; \
     int ranksrc, rankdst; \
     for (yy = 1; yy < this->cd->sizes[0]/2; yy++) { \
         ranksrc = this->cd->rank[yy]; \
@@ -233,8 +253,10 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
         if (this->cd->myrank == ranksrc) \
             for (ii = 0; ii < this->cd->sizes[1]; ii++) \
                 for (cc = 0; cc < howmany; cc++) { \
-                    (*(buffer + howmany*ii+cc))[0] = (*((data + howmany*(yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]) + howmany*ii*this->cd->sizes[2] + cc))[0]; \
-                    (*(buffer + howmany*ii+cc))[1] = (*((data + howmany*(yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]) + howmany*ii*this->cd->sizes[2] + cc))[1]; \
+                    (*(buffer + howmany*ii+cc))[0] = \
+                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0]; \
+                    (*(buffer + howmany*ii+cc))[1] = \
+                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1]; \
                 } \
         if (ranksrc != rankdst) \
         { \
@@ -250,18 +272,34 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
         if (this->cd->myrank == rankdst) \
         { \
             for (ii = 1; ii < this->cd->sizes[1]; ii++) \
-                for (cc = 0; cc < howmany; cc++) { \
-                    (*((data + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]) + howmany*ii*this->cd->sizes[2] + cc))[0] =  (*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[0]; \
-                    (*((data + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]) + howmany*ii*this->cd->sizes[2] + cc))[1] = -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
+                for (cc = 0; cc < howmany; cc++) \
+                { \
+                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0] = \
+                        (*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[0]; \
+                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1] = \
+                       -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
                 } \
-            for (cc = 0; cc < howmany; cc++) { \
-                (*((data + (this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2] + cc)))[0] =  (*(buffer + cc))[0]; \
-                (*((data + (this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2] + cc)))[1] = -(*(buffer + cc))[1]; \
+            for (cc = 0; cc < howmany; cc++) \
+            { \
+                (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[0] =  (*(buffer + cc))[0]; \
+                (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[1] = -(*(buffer + cc))[1]; \
             } \
         } \
     } \
     FFTW(free)(buffer); \
     delete mpistatus; \
+    /* put asymmetric data to 0 */\
+    /*if (this->cd->myrank == this->cd->rank[this->cd->sizes[0]/2]) \
+    { \
+        tindex = howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]; \
+        for (ii = 0; ii < this->cd->sizes[1]; ii++) \
+        { \
+            std::fill_n((R*)(data + tindex), howmany*2*this->cd->sizes[2], 0.0); \
+            tindex += howmany*this->cd->sizes[2]; \
+        } \
+    } \
+    tindex = howmany*(); \
+    std::fill_n((R*)(data + tindex), howmany*2, 0.0);*/ \
 } \
  \
 template<> \

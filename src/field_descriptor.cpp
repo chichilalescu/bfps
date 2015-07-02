@@ -89,7 +89,8 @@ field_descriptor<rnumber>::field_descriptor(
     tsizes[ndims-1] *= sizeof(rnumber);
     tsubsizes[ndims-1] *= sizeof(rnumber);
     tstarts[ndims-1] *= sizeof(rnumber);
-    if (this->mpi_dtype == MPI_COMPLEX8)
+    if (this->mpi_dtype == MPI_COMPLEX8 ||
+        this->mpi_dtype == MPI_COMPLEX16)
     {
         tsizes[ndims-1] *= 2;
         tsubsizes[ndims-1] *= 2;
