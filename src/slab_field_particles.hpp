@@ -34,9 +34,21 @@ template <class rnumber>
 class slab_field_particles
 {
     public:
-        fluid_solver_base<rnumber> *rd;
+        fluid_solver_base<rnumber> *fs;
         int nparticles;
-        bool 
+
+        /* is_active is a matrix of shape [nprocs][nparticles], with
+         * is_active[r][p] being true if particle p is in the domain
+         * of rank r, or in the buffer regions of this domain.
+         * */
+        bool **is_active;
+
+        /* state will generally hold all the information about the particles.
+         * in the beginning, we will only need to solve 3D ODEs, but I figured
+         * a general ncomponents is better, since we may change our minds.
+         * */
+        double *state;
+        int ncomponents;
 
         /* simulation parameters */
         char name[256];
@@ -48,22 +60,8 @@ class slab_field_particles
         /* methods */
         slab_field_particles(
                 const char *NAME,
-                int nx,
-                int ny,
-                int nz,
-                double DX = 1.0,
-                double DY = 1.0,
-                double DZ = 1.0);
+                fluid_solver_base<rnumber> *FSOLVER);
         ~slab_field_particles();
-
-        void low_pass_Fourier(cnumber *a, int howmany, double kmax);
-        void force_divfree(cnumber *a);
-        void symmetrize(cnumber *a, int howmany);
-        rnumber correl_vec(cnumber *a, cnumber *b);
-        int read_base(const char *fname, rnumber *data);
-        int read_base(const char *fname, cnumber *data);
-        int write_base(const char *fname, rnumber *data);
-        int write_base(const char *fname, cnumber *data);
 };
 
 
