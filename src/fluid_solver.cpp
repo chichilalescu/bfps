@@ -262,10 +262,7 @@ void fluid_solver<R>::omega_nonlin( \
 { \
     assert(src >= 0 && src < 3); \
     /* compute velocity */ \
-    std::fill_n((R*)this->cu, 2*this->cd->local_size, 0); \
-    this->low_pass_Fourier(this->cv[src], 3, this->kM); \
     this->compute_velocity(this->cv[src]); \
-    this->low_pass_Fourier(this->cu, 3, this->kM); \
     /* get fields from Fourier space to real space */ \
     /*std::fill_n(this->ru, 2*this->cd->local_size, 0);     */ \
     /*std::fill_n(this->rv[src], 2*this->cd->local_size, 0);*/ \
@@ -283,7 +280,6 @@ void fluid_solver<R>::omega_nonlin( \
             ); \
     /* go back to Fourier space */ \
     /* TODO: is 0 padding needed here? */ \
-    std::fill_n((R*)this->cu, 2*this->cd->local_size, 0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
     this->symmetrize(this->cu, 3); \
@@ -303,7 +299,7 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[3*cindex+1][1] = tmpy1 / this->normalization_factor;\
             this->cu[3*cindex+2][1] = tmpz1 / this->normalization_factor;\
             ); \
-    this->symmetrize(this->cu, 3); \
+    /*this->symmetrize(this->cu, 3);*/ \
     this->add_forcing(this->cu, 1.0); \
 } \
  \
