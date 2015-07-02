@@ -223,8 +223,6 @@ def convergence_test(opt):
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    print stats1
-    print stats2
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
