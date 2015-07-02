@@ -31,6 +31,21 @@ def generate_data_3D(
     a[ii] = 0
     return a
 
+def padd_with_zeros(
+        a,
+        n,
+        odtype = None):
+    if (type(odtype) == type(None)):
+        odtype = a.dtype
+    assert(a.shape[0] <= n)
+    b = np.zeros((n, n, n/2 + 1) + a.shape[3:], dtype = odtype)
+    m = a.shape[0]
+    b[     :m/2,      :m/2, :m/2+1] = a[     :m/2,      :m/2, :m/2+1]
+    b[     :m/2, n-m/2:   , :m/2+1] = a[     :m/2, m-m/2:   , :m/2+1]
+    b[n-m/2:   ,      :m/2, :m/2+1] = a[m-m/2:   ,      :m/2, :m/2+1]
+    b[n-m/2:   , n-m/2:   , :m/2+1] = a[m-m/2:   , m-m/2:   , :m/2+1]
+    return b
+
 def basic_test(
         nsteps = 8):
     nsteps_str = '{0}'.format(nsteps)
@@ -170,34 +185,40 @@ def convergence_test(opt):
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 1.0
-    c.parameters['dt'] = 0.05
+    c.parameters['nu'] = 1e-1
+    c.parameters['dt'] = 4e-3
     c.parameters['niter_todo'] = opt.nsteps
+    c.parameters['famplitude'] = 0.0
     if opt.run:
         np.random.seed(7547)
-        Kdata00 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
-        Kdata01 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
-        Kdata02 = generate_data_3D(opt.n, p = 1.).astype(np.complex64)
+        Kdata00 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
+        Kdata01 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
+        Kdata02 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
+        Kdata1 = padd_with_zeros(Kdata0, opt.n)
+        Kdata1.tofile("test1_cvorticity_i00000")
         c.write_src()
         c.write_par(simname = 'test1')
-        Kdata0.tofile("test1_cvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test1')
-        c.parameters['dt'] /= 2
-        c.parameters['niter_todo'] *= 2
-        c.write_par(simname = 'test2')
-        Kdata0.tofile("test2_cvorticity_i00000")
-        #c.run(ncpu = opt.ncpu, simname = 'test2')
         Rdata = np.fromfile(
                 'test1_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
         tdata = Rdata.transpose(3, 0, 1, 2).copy()
         tdata.tofile('input_for_vortex')
+        c.parameters['dt'] /= 2
+        c.parameters['niter_todo'] *= 2
+        c.parameters['nx'] *= 2
+        c.parameters['ny'] *= 2
+        c.parameters['nz'] *= 2
+        c.write_par(simname = 'test2')
+        Kdata2 = padd_with_zeros(Kdata0, opt.n*2)
+        Kdata2.tofile("test2_cvorticity_i00000")
+        c.run(ncpu = opt.ncpu, simname = 'test2')
     dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
@@ -213,28 +234,36 @@ def convergence_test(opt):
     a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2)
     fig.savefig('test.pdf', format = 'pdf')
 
-    fig = plt.figure(figsize=(12, 12))
-    a = fig.add_subplot(221)
-    plot_vel_cut('test1_rvelocity_i00000', a)
-    a = fig.add_subplot(222)
-    a.set_axis_off()
-    plot_vel_cut('test2_rvelocity_i00000', a)
-    a = fig.add_subplot(223)
-    tmp = plot_vel_cut('test1_rvelocity_i{0:0>5x}'.format(stats1.shape[0]-1), a)
-    a = fig.add_subplot(224)
-    plot_vel_cut('test2_rvelocity_i{0:0>5x}'.format(stats2.shape[0]-1), a)
-    fig.savefig('vel_cut.pdf', format = 'pdf')
+    #fig = plt.figure(figsize=(12, 12))
+    #a = fig.add_subplot(221)
+    #c.plot_vel_cut(
+    #        a,
+    #        simname = 'test1',
+    #        field = 'velocity',
+    #        iteration = 0)
+    #a = fig.add_subplot(222)
+    #a.set_axis_off()
+    #c.plot_vel_cut(
+    #        a,
+    #        simname = 'test2',
+    #        field = 'velocity',
+    #        iteration = 0)
+    #a = fig.add_subplot(223)
+    #c.plot_vel_cut(
+    #        a,
+    #        simname = 'test1',
+    #        field = 'velocity',
+    #        iteration = stats1.shape[0] - 1)
+    #a = fig.add_subplot(224)
+    #c.plot_vel_cut(
+    #        a,
+    #        simname = 'test2',
+    #        field = 'velocity',
+    #        iteration = stats2.shape[0] - 1)
+    #fig.savefig('vel_cut.pdf', format = 'pdf')
     return None
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('test_name', type = str)
-    parser.add_argument('--run', dest = 'run', action = 'store_true')
-    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
-    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
-    parser.add_argument('-n', type = int, dest = 'n', default = 32)
-    opt = parser.parse_args()
-
+def Kolmogorov_flow_test(opt):
     c = stat_test(name = opt.test_name)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -331,4 +360,15 @@ if __name__ == '__main__':
     a.plot(np.sum(np.abs(tmp), axis = (0, 1)))
     a.set_yscale('log')
     fig.savefig('cvort.pdf', format = 'pdf')
+    return None
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('test_name', type = str)
+    parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
+    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
+    parser.add_argument('-n', type = int, dest = 'n', default = 32)
+    opt = parser.parse_args()
+    convergence_test(opt)
 

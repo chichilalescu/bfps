@@ -362,18 +362,25 @@ void fluid_solver<R>::step(double dt) \
 template<> \
 int fluid_solver<R>::read(char field, char representation) \
 { \
-    if ((field == 'v') && (representation == 'c')) \
-        return this->read_base("cvorticity", this->cvorticity); \
-    if ((field == 'v') && (representation == 'r')) \
+    int read_result; \
+    if (field == 'v') \
     { \
-        int read_result = this->read_base("rvorticity", this->rvorticity); \
-        if (!(read_result == EXIT_SUCCESS)) \
-            return read_result; \
-        else \
+        if (representation == 'c') \
         { \
-            FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
-            return EXIT_SUCCESS; \
+            read_result = this->read_base("cvorticity", this->cvorticity); \
+            if (read_result != EXIT_SUCCESS) \
+                return read_result; \
         } \
+        if (representation == 'r') \
+        { \
+            read_result = this->read_base("rvorticity", this->rvorticity); \
+            if (read_result != EXIT_SUCCESS) \
+                return read_result; \
+            else \
+                FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
+        } \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
+        return EXIT_SUCCESS; \
     } \
     if ((field == 'u') && (representation == 'c')) \
         return this->read_base("cvelocity", this->cvelocity); \
