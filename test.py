@@ -301,5 +301,6 @@ if __name__ == '__main__':
     a.plot(ycoord, amp*np.sin(ycoord), dashes = (2, 2))
     a.plot(ycoord, vfin[0, :, 0, 2])
     a.plot(ycoord, -np.cos(ycoord), dashes = (2, 2))
+    a.grid()
     fig.savefig('ux_vs_y.pdf', format = 'pdf')
 

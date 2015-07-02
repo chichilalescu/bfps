@@ -245,6 +245,7 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
     C *buffer; \
     buffer = FFTW(alloc_complex)(howmany*this->cd->sizes[1]); \
     ptrdiff_t yy; \
+    ptrdiff_t tindex; \
     int ranksrc, rankdst; \
     for (yy = 1; yy < this->cd->sizes[0]/2; yy++) { \
         ranksrc = this->cd->rank[yy]; \
@@ -271,13 +272,15 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
         if (this->cd->myrank == rankdst) \
         { \
             for (ii = 1; ii < this->cd->sizes[1]; ii++) \
-                for (cc = 0; cc < howmany; cc++) { \
+                for (cc = 0; cc < howmany; cc++) \
+                { \
                     (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0] = \
                         (*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[0]; \
                     (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1] = \
                        -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
                 } \
-            for (cc = 0; cc < howmany; cc++) { \
+            for (cc = 0; cc < howmany; cc++) \
+            { \
                 (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[0] =  (*(buffer + cc))[0]; \
                 (*((data + cc + howmany*(this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2])))[1] = -(*(buffer + cc))[1]; \
             } \
@@ -288,12 +291,15 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
     /* put asymmetric data to 0 */\
     /*if (this->cd->myrank == this->cd->rank[this->cd->sizes[0]/2]) \
     { \
-        for (cc = 0; cc < howmany; cc++) \
+        tindex = howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]; \
+        for (ii = 0; ii < this->cd->sizes[1]; ii++) \
         { \
-            data[cc + howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]][0] = 0.0; \
-            data[cc + howmany*(this->cd->sizes[0]/2 - this->cd->starts[0])*this->cd->sizes[1]*this->cd->sizes[2]][1] = 0.0; \
+            std::fill_n((R*)(data + tindex), howmany*2*this->cd->sizes[2], 0.0); \
+            tindex += howmany*this->cd->sizes[2]; \
         } \
-    }*/ \
+    } \
+    tindex = howmany*(); \
+    std::fill_n((R*)(data + tindex), howmany*2, 0.0);*/ \
 } \
  \
 template<> \
