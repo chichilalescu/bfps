@@ -223,15 +223,17 @@ def convergence_test(opt):
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    print stats1
+    print stats2
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
-    a.plot(stats2['t'], stats2['energy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 3])
+    a.plot(stats2['t'], stats2['energy'], dashes = (3, 3))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
     a = fig.add_subplot(122)
     a.plot(stats1['t'], stats1['enstrophy'])
-    a.plot(stats2['t'], stats2['enstrophy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2)
+    a.plot(stats2['t'], stats2['enstrophy'], dashes = (3, 3))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
     #fig = plt.figure(figsize=(12, 12))

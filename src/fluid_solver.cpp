@@ -271,15 +271,14 @@ void fluid_solver<R>::omega_nonlin( \
     /* compute cross product $u \times \omega$, and normalize */ \
     R tmpx0, tmpy0, tmpz0; \
     RLOOP ( \
-             tmpx0 = (this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+2] - this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+1]) / this->normalization_factor; \
-             tmpy0 = (this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+0] - this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+2]) / this->normalization_factor; \
-             tmpz0 = (this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+1] - this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+0]) / this->normalization_factor; \
+             tmpx0 = (this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+2] - this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+1]); \
+             tmpy0 = (this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+0] - this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+2]); \
+             tmpz0 = (this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+1] - this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+0]); \
              this->ru[(3*rindex)+0] = tmpx0 / this->normalization_factor; \
              this->ru[(3*rindex)+1] = tmpy0 / this->normalization_factor; \
              this->ru[(3*rindex)+2] = tmpz0 / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
-    /* TODO: is 0 padding needed here? */ \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
     this->symmetrize(this->cu, 3); \
@@ -292,12 +291,12 @@ void fluid_solver<R>::omega_nonlin( \
             tmpx1 =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
             tmpy1 =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
             tmpz1 =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
-            this->cu[3*cindex+0][0] = tmpx0 / this->normalization_factor;\
-            this->cu[3*cindex+1][0] = tmpy0 / this->normalization_factor;\
-            this->cu[3*cindex+2][0] = tmpz0 / this->normalization_factor;\
-            this->cu[3*cindex+0][1] = tmpx1 / this->normalization_factor;\
-            this->cu[3*cindex+1][1] = tmpy1 / this->normalization_factor;\
-            this->cu[3*cindex+2][1] = tmpz1 / this->normalization_factor;\
+            this->cu[3*cindex+0][0] = tmpx0; \
+            this->cu[3*cindex+1][0] = tmpy0; \
+            this->cu[3*cindex+2][0] = tmpz0; \
+            this->cu[3*cindex+0][1] = tmpx1; \
+            this->cu[3*cindex+1][1] = tmpy1; \
+            this->cu[3*cindex+2][1] = tmpz1; \
             ); \
     /*this->symmetrize(this->cu, 3);*/ \
     this->add_forcing(this->cu, 1.0); \
