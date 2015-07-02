@@ -138,6 +138,7 @@ class stat_test(code):
                 fs->write('v', 'c');
                 fs->write('v', 'r');
                 fs->write('u', 'r');
+                fs->write('u', 'c');
                 delete fs;
                 //endcpp
                 """
@@ -301,6 +302,33 @@ if __name__ == '__main__':
     a.plot(ycoord, amp*np.sin(ycoord), dashes = (2, 2))
     a.plot(ycoord, vfin[0, :, 0, 2])
     a.plot(ycoord, -np.cos(ycoord), dashes = (2, 2))
+    a.set_xticks(np.linspace(.0, 2*np.pi, 9))
+    a.set_xlim(.0, 2*np.pi)
     a.grid()
     fig.savefig('ux_vs_y.pdf', format = 'pdf')
+
+    fig = plt.figure(figsize=(12, 12))
+    tmp = np.fromfile('test_cvelocity_i{0:0>5x}'.format(stats.shape[0]-1),
+                      dtype = np.complex64).reshape(opt.n, opt.n, opt.n/2+1, 3)
+    a = fig.add_subplot(321)
+    a.plot(np.sum(np.abs(tmp), axis = (1, 2)))
+    a.set_yscale('log')
+    a = fig.add_subplot(323)
+    a.plot(np.sum(np.abs(tmp), axis = (0, 2)))
+    a.set_yscale('log')
+    a = fig.add_subplot(325)
+    a.plot(np.sum(np.abs(tmp), axis = (0, 1)))
+    a.set_yscale('log')
+    a = fig.add_subplot(322)
+    tmp = np.fromfile('test_cvorticity_i{0:0>5x}'.format(stats.shape[0]-1),
+                      dtype = np.complex64).reshape(opt.n, opt.n, opt.n/2+1, 3)
+    a.plot(np.sum(np.abs(tmp), axis = (1, 2)))
+    a.set_yscale('log')
+    a = fig.add_subplot(324)
+    a.plot(np.sum(np.abs(tmp), axis = (0, 2)))
+    a.set_yscale('log')
+    a = fig.add_subplot(326)
+    a.plot(np.sum(np.abs(tmp), axis = (0, 1)))
+    a.set_yscale('log')
+    fig.savefig('cvort.pdf', format = 'pdf')
 

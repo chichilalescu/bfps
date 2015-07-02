@@ -286,7 +286,7 @@ void fluid_solver<R>::omega_nonlin( \
     std::fill_n((R*)this->cu, 2*this->cd->local_size, 0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
-    /*this->symmetrize(this->cu, 3);*/ \
+    this->symmetrize(this->cu, 3); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
     CLOOP( \
@@ -303,7 +303,7 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[3*cindex+1][1] = tmpy1 / this->normalization_factor;\
             this->cu[3*cindex+2][1] = tmpz1 / this->normalization_factor;\
             ); \
-    /*this->symmetrize(this->cu, 3);*/ \
+    this->symmetrize(this->cu, 3); \
     this->add_forcing(this->cu, 1.0); \
 } \
  \
