@@ -63,7 +63,8 @@ base_files := \
 	p3DFFT_to_iR \
 	vector_field \
 	fluid_solver_base \
-	fluid_solver
+	fluid_solver \
+	slab_field_particles
 
 #headers := $(patsubst %, ./src/%.hpp, ${base_files})
 src := $(patsubst %, ./src/%.cpp, ${base_files})

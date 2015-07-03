@@ -18,6 +18,8 @@
 *
 ************************************************************************/
 
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -35,7 +37,6 @@ class slab_field_particles
 {
     public:
         fluid_solver_base<rnumber> *fs;
-        int nparticles;
 
         /* is_active is a matrix of shape [nprocs][nparticles], with
          * is_active[r][p] being true if particle p is in the domain
@@ -48,11 +49,17 @@ class slab_field_particles
          * a general ncomponents is better, since we may change our minds.
          * */
         double *state;
+        int nparticles;
         int ncomponents;
+        int array_size;
+        int buffer_size;
+        double *lbound;
+        double *ubound;
 
         /* simulation parameters */
         char name[256];
         int iteration;
+        double dt;
 
         /* physical parameters of field */
         rnumber dx, dy, dz;
@@ -60,8 +67,20 @@ class slab_field_particles
         /* methods */
         slab_field_particles(
                 const char *NAME,
-                fluid_solver_base<rnumber> *FSOLVER);
+                fluid_solver_base<rnumber> *FSOLVER,
+                const int NPARTICLES,
+                const int NCOMPONENTS,
+                const int BUFFERSIZE);
         ~slab_field_particles();
+
+        /* an Euler step is needed to compute an estimate of future positions,
+         * which is needed for synchronization.
+         * function is virtual since we want children to do different things,
+         * depending on the type of particle. this particular function just
+         * copies the old state into the new state.
+         * */
+        virtual void jump_estimate(double *jump_length);
+        void synchronize();
 };
 
 
