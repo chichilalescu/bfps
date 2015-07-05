@@ -1,0 +1,149 @@
+/***********************************************************************
+*
+*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+* Contact: Cristian.Lalescu@ds.mpg.de
+*
+************************************************************************/
+
+
+
+#include <cmath>
+#include <cassert>
+#include "slab_field_particles.hpp"
+
+extern int myrank, nprocs;
+
+template <class rnumber>
+slab_field_particles<rnumber>::slab_field_particles(
+        const char *NAME,
+        fluid_solver_base<rnumber> *FSOLVER,
+        const int NPARTICLES,
+        const int NCOMPONENTS,
+        const int BUFFERSIZE)
+{
+    assert((NCOMPONENTS % 3) == 0);
+    strncpy(this->name, NAME, 256);
+    this->fs = FSOLVER;
+    this->nparticles = NPARTICLES;
+    this->ncomponents = NCOMPONENTS;
+    this->buffer_size = BUFFERSIZE;
+    this->array_size = this->nparticles * this->ncomponents;
+    this->state = fftw_alloc_real(this->array_size);
+    this->is_active = new bool*[nprocs];
+    for (int i=0; i<nprocs; i++)
+        this->is_active[i] = new bool[this->nparticles];
+
+    // compute dx, dy, dz;
+    this->dx = 2*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
+    this->dy = 2*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
+    this->dz = 2*acos(0) / (this->fs->dkz*this->fs->rd->sizes[0]);
+
+    // compute lower and upper bounds
+    this->lbound = new double[nprocs];
+    this->ubound = new double[nprocs];
+    double *tbound = new double[nprocs];
+    std::fill_n(tbound, nprocs, 0.0);
+    tbound[this->fs->rd->myrank] = this->fs->rd->starts[0]*this->dz;
+    MPI_Allreduce(
+            tbound,
+            this->lbound,
+            nprocs,
+            MPI_REAL8,
+            MPI_SUM,
+            MPI_COMM_WORLD);
+    std::fill_n(tbound, nprocs, 0.0);
+    tbound[this->fs->rd->myrank] = (this->fs->rd->starts[0] + this->fs->rd->subsizes[0])*this->dz;
+    MPI_Allreduce(
+            tbound,
+            this->ubound,
+            nprocs,
+            MPI_REAL8,
+            MPI_SUM,
+            MPI_COMM_WORLD);
+    delete[] tbound;
+
+    // initial assignment of particles
+    for (int r=0; r<nprocs; r++)
+    for (int p=0; p<this->nparticles; p++)
+        this->is_active[r][p] = ((this->lbound[r] <= MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
+                                 (this->ubound[r]  > MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz));
+    // now actual synchronization
+    this->synchronize();
+}
+
+template <class rnumber>
+slab_field_particles<rnumber>::~slab_field_particles()
+{
+    for (int i=0; i<nprocs; i++)
+        delete[] this->is_active[i];
+    delete[] this->is_active;
+    fftw_free(this->state);
+    delete[] this->lbound;
+    delete[] this->ubound;
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::jump_estimate(double *dest)
+{
+    std::copy(this->state,
+              this->state + this->array_size,
+              dest);
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::synchronize()
+{
+    // first, synchronize state across CPUs
+    double *tstate = fftw_alloc_real(this->array_size);
+    double *jump = fftw_alloc_real(this->nparticles);
+    std::fill_n(tstate, this->array_size, 0.0);
+    for (int p=0; p<this->nparticles; p++)
+    {
+        int r = 0;
+        while(!this->is_active[r][p]) r++;
+        std::copy(this->state + p*this->ncomponents,
+                  this->state + (p+1)*this->ncomponents,
+                  tstate + p*this->ncomponents);
+    }
+    MPI_Allreduce(
+            tstate,
+            this->state,
+            this->array_size,
+            MPI_REAL8,
+            MPI_SUM,
+            MPI_COMM_WORLD);
+    std::fill_n(tstate, this->array_size, 0.0);
+    this->jump_estimate(tstate);
+    MPI_Allreduce(
+            tstate,
+            jump,
+            this->nparticles,
+            MPI_REAL8,
+            MPI_SUM,
+            MPI_COMM_WORLD);
+    fftw_free(tstate);
+    for (int r=0; r<nprocs; r++)
+    for (int p=0; p<this->nparticles; p++)
+        this->is_active[r][p] = ((this->lbound[r] <= MOD((this->state[p*this->ncomponents + 2] - jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
+                                 (this->ubound[r]  > MOD((this->state[p*this->ncomponents + 2] + jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz));
+    fftw_free(jump);
+}
+
+
+/*****************************************************************************/
+/* finally, force generation of code for single precision                    */
+template class slab_field_particles<float>;
+/*****************************************************************************/
