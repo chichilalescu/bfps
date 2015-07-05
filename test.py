@@ -20,8 +20,8 @@
 ########################################################################
 
 
-
-from code import code
+import bfps
+from bfps.code import code
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
@@ -202,7 +202,7 @@ class stat_test(code):
         return Rdata0
 
 def convergence_test(opt):
-    c = stat_test(name = opt.test_name)
+    c = stat_test(name = 'convergence_test')
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -240,7 +240,7 @@ def convergence_test(opt):
         Kdata2 = padd_with_zeros(Kdata0, opt.n*2)
         Kdata2.tofile("test2_cvorticity_i00000")
         c.run(ncpu = opt.ncpu, simname = 'test2')
-    dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
+    dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     stats_vortex = np.loadtxt('../vortex/sim_000000.log')
@@ -285,7 +285,7 @@ def convergence_test(opt):
     return None
 
 def Kolmogorov_flow_test(opt):
-    c = stat_test(name = opt.test_name)
+    c = stat_test(name = 'Kflow_test')
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -311,7 +311,7 @@ def Kolmogorov_flow_test(opt):
                 'test_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
         tdata = Rdata.transpose(3, 0, 1, 2).copy()
-    dtype = pickle.load(open(opt.test_name + '_dtype.pickle'))
+    dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats = np.fromfile('test_stats.bin', dtype = dtype)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
@@ -385,7 +385,6 @@ def Kolmogorov_flow_test(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('test_name', type = str)
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
