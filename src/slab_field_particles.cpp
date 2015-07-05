@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <cassert>
+#include <cstring>
 #include "slab_field_particles.hpp"
 
 extern int myrank, nprocs;
