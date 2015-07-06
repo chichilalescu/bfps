@@ -45,7 +45,9 @@ class tracers:public slab_field_particles<rnumber>
                 rnumber *SOURCE_DATA);
         ~tracers();
 
-
+        void transfer_data(bool clip_on = true);
+        virtual void get_rhs(double *x, double *rhs);
+        virtual void jump_estimate(double *jump_length);
 };
 
 

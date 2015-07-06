@@ -73,6 +73,7 @@ class slab_field_particles
                 const int BUFFERSIZE);
         ~slab_field_particles();
 
+        virtual void get_rhs(double *x, double *rhs);
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
          * function is virtual since we want children to do different things,

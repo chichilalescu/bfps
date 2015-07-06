@@ -20,7 +20,28 @@
 
 
 
+#include "fftw_tools.hpp"
 #include "tracers.hpp"
+
+template <class rnumber>
+void tracers<rnumber>::jump_estimate(double *jump)
+{
+    std::fill_n(jump, this->nparticles, 0.0);
+}
+
+template <class rnumber>
+void tracers<rnumber>::get_rhs(double *x, double *y)
+{
+    std::fill_n(y, this->array_size, 0.0);
+}
+
+template<class rnumber>
+void tracers<rnumber>::transfer_data(bool clip_on)
+{
+    if (clip_on)
+        clip_zero_padding(this->fs->rd, this->source_data, 3);
+    this->rFFTW_to_buffered(this->source_data, this->data);
+}
 
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */

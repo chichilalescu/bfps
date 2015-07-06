@@ -89,7 +89,7 @@ class convergence_test(bfps.code):
                         fs->ru);
                 fs->compute_velocity(fs->cvorticity);
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
-                ps->rFFTW_to_buffered(ps->source_data, ps->data);
+                ps->transfer_data();
                 t = 0.0;
                 do_stats(fs);
                 fs->write('u', 'r');

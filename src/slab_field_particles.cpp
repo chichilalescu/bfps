@@ -98,11 +98,15 @@ slab_field_particles<rnumber>::~slab_field_particles()
 }
 
 template <class rnumber>
+void slab_field_particles<rnumber>::get_rhs(double *x, double *y)
+{
+    std::fill_n(y, this->array_size, 0.0);
+}
+
+template <class rnumber>
 void slab_field_particles<rnumber>::jump_estimate(double *dest)
 {
-    std::copy(this->state,
-              this->state + this->array_size,
-              dest);
+    std::fill_n(dest, this->array_size, 0.0);
 }
 
 template <class rnumber>
@@ -156,9 +160,6 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_REAL4 : MPI_REAL8;
     const ptrdiff_t bsize = this->buffer_size*this->fs->rd->slice_size;
     MPI_Request *mpirequest = new MPI_Request;
-    // first, remove 0 buffer.
-    // keep in mind that the source data MUST be in FFTW format
-    clip_zero_padding(this->fs->rd, src, 3);
     /* do big copy of middle stuff */
     std::copy(src,
               src + this->fs->rd->local_size,
