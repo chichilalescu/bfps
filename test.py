@@ -20,8 +20,8 @@
 ########################################################################
 
 
-from bfps import code
-from bfps.tools import *
+from bfps.test import convergence_test
+
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
@@ -64,103 +64,8 @@ def basic_test(
             """
     return src_txt
 
-class stat_test(code):
-    def __init__(self, name = 'stat_test'):
-        super(stat_test, self).__init__()
-        self.name = name
-        self.parameters['niter_todo'] = 8
-        self.parameters['dt'] = 0.01
-        self.parameters['nu'] = 0.1
-        self.parameters['famplitude'] = 1.0
-        self.parameters['fmode'] = 1
-        self.includes += '#include <cstring>\n'
-        self.includes += '#include "fftw_tools.hpp"\n'
-        self.variables += ('double t;\n' +
-                           'FILE *stat_file;\n'
-                           'double stats[2];\n')
-        self.variables += self.cdef_pars()
-        self.definitions += self.cread_pars()
-        self.definitions += """
-                //begincpp
-                void do_stats(fluid_solver<float> *fsolver)
-                {
-                    fsolver->compute_velocity(fsolver->cvorticity);
-                    stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
-                    stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    if (myrank == fsolver->cd->io_myrank)
-                    {
-                        fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
-                        fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 2, stat_file);
-                    }
-                }
-                //endcpp
-                """
-        self.stats_dtype = np.dtype([('iteration', np.int32),
-                                     ('t', np.float64),
-                                     ('energy', np.float64),
-                                     ('enstrophy', np.float64)])
-        pickle.dump(
-                self.stats_dtype,
-                open(self.name + '_dtype.pickle', 'w'))
-        self.main = """
-                //begincpp
-                fluid_solver<float> *fs;
-                char fname[512];
-                fs = new fluid_solver<float>(simname, nx, ny, nz);
-                fs->nu = nu;
-                fs->fmode = fmode;
-                fs->famplitude = famplitude;
-                fs->iteration = iter0;
-                if (myrank == fs->cd->io_myrank)
-                    {
-                        sprintf(fname, "%s_stats.bin", simname);
-                        stat_file = fopen(fname, "wb");
-                    }
-                fs->read('v', 'c');
-                fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
-                fs->force_divfree(fs->cvorticity);
-                fs->symmetrize(fs->cvorticity, 3);
-                t = 0.0;
-                do_stats(fs);
-                fs->write('u', 'r');
-                fs->write('v', 'r');
-                for (; fs->iteration < iter0 + niter_todo;)
-                {
-                    fs->step(dt);
-                    t += dt;
-                    do_stats(fs);
-                }
-                fclose(stat_file);
-                fs->write('v', 'c');
-                fs->write('v', 'r');
-                fs->write('u', 'r');
-                fs->write('u', 'c');
-                delete fs;
-                //endcpp
-                """
-        return None
-    def plot_vel_cut(
-            self,
-            axis,
-            simname = 'test',
-            field = 'velocity',
-            iteration = 0):
-        axis.set_axis_off()
-        Rdata0 = np.fromfile(
-                simname + '_r' + field + '_i{0:0>5x}'.format(iteration),
-                dtype = np.float32).reshape((self.parameters['nz'],
-                                             self.parameters['ny'],
-                                             self.parameters['nx'], 3))
-        energy = np.sum(Rdata0[13, :, :, :]**2, axis = 2)*.5
-        axis.imshow(energy, interpolation='none')
-        axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
-                                               Rdata0[..., 1]**2 +
-                                               Rdata0[..., 2]**2)*.5))
-        return Rdata0
-
-def convergence_test(opt):
-    c = stat_test(name = 'convergence_test')
+def main(opt):
+    c = convergence_test()
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -169,35 +74,7 @@ def convergence_test(opt):
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
     if opt.run:
-        np.random.seed(7547)
-        Kdata00 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
-        Kdata01 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
-        Kdata02 = generate_data_3D(opt.n/2, p = 1.).astype(np.complex64)
-        Kdata0 = np.zeros(
-                Kdata00.shape + (3,),
-                Kdata00.dtype)
-        Kdata0[..., 0] = Kdata00
-        Kdata0[..., 1] = Kdata01
-        Kdata0[..., 2] = Kdata02
-        Kdata1 = padd_with_zeros(Kdata0, opt.n)
-        Kdata1.tofile("test1_cvorticity_i00000")
-        c.write_src()
-        c.write_par(simname = 'test1')
-        c.run(ncpu = opt.ncpu, simname = 'test1')
-        Rdata = np.fromfile(
-                'test1_rvorticity_i00000',
-                dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
-        tdata = Rdata.transpose(3, 0, 1, 2).copy()
-        tdata.tofile('input_for_vortex')
-        c.parameters['dt'] /= 2
-        c.parameters['niter_todo'] *= 2
-        c.parameters['nx'] *= 2
-        c.parameters['ny'] *= 2
-        c.parameters['nz'] *= 2
-        c.write_par(simname = 'test2')
-        Kdata2 = padd_with_zeros(Kdata0, opt.n*2)
-        Kdata2.tofile("test2_cvorticity_i00000")
-        c.run(ncpu = opt.ncpu, simname = 'test2')
+        c.execute(ncpu = opt.ncpu)
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
@@ -213,37 +90,41 @@ def convergence_test(opt):
     a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
-    #fig = plt.figure(figsize=(12, 12))
-    #a = fig.add_subplot(221)
-    #c.plot_vel_cut(
-    #        a,
-    #        simname = 'test1',
-    #        field = 'velocity',
-    #        iteration = 0)
-    #a = fig.add_subplot(222)
-    #a.set_axis_off()
-    #c.plot_vel_cut(
-    #        a,
-    #        simname = 'test2',
-    #        field = 'velocity',
-    #        iteration = 0)
-    #a = fig.add_subplot(223)
-    #c.plot_vel_cut(
-    #        a,
-    #        simname = 'test1',
-    #        field = 'velocity',
-    #        iteration = stats1.shape[0] - 1)
-    #a = fig.add_subplot(224)
-    #c.plot_vel_cut(
-    #        a,
-    #        simname = 'test2',
-    #        field = 'velocity',
-    #        iteration = stats2.shape[0] - 1)
-    #fig.savefig('vel_cut.pdf', format = 'pdf')
+    fig = plt.figure(figsize=(12, 12))
+    a = fig.add_subplot(221)
+    c.plot_vel_cut(
+            a,
+            simname = 'test1',
+            field = 'velocity',
+            iteration = 0)
+    a = fig.add_subplot(223)
+    c.plot_vel_cut(
+            a,
+            simname = 'test1',
+            field = 'velocity',
+            iteration = stats1.shape[0] - 1)
+    a = fig.add_subplot(222)
+    c.parameters['nx'] *= 2
+    c.parameters['ny'] *= 2
+    c.parameters['nz'] *= 2
+    c.plot_vel_cut(
+            a,
+            simname = 'test2',
+            field = 'velocity',
+            iteration = 0,
+            zval = 26)
+    a = fig.add_subplot(224)
+    c.plot_vel_cut(
+            a,
+            simname = 'test2',
+            field = 'velocity',
+            iteration = stats2.shape[0] - 1,
+            zval = 26)
+    fig.savefig('vel_cut.pdf', format = 'pdf')
     return None
 
 def Kolmogorov_flow_test(opt):
-    c = stat_test(name = 'Kflow_test')
+    c = convergence_test(name = 'Kflow_test')
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -348,5 +229,5 @@ if __name__ == '__main__':
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
-    convergence_test(opt)
+    main(opt)
 
