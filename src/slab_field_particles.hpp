@@ -84,6 +84,9 @@ class slab_field_particles
         void synchronize();
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
         ptrdiff_t buffered_local_size();
+
+        /* solvers */
+        void Euler();
 };
 
 

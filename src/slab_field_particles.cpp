@@ -214,6 +214,20 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
             mpirequest);
     delete mpirequest;
 }
+
+
+
+template <class rnumber>
+void slab_field_particles<rnumber>::Euler()
+{
+    double *y = fftw_alloc_real(this->array_size);
+    this->get_rhs(this->state, y);
+    for (int p=0; p<this->nparticles; p++)
+        for (int i=0; i<this->ncomponents; i++)
+            this->state[p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
+    fftw_free(y);
+}
+
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class slab_field_particles<float>;

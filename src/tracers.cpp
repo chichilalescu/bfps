@@ -32,11 +32,12 @@ void tracers<rnumber>::jump_estimate(double *jump)
 template <class rnumber>
 void tracers<rnumber>::get_rhs(double *x, double *y)
 {
-    std::fill_n(y, this->array_size, 0.0);
+    /* get grid coordinates */
+    /* perform interpolation */
 }
 
 template<class rnumber>
-void tracers<rnumber>::transfer_data(bool clip_on)
+void tracers<rnumber>::update_field(bool clip_on)
 {
     if (clip_on)
         clip_zero_padding(this->fs->rd, this->source_data, 3);
