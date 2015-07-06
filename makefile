@@ -64,7 +64,8 @@ base_files := \
 	vector_field \
 	fluid_solver_base \
 	fluid_solver \
-	slab_field_particles
+	slab_field_particles \
+	tracers
 
 #headers := $(patsubst %, ./src/%.hpp, ${base_files})
 src := $(patsubst %, ./src/%.cpp, ${base_files})
