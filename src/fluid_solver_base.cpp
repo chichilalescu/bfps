@@ -188,12 +188,12 @@ void fluid_solver_base<R>::low_pass_Fourier(C *a, const int howmany, const doubl
                       k2);*/ \
             if (k2 >= km2) \
             { \
-                for (int tcounter = 0; tcounter < howmany; tcounter++) \
+                /*for (int tcounter = 0; tcounter < howmany; tcounter++) \
                 { \
                     a[howmany*cindex+tcounter][0] = 0.0; \
                     a[howmany*cindex+tcounter][1] = 0.0; \
-                } \
-                /*std::fill_n((R*)(a + howmany*cindex), howmany2, 0.0);*/ \
+                }*/ \
+                std::fill_n((R*)(a + howmany*cindex), howmany2, 0.0); \
             } \
             );\
 } \
@@ -245,7 +245,7 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
     C *buffer; \
     buffer = FFTW(alloc_complex)(howmany*this->cd->sizes[1]); \
     ptrdiff_t yy; \
-    ptrdiff_t tindex; \
+    /*ptrdiff_t tindex;*/ \
     int ranksrc, rankdst; \
     for (yy = 1; yy < this->cd->sizes[0]/2; yy++) { \
         ranksrc = this->cd->rank[yy]; \
