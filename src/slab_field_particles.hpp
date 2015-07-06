@@ -81,6 +81,8 @@ class slab_field_particles
          * */
         virtual void jump_estimate(double *jump_length);
         void synchronize();
+        void rFFTW_to_buffered(rnumber *src, rnumber *dst);
+        ptrdiff_t buffered_local_size();
 };
 
 

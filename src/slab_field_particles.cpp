@@ -24,6 +24,7 @@
 #include <cassert>
 #include <cstring>
 #include "slab_field_particles.hpp"
+#include "fftw_tools.hpp"
 
 extern int myrank, nprocs;
 
@@ -64,7 +65,7 @@ slab_field_particles<rnumber>::slab_field_particles(
             nprocs,
             MPI_REAL8,
             MPI_SUM,
-            MPI_COMM_WORLD);
+            this->fs->rd->comm);
     std::fill_n(tbound, nprocs, 0.0);
     tbound[this->fs->rd->myrank] = (this->fs->rd->starts[0] + this->fs->rd->subsizes[0])*this->dz;
     MPI_Allreduce(
@@ -73,7 +74,7 @@ slab_field_particles<rnumber>::slab_field_particles(
             nprocs,
             MPI_REAL8,
             MPI_SUM,
-            MPI_COMM_WORLD);
+            this->fs->rd->comm);
     delete[] tbound;
 
     // initial assignment of particles
@@ -125,7 +126,7 @@ void slab_field_particles<rnumber>::synchronize()
             this->array_size,
             MPI_REAL8,
             MPI_SUM,
-            MPI_COMM_WORLD);
+            this->fs->rd->comm);
     std::fill_n(tstate, this->array_size, 0.0);
     this->jump_estimate(tstate);
     MPI_Allreduce(
@@ -134,7 +135,7 @@ void slab_field_particles<rnumber>::synchronize()
             this->nparticles,
             MPI_REAL8,
             MPI_SUM,
-            MPI_COMM_WORLD);
+            this->fs->rd->comm);
     fftw_free(tstate);
     for (int r=0; r<nprocs; r++)
     for (int p=0; p<this->nparticles; p++)
@@ -143,7 +144,60 @@ void slab_field_particles<rnumber>::synchronize()
     fftw_free(jump);
 }
 
+template <class rnumber>
+ptrdiff_t slab_field_particles<rnumber>::buffered_local_size()
+{
+    return this->fs->rd->local_size + this->buffer_size*2*this->fs->rd->slice_size;
+}
 
+template <class rnumber>
+void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst)
+{
+    const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_REAL4 : MPI_REAL8;
+    const ptrdiff_t bsize = this->buffer_size*this->fs->rd->slice_size;
+    // first, remove 0 buffer.
+    // keep in mind that the source data MUST be in FFTW format
+    clip_zero_padding(this->fs->rd, src, 3);
+    /* do big copy of middle stuff */
+    std::copy(src,
+              src + this->fs->rd->local_size,
+              dst + bsize);
+    /* take care of buffer regions */
+    // 1. send lower slices
+    MPI_Send(
+            (void*)(src),
+            bsize,
+            MPI_RNUM,
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
+            this->fs->rd->starts[0]-1,
+            this->fs->rd->comm);
+    // 2. receive higher slices
+    MPI_Recv(
+            (void*)(dst + bsize + this->fs->rd->local_size),
+            bsize,
+            MPI_RNUM,
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
+            this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1,
+            this->fs->rd->comm,
+            MPI_STATUS_IGNORE);
+    // 3. send higher slices
+    MPI_Send(
+            (void*)(src + this->fs->rd->local_size - bsize),
+            bsize,
+            MPI_RNUM,
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
+            this->fs->rd->starts[0]+this->fs->rd->subsizes[0],
+            this->fs->rd->comm);
+    // 4. receive lower slices
+    MPI_Recv(
+            (void*)(dst),
+            bsize,
+            MPI_RNUM,
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
+            this->fs->rd->starts[0],
+            this->fs->rd->comm,
+            MPI_STATUS_IGNORE);
+}
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class slab_field_particles<float>;
