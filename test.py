@@ -140,9 +140,6 @@ class stat_test(code):
                 //endcpp
                 """
         return None
-    def get_coord(self, direction):
-        assert(direction == 'x' or direction == 'y' or direction == 'z')
-        return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]
     def plot_vel_cut(
             self,
             axis,
