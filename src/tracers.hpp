@@ -40,7 +40,6 @@ class tracers:public slab_field_particles<rnumber>
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
-                const int NCOMPONENTS,
                 const int BUFFERSIZE,
                 rnumber *SOURCE_DATA);
         ~tracers();

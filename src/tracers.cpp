@@ -53,13 +53,12 @@ tracers<R>::tracers( \
                 const char *NAME, \
                 fluid_solver_base<R> *FSOLVER, \
                 const int NPARTICLES, \
-                const int NCOMPONENTS, \
                 const int BUFFERSIZE, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
                     NAME, \
                     FSOLVER, \
                     NPARTICLES, \
-                    NCOMPONENTS, \
+                    3, \
                     BUFFERSIZE) \
 { \
     this->source_data = SOURCE_DATA; \

@@ -85,7 +85,7 @@ class convergence_test(bfps.code):
                 fs->symmetrize(fs->cvorticity, 3);
                 ps = new tracers<float>(
                         simname, fs,
-                        32, 3, 2,
+                        32, 2,
                         fs->ru);
                 fs->compute_velocity(fs->cvorticity);
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
