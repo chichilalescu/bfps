@@ -35,6 +35,7 @@ class convergence_test(bfps.code):
         self.parameters['fmode'] = 1
         self.includes += '#include <cstring>\n'
         self.includes += '#include "fftw_tools.hpp"\n'
+        self.includes += '#include "slab_field_particles.hpp"\n'
         self.variables += ('double t;\n' +
                            'FILE *stat_file;\n'
                            'double stats[2];\n')
@@ -66,6 +67,7 @@ class convergence_test(bfps.code):
         self.main = """
                 //begincpp
                 fluid_solver<float> *fs;
+                slab_field_particles<float> *ps;
                 char fname[512];
                 fs = new fluid_solver<float>(simname, nx, ny, nz);
                 fs->nu = nu;
@@ -81,6 +83,9 @@ class convergence_test(bfps.code):
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
                 fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
+                ps = new slab_field_particles<float>(
+                        simname, fs,
+                        32, 3, 2);
                 t = 0.0;
                 do_stats(fs);
                 fs->write('u', 'r');
@@ -96,6 +101,7 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 fs->write('u', 'r');
                 fs->write('u', 'c');
+                delete ps;
                 delete fs;
                 //endcpp
                 """
