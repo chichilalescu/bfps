@@ -39,7 +39,7 @@ def main(opt):
     c.parameters['famplitude'] = 0.0
     if opt.run:
         subprocess.call(['rm', 'test1_*', 'test2_*'])
-        subprocess.call(['make', 'clean'])
+        #subprocess.call(['make', 'clean'])
         c.execute(ncpu = opt.ncpu)
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)

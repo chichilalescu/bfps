@@ -45,7 +45,7 @@ class convergence_test(bfps.code):
         self.definitions += """
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver,
-                              tracer<float> *tracer)
+                              tracers<float> *tracers)
                 {
                     fsolver->compute_velocity(fsolver->cvorticity);
                     stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
@@ -55,7 +55,7 @@ class convergence_test(bfps.code):
                         fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                         fwrite((void*)&t, sizeof(double), 1, stat_file);
                         fwrite((void*)stats, sizeof(double), 2, stat_file);
-                        fwrite((void*)tracer->state, sizeof(double), tracer->array_size);
+                        fwrite((void*)tracers->state, sizeof(double), tracers->array_size, traj_file);
                     }
                 }
                 //endcpp
@@ -77,13 +77,6 @@ class convergence_test(bfps.code):
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
                 fs->iteration = iter0;
-                if (myrank == fs->cd->io_myrank)
-                    {
-                        sprintf(fname, "%s_stats.bin", simname);
-                        stat_file = fopen(fname, "wb");
-                        sprintf(fname, "%s_traj.bin", ps->name);
-                        traj_file = fopen(fname, "wb");
-                    }
                 fs->read('v', 'c');
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
                 fs->force_divfree(fs->cvorticity);
@@ -97,6 +90,13 @@ class convergence_test(bfps.code):
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                 ps->update_field();
                 t = 0.0;
+                if (myrank == fs->cd->io_myrank)
+                    {
+                        sprintf(fname, "%s_stats.bin", simname);
+                        stat_file = fopen(fname, "wb");
+                        sprintf(fname, "%s_traj.bin", ps->name);
+                        traj_file = fopen(fname, "wb");
+                    }
                 do_stats(fs, ps);
                 fs->write('u', 'r');
                 fs->write('v', 'r');
