@@ -47,8 +47,8 @@ def main(opt):
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    traj1 = np.fromfile('test1_traj.bin', dtype = np.float32).reshape(-1, 32, 3)
-    traj2 = np.fromfile('test2_traj.bin', dtype = np.float32).reshape(-1, 32, 3)
+    traj1 = np.fromfile('test1_traj.bin', dtype = np.float64).reshape(-1, 2, 3)
+    traj2 = np.fromfile('test2_traj.bin', dtype = np.float64).reshape(-1, 2, 3)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
@@ -62,7 +62,7 @@ def main(opt):
 
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(111, projection = '3d')
-    for t in range(32):
+    for t in range(traj1.shape[1]):
         a.plot(traj1[:, t, 0], traj1[:, t, 1], traj1[:, t, 2], color = 'blue')
         a.plot(traj2[:, t, 0], traj2[:, t, 1], traj2[:, t, 2], color = 'red', dashes = (1,1))
     fig.savefig('traj.pdf', format = 'pdf')

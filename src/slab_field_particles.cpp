@@ -225,9 +225,14 @@ void slab_field_particles<rnumber>::Euler()
 {
     double *y = fftw_alloc_real(this->array_size);
     this->get_rhs(this->state, y);
-    for (int p=0; p<this->nparticles; p++)
+    for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+    {
         for (int i=0; i<this->ncomponents; i++)
             this->state[p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
+        DEBUG_MSG(
+                "particle %d state is %lg %lg %lg\n",
+                p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+1]);
+    }
     fftw_free(y);
 }
 
@@ -239,13 +244,18 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
     std::fill_n(xg, this->nparticles*3, 0);
     std::fill_n(xx, this->nparticles*3, 0.0);
     for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+    {
         for (int c=0; c<3; c++)
         {
             tval = floor(x[p*this->ncomponents+c]/this->dx);
-            xg[p*3+c] = MOD(tval, this->fs->rd->sizes[2-c]);
+            xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
             xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
             xg[p*3+c] -= this->fs->rd->starts[2-c];
         }
+        DEBUG_MSG(
+                "particle %d xx is %lg %lg %lg xg is %d %d %d\n",
+                p, xx[p*3], xx[p*3+1], xx[p*3+2], xg[p*3], xg[p*3+1], xg[p*3+2]);
+    }
 }
 
 /*****************************************************************************/
