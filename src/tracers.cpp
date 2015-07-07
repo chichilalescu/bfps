@@ -20,6 +20,7 @@
 
 
 
+#include <cmath>
 #include "fftw_tools.hpp"
 #include "tracers.hpp"
 
@@ -27,13 +28,53 @@ template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
     std::fill_n(jump, this->nparticles, 0.0);
+    /* get grid coordinates */
+    int *xg = new int[this->array_size];
+    double *xx = new double[this->array_size];
+    float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
+    this->get_grid_coordinates(this->state, xg, xx);
+;
+    /* perform interpolation */
+    for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+        {
+            jump[p] = (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
+                       vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])));
+        }
+    delete[] xg;
+    delete[] xx;
 }
 
 template <class rnumber>
 void tracers<rnumber>::get_rhs(double *x, double *y)
 {
+    std::fill_n(y, this->array_size, 0.0);
     /* get grid coordinates */
+    int *xg = new int[this->array_size];
+    double *xx = new double[this->array_size];
+    float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
+    this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
+    for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+        for (int c=0; c<3; c++)
+        {
+            y[p*3+c] = (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
+                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])));
+            DEBUG_MSG("particle %d found y %lg\n", p, y[p*3+c]);
+        }
+    delete[] xg;
+    delete[] xx;
 }
 
 template<class rnumber>

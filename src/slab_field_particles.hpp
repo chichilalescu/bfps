@@ -65,6 +65,14 @@ class slab_field_particles
         rnumber dx, dy, dz;
 
         /* methods */
+
+        /* constructor and destructor.
+         * allocate and deallocate:
+         *  this->state
+         *  this->lbound
+         *  this->ubound
+         *  this->is_active
+         * */
         slab_field_particles(
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
@@ -73,17 +81,19 @@ class slab_field_particles
                 const int BUFFERSIZE);
         ~slab_field_particles();
 
-        virtual void get_rhs(double *x, double *rhs);
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
-         * function is virtual since we want children to do different things,
-         * depending on the type of particle. this particular function just
-         * copies the old state into the new state.
+         * functions are virtual since we want children to do different things,
+         * depending on the type of particle.
          * */
         virtual void jump_estimate(double *jump_length);
+        virtual void get_rhs(double *x, double *rhs);
+
+        /* generic methods, should work for all children of this class */
         void synchronize();
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
         ptrdiff_t buffered_local_size();
+        void get_grid_coordinates(double *x, int *xg, double *xx);
 
         /* solvers */
         void Euler();
