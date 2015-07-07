@@ -44,6 +44,7 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->buffer_size = BUFFERSIZE;
     this->array_size = this->nparticles * this->ncomponents;
     this->state = fftw_alloc_real(this->array_size);
+    std::fill_n(this->state, this->array_size, 0.0);
     this->is_active = new bool*[nprocs];
     for (int i=0; i<nprocs; i++)
         this->is_active[i] = new bool[this->nparticles];
@@ -106,7 +107,7 @@ void slab_field_particles<rnumber>::get_rhs(double *x, double *y)
 template <class rnumber>
 void slab_field_particles<rnumber>::jump_estimate(double *dest)
 {
-    std::fill_n(dest, this->array_size, 0.0);
+    std::fill_n(dest, this->nparticles, 0.0);
 }
 
 template <class rnumber>
