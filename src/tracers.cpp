@@ -25,6 +25,20 @@
 #include "tracers.hpp"
 
 template <class rnumber>
+void tracers<rnumber>::linear_interpolation(float *field, int *xg, double *xx, double *dest)
+{
+    for (int c=0; c<3; c++)
+        dest[c] = (field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[0]+xg[0]  )*3+c]*((1-xx[0])*(1-xx[1])*(1-xx[2])) +
+                   field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[0]+xg[0]+1)*3+c]*((  xx[0])*(1-xx[1])*(1-xx[2])) +
+                   field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]+1)*this->fs->rd->subsizes[0]+xg[0]  )*3+c]*((1-xx[0])*(  xx[1])*(1-xx[2])) +
+                   field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]+1)*this->fs->rd->subsizes[0]+xg[0]+1)*3+c]*((  xx[0])*(  xx[1])*(1-xx[2])) +
+                   field[((ptrdiff_t(xg[2]+1)*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[0]+xg[0]  )*3+c]*((1-xx[0])*(1-xx[1])*(  xx[2])) +
+                   field[((ptrdiff_t(xg[2]+1)*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[0]+xg[0]+1)*3+c]*((  xx[0])*(1-xx[1])*(  xx[2])) +
+                   field[((ptrdiff_t(xg[2]+1)*this->fs->rd->subsizes[1]+xg[1]+1)*this->fs->rd->subsizes[0]+xg[0]  )*3+c]*((1-xx[0])*(  xx[1])*(  xx[2])) +
+                   field[((ptrdiff_t(xg[2]+1)*this->fs->rd->subsizes[1]+xg[1]+1)*this->fs->rd->subsizes[0]+xg[0]+1)*3+c]*((  xx[0])*(  xx[1])*(  xx[2])));
+}
+
+template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
     std::fill_n(jump, this->nparticles, 0.0);
@@ -32,20 +46,14 @@ void tracers<rnumber>::jump_estimate(double *jump)
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
     float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
+    double tmp[3];
     this->get_grid_coordinates(this->state, xg, xx);
 ;
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
     {
-        jump[p] = fabs(2*this->dt * \
-                (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
-                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2]))));
+        this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp);
+        jump[p] = fabs(2*this->dt * tmp[2]);
     }
     delete[] xg;
     delete[] xx;
@@ -62,18 +70,10 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
-        for (int c=0; c<3; c++)
-        {
-            y[p*3+c] = (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+c]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
-                        vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+c]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])));
-            DEBUG_MSG("particle %d found y %lg\n", p, y[p*3+c]);
-        }
+    {
+        this->linear_interpolation(vel, xg + p*3, xx + p*3, y + p*3);
+        DEBUG_MSG("particle %d found y %lg %lg %lg\n", p, y[p*3], y[p*3+1], y[p*3+2]);
+    }
     delete[] xg;
     delete[] xx;
 }

@@ -47,6 +47,7 @@ class tracers:public slab_field_particles<rnumber>
         void update_field(bool clip_on = true);
         virtual void get_rhs(double *x, double *rhs);
         virtual void jump_estimate(double *jump_length);
+        void linear_interpolation(float *field, int *xg, double *xx, double *dest);
 };
 
 

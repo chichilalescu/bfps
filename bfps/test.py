@@ -116,7 +116,6 @@ class convergence_test(bfps.code):
                     ps->iteration++;
                     ps->synchronize();
                     do_stats(fs, ps);
-                    DEBUG_MSG("iteration %d hello\\n", fs->iteration);
                 }
                 if (myrank == 0)
                 {
