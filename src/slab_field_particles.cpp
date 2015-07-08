@@ -123,9 +123,10 @@ void slab_field_particles<rnumber>::synchronize()
     {
         int r = 0;
         while(!this->is_active[r][p]) r++;
-        std::copy(this->state + p*this->ncomponents,
-                  this->state + (p+1)*this->ncomponents,
-                  tstate + p*this->ncomponents);
+        if (this->fs->rd->myrank == r)
+            std::copy(this->state + p*this->ncomponents,
+                      this->state + (p+1)*this->ncomponents,
+                      tstate + p*this->ncomponents);
     }
     MPI_Allreduce(
             tstate,
@@ -231,7 +232,7 @@ void slab_field_particles<rnumber>::Euler()
             this->state[p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
         DEBUG_MSG(
                 "particle %d state is %lg %lg %lg\n",
-                p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+1]);
+                p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
     }
     fftw_free(y);
 }
