@@ -33,6 +33,7 @@ class convergence_test(bfps.code):
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
         self.parameters['fmode'] = 1
+        self.parameters['nparticles'] = 1
         self.includes += '#include <cstring>\n'
         self.includes += '#include "fftw_tools.hpp"\n'
         self.includes += '#include "tracers.hpp"\n'
@@ -81,11 +82,13 @@ class convergence_test(bfps.code):
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
                 fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
+                sprintf(fname, "%s_tracers", simname);
                 ps = new tracers<float>(
-                        simname, fs,
-                        2, 2,
+                        fname, fs,
+                        nparticles, 2,
                         fs->ru);
                 ps->dt = dt;
+                ps->read();
                 fs->compute_velocity(fs->cvorticity);
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                 ps->update_field();
@@ -102,12 +105,14 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
-                    fs->step(dt);
+                    //fs->step(dt);
+                    fs->iteration++;
                     t += dt;
                     fs->compute_velocity(fs->cvorticity);
                     fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                     ps->update_field();
                     ps->Euler();
+                    ps->iteration++;
                     ps->synchronize();
                     do_stats(fs, ps);
                 }
@@ -117,6 +122,7 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 fs->write('u', 'r');
                 fs->write('u', 'c');
+                ps->write();
                 delete ps;
                 delete fs;
                 //endcpp
@@ -144,12 +150,17 @@ class convergence_test(bfps.code):
     def execute(
             self,
             rseed = 7547,
-            ncpu = 2):
+            ncpu = 2,
+            particle_rseed = 328):
         assert(self.parameters['nx'] == self.parameters['ny'] == self.parameters['nz'])
+        np.random.seed(particle_rseed)
+        tracer_state = np.random.random(self.parameters['nparticles']*3)*2*np.pi
+        tracer_state.tofile('test1_tracers_state_i00000')
+        tracer_state.tofile('test2_tracers_state_i00000')
         np.random.seed(rseed)
-        Kdata00 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
-        Kdata01 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
-        Kdata02 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
+        Kdata00 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
+        Kdata01 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
+        Kdata02 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)

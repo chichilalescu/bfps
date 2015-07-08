@@ -36,7 +36,7 @@ def main(opt):
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 1e-1
-    c.parameters['dt'] = 4e-3
+    c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
     if opt.run:
@@ -47,8 +47,8 @@ def main(opt):
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
     stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    traj1 = np.fromfile('test1_traj.bin', dtype = np.float64).reshape(-1, 2, 3)
-    traj2 = np.fromfile('test2_traj.bin', dtype = np.float64).reshape(-1, 2, 3)
+    traj1 = np.fromfile('test1_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
+    traj2 = np.fromfile('test2_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
@@ -60,11 +60,23 @@ def main(opt):
     a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
-    fig = plt.figure(figsize = (12, 12))
-    a = fig.add_subplot(111, projection = '3d')
+    fig = plt.figure(figsize = (24, 12))
+    a = fig.add_subplot(121, projection = '3d')
     for t in range(traj1.shape[1]):
         a.plot(traj1[:, t, 0], traj1[:, t, 1], traj1[:, t, 2], color = 'blue')
         a.plot(traj2[:, t, 0], traj2[:, t, 1], traj2[:, t, 2], color = 'red', dashes = (1,1))
+    a = fig.add_subplot(322)
+    for t in range(traj1.shape[1]):
+        a.plot(stats1['t'], traj1[:, t, 0], color = 'blue')
+        a.plot(stats2['t'], traj2[:, t, 0], color = 'red', dashes = (1,1))
+    a = fig.add_subplot(324)
+    for t in range(traj1.shape[1]):
+        a.plot(stats1['t'], traj1[:, t, 1], color = 'blue')
+        a.plot(stats2['t'], traj2[:, t, 1], color = 'red', dashes = (1,1))
+    a = fig.add_subplot(326)
+    for t in range(traj1.shape[1]):
+        a.plot(stats1['t'], traj1[:, t, 2], color = 'blue')
+        a.plot(stats2['t'], traj2[:, t, 2], color = 'red', dashes = (1,1))
     fig.savefig('traj.pdf', format = 'pdf')
 
     fig = plt.figure(figsize=(12, 12))

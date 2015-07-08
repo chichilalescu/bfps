@@ -94,6 +94,8 @@ class slab_field_particles
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
         ptrdiff_t buffered_local_size();
         void get_grid_coordinates(double *x, int *xg, double *xx);
+        void read();
+        void write();
 
         /* solvers */
         void Euler();

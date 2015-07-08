@@ -36,17 +36,17 @@ void tracers<rnumber>::jump_estimate(double *jump)
 ;
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
-        {
-            jump[p] = fabs(2*this->dt * \
-                    (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
-                     vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2]))));
-        }
+    {
+        jump[p] = fabs(2*this->dt * \
+                (vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(1-xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]  )*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(1-xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]  )*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(1-xx[p*3+1])*(  xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]  )*3+2]*((1-xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2])) +
+                 vel[((ptrdiff_t(xg[p*3+2]+1)*this->fs->rd->subsizes[1]+xg[p*3+1]+1)*this->fs->rd->subsizes[0]+xg[p*3]+1)*3+2]*((  xx[p*3  ])*(  xx[p*3+1])*(  xx[p*3+2]))));
+    }
     delete[] xg;
     delete[] xx;
 }

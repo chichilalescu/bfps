@@ -259,6 +259,45 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
     }
 }
 
+template <class rnumber>
+void slab_field_particles<rnumber>::read()
+{
+    double *tstate = fftw_alloc_real(this->array_size);
+    std::fill_n(tstate, this->array_size, 0.0);
+    if (this->fs->rd->myrank == this->fs->rd->io_myrank)
+    {
+        char full_name[512];
+        sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
+        FILE *ifile;
+        ifile = fopen(full_name, "rb");
+        fread((void*)tstate, sizeof(double), this->array_size, ifile);
+        fclose(ifile);
+    }
+    MPI_Allreduce(
+            tstate,
+            this->state,
+            this->array_size,
+            MPI_REAL8,
+            MPI_SUM,
+            this->fs->rd->comm);
+    fftw_free(tstate);
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::write()
+{
+    this->synchronize();
+    if (this->fs->rd->myrank == this->fs->rd->io_myrank)
+    {
+        char full_name[512];
+        sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
+        FILE *ofile;
+        ofile = fopen(full_name, "wb");
+        fwrite((void*)this->state, sizeof(double), this->array_size, ofile);
+        fclose(ofile);
+    }
+}
+
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class slab_field_particles<float>;
