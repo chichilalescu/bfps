@@ -50,9 +50,9 @@ slab_field_particles<rnumber>::slab_field_particles(
         this->is_active[i] = new bool[this->nparticles];
 
     // compute dx, dy, dz;
-    this->dx = 2*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
-    this->dy = 2*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
-    this->dz = 2*acos(0) / (this->fs->dkz*this->fs->rd->sizes[0]);
+    this->dx = 4*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
+    this->dy = 4*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
+    this->dz = 4*acos(0) / (this->fs->dkz*this->fs->rd->sizes[0]);
 
     // compute lower and upper bounds
     this->lbound = new double[nprocs];
@@ -77,16 +77,6 @@ slab_field_particles<rnumber>::slab_field_particles(
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tbound;
-
-    // initial assignment of particles
-    for (int r=0; r<nprocs; r++)
-    for (int p=0; p<this->nparticles; p++)
-        this->is_active[r][p] = ((this->lbound[r] <= MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
-                                 (this->ubound[r]  > MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz));
-    // now actual synchronization
-    this->synchronize();
-    for (int p=0; p<this->nparticles; p++)
-        DEBUG_MSG("particle %d is_active %d\n", p, this->is_active[this->fs->rd->myrank][p]);
 }
 
 template <class rnumber>
@@ -128,6 +118,7 @@ void slab_field_particles<rnumber>::synchronize()
                       this->state + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
     }
+    std::fill_n(this->state, this->array_size, 0.0);
     MPI_Allreduce(
             tstate,
             this->state,
@@ -254,8 +245,11 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
             xg[p*3+c] -= this->fs->rd->starts[2-c];
         }
         DEBUG_MSG(
-                "particle %d xx is %lg %lg %lg xg is %d %d %d\n",
-                p, xx[p*3], xx[p*3+1], xx[p*3+2], xg[p*3], xg[p*3+1], xg[p*3+2]);
+                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+                p,
+                 x[p*3],  x[p*3+1],  x[p*3+2],
+                xx[p*3], xx[p*3+1], xx[p*3+2],
+                xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -264,7 +258,8 @@ void slab_field_particles<rnumber>::read()
 {
     double *tstate = fftw_alloc_real(this->array_size);
     std::fill_n(tstate, this->array_size, 0.0);
-    if (this->fs->rd->myrank == this->fs->rd->io_myrank)
+    std::fill_n(this->state, this->array_size, 0.0);
+    if (this->fs->rd->myrank == 0)
     {
         char full_name[512];
         sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
@@ -281,13 +276,22 @@ void slab_field_particles<rnumber>::read()
             MPI_SUM,
             this->fs->rd->comm);
     fftw_free(tstate);
+    // initial assignment of particles
+    for (int r=0; r<nprocs; r++)
+    for (int p=0; p<this->nparticles; p++)
+        this->is_active[r][p] = ((this->lbound[r] <= MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
+                                 (this->ubound[r]  > MOD((this->state[p*this->ncomponents + 2])/this->dz, this->fs->rd->sizes[0])*this->dz));
+    // now actual synchronization
+    this->synchronize();
+    for (int p=0; p<this->nparticles; p++)
+        DEBUG_MSG("particle %d is_active %d\n", p, this->is_active[this->fs->rd->myrank][p]);
 }
 
 template <class rnumber>
 void slab_field_particles<rnumber>::write()
 {
     this->synchronize();
-    if (this->fs->rd->myrank == this->fs->rd->io_myrank)
+    if (this->fs->rd->myrank == 0)
     {
         char full_name[512];
         sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);

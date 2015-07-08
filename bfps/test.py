@@ -51,7 +51,7 @@ class convergence_test(bfps.code):
                     fsolver->compute_velocity(fsolver->cvorticity);
                     stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
                     stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    if (myrank == fsolver->cd->io_myrank)
+                    if (myrank == 0)
                     {
                         fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                         fwrite((void*)&t, sizeof(double), 1, stat_file);
@@ -88,18 +88,19 @@ class convergence_test(bfps.code):
                         nparticles, 2,
                         fs->ru);
                 ps->dt = dt;
+                ps->iteration = iter0;
                 ps->read();
                 fs->compute_velocity(fs->cvorticity);
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                 ps->update_field();
                 t = 0.0;
-                if (myrank == fs->cd->io_myrank)
-                    {
-                        sprintf(fname, "%s_stats.bin", simname);
-                        stat_file = fopen(fname, "wb");
-                        sprintf(fname, "%s_traj.bin", ps->name);
-                        traj_file = fopen(fname, "wb");
-                    }
+                if (myrank == 0)
+                {
+                    sprintf(fname, "%s_stats.bin", simname);
+                    stat_file = fopen(fname, "wb");
+                    sprintf(fname, "%s_traj.bin", ps->name);
+                    traj_file = fopen(fname, "wb");
+                }
                 do_stats(fs, ps);
                 fs->write('u', 'r');
                 fs->write('v', 'r');
@@ -115,9 +116,13 @@ class convergence_test(bfps.code):
                     ps->iteration++;
                     ps->synchronize();
                     do_stats(fs, ps);
+                    DEBUG_MSG("iteration %d hello\\n", fs->iteration);
                 }
-                fclose(stat_file);
-                fclose(traj_file);
+                if (myrank == 0)
+                {
+                    fclose(stat_file);
+                    fclose(traj_file);
+                }
                 fs->write('v', 'c');
                 fs->write('v', 'r');
                 fs->write('u', 'r');
@@ -151,10 +156,11 @@ class convergence_test(bfps.code):
             self,
             rseed = 7547,
             ncpu = 2,
-            particle_rseed = 328):
+            particle_rseed = 3281):
         assert(self.parameters['nx'] == self.parameters['ny'] == self.parameters['nz'])
         np.random.seed(particle_rseed)
         tracer_state = np.random.random(self.parameters['nparticles']*3)*2*np.pi
+        print tracer_state
         tracer_state.tofile('test1_tracers_state_i00000')
         tracer_state.tofile('test2_tracers_state_i00000')
         np.random.seed(rseed)
