@@ -104,6 +104,8 @@ class convergence_test(bfps.code):
                 {
                     fs->step(dt);
                     t += dt;
+                    fs->compute_velocity(fs->cvorticity);
+                    fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                     ps->update_field();
                     ps->Euler();
                     ps->synchronize();
