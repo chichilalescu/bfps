@@ -170,18 +170,15 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     std::copy(src,
               src + this->fs->rd->local_size,
               dst + bsize);
-    //DEBUG_MSG("send tag is %d\n", MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]));
-    //DEBUG_MSG("recv tag is %d\n", MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]));
-    //DEBUG_MSG("destination cpu is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])]);
-    //DEBUG_MSG("source cpu is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])]
-    //        );
     /* take care of buffer regions.
      * I could make the code use blocking sends and receives, but it seems cleaner this way.
      * (alternative is to have a couple of loops).
      * */
     // 1. send lower slices
+    //DEBUG_MSG(
+    //        "destination rank is %d, message is %d\n",
+    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
+    //        MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]));
     MPI_Isend(
             (void*)(src),
             bsize,
@@ -191,6 +188,10 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
             this->fs->rd->comm,
             mpirequest);
     // 2. receive higher slices
+    //DEBUG_MSG(
+    //        "source rank is %d, message is %d\n",
+    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
+    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]));
     MPI_Irecv(
             (void*)(dst + bsize + this->fs->rd->local_size),
             bsize,
@@ -204,7 +205,7 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     //DEBUG_MSG(
     //        "destination rank is %d, message is %d\n",
     //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-    //        this->fs->rd->starts[0]+this->fs->rd->subsizes[0]);
+    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]));
     MPI_Isend(
             (void*)(src + this->fs->rd->local_size - bsize),
             bsize,

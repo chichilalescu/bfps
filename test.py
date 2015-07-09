@@ -40,7 +40,8 @@ def main(opt):
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
     if opt.run:
-        subprocess.call(['rm', 'test1_*', 'test2_*'])
+        subprocess.call(['rm test1_*'], shell = True)
+        subprocess.call(['rm test2_*'], shell = True)
         #subprocess.call(['make', 'clean'])
         c.execute(ncpu = opt.ncpu)
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
