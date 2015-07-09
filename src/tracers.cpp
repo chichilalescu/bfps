@@ -20,7 +20,10 @@
 
 
 
+#define NDEBUG
+
 #include <cmath>
+#include "base.hpp"
 #include "fftw_tools.hpp"
 #include "tracers.hpp"
 
