@@ -46,18 +46,18 @@ def main(opt):
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
-    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    #stats_vortex = np.loadtxt('../vortex/sim_000000.log')
     traj1 = np.fromfile('test1_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     traj2 = np.fromfile('test2_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
     a.plot(stats2['t'], stats2['energy'], dashes = (3, 3))
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
+    #a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
     a = fig.add_subplot(122)
     a.plot(stats1['t'], stats1['enstrophy'])
     a.plot(stats2['t'], stats2['enstrophy'], dashes = (3, 3))
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
+    #a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
     fig = plt.figure(figsize = (24, 12))
@@ -84,13 +84,13 @@ def main(opt):
     c.plot_vel_cut(
             a,
             simname = 'test1',
-            field = 'velocity',
+            field = 'rvelocity',
             iteration = 0)
     a = fig.add_subplot(223)
     c.plot_vel_cut(
             a,
             simname = 'test1',
-            field = 'velocity',
+            field = 'rvelocity',
             iteration = stats1.shape[0] - 1)
     a = fig.add_subplot(222)
     c.parameters['nx'] *= 2
@@ -99,17 +99,40 @@ def main(opt):
     c.plot_vel_cut(
             a,
             simname = 'test2',
-            field = 'velocity',
+            field = 'rvelocity',
             iteration = 0,
             zval = 26)
     a = fig.add_subplot(224)
     c.plot_vel_cut(
             a,
             simname = 'test2',
-            field = 'velocity',
+            field = 'rvelocity',
             iteration = stats2.shape[0] - 1,
             zval = 26)
     fig.savefig('vel_cut.pdf', format = 'pdf')
+
+    fig = plt.figure(figsize=(12, 6))
+    a = fig.add_subplot(121)
+    c.parameters['nx'] /= 2
+    c.parameters['ny'] /= 2
+    c.parameters['nz'] /= 2
+    c.plot_vel_cut(
+            a,
+            simname = 'test1',
+            field = 'particle_field',
+            iteration = 0,
+            zval = 13)
+    a = fig.add_subplot(122)
+    c.parameters['nx'] *= 2
+    c.parameters['ny'] *= 2
+    c.parameters['nz'] *= 2
+    c.plot_vel_cut(
+            a,
+            simname = 'test2',
+            field = 'particle_field',
+            iteration = 0,
+            zval = 26)
+    fig.savefig('particle_field.pdf', format = 'pdf')
     return None
 
 def Kolmogorov_flow_test(opt):

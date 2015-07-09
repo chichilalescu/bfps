@@ -93,6 +93,7 @@ class convergence_test(bfps.code):
                 fs->compute_velocity(fs->cvorticity);
                 fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
                 ps->update_field();
+                fs->write_base("particle_field", ps->data);
                 t = 0.0;
                 if (myrank == 0)
                 {
@@ -138,10 +139,13 @@ class convergence_test(bfps.code):
             simname = 'test',
             field = 'velocity',
             iteration = 0,
-            zval = 13):
+            zval = 13,
+            filename = None):
         axis.set_axis_off()
+        if type(filename) == type(None):
+            filename = simname + '_' + field + '_i{0:0>5x}'.format(iteration)
         Rdata0 = np.fromfile(
-                simname + '_r' + field + '_i{0:0>5x}'.format(iteration),
+                filename,
                 dtype = np.float32).reshape((self.parameters['nz'],
                                              self.parameters['ny'],
                                              self.parameters['nx'], 3))
