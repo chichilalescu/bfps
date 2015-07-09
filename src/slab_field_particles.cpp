@@ -201,15 +201,23 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
             mpirequest);
     //DEBUG_MSG("successful transfer\n");
     // 3. send higher slices
+    //DEBUG_MSG(
+    //        "destination rank is %d, message is %d\n",
+    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
+    //        this->fs->rd->starts[0]+this->fs->rd->subsizes[0]);
     MPI_Isend(
             (void*)(src + this->fs->rd->local_size - bsize),
             bsize,
             MPI_RNUM,
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-            this->fs->rd->starts[0]+this->fs->rd->subsizes[0],
+            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]),
             this->fs->rd->comm,
             mpirequest);
     // 4. receive lower slices
+    //DEBUG_MSG(
+    //        "source rank is %d, message is %d\n",
+    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
+    //        this->fs->rd->starts[0]);
     MPI_Irecv(
             (void*)(dst),
             bsize,
