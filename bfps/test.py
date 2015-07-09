@@ -108,8 +108,7 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
-                    //fs->step(dt);
-                    fs->iteration++;
+                    fs->step(dt);
                     t += dt;
                     fs->compute_velocity(fs->cvorticity);
                     fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
@@ -168,9 +167,9 @@ class convergence_test(bfps.code):
         tracer_state.tofile('test1_tracers_state_i00000')
         tracer_state.tofile('test2_tracers_state_i00000')
         np.random.seed(rseed)
-        Kdata00 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
-        Kdata01 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
-        Kdata02 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 4.).astype(np.complex64)
+        Kdata00 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
+        Kdata01 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
+        Kdata02 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)
