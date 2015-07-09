@@ -50,7 +50,7 @@ slab_field_particles<rnumber>::slab_field_particles(
         this->is_active[i] = new bool[this->nparticles];
 
     int tdims[4];
-    tdims[0] = this->buffer_size*2 + this->fs->rd->sizes[0];
+    tdims[0] = this->buffer_size*2*this->fs->rd->nprocs + this->fs->rd->sizes[0];
     tdims[1] = this->fs->rd->sizes[1];
     tdims[2] = this->fs->rd->sizes[2];
     tdims[3] = this->fs->rd->sizes[3];
