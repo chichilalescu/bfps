@@ -31,14 +31,6 @@ import argparse
 import pickle
 
 def main(opt):
-    c = convergence_test()
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 1e-1
-    c.parameters['dt'] = 2e-3
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.0
     if opt.run or opt.clean:
         subprocess.call(['rm test1_*'], shell = True)
         subprocess.call(['rm test2_*'], shell = True)
@@ -47,6 +39,15 @@ def main(opt):
     if opt.clean:
         subprocess.call(['make', 'clean'])
         return None
+    c = convergence_test()
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    c.parameters['nu'] = 1e-1
+    c.parameters['dt'] = 2e-3
+    c.parameters['niter_todo'] = opt.nsteps
+    c.parameters['famplitude'] = 0.0
+    c.parameters['nparticles'] = 32
     if opt.run:
         c.execute(ncpu = opt.ncpu)
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
