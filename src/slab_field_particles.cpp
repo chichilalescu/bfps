@@ -20,9 +20,12 @@
 
 
 
+#define NDEBUG
+
 #include <cmath>
 #include <cassert>
 #include <cstring>
+#include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
 

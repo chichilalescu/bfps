@@ -19,9 +19,13 @@
 ************************************************************************/
 
 
+
+#define NDEBUG
+
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include "base.hpp"
 #include "fluid_solver_base.hpp"
 #include "fftw_tools.hpp"
 
