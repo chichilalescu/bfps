@@ -31,6 +31,11 @@ static const int message_buffer_length = 1024;
 static char debug_message_buffer[message_buffer_length];
 extern int myrank, nprocs;
 
+inline int MOD(int a, int n)
+{
+    return ((a%n) + n) % n;
+}
+
 #ifndef NDEBUG
 
 inline void DEBUG_MSG(const char * format, ...)

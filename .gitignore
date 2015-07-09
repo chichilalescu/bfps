@@ -2,3 +2,4 @@ obj/*
 .ipynb_checkpoints/*
 .*.swp
 *.elf
+*.pyc

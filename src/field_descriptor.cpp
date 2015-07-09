@@ -18,6 +18,8 @@
 *
 ************************************************************************/
 
+#define NDEBUG
+
 #include <stdlib.h>
 #include <algorithm>
 #include <iostream>
