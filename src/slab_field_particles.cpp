@@ -259,7 +259,7 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
     {
         for (int c=0; c<3; c++)
         {
-            tval = floor(x[p*this->ncomponents+c]/this->dx);
+            tval = floor(x[p*this->ncomponents+c]/grid_size[c]);
             xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
             xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
             xg[p*3+c] -= this->fs->rd->starts[2-c];
