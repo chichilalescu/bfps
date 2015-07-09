@@ -39,10 +39,15 @@ def main(opt):
     c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
-    if opt.run:
+    if opt.run or opt.clean:
         subprocess.call(['rm test1_*'], shell = True)
         subprocess.call(['rm test2_*'], shell = True)
-        #subprocess.call(['make', 'clean'])
+        subprocess.call(['rm input_split_per_component'], shell = True)
+        subprocess.call(['rm *.pickle'], shell = True)
+    if opt.clean:
+        subprocess.call(['make', 'clean'])
+        return None
+    if opt.run:
         c.execute(ncpu = opt.ncpu)
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
@@ -237,6 +242,7 @@ def Kolmogorov_flow_test(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--clean', dest = 'clean', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
