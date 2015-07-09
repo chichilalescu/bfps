@@ -49,6 +49,16 @@ slab_field_particles<rnumber>::slab_field_particles(
     for (int i=0; i<nprocs; i++)
         this->is_active[i] = new bool[this->nparticles];
 
+    int tdims[4];
+    tdims[0] = this->buffer_size*2 + this->fs->rd->sizes[0];
+    tdims[1] = this->fs->rd->sizes[1];
+    tdims[2] = this->fs->rd->sizes[2];
+    tdims[3] = this->fs->rd->sizes[3];
+    this->buffered_field_descriptor = new field_descriptor<rnumber>(
+            4, tdims,
+            this->fs->rd->mpi_dtype,
+            this->fs->rd->comm);
+
     // compute dx, dy, dz;
     this->dx = 4*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
     this->dy = 4*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
@@ -88,6 +98,7 @@ slab_field_particles<rnumber>::~slab_field_particles()
     fftw_free(this->state);
     delete[] this->lbound;
     delete[] this->ubound;
+    delete this->buffered_field_descriptor;
 }
 
 template <class rnumber>

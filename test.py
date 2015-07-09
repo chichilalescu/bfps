@@ -101,14 +101,14 @@ def main(opt):
             simname = 'test2',
             field = 'rvelocity',
             iteration = 0,
-            zval = 26)
+            yval = 26)
     a = fig.add_subplot(224)
     c.plot_vel_cut(
             a,
             simname = 'test2',
             field = 'rvelocity',
             iteration = stats2.shape[0] - 1,
-            zval = 26)
+            yval = 26)
     fig.savefig('vel_cut.pdf', format = 'pdf')
 
     fig = plt.figure(figsize=(12, 6))
@@ -121,7 +121,7 @@ def main(opt):
             simname = 'test1',
             field = 'particle_field',
             iteration = 0,
-            zval = 13)
+            yval = 13)
     a = fig.add_subplot(122)
     c.parameters['nx'] *= 2
     c.parameters['ny'] *= 2
@@ -131,7 +131,7 @@ def main(opt):
             simname = 'test2',
             field = 'particle_field',
             iteration = 0,
-            zval = 26)
+            yval = 26)
     fig.savefig('particle_field.pdf', format = 'pdf')
     return None
 

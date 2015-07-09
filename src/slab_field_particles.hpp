@@ -37,6 +37,7 @@ class slab_field_particles
 {
     public:
         fluid_solver_base<rnumber> *fs;
+        field_descriptor<rnumber> *buffered_field_descriptor;
 
         /* is_active is a matrix of shape [nprocs][nparticles], with
          * is_active[r][p] being true if particle p is in the domain
