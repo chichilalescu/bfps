@@ -77,6 +77,7 @@ class fluid_solver_base
         void force_divfree(cnumber *a);
         void symmetrize(cnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
+        void cospectrum(cnumber *a, cnumber *b, double *spec, double k2exponent);
         int read_base(const char *fname, rnumber *data);
         int read_base(const char *fname, cnumber *data);
         int write_base(const char *fname, rnumber *data);

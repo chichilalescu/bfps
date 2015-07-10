@@ -20,7 +20,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -62,7 +62,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     ntmp[1] = nz; \
     ntmp[2] = nx/2 + 1; \
     this->cd = new field_descriptor<R>( \
-            4, ntmp, MPI_CNUM, MPI_COMM_WORLD);\
+            4, ntmp, MPI_CNUM, this->rd->comm);\
  \
     this->dkx = DKX; \
     this->dky = DKY; \
@@ -122,27 +122,111 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
-    /*for (i = 0; i<this->cd->sizes[2]; i++) \
-        DEBUG_MSG("kx[%d] = %lg\n", i, this->kx[i]);*/ \
-    /*for (i = 0; i<this->cd->subsizes[0]; i++) \
-        DEBUG_MSG("ky[%d] = %lg\n", i, this->ky[i]);*/ \
-    /*for (i = 0; i<this->cd->sizes[1]; i++) \
-        DEBUG_MSG("kz[%d] = %lg\n", i, this->kz[i]);*/ \
+    /* spectra stuff */ \
+    this->nshells = int(this->kM / this->dk) + 2; \
+    this->kshell = new double[this->nshells]; \
+    std::fill_n(this->kshell, this->nshells, 0.0); \
+    this->nshell = new int64_t[this->nshells]; \
+    std::fill_n(this->nshell, this->nshells, 0); \
+    double *kshell_local = new double[this->nshells]; \
+    std::fill_n(kshell_local, this->nshells, 0.0); \
+    int64_t *nshell_local = new int64_t[this->nshells]; \
+    std::fill_n(nshell_local, this->nshells, 0.0); \
+    double k2; \
+    int nxmodes; \
+    CLOOP( \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            if (k2 < this->kM2) \
+            { \
+                k2 = sqrt(k2); \
+                nxmodes = (xindex == 0) ? 1 : 2; \
+                nshell_local[int(k2/this->dk)] += nxmodes; \
+                kshell_local[int(k2/this->dk)] += nxmodes*k2; \
+            } \
+            ); \
+    \
+    MPI_Allreduce( \
+            (void*)(&nshell_local), \
+            (void*)(&this->nshell), \
+            this->nshells, \
+            MPI_INTEGER8, MPI_SUM, this->cd->comm); \
+    MPI_Allreduce( \
+            (void*)(&kshell_local), \
+            (void*)(&this->kshell), \
+            this->nshells, \
+            MPI_REAL8, MPI_SUM, this->cd->comm); \
+    for (int n=0; n<this->nshells; n++) \
+        this->kshell[n] /= this->nshell[n]; \
+    delete[] nshell_local; \
+    delete[] kshell_local; \
+    /* output kshells for this simulation */ \
+    if (this->cd->myrank == 0) \
+    { \
+        char fname[512]; \
+        sprintf(fname, "%s_kshell", this->name); \
+        FILE *kshell_file; \
+        kshell_file = fopen(fname, "wb"); \
+        fwrite((void*)this->kshell, 8, this->nshells, kshell_file); \
+        fclose(kshell_file); \
+    } \
 } \
  \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
+    delete[] this->kshell; \
+    delete[] this->nshell; \
  \
-    delete this->kx;\
-    delete this->ky;\
-    delete this->kz;\
-    delete this->knullx;\
-    delete this->knully;\
-    delete this->knullz;\
+    delete[] this->kx;\
+    delete[] this->ky;\
+    delete[] this->kz;\
+    delete[] this->knullx;\
+    delete[] this->knully;\
+    delete[] this->knullz;\
  \
     delete this->cd; \
     delete this->rd; \
+} \
+ \
+template<> \
+void fluid_solver_base<R>::cospectrum(C *a, C *b, double *spec, double k2exponent) \
+{ \
+    double *cospec_local = fftw_alloc_real(this->nshells); \
+    std::fill_n(cospec_local, this->nshells, 0); \
+    double k2, knorm; \
+    int factor = 1;\
+    CLOOP( \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            if (k2 < this->kM2) \
+            { \
+                factor = (xindex == 0) ? 1 : 2; \
+                knorm = sqrt(k2); \
+                cospec_local[int(knorm/this->dk)] += factor * pow(k2, k2exponent) * ( \
+                        (*(a + 3*cindex  ))[0] * (*(b + 3*cindex  ))[0] + \
+                        (*(a + 3*cindex  ))[1] * (*(b + 3*cindex  ))[1] + \
+                        (*(a + 3*cindex+1))[0] * (*(b + 3*cindex+1))[0] + \
+                        (*(a + 3*cindex+1))[1] * (*(b + 3*cindex+1))[1] + \
+                        (*(a + 3*cindex+2))[0] * (*(b + 3*cindex+2))[0] + \
+                        (*(a + 3*cindex+2))[1] * (*(b + 3*cindex+2))[1] \
+                                        ); \
+            } \
+            );\
+    MPI_Allreduce( \
+            (void*)cospec_local, \
+            (void*)spec, \
+            this->nshells, \
+            MPI_REAL8, MPI_SUM, this->cd->comm); \
+    for (int n=0; n<this->nshells; n++) \
+    { \
+        spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n]; \
+        /*is normalization needed?
+         * spec[n] /= this->normalization_factor*/ \
+    } \
+    fftw_free(cospec_local); \
 } \
  \
 template<> \
@@ -170,7 +254,7 @@ R fluid_solver_base<R>::correl_vec(C *a, C *b) \
     MPI_Allreduce( \
             (void*)(&val_process), \
             (void*)(&val), \
-            1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD); \
+            1, MPI_DOUBLE_PRECISION, MPI_SUM, this->cd->comm); \
     return R(val); \
 } \
  \
@@ -267,11 +351,11 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
             if (this->cd->myrank == ranksrc) \
                 MPI_Send((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, rankdst, yy, \
-                         MPI_COMM_WORLD); \
+                         this->cd->comm); \
             if (this->cd->myrank == rankdst) \
                 MPI_Recv((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, ranksrc, yy, \
-                         MPI_COMM_WORLD, mpistatus); \
+                         this->cd->comm, mpistatus); \
         } \
         if (this->cd->myrank == rankdst) \
         { \
