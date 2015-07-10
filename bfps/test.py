@@ -159,10 +159,14 @@ class convergence_test(bfps.code):
             self,
             rseed = 7547,
             ncpu = 2,
-            particle_rseed = 3281):
+            tracer_rseed = 3281,
+            tracer_state = None):
         assert(self.parameters['nx'] == self.parameters['ny'] == self.parameters['nz'])
-        np.random.seed(particle_rseed)
-        tracer_state = np.random.random(self.parameters['nparticles']*3)*2*np.pi
+        if (type(tracer_state) == type(None)):
+            np.random.seed(tracer_rseed)
+            tracer_state = np.random.random(self.parameters['nparticles']*3)*2*np.pi
+        else:
+            assert(tracer_state.size == self.parameters['nparticles']*3)
         tracer_state.tofile('test1_tracers_state_i00000')
         tracer_state.tofile('test2_tracers_state_i00000')
         np.random.seed(rseed)

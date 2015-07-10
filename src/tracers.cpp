@@ -20,7 +20,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cmath>
 #include "base.hpp"
@@ -30,22 +30,35 @@
 template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
-    std::fill_n(jump, this->nparticles, 0.0);
-    /* get grid coordinates */
+    DEBUG_MSG("entered jump_estimate\n");
+    double *tjump = new double[this->nparticles];
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
     float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
     double tmp[3];
+    /* get grid coordinates */
     this->get_grid_coordinates(this->state, xg, xx);
-;
+    DEBUG_MSG("finished get_grid_coordinate\n");
+
+    std::fill_n(tjump, this->nparticles, 0.0);
     /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
+        DEBUG_MSG("particle %d, about to call linear_interpolation\n", p);
         this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp);
-        jump[p] = fabs(2*this->dt * tmp[2]);
+        tjump[p] = fabs(2*this->dt * tmp[2]);
     }
     delete[] xg;
     delete[] xx;
+    MPI_Allreduce(
+            tjump,
+            jump,
+            this->nparticles,
+            MPI_REAL8,
+            MPI_SUM,
+            this->fs->rd->comm);
+    delete[] tjump;
+    DEBUG_MSG("exiting jump_estimate\n");
 }
 
 template <class rnumber>
@@ -58,7 +71,7 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++) if (this->is_active[this->fs->rd->myrank][p])
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         this->linear_interpolation(vel, xg + p*3, xx + p*3, y + p*3);
         DEBUG_MSG("particle %d found y %lg %lg %lg\n", p, y[p*3], y[p*3+1], y[p*3+2]);

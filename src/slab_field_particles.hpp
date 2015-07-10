@@ -39,11 +39,15 @@ class slab_field_particles
         fluid_solver_base<rnumber> *fs;
         field_descriptor<rnumber> *buffered_field_descriptor;
 
-        /* is_active is a matrix of shape [nprocs][nparticles], with
-         * is_active[r][p] being true if particle p is in the domain
-         * of rank r, or in the buffer regions of this domain.
+        /* watching is an array of shape [nparticles], with
+         * watching[p] being true if particle p is in the domain of myrank
+         * or in the buffer regions.
          * */
-        bool **is_active;
+        bool *watching;
+        /* computing is an array of shape [nparticles], with
+         * computing[p] being the rank that is currently working on particle p
+         * */
+        int *computing;
 
         /* state will generally hold all the information about the particles.
          * in the beginning, we will only need to solve 3D ODEs, but I figured
@@ -72,7 +76,7 @@ class slab_field_particles
          *  this->state
          *  this->lbound
          *  this->ubound
-         *  this->is_active
+         *  this->watching
          * */
         slab_field_particles(
                 const char *NAME,
@@ -91,11 +95,14 @@ class slab_field_particles
         virtual void get_rhs(double *x, double *rhs);
 
         /* generic methods, should work for all children of this class */
+        int get_rank(double z); // get rank for given value of z
         void synchronize();
-        void rFFTW_to_buffered(rnumber *src, rnumber *dst);
-        ptrdiff_t buffered_local_size();
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void linear_interpolation(float *field, int *xg, double *xx, double *dest);
+        void rFFTW_to_buffered(rnumber *src, rnumber *dst);
+
+        /* generic methods, should work for all children of this class */
+        ptrdiff_t buffered_local_size();
         void read();
         void write();
 
