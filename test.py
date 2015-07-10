@@ -47,11 +47,11 @@ def main(opt):
     c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
-    c.parameters['nparticles'] = 1
+    c.parameters['nparticles'] = 32
     if opt.run:
         c.execute(
-                ncpu = opt.ncpu,
-                tracer_state = np.array([1.56292, 2.33185, 1.42517]))
+                ncpu = opt.ncpu)#,
+#                tracer_state = np.array([1.56292, 2.33185, 1.42517]))
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)

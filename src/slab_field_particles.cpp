@@ -20,7 +20,7 @@
 
 
 
-//#define NDEBUG
+#define NDEBUG
 
 #include <cmath>
 #include <cassert>
