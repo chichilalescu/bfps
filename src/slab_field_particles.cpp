@@ -152,8 +152,11 @@ void slab_field_particles<rnumber>::synchronize()
     fftw_free(tstate);
     for (int r=0; r<nprocs; r++)
     for (int p=0; p<this->nparticles; p++)
-        this->is_active[r][p] = ((this->lbound[r] <= MOD((this->state[p*this->ncomponents + 2] - jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
-                                 (this->ubound[r]  > MOD((this->state[p*this->ncomponents + 2] + jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz));
+    {
+        this->is_active[r][p] = ((this->lbound[r] <= MOD(floor(this->state[p*this->ncomponents + 2] - jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz) &&
+                                 (this->ubound[r]  > MOD(floor(this->state[p*this->ncomponents + 2] + jump[p])/this->dz, this->fs->rd->sizes[0])*this->dz));
+        DEBUG_MSG("is_active %d %d is %d\n", r, p, this->is_active[r][p]);
+    }
     fftw_free(jump);
 }
 
@@ -265,8 +268,11 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
             tval = floor(x[p*this->ncomponents+c]/grid_size[c]);
             xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
             xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
-            xg[p*3+c] -= this->fs->rd->starts[2-c];
         }
+        xg[p*3+2] -= this->fs->rd->starts[0];
+        if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
+            xg[p*3+2] > this->fs->rd->subsizes[0])
+            xg[p*3+2] -= this->fs->rd->sizes[0];
         DEBUG_MSG(
                 "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
                 p,
@@ -279,6 +285,9 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
 template <class rnumber>
 void slab_field_particles<rnumber>::linear_interpolation(float *field, int *xg, double *xx, double *dest)
 {
+    ptrdiff_t tindex;
+    tindex = ((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]  )*3;
+    DEBUG_MSG("linear interpolation corner index is %ld\n", tindex);
     for (int c=0; c<3; c++)
         dest[c] = (field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]  )*3+c]*((1-xx[0])*(1-xx[1])*(1-xx[2])) +
                    field[((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]+1)*3+c]*((  xx[0])*(1-xx[1])*(1-xx[2])) +
