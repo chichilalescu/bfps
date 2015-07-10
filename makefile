@@ -32,6 +32,7 @@ LINKER  = mpicxx
 DEFINES = #-DNDEBUG
 CFLAGS  = -Wall \
 		  -O2 \
+		  -g \
 		  ${LOCAL_INCLUDE} \
 		  ${FFTW_INCLUDE}
 		  #-pg \

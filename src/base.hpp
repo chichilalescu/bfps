@@ -28,7 +28,6 @@
 #define BASE
 
 static const int message_buffer_length = 1024;
-static char debug_message_buffer[message_buffer_length];
 extern int myrank, nprocs;
 
 inline int MOD(int a, int n)
@@ -37,6 +36,8 @@ inline int MOD(int a, int n)
 }
 
 #ifndef NDEBUG
+
+static char debug_message_buffer[message_buffer_length];
 
 inline void DEBUG_MSG(const char * format, ...)
 {
