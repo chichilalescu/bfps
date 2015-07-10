@@ -42,6 +42,9 @@ class slab_field_particles
         /* watching is an array of shape [nparticles], with
          * watching[p] being true if particle p is in the domain of myrank
          * or in the buffer regions.
+         * watching is not really being used right now, since I don't do partial
+         * synchronizations of particles.
+         * we may do this at some point in the future, if it seems needed...
          * */
         bool *watching;
         /* computing is an array of shape [nparticles], with
@@ -97,6 +100,7 @@ class slab_field_particles
         /* generic methods, should work for all children of this class */
         int get_rank(double z); // get rank for given value of z
         void synchronize();
+        void synchronize_single_particle(int p);
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void linear_interpolation(float *field, int *xg, double *xx, double *dest);
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);

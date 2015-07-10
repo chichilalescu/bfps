@@ -130,6 +130,34 @@ int slab_field_particles<rnumber>::get_rank(double z)
 }
 
 template <class rnumber>
+void slab_field_particles<rnumber>::synchronize_single_particle(int p)
+{
+    MPI_Status *s = new MPI_Status;
+    if (this->watching[p]) for (int r=0; r<this->fs->rd->nprocs; r++)
+        if (r != this->computing[p])
+        {
+            if (this->fs->rd->myrank == this->computing[p])
+                MPI_Send(
+                        this->state + p*this->ncomponents,
+                        this->ncomponents,
+                        MPI_REAL8,
+                        r,
+                        p*this->computing[p],
+                        this->fs->rd->comm);
+            if (this->fs->rd->myrank == r)
+                MPI_Recv(
+                        this->state + p*this->ncomponents,
+                        this->ncomponents,
+                        MPI_REAL8,
+                        this->computing[p],
+                        p*this->computing[p],
+                        this->fs->rd->comm,
+                        s);
+        }
+    delete s;
+}
+
+template <class rnumber>
 void slab_field_particles<rnumber>::synchronize()
 {
     double *tstate = fftw_alloc_real(this->array_size);
@@ -226,9 +254,9 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
 template <class rnumber>
 void slab_field_particles<rnumber>::linear_interpolation(float *field, int *xg, double *xx, double *dest)
 {
-    ptrdiff_t tindex, tmp;
-    tindex = ((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]  )*3;
-    tmp = ptrdiff_t(xg[2]);
+    //ptrdiff_t tindex, tmp;
+    //tindex = ((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]  )*3;
+    //tmp = ptrdiff_t(xg[2]);
     //DEBUG_MSG(
     //        "linear interpolation xx is %lg %lg %lg xg is %d %d %d,"
     //        " corner index is ((%ld*%d+%d)*%d+%d)*3 = %ld\n",
