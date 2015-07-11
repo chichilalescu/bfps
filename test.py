@@ -142,6 +142,25 @@ def main(opt):
             iteration = 0,
             yval = 26)
     fig.savefig('particle_field.pdf', format = 'pdf')
+
+    k1 = np.fromfile('test1_kshell', dtype = np.float64)
+    k2 = np.fromfile('test2_kshell', dtype = np.float64)
+    fig = plt.figure(figsize=(12, 6))
+    a = fig.add_subplot(121)
+    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
+    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
+    a.plot(k1, s1)
+    a.plot(k2, s2)
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a = fig.add_subplot(122)
+    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(stats1.shape[0]-1), dtype = np.float64)
+    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(stats2.shape[0]-1), dtype = np.float64)
+    a.plot(k1, s1)
+    a.plot(k2, s2)
+    a.set_xscale('log')
+    a.set_yscale('log')
+    fig.savefig('spectra.pdf', format = 'pdf')
     return None
 
 def Kolmogorov_flow_test(opt):
