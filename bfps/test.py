@@ -106,6 +106,7 @@ class convergence_test(bfps.code):
                 do_stats(fs, ps);
                 fs->write('u', 'r');
                 fs->write('v', 'r');
+                fs->write_spectrum("velocity", fs->cvelocity);
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
                     fs->step(dt);
@@ -127,6 +128,7 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 fs->write('u', 'r');
                 fs->write('u', 'c');
+                fs->write_spectrum("velocity", fs->cvelocity);
                 ps->write();
                 delete ps;
                 delete fs;

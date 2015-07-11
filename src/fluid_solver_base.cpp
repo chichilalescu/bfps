@@ -30,6 +30,61 @@
 #include "fftw_tools.hpp"
 
 
+template <class rnumber>
+void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, double k2exponent)
+{
+    double *cospec_local = fftw_alloc_real(this->nshells);
+    std::fill_n(cospec_local, this->nshells, 0);
+    double k2, knorm;
+    int factor = 1;
+    CLOOP(
+            k2 = (this->kx[xindex]*this->kx[xindex] +
+                  this->ky[yindex]*this->ky[yindex] +
+                  this->kz[zindex]*this->kz[zindex]);
+            if (k2 < this->kM2)
+            {
+                factor = (xindex == 0) ? 1 : 2;
+                knorm = sqrt(k2);
+                cospec_local[int(knorm/this->dk)] += factor * pow(k2, k2exponent) * (
+                        (*(a + 3*cindex  ))[0] * (*(b + 3*cindex  ))[0] +
+                        (*(a + 3*cindex  ))[1] * (*(b + 3*cindex  ))[1] +
+                        (*(a + 3*cindex+1))[0] * (*(b + 3*cindex+1))[0] +
+                        (*(a + 3*cindex+1))[1] * (*(b + 3*cindex+1))[1] +
+                        (*(a + 3*cindex+2))[0] * (*(b + 3*cindex+2))[0] +
+                        (*(a + 3*cindex+2))[1] * (*(b + 3*cindex+2))[1]
+                                        );
+            }
+            );
+    MPI_Allreduce(
+            (void*)cospec_local,
+            (void*)spec,
+            this->nshells,
+            MPI_REAL8, MPI_SUM, this->cd->comm);
+    for (int n=0; n<this->nshells; n++)
+    {
+        spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
+        /*is normalization needed?
+         * spec[n] /= this->normalization_factor*/
+    }
+    fftw_free(cospec_local);
+}
+
+template <class rnumber>
+void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a)
+{
+    double *spec = fftw_alloc_real(this->nshells);
+    this->cospectrum(a, a, spec);
+    if (this->cd->myrank == 0)
+    {
+        FILE *spec_file;
+        char full_name[512];
+        sprintf(full_name, "%s_%s_spec_i%.5x", this->name, fname, this->iteration);
+        spec_file = fopen(full_name, "wb");
+        fwrite((void*)spec, sizeof(double), this->nshells, spec_file);
+        fclose(spec_file);
+    }
+    fftw_free(spec);
+}
 
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
@@ -148,17 +203,19 @@ fluid_solver_base<R>::fluid_solver_base( \
             ); \
     \
     MPI_Allreduce( \
-            (void*)(&nshell_local), \
-            (void*)(&this->nshell), \
+            (void*)(nshell_local), \
+            (void*)(this->nshell), \
             this->nshells, \
-            MPI_INTEGER8, MPI_SUM, this->cd->comm); \
+            MPI_INT64_T, MPI_SUM, this->cd->comm); \
     MPI_Allreduce( \
-            (void*)(&kshell_local), \
-            (void*)(&this->kshell), \
+            (void*)(kshell_local), \
+            (void*)(this->kshell), \
             this->nshells, \
             MPI_REAL8, MPI_SUM, this->cd->comm); \
     for (int n=0; n<this->nshells; n++) \
+    { \
         this->kshell[n] /= this->nshell[n]; \
+    } \
     delete[] nshell_local; \
     delete[] kshell_local; \
     /* output kshells for this simulation */ \
@@ -168,7 +225,7 @@ fluid_solver_base<R>::fluid_solver_base( \
         sprintf(fname, "%s_kshell", this->name); \
         FILE *kshell_file; \
         kshell_file = fopen(fname, "wb"); \
-        fwrite((void*)this->kshell, 8, this->nshells, kshell_file); \
+        fwrite((void*)this->kshell, sizeof(double), this->nshells, kshell_file); \
         fclose(kshell_file); \
     } \
 } \
@@ -188,45 +245,6 @@ fluid_solver_base<R>::~fluid_solver_base() \
  \
     delete this->cd; \
     delete this->rd; \
-} \
- \
-template<> \
-void fluid_solver_base<R>::cospectrum(C *a, C *b, double *spec, double k2exponent) \
-{ \
-    double *cospec_local = fftw_alloc_real(this->nshells); \
-    std::fill_n(cospec_local, this->nshells, 0); \
-    double k2, knorm; \
-    int factor = 1;\
-    CLOOP( \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
-            if (k2 < this->kM2) \
-            { \
-                factor = (xindex == 0) ? 1 : 2; \
-                knorm = sqrt(k2); \
-                cospec_local[int(knorm/this->dk)] += factor * pow(k2, k2exponent) * ( \
-                        (*(a + 3*cindex  ))[0] * (*(b + 3*cindex  ))[0] + \
-                        (*(a + 3*cindex  ))[1] * (*(b + 3*cindex  ))[1] + \
-                        (*(a + 3*cindex+1))[0] * (*(b + 3*cindex+1))[0] + \
-                        (*(a + 3*cindex+1))[1] * (*(b + 3*cindex+1))[1] + \
-                        (*(a + 3*cindex+2))[0] * (*(b + 3*cindex+2))[0] + \
-                        (*(a + 3*cindex+2))[1] * (*(b + 3*cindex+2))[1] \
-                                        ); \
-            } \
-            );\
-    MPI_Allreduce( \
-            (void*)cospec_local, \
-            (void*)spec, \
-            this->nshells, \
-            MPI_REAL8, MPI_SUM, this->cd->comm); \
-    for (int n=0; n<this->nshells; n++) \
-    { \
-        spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n]; \
-        /*is normalization needed?
-         * spec[n] /= this->normalization_factor*/ \
-    } \
-    fftw_free(cospec_local); \
 } \
  \
 template<> \
