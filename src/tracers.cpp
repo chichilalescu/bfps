@@ -54,7 +54,7 @@ void tracers<rnumber>::jump_estimate(double *jump)
             tjump,
             jump,
             this->nparticles,
-            MPI_REAL8,
+            MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tjump;
@@ -125,8 +125,8 @@ TRACERS_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
         fftwf_complex,
-        MPI_REAL4,
-        MPI_COMPLEX8)
+        MPI_FLOAT,
+        MPI_C_FLOAT_COMPLEX)
 /*****************************************************************************/
 
 

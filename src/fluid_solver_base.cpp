@@ -59,7 +59,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
             (void*)cospec_local,
             (void*)spec,
             this->nshells,
-            MPI_REAL8, MPI_SUM, this->cd->comm);
+            MPI_DOUBLE, MPI_SUM, this->cd->comm);
     for (int n=0; n<this->nshells; n++)
     {
         spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
@@ -211,7 +211,7 @@ fluid_solver_base<R>::fluid_solver_base( \
             (void*)(kshell_local), \
             (void*)(this->kshell), \
             this->nshells, \
-            MPI_REAL8, MPI_SUM, this->cd->comm); \
+            MPI_DOUBLE, MPI_SUM, this->cd->comm); \
     for (int n=0; n<this->nshells; n++) \
     { \
         this->kshell[n] /= this->nshell[n]; \
@@ -450,14 +450,14 @@ FLUID_SOLVER_BASE_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
         fftwf_complex,
-        MPI_REAL4,
-        MPI_COMPLEX8)
+        MPI_FLOAT,
+        MPI_C_FLOAT_COMPLEX)
 //FLUID_SOLVER_BASE_DEFINITIONS(
 //        FFTW_MANGLE_DOUBLE,
 //        double,
 //        fftw_complex,
-//        MPI_REAL8,
-//        MPI_COMPLEX16)
+//        MPI_DOUBLE,
+//        MPI_C_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 

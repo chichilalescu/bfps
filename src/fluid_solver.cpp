@@ -420,14 +420,14 @@ FLUID_SOLVER_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
         fftwf_complex,
-        MPI_REAL4,
-        MPI_COMPLEX8)
+        MPI_FLOAT,
+        MPI_C_FLOAT_COMPLEX)
 //FLUID_SOLVER_DEFINITIONS(
 //        FFTW_MANGLE_DOUBLE,
 //        double,
 //        fftw_complex,
-//        MPI_REAL8,
-//        MPI_COMPLEX16)
+//        MPI_DOUBLE,
+//        MPI_C_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 

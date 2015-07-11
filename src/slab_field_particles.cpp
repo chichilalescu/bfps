@@ -77,7 +77,7 @@ slab_field_particles<rnumber>::slab_field_particles(
             tbound,
             this->lbound,
             nprocs,
-            MPI_REAL8,
+            MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
     std::fill_n(tbound, nprocs, 0.0);
@@ -86,7 +86,7 @@ slab_field_particles<rnumber>::slab_field_particles(
             tbound,
             this->ubound,
             nprocs,
-            MPI_REAL8,
+            MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tbound;
@@ -140,7 +140,7 @@ void slab_field_particles<rnumber>::synchronize_single_particle(int p)
                 MPI_Send(
                         this->state + p*this->ncomponents,
                         this->ncomponents,
-                        MPI_REAL8,
+                        MPI_DOUBLE,
                         r,
                         p*this->computing[p],
                         this->fs->rd->comm);
@@ -148,7 +148,7 @@ void slab_field_particles<rnumber>::synchronize_single_particle(int p)
                 MPI_Recv(
                         this->state + p*this->ncomponents,
                         this->ncomponents,
-                        MPI_REAL8,
+                        MPI_DOUBLE,
                         this->computing[p],
                         p*this->computing[p],
                         this->fs->rd->comm,
@@ -176,7 +176,7 @@ void slab_field_particles<rnumber>::synchronize()
             tstate,
             this->state,
             this->array_size,
-            MPI_REAL8,
+            MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
     fftw_free(tstate);
@@ -291,7 +291,7 @@ void slab_field_particles<rnumber>::read()
     MPI_Bcast(
             this->state,
             this->array_size,
-            MPI_REAL8,
+            MPI_DOUBLE,
             0,
             this->fs->rd->comm);
     // initial assignment of particles
@@ -325,7 +325,7 @@ ptrdiff_t slab_field_particles<rnumber>::buffered_local_size()
 template <class rnumber>
 void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst)
 {
-    const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_REAL4 : MPI_REAL8;
+    const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
     const ptrdiff_t bsize = this->buffer_size*this->fs->rd->slice_size;
     MPI_Request *mpirequest = new MPI_Request;
     /* do big copy of middle stuff */
