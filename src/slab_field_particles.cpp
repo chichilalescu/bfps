@@ -28,6 +28,10 @@
 #include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
+#include "spline_n1.hpp"
+#include "spline_n2.hpp"
+#include "spline_n3.hpp"
+
 
 extern int myrank, nprocs;
 
@@ -37,14 +41,96 @@ slab_field_particles<rnumber>::slab_field_particles(
         fluid_solver_base<rnumber> *FSOLVER,
         const int NPARTICLES,
         const int NCOMPONENTS,
-        const int BUFFERSIZE)
+        const int INTERP_NEIGHBOURS,
+        const int INTERP_SMOOTHNESS)
 {
     assert((NCOMPONENTS % 3) == 0);
+    assert((INTERP_NEIGHBOURS == 1) ||
+           (INTERP_NEIGHBOURS == 2) ||
+           (INTERP_NEIGHBOURS == 3));
     strncpy(this->name, NAME, 256);
     this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
     this->ncomponents = NCOMPONENTS;
-    this->buffer_size = BUFFERSIZE;
+    this->interp_neighbours = INTERP_NEIGHBOURS;
+    this->interp_smoothness = INTERP_SMOOTHNESS;
+    switch(this->interp_neighbours)
+    {
+        case 1:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n1_formula;
+            assert(this->interp_smoothness == 0 ||
+                   this->interp_smoothness == 1 ||
+                   this->interp_smoothness == 2);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n1_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n1_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n1_m2;
+                    break;
+            }
+            break;
+        case 2:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n2_formula;
+            assert(this->interp_smoothness >= 0 ||
+                   this->interp_smoothness <= 4);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n2_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n2_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n2_m2;
+                    break;
+                case 3:
+                    this->compute_beta = &beta_n2_m3;
+                    break;
+                case 4:
+                    this->compute_beta = &beta_n2_m4;
+                    break;
+            }
+            break;
+        case 3:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
+            assert(this->interp_smoothness >= 0 ||
+                   this->interp_smoothness <= 6);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n3_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n3_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n3_m2;
+                    break;
+                case 3:
+                    this->compute_beta = &beta_n3_m3;
+                    break;
+                case 4:
+                    this->compute_beta = &beta_n3_m4;
+                    break;
+                case 5:
+                    this->compute_beta = &beta_n3_m5;
+                    break;
+                case 6:
+                    this->compute_beta = &beta_n3_m6;
+                    break;
+            }
+            break;
+    }
+    // in principle only the buffer width at the top needs the +1,
+    // but things are simpler if buffer_width is the same
+    this->buffer_width = this->interp_neighbours+1;
+    this->buffer_size = this->buffer_width*this->fs->rd->slice_size;
     this->array_size = this->nparticles * this->ncomponents;
     this->state = fftw_alloc_real(this->array_size);
     std::fill_n(this->state, this->array_size, 0.0);
@@ -53,7 +139,7 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->computing = new int[nparticles];
 
     int tdims[4];
-    tdims[0] = this->buffer_size*2*this->fs->rd->nprocs + this->fs->rd->sizes[0];
+    tdims[0] = this->buffer_width*2*this->fs->rd->nprocs + this->fs->rd->sizes[0];
     tdims[1] = this->fs->rd->sizes[1];
     tdims[2] = this->fs->rd->sizes[2];
     tdims[3] = this->fs->rd->sizes[3];
@@ -252,7 +338,90 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::linear_interpolation(float *field, int *xg, double *xx, double *dest)
+void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+{
+    double bx[this->interp_neighbours*2+2], by[this->interp_neighbours*2+2], bz[this->interp_neighbours*2+2];
+    DEBUG_MSG("entered spline_formula\n");
+    this->compute_beta(deriv[0], xx[0], bx);
+    this->compute_beta(deriv[1], xx[1], by);
+    this->compute_beta(deriv[2], xx[2], bz);
+    DEBUG_MSG("computed beta polynomials\n");
+    std::fill_n(dest, 3, 0);
+    for (int iz = -this->interp_neighbours; iz <= this->interp_neighbours+1; iz++)
+    for (int iy = -this->interp_neighbours; iy <= this->interp_neighbours+1; iy++)
+    for (int ix = -this->interp_neighbours; ix <= this->interp_neighbours+1; ix++)
+        for (int c=0; c<3; c++)
+        {
+            DEBUG_MSG(
+                    "%d %d %d %d %ld %ld\n",
+                    iz, iy, ix, c,
+                    ((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
+                      ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
+                      ptrdiff_t(xg[0]+ix))*3+c,
+                    this->buffered_field_descriptor->local_size
+                    );
+            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(xg[0]+ix))*3+c]*(bz[iz+this->interp_neighbours]*
+                                                          by[iy+this->interp_neighbours]*
+                                                          bx[ix+this->interp_neighbours]);
+        }
+    DEBUG_MSG("finishing spline_formula\n");
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::spline_n1_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+{
+    double bx[4], by[4], bz[4];
+    this->compute_beta(deriv[0], xx[0], bx);
+    this->compute_beta(deriv[1], xx[1], by);
+    this->compute_beta(deriv[2], xx[2], bz);
+    std::fill_n(dest, 3, 0);
+    for (int iz = -1; iz <= 2; iz++)
+    for (int iy = -1; iy <= 2; iy++)
+    for (int ix = -1; ix <= 2; ix++)
+        for (int c=0; c<3; c++)
+            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+1]*by[iy+1]*bx[ix+1];
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::spline_n2_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+{
+    double bx[6], by[6], bz[6];
+    this->compute_beta(deriv[0], xx[0], bx);
+    this->compute_beta(deriv[1], xx[1], by);
+    this->compute_beta(deriv[2], xx[2], bz);
+    std::fill_n(dest, 3, 0);
+    for (int iz = -2; iz <= 3; iz++)
+    for (int iy = -2; iy <= 3; iy++)
+    for (int ix = -2; ix <= 3; ix++)
+        for (int c=0; c<3; c++)
+            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+2]*by[iy+2]*bx[ix+2];
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::spline_n3_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+{
+    double bx[8], by[8], bz[8];
+    this->compute_beta(deriv[0], xx[0], bx);
+    this->compute_beta(deriv[1], xx[1], by);
+    this->compute_beta(deriv[2], xx[2], bz);
+    std::fill_n(dest, 3, 0);
+    for (int iz = -3; iz <= 4; iz++)
+    for (int iy = -3; iy <= 4; iy++)
+    for (int ix = -3; ix <= 4; ix++)
+        for (int c=0; c<3; c++)
+            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+3]*by[iy+3]*bx[ix+3];
+}
+
+template <class rnumber>
+void slab_field_particles<rnumber>::linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
 {
     //ptrdiff_t tindex, tmp;
     //tindex = ((ptrdiff_t(xg[2]  )*this->fs->rd->subsizes[1]+xg[1]  )*this->fs->rd->subsizes[2]+xg[0]  )*3;
@@ -317,21 +486,14 @@ void slab_field_particles<rnumber>::write()
 }
 
 template <class rnumber>
-ptrdiff_t slab_field_particles<rnumber>::buffered_local_size()
-{
-    return this->fs->rd->local_size + this->buffer_size*2*this->fs->rd->slice_size;
-}
-
-template <class rnumber>
 void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst)
 {
     const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
-    const ptrdiff_t bsize = this->buffer_size*this->fs->rd->slice_size;
     MPI_Request *mpirequest = new MPI_Request;
     /* do big copy of middle stuff */
     std::copy(src,
               src + this->fs->rd->local_size,
-              dst + bsize);
+              dst + this->buffer_size);
     /* take care of buffer regions.
      * I could make the code use blocking sends and receives, but it seems cleaner this way.
      * (alternative is to have a couple of loops).
@@ -343,7 +505,7 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     //        MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]));
     MPI_Isend(
             (void*)(src),
-            bsize,
+            this->buffer_size,
             MPI_RNUM,
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
             MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]),
@@ -355,8 +517,8 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
     //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]));
     MPI_Irecv(
-            (void*)(dst + bsize + this->fs->rd->local_size),
-            bsize,
+            (void*)(dst + this->buffer_size + this->fs->rd->local_size),
+            this->buffer_size,
             MPI_RNUM,
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
             MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]),
@@ -369,8 +531,8 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
     //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]));
     MPI_Isend(
-            (void*)(src + this->fs->rd->local_size - bsize),
-            bsize,
+            (void*)(src + this->fs->rd->local_size - this->buffer_size),
+            this->buffer_size,
             MPI_RNUM,
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
             MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]),
@@ -383,7 +545,7 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
     //        this->fs->rd->starts[0]);
     MPI_Irecv(
             (void*)(dst),
-            bsize,
+            this->buffer_size,
             MPI_RNUM,
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
             this->fs->rd->starts[0],

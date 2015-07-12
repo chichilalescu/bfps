@@ -85,7 +85,7 @@ class convergence_test(bfps.code):
                 sprintf(fname, "%s_tracers", simname);
                 ps = new tracers<float>(
                         fname, fs,
-                        nparticles, 2,
+                        nparticles, 1, 1,
                         fs->ru);
                 ps->dt = dt;
                 ps->iteration = iter0;
