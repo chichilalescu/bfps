@@ -21,6 +21,7 @@
 
 
 from bfps.test import convergence_test
+from bfps.NavierStokes import test as NStest
 
 import numpy as np
 import subprocess
@@ -40,8 +41,8 @@ def main(opt):
         subprocess.call(['make', 'clean'])
         return None
     c = convergence_test()
-    c.parameters['nx'] = opt.n*4
-    c.parameters['ny'] = opt.n*2
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 1e-1
     c.parameters['dt'] = 2e-3
@@ -55,18 +56,18 @@ def main(opt):
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
-    #stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
     traj1 = np.fromfile('test1_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     traj2 = np.fromfile('test2_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
     a.plot(stats2['t'], stats2['energy'], dashes = (3, 3))
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
     a = fig.add_subplot(122)
     a.plot(stats1['t'], stats1['enstrophy'])
     a.plot(stats2['t'], stats2['enstrophy'], dashes = (3, 3))
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
     fig = plt.figure(figsize = (24, 12))
@@ -262,6 +263,7 @@ def Kolmogorov_flow_test(opt):
     fig.savefig('cvort.pdf', format = 'pdf')
     return None
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--clean', dest = 'clean', action = 'store_true')
@@ -270,5 +272,5 @@ if __name__ == '__main__':
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
-    main(opt)
+    NStest(opt)
 
