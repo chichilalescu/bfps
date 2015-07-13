@@ -421,7 +421,7 @@ FLUID_SOLVER_DEFINITIONS(
         float,
         fftwf_complex,
         MPI_FLOAT,
-        MPI_C_FLOAT_COMPLEX)
+        MPI_COMPLEX)
 //FLUID_SOLVER_DEFINITIONS(
 //        FFTW_MANGLE_DOUBLE,
 //        double,
