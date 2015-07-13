@@ -23,42 +23,46 @@
 import numpy as np
 
 def generate_data_3D(
-        n,
+        n0, n1, n2,
         dtype = np.complex128,
         p = 1.5):
     """
     generate something that has the proper shape
     """
-    assert(n % 2 == 0)
-    a = np.zeros((n, n, n/2+1), dtype = dtype)
+    assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
+    a = np.zeros((n0, n1, n2/2+1), dtype = dtype)
     a[:] = np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape)
-    k, j, i = np.mgrid[-n/2+1:n/2+1, -n/2+1:n/2+1, 0:n/2+1]
+    k, j, i = np.mgrid[-n0/2+1:n0/2+1, -n1/2+1:n1/2+1, 0:n2/2+1]
     k = (k**2 + j**2 + i**2)**.5
-    k = np.roll(k, n//2+1, axis = 0)
-    k = np.roll(k, n//2+1, axis = 1)
+    k = np.roll(k, n0//2+1, axis = 0)
+    k = np.roll(k, n1//2+1, axis = 1)
     a /= k**p
     a[0, :, :] = 0
     a[:, 0, :] = 0
     a[:, :, 0] = 0
     ii = np.where(k == 0)
     a[ii] = 0
-    ii = np.where(k > n/3)
+    ii = np.where(k > min(n0, n1, n2)/3)
     a[ii] = 0
     return a
 
 def padd_with_zeros(
         a,
-        n,
+        n0, n1, n2,
         odtype = None):
     if (type(odtype) == type(None)):
         odtype = a.dtype
-    assert(a.shape[0] <= n)
-    b = np.zeros((n, n, n/2 + 1) + a.shape[3:], dtype = odtype)
-    m = a.shape[0]
-    b[     :m/2,      :m/2, :m/2+1] = a[     :m/2,      :m/2, :m/2+1]
-    b[     :m/2, n-m/2:   , :m/2+1] = a[     :m/2, m-m/2:   , :m/2+1]
-    b[n-m/2:   ,      :m/2, :m/2+1] = a[m-m/2:   ,      :m/2, :m/2+1]
-    b[n-m/2:   , n-m/2:   , :m/2+1] = a[m-m/2:   , m-m/2:   , :m/2+1]
+    assert(a.shape[0] <= n0 and
+           a.shape[1] <= n1 and
+           a.shape[2] <= n2)
+    b = np.zeros((n0, n1, n2/2 + 1) + a.shape[3:], dtype = odtype)
+    m0 = a.shape[0]
+    m1 = a.shape[1]
+    m2 = a.shape[2]
+    b[       :m0/2,        :m1/2, :m2/2+1] = a[       :m0/2,        :m1/2, :m2/2+1]
+    b[       :m0/2, n1-m1/2:    , :m2/2+1] = a[       :m0/2, m1-m1/2:    , :m2/2+1]
+    b[n0-m0/2:    ,        :m1/2, :m2/2+1] = a[m0-m0/2:    ,        :m1/2, :m2/2+1]
+    b[n0-m0/2:    , n1-m1/2:    , :m2/2+1] = a[m0-m0/2:    , m1-m1/2:    , :m2/2+1]
     return b
 
 

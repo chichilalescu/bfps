@@ -131,7 +131,7 @@ TRACERS_DEFINITIONS(
         float,
         fftwf_complex,
         MPI_FLOAT,
-        MPI_C_FLOAT_COMPLEX)
+        MPI_COMPLEX)
 /*****************************************************************************/
 
 

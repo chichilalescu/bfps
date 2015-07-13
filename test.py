@@ -40,8 +40,8 @@ def main(opt):
         subprocess.call(['make', 'clean'])
         return None
     c = convergence_test()
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
+    c.parameters['nx'] = opt.n*4
+    c.parameters['ny'] = opt.n*2
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 1e-1
     c.parameters['dt'] = 2e-3
