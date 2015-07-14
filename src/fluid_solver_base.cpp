@@ -78,8 +78,9 @@ void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a)
     {
         FILE *spec_file;
         char full_name[512];
-        sprintf(full_name, "%s_%s_spec_i%.5x", this->name, fname, this->iteration);
-        spec_file = fopen(full_name, "wb");
+        sprintf(full_name, "%s_%s_spec", this->name, fname);
+        spec_file = fopen(full_name, "ab");
+        fwrite((void*)&this->iteration, sizeof(int), 1, spec_file);
         fwrite((void*)spec, sizeof(double), this->nshells, spec_file);
         fclose(spec_file);
     }

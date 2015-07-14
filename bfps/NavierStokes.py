@@ -55,27 +55,44 @@ class NavierStokes(bfps.code):
         self.fill_up_fluid_code()
         return None
     def write_fluid_stats(self):
+        self.fluid_includes += '#include <cmath>\n'
+        self.fluid_variables += ('double stats[3];\n' +
+                                 'FILE *stat_file;\n')
         self.fluid_definitions += """
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver)
                 {
+                    double vel_tmp;
                     fsolver->compute_velocity(fsolver->cvorticity);
                     stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
                     stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
+                    fs->ift_velocity();
+                    stats[2] = sqrt(fs->ru[0]*fs->ru[0] +
+                                    fs->ru[1]*fs->ru[1] +
+                                    fs->ru[2]*fs->ru[2]);
+                    for (ptrdiff_t rindex = 1; rindex < fs->rd->local_size; rindex++)
+                    {
+                        vel_tmp = sqrt(fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
+                                       fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
+                                       fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
+                        if (vel_tmp > stats[2])
+                            stats[2] = vel_tmp;
+                    }
                     if (myrank == 0)
                     {
                         fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                         fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 2, stat_file);
+                        fwrite((void*)stats, sizeof(double), 3, stat_file);
                     }
                     fs->write_spectrum("velocity", fs->cvelocity);
                 }
                 //endcpp
                 """
         self.stats_dtype = np.dtype([('iteration', np.int32),
-                                     ('t', np.float64),
-                                     ('energy', np.float64),
-                                     ('enstrophy', np.float64)])
+                                     ('t',         np.float64),
+                                     ('energy',    np.float64),
+                                     ('enstrophy', np.float64),
+                                     ('vel_max',   np.float64)])
         pickle.dump(
                 self.stats_dtype,
                 open(self.name + '_dtype.pickle', 'w'))
@@ -83,9 +100,7 @@ class NavierStokes(bfps.code):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs;\n' +
-                                 'FILE *stat_file;\n' +
-                                 'double stats[2];\n')
+                                 'fluid_solver<float> *fs;\n')
         self.write_fluid_stats()
         self.fluid_start += """
                 //begincpp
@@ -181,9 +196,9 @@ class NavierStokes(bfps.code):
         if self.particle_species > 0:
             self.main   += self.particle_start
         self.main       += 'for (; fs->iteration < iter0 + niter_todo;)\n{\n'
-        self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
+        self.main       += self.fluid_loop
         self.main       += '\n}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
@@ -258,12 +273,27 @@ class NavierStokes(bfps.code):
             simname = None,
             iteration = 0,
             species = 0):
+        np.random.seed(rseed*self.particle_species + species)
         data = np.random.random(self.parameters['nparticles']*3)*2*np.pi
         if not (type(simname) == type(None)):
             data.tofile(simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration))
         return data
+    def read_spec(
+            self,
+            simname = 'test',
+            field = 'velocity'):
+        k = np.fromfile(simname + '_kshell', dtype = np.float64)
+        spec_dtype = np.dtype([('iteration', np.int32),
+                               ('val', np.float64, k.shape[0])])
+        spec = np.fromfile(simname + '_' + field + '_spec', dtype = spec_dtype)
+        return k, spec
+    def read_stats(
+            self, simname = 'test'):
+        dtype = pickle.load(open(self.name + '_dtype.pickle', 'r'))
+        return np.fromfile(simname + '_stats.bin', dtype = dtype)
 
 import subprocess
+import matplotlib.pyplot as plt
 
 def test(opt):
     if opt.run or opt.clean:
@@ -282,13 +312,37 @@ def test(opt):
     c.parameters['famplitude'] = 0.0
     c.parameters['nparticles'] = 32
     c.add_particles()
+    c.add_particles(kcut = 'fs->kM/2')
     c.finalize_code()
     c.write_src()
     c.write_par(simname = 'test')
     c.generate_vector_field(simname = 'test')
-    c.generate_tracer_state(simname = 'test')
+    c.generate_tracer_state(simname = 'test', species = 0)
+    c.generate_tracer_state(simname = 'test', species = 1)
     if opt.run:
         c.run(ncpu = opt.ncpu,
               simname = 'test')
+    stats = c.read_stats()
+    k, espec = c.read_spec()
+    print k
+
+    # plot spectra
+    fig = plt.figure(figsize=(6,6))
+    a = fig.add_subplot(111)
+    for i in range(espec.shape[0]):
+        a.plot(k, espec[i]['val'])
+    a.set_xscale('log')
+    a.set_yscale('log')
+    fig.savefig('spectrum.pdf', format = 'pdf')
+
+    #plot consistency checks
+    fig = plt.figure(figsize=(6,6))
+    a = fig.add_subplot(111)
+    etaK = (c.parameters['nu']**2 / (stats['enstrophy']*2))**.25
+    a.plot(k[-3]*etaK, label = '$k_M \eta_K$')
+    a.plot(c.parameters['dt']*stats['vel_max'] / (2*np.pi/c.parameters['nx']),
+            label = '$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    a.legend(loc = 'best')
+    fig.savefig('consistency_checks.pdf', format = 'pdf')
     return None
 
