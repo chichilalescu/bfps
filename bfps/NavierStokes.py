@@ -40,6 +40,29 @@ class NavierStokes(bfps.code):
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
         self.parameters['fmode'] = 1
+        self.fluid_includes = ''
+        self.fluid_variables = ''
+        self.fluid_definitions = ''
+        self.fluid_start = ''
+        self.fluid_loop = ''
+        self.fluid_end  = ''
+        self.particle_includes = ''
+        self.particle_variables = ''
+        self.particle_definitions = ''
+        self.particle_start = ''
+        self.particle_loop = ''
+        self.particle_end  = ''
+        self.stats_dtype = np.dtype([('iteration', np.int32),
+                                     ('t', np.float64),
+                                     ('energy', np.float64),
+                                     ('enstrophy', np.float64)])
+        pickle.dump(
+                self.stats_dtype,
+                open(self.name + '_dtype.pickle', 'w'))
+        self.fill_up_fluid_code()
+        return None
+    def fill_up_fluid_code(self):
+        return None
         self.includes += '#include <cstring>\n'
         self.includes += '#include "fftw_tools.hpp"\n'
         self.variables += ('double t;\n' +
@@ -61,13 +84,6 @@ class NavierStokes(bfps.code):
                 }
                 //endcpp
                 """
-        self.stats_dtype = np.dtype([('iteration', np.int32),
-                                     ('t', np.float64),
-                                     ('energy', np.float64),
-                                     ('enstrophy', np.float64)])
-        pickle.dump(
-                self.stats_dtype,
-                open(self.name + '_dtype.pickle', 'w'))
         if self.particles_on:
             self.parameters['nparticles'] = 1
             self.includes += '#include "tracers.hpp"\n'
