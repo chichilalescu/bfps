@@ -27,10 +27,9 @@ import pickle
 class NavierStokes(bfps.code):
     def __init__(
             self,
-            name = 'NavierStokes',
-            particles_on = False):
+            name = 'NavierStokes'):
         super(NavierStokes, self).__init__()
-        self.particles_on = particles_on
+        self.particle_species = 0
         self.name = name
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
@@ -40,35 +39,23 @@ class NavierStokes(bfps.code):
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
         self.parameters['fmode'] = 1
-        self.fluid_includes = ''
+        self.parameters['nparticles'] = 0
+        self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
         self.fluid_start = ''
         self.fluid_loop = ''
         self.fluid_end  = ''
-        self.particle_includes = ''
+        self.particle_includes = '#include "tracers.hpp"\n'
         self.particle_variables = ''
         self.particle_definitions = ''
         self.particle_start = ''
         self.particle_loop = ''
         self.particle_end  = ''
-        self.stats_dtype = np.dtype([('iteration', np.int32),
-                                     ('t', np.float64),
-                                     ('energy', np.float64),
-                                     ('enstrophy', np.float64)])
-        pickle.dump(
-                self.stats_dtype,
-                open(self.name + '_dtype.pickle', 'w'))
         self.fill_up_fluid_code()
         return None
-    def fill_up_fluid_code(self):
-        return None
-        self.includes += '#include <cstring>\n'
-        self.includes += '#include "fftw_tools.hpp"\n'
-        self.variables += ('double t;\n' +
-                           'FILE *stat_file;\n'
-                           'double stats[2];\n')
-        self.definitions += """
+    def write_fluid_stats(self):
+        self.fluid_definitions += """
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver)
                 {
@@ -81,30 +68,27 @@ class NavierStokes(bfps.code):
                         fwrite((void*)&t, sizeof(double), 1, stat_file);
                         fwrite((void*)stats, sizeof(double), 2, stat_file);
                     }
+                    fs->write_spectrum("velocity", fs->cvelocity);
                 }
                 //endcpp
                 """
-        if self.particles_on:
-            self.parameters['nparticles'] = 1
-            self.includes += '#include "tracers.hpp"\n'
-            self.variables += 'FILE *traj_file;\n'
-            self.definitions += """
-                    //begincpp
-                    void out_traj(tracers<float> *tracers)
-                    {
-                        if (myrank == 0)
-                        {
-                            fwrite((void*)tracers->state, sizeof(double), tracers->array_size, traj_file);
-                        }
-                    }
-                    //endcpp
-                    """
-        self.variables += self.cdef_pars()
-        self.definitions += self.cread_pars()
-        self.main = """
+        self.stats_dtype = np.dtype([('iteration', np.int32),
+                                     ('t', np.float64),
+                                     ('energy', np.float64),
+                                     ('enstrophy', np.float64)])
+        pickle.dump(
+                self.stats_dtype,
+                open(self.name + '_dtype.pickle', 'w'))
+        return None
+    def fill_up_fluid_code(self):
+        self.fluid_includes += '#include <cstring>\n'
+        self.fluid_variables += ('double t;\n' +
+                                 'fluid_solver<float> *fs;\n' +
+                                 'FILE *stat_file;\n' +
+                                 'double stats[2];\n')
+        self.write_fluid_stats()
+        self.fluid_start += """
                 //begincpp
-                fluid_solver<float> *fs;
-                tracers<float> *ps;
                 char fname[512];
                 fs = new fluid_solver<float>(
                         simname,
@@ -124,69 +108,86 @@ class NavierStokes(bfps.code):
                     stat_file = fopen(fname, "wb");
                 }
                 t = 0.0;
-                //endcpp
-                """
-        if self.particles_on:
-            self.main += """
-                    //begincpp
-                    sprintf(fname, "%s_tracers", simname);
-                    ps = new tracers<float>(
-                            fname, fs,
-                            nparticles, 1, 1,
-                            fs->ru);
-                    ps->dt = dt;
-                    ps->iteration = iter0;
-                    ps->read();
-                    fs->compute_velocity(fs->cvorticity);
-                    fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
-                    ps->update_field();
-                    if (myrank == 0)
-                    {
-                        sprintf(fname, "%s_traj.bin", ps->name);
-                        traj_file = fopen(fname, "wb");
-                    }
-                    out_traj(ps);
-                    //endcpp
-                    """
-        self.main += """
-                //begincpp
                 do_stats(fs);
-                fs->write_spectrum("velocity", fs->cvelocity);
-                for (; fs->iteration < iter0 + niter_todo;)
-                {
-                    fs->step(dt);
-                    t += dt;
-                    do_stats(fs);
                 //endcpp
                 """
-        if self.particles_on:
-            self.main += """
+        self.fluid_loop += """
                 //begincpp
-                        fs->compute_velocity(fs->cvorticity);
-                        fftwf_execute(*((fftwf_plan*)fs->c2r_velocity));
-                        ps->update_field();
-                        ps->Euler();
-                        ps->iteration++;
-                        ps->synchronize();
+                fs->step(dt);
+                t += dt;
+                do_stats(fs);
                 //endcpp
-                    """
-        self.main += """
+                """
+        self.fluid_end += """
                 //begincpp
-                }
                 if (myrank == 0)
                 {
                     fclose(stat_file);
                 }
                 fs->write('v', 'c');
-                fs->write_spectrum("velocity", fs->cvelocity);
+                delete fs;
                 //endcpp
                 """
-        if self.particles_on:
-            self.main += """
-                    ps->write();
-                    delete ps;
-                    """
-        self.main += 'delete fs;\n'
+        return None
+    def add_particles(
+            self,
+            neighbours = 1,
+            smoothness = 1,
+            kcut = 'fs->kM'):
+        self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
+        self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
+        self.parameters['kcut{0}'.format(self.particle_species)] = kcut
+        self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
+        self.particle_variables += 'FILE *traj_file{0};\n'.format(self.particle_species)
+        #self.particle_definitions
+        update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
+                        'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
+                        'fs->ift_velocity();\n' +
+                        'ps{0}->update_field();\n').format(self.particle_species)
+        self.particle_start += ('sprintf(fname, "%s_tracers{0}", simname);\n' +
+                                'ps{0} = new tracers<float>(\n' +
+                                    'fname, fs,\n' +
+                                    'nparticles, neighbours{0}, smoothness{0},\n' +
+                                    'fs->ru);\n' +
+                                'ps{0}->dt = dt;\n' +
+                                'ps{0}->iteration = iter0;\n' +
+                                update_field +
+                                'ps{0}->read();\n' +
+                                'if (myrank == 0)\n' +
+                                '{{\n' +
+                                '    sprintf(fname, "%s_traj{0}.bin", ps{0}->name);\n' +
+                                '    traj_file{0} = fopen(fname, "wb");\n' +
+                                '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
+                                '}}\n').format(self.particle_species)
+        self.particle_loop +=  (update_field +
+                               'ps{0}->Euler();\n' +
+                               'ps{0}->iteration++;\n' +
+                               'ps{0}->synchronize();\n').format(self.particle_species)
+        self.particle_end += ('ps{0}->write();\n' +
+                              'delete ps{0};\n').format(self.particle_species)
+        self.particle_species += 1
+        return None
+    def finalize_code(self):
+        self.variables  += self.cdef_pars()
+        self.definitions+= self.cread_pars()
+        self.includes   += self.fluid_includes
+        self.variables  += self.fluid_variables
+        self.definitions+= self.fluid_definitions
+        if self.particle_species > 0:
+            self.includes    += self.particle_includes
+            self.variables   += self.particle_variables
+            self.definitions += self.particle_definitions
+        self.main        = self.fluid_start
+        if self.particle_species > 0:
+            self.main   += self.particle_start
+        self.main       += 'for (; fs->iteration < iter0 + niter_todo;)\n{\n'
+        self.main       += self.fluid_loop
+        if self.particle_species > 0:
+            self.main   += self.particle_loop
+        self.main       += '\n}\n'
+        if self.particle_species > 0:
+            self.main   += self.particle_end
+        self.main       += self.fluid_end
         return None
     def plot_vel_cut(
             self,
@@ -255,10 +256,11 @@ class NavierStokes(bfps.code):
             self,
             rseed = 34982,
             simname = None,
-            iteration = 0):
+            iteration = 0,
+            species = 0):
         data = np.random.random(self.parameters['nparticles']*3)*2*np.pi
         if not (type(simname) == type(None)):
-            data.tofile(simname + "_tracers_state_i{0:0>5x}".format(iteration))
+            data.tofile(simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration))
         return data
 
 import subprocess
@@ -270,7 +272,7 @@ def test(opt):
     if opt.clean:
         subprocess.call(['make', 'clean'])
         return None
-    c = NavierStokes(particles_on = True)
+    c = NavierStokes()
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -279,6 +281,8 @@ def test(opt):
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.0
     c.parameters['nparticles'] = 32
+    c.add_particles()
+    c.finalize_code()
     c.write_src()
     c.write_par(simname = 'test')
     c.generate_vector_field(simname = 'test')

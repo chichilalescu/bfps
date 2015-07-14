@@ -240,6 +240,12 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
 } \
  \
 template<> \
+void fluid_solver<R>::ift_velocity() \
+{ \
+    FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
+} \
+ \
+template<> \
 void fluid_solver<R>::add_forcing(\
         C *field, R factor) \
 { \
