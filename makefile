@@ -83,12 +83,15 @@ obj := $(patsubst %, ./obj/%.o, ${base_files})
 		-c $^ -o $@
 
 base: ${obj}
+	ar rcs ./lib/libbfps.a $^
 
 %.elf: ${obj} ./obj/%.o
 	${LINKER} \
 		$^ \
 		-o $@ \
 		${LIBS} \
+		-L./lib/ \
+		-lbfps \
 		${NULL}
 
 clean:
