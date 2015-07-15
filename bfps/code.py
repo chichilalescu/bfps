@@ -93,19 +93,20 @@ class code(base):
     def run(self,
             ncpu = 2,
             simname = 'test',
-            iter0 = 0,
-            work_dir = './'):
+            iter0 = 0):
         # compile code and run
         if subprocess.call(['make',
                             '-f',
                             '~/repos/bfps/makefile',
                             self.name + '.elf']) == 0:
             current_dir = os.getcwd()
-            if not os.path.isdir(work_dir):
-                os.mkdir(work_dir)
-            if work_dir != './':
-                shutil.copy(self.name + '.elf', work_dir)
-            os.chdir(work_dir)
+            if not os.path.isdir(self.work_dir):
+                os.mkdir(self.work_dir)
+            if self.work_dir != './':
+                shutil.copy(self.name + '.elf', self.work_dir)
+            os.chdir(self.work_dir)
+            with open(self.name + '_version_info.txt', 'w') as outfile:
+                outfile.write(self.version_message)
             subprocess.call(['time',
                              'mpirun',
                              '-np',

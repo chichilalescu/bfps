@@ -23,12 +23,15 @@ import bfps.code
 import bfps.tools
 import numpy as np
 import pickle
+import os
 
 class NavierStokes(bfps.code):
     def __init__(
             self,
-            name = 'NavierStokes'):
+            name = 'NavierStokes',
+            work_dir = './'):
         super(NavierStokes, self).__init__()
+        self.work_dir = work_dir
         self.particle_species = 0
         self.name = name
         self.parameters['dkx'] = 1.0
@@ -98,7 +101,10 @@ class NavierStokes(bfps.code):
                                      ('vel_max',   np.float64)])
         pickle.dump(
                 self.stats_dtype,
-                open(self.name + '_dtype.pickle', 'w'))
+                open(os.path.join(
+                        self.work_dir,
+                        self.name + '_dtype.pickle'),
+                     'w'))
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
@@ -271,7 +277,9 @@ class NavierStokes(bfps.code):
                 self.parameters['ny'],
                 self.parameters['nx'])
         if not (type(simname) == type(None)):
-            Kdata1.tofile(simname + "_cvorticity_i{0:0>5x}".format(iteration))
+            Kdata1.tofile(
+                    os.path.join(self.work_dir,
+                                 simname + "_cvorticity_i{0:0>5x}".format(iteration)))
         return Kdata1
     def generate_tracer_state(
             self,
@@ -282,33 +290,48 @@ class NavierStokes(bfps.code):
         np.random.seed(rseed*self.particle_species + species)
         data = np.random.random(self.parameters['nparticles']*3)*2*np.pi
         if not (type(simname) == type(None)):
-            data.tofile(simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration))
+            data.tofile(
+                    os.path.join(
+                        self.work_dir,
+                        simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration)))
         return data
     def read_spec(
             self,
             simname = 'test',
             field = 'velocity'):
-        k = np.fromfile(simname + '_kshell', dtype = np.float64)
+        k = np.fromfile(
+                os.path.join(
+                    self.work_dir,
+                    simname + '_kshell'),
+                dtype = np.float64)
         spec_dtype = np.dtype([('iteration', np.int32),
                                ('val', np.float64, k.shape[0])])
-        spec = np.fromfile(simname + '_' + field + '_spec', dtype = spec_dtype)
+        spec = np.fromfile(
+                os.path.join(
+                    self.work_dir,
+                    simname + '_' + field + '_spec'),
+                dtype = spec_dtype)
         return k, spec
     def read_stats(
             self, simname = 'test'):
-        dtype = pickle.load(open(self.name + '_dtype.pickle', 'r'))
-        return np.fromfile(simname + '_stats.bin', dtype = dtype)
+        dtype = pickle.load(open(
+                os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
+        return np.fromfile(os.path.join(self.work_dir, simname + '_stats.bin'),
+                           dtype = dtype)
 
 import subprocess
 import matplotlib.pyplot as plt
 
 def test(opt):
     if opt.run or opt.clean:
-        subprocess.call(['rm test_*'], shell = True)
-        subprocess.call(['rm *.pickle'], shell = True)
+        subprocess.call(['rm {0}/test_*'.format(opt.work_dir)], shell = True)
+        subprocess.call(['rm {0}/*.pickle'.format(opt.work_dir)], shell = True)
+        subprocess.call(['rm {0}/*.elf'.format(opt.work_dir)], shell = True)
+        subprocess.call(['rm {0}/*version_info.txt'.format(opt.work_dir)], shell = True)
     if opt.clean:
         subprocess.call(['make', 'clean'])
         return None
-    c = NavierStokes()
+    c = NavierStokes(work_dir = opt.work_dir)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -322,10 +345,10 @@ def test(opt):
     c.finalize_code()
     c.write_src()
     c.write_par(simname = 'test')
-    c.generate_vector_field(simname = 'test')
-    c.generate_tracer_state(simname = 'test', species = 0)
-    c.generate_tracer_state(simname = 'test', species = 1)
     if opt.run:
+        c.generate_vector_field(simname = 'test')
+        c.generate_tracer_state(simname = 'test', species = 0)
+        c.generate_tracer_state(simname = 'test', species = 1)
         c.run(ncpu = opt.ncpu,
               simname = 'test')
     stats = c.read_stats()

@@ -20,6 +20,8 @@
 
 
 
+import os
+
 class base(object):
     def __init__(self):
         self.iorank = 0
@@ -28,6 +30,7 @@ class base(object):
                            'ny' : 32,
                            'nz' : 32}
         self.string_length = 512
+        self.work_dir = './'
         return None
     def cdef_pars(self):
         key = self.parameters.keys()
@@ -97,7 +100,7 @@ class base(object):
         return src_txt
     def write_par(self, simname = 'test'):
         filename = simname + '_pars.txt'
-        ofile = open(filename, 'w')
+        ofile = open(os.path.join(self.work_dir, filename), 'w')
         key = self.parameters.keys()
         key.sort()
         for i in range(len(key)):

@@ -271,6 +271,7 @@ if __name__ == '__main__':
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
+    parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
     opt = parser.parse_args()
     NStest(opt)
 
