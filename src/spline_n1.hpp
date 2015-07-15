@@ -20,36 +20,13 @@
 
 
 
-#include "slab_field_particles.hpp"
+#ifndef SPLINE_N1
 
-#ifndef TRACERS
+#define SPLINE_N1
 
-#define TRACERS
+void beta_n1_m0(int deriv, double x, double *poly_val);
+void beta_n1_m1(int deriv, double x, double *poly_val);
+void beta_n1_m2(int deriv, double x, double *poly_val);
 
-extern int myrank, nprocs;
-
-template <class rnumber>
-class tracers:public slab_field_particles<rnumber>
-{
-    public:
-        rnumber *source_data;
-        rnumber *data;
-
-        /* methods */
-        tracers(
-                const char *NAME,
-                fluid_solver_base<rnumber> *FSOLVER,
-                const int NPARTICLES,
-                const int NEIGHBOURS,
-                const int SMOOTHNESS,
-                rnumber *SOURCE_DATA);
-        ~tracers();
-
-        void update_field(bool clip_on = true);
-        virtual void get_rhs(double *x, double *rhs);
-        virtual void jump_estimate(double *jump_length);
-};
-
-
-#endif//TRACERS
+#endif//SPLINE_N1
 

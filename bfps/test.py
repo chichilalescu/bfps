@@ -85,7 +85,7 @@ class convergence_test(bfps.code):
                 sprintf(fname, "%s_tracers", simname);
                 ps = new tracers<float>(
                         fname, fs,
-                        nparticles, 2,
+                        nparticles, 1, 1,
                         fs->ru);
                 ps->dt = dt;
                 ps->iteration = iter0;
@@ -106,6 +106,7 @@ class convergence_test(bfps.code):
                 do_stats(fs, ps);
                 fs->write('u', 'r');
                 fs->write('v', 'r');
+                fs->write_spectrum("velocity", fs->cvelocity);
                 for (; fs->iteration < iter0 + niter_todo;)
                 {
                     fs->step(dt);
@@ -127,6 +128,7 @@ class convergence_test(bfps.code):
                 fs->write('v', 'r');
                 fs->write('u', 'r');
                 fs->write('u', 'c');
+                fs->write_spectrum("velocity", fs->cvelocity);
                 ps->write();
                 delete ps;
                 delete fs;
@@ -158,10 +160,10 @@ class convergence_test(bfps.code):
     def execute(
             self,
             rseed = 7547,
+            spectra_slope = 1.,
             ncpu = 2,
             tracer_rseed = 3281,
             tracer_state = None):
-        assert(self.parameters['nx'] == self.parameters['ny'] == self.parameters['nz'])
         if (type(tracer_state) == type(None)):
             np.random.seed(tracer_rseed)
             tracer_state = np.random.random(self.parameters['nparticles']*3)*2*np.pi
@@ -170,16 +172,32 @@ class convergence_test(bfps.code):
         tracer_state.tofile('test1_tracers_state_i00000')
         tracer_state.tofile('test2_tracers_state_i00000')
         np.random.seed(rseed)
-        Kdata00 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
-        Kdata01 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
-        Kdata02 = bfps.tools.generate_data_3D(self.parameters['nx']/2, p = 1.).astype(np.complex64)
+        Kdata00 = bfps.tools.generate_data_3D(
+                self.parameters['nz']/2,
+                self.parameters['ny']/2,
+                self.parameters['nx']/2,
+                p = spectra_slope).astype(np.complex64)
+        Kdata01 = bfps.tools.generate_data_3D(
+                self.parameters['nz']/2,
+                self.parameters['ny']/2,
+                self.parameters['nx']/2,
+                p = spectra_slope).astype(np.complex64)
+        Kdata02 = bfps.tools.generate_data_3D(
+                self.parameters['nz']/2,
+                self.parameters['ny']/2,
+                self.parameters['nx']/2,
+                p = spectra_slope).astype(np.complex64)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
-        Kdata1 = bfps.tools.padd_with_zeros(Kdata0, self.parameters['nx'])
+        Kdata1 = bfps.tools.padd_with_zeros(
+                Kdata0,
+                self.parameters['nz'],
+                self.parameters['ny'],
+                self.parameters['nx'])
         Kdata1.tofile("test1_cvorticity_i00000")
         self.write_src()
         self.write_par(simname = 'test1')
@@ -197,7 +215,11 @@ class convergence_test(bfps.code):
         self.parameters['ny'] *= 2
         self.parameters['nz'] *= 2
         self.write_par(simname = 'test2')
-        Kdata2 = bfps.tools.padd_with_zeros(Kdata0, self.parameters['nx'])
+        Kdata2 = bfps.tools.padd_with_zeros(
+                Kdata0,
+                self.parameters['nz'],
+                self.parameters['ny'],
+                self.parameters['nx'])
         Kdata2.tofile("test2_cvorticity_i00000")
         self.run(ncpu = ncpu, simname = 'test2')
         self.parameters['dt'] *= 2

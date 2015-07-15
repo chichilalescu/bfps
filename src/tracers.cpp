@@ -31,10 +31,11 @@ template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
     DEBUG_MSG("entered jump_estimate\n");
+    int deriv[] = {0, 0, 0};
     double *tjump = new double[this->nparticles];
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
-    float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
+    float *vel = this->data + this->buffer_size;
     double tmp[3];
     /* get grid coordinates */
     this->get_grid_coordinates(this->state, xg, xx);
@@ -45,7 +46,8 @@ void tracers<rnumber>::jump_estimate(double *jump)
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         DEBUG_MSG("particle %d, about to call linear_interpolation\n", p);
-        this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp);
+        //this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp, deriv);
+        this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
         tjump[p] = fabs(2*this->dt * tmp[2]);
     }
     delete[] xg;
@@ -54,7 +56,7 @@ void tracers<rnumber>::jump_estimate(double *jump)
             tjump,
             jump,
             this->nparticles,
-            MPI_REAL8,
+            MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tjump;
@@ -65,15 +67,16 @@ template <class rnumber>
 void tracers<rnumber>::get_rhs(double *x, double *y)
 {
     std::fill_n(y, this->array_size, 0.0);
+    int deriv[] = {0, 0, 0};
     /* get grid coordinates */
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
-    float *vel = this->data + this->buffer_size*this->fs->rd->slice_size;
+    float *vel = this->data + this->buffer_size;
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
-        this->linear_interpolation(vel, xg + p*3, xx + p*3, y + p*3);
+        this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
         DEBUG_MSG("particle %d found y %lg %lg %lg\n", p, y[p*3], y[p*3+1], y[p*3+2]);
     }
     delete[] xg;
@@ -98,16 +101,18 @@ tracers<R>::tracers( \
                 const char *NAME, \
                 fluid_solver_base<R> *FSOLVER, \
                 const int NPARTICLES, \
-                const int BUFFERSIZE, \
+                const int NEIGHBOURS, \
+                const int SMOOTHNESS, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
                     NAME, \
                     FSOLVER, \
                     NPARTICLES, \
                     3, \
-                    BUFFERSIZE) \
+                    NEIGHBOURS, \
+                    SMOOTHNESS) \
 { \
     this->source_data = SOURCE_DATA; \
-    this->data = FFTW(alloc_real)(this->buffered_local_size()); \
+    this->data = FFTW(alloc_real)(this->buffered_field_descriptor->local_size); \
 } \
  \
 template<> \
@@ -125,8 +130,8 @@ TRACERS_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
         fftwf_complex,
-        MPI_REAL4,
-        MPI_COMPLEX8)
+        MPI_FLOAT,
+        MPI_COMPLEX)
 /*****************************************************************************/
 
 

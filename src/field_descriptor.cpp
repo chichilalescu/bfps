@@ -152,11 +152,19 @@ field_descriptor<rnumber>::field_descriptor(
     DEBUG_MSG_WAIT(
             this->comm,
             "inside field_descriptor constructor, about to call "
-            "MPI_Type_create_subarray\n"
+            "MPI_Type_create_subarray "
             "%d %d %d\n",
             this->sizes[0],
             this->subsizes[0],
             this->starts[0]);
+    for (int i=0; i<this->ndims; i++)
+    DEBUG_MSG_WAIT(
+            this->comm,
+            "tsizes "
+            "%d %d %d\n",
+            tsizes[i],
+            tsubsizes[i],
+            tstarts[i]);
     if (this->subsizes[0] > 0)
     {
         DEBUG_MSG("creating subarray\n");
@@ -184,6 +192,7 @@ field_descriptor<rnumber>::field_descriptor(
             MPI_SUM,
             this->comm);
     delete[] local_rank;
+    DEBUG_MSG("exiting field_descriptor constructor\n");
 }
 
 template <class rnumber>

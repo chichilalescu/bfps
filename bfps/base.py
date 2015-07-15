@@ -71,7 +71,7 @@ class base(object):
             elif type(self.parameters[key[i]]) == str:
                 src_txt += 'MPI_Bcast((void*)(' + key[i] + '), {0}, MPI_CHAR, {1}, MPI_COMM_WORLD);\n'.format(self.string_length, self.iorank)
             else:
-                src_txt += 'MPI_Bcast((void*)(&' + key[i] + '), 1, MPI_REAL8, {0}, MPI_COMM_WORLD);\n'.format(self.iorank)
+                src_txt += 'MPI_Bcast((void*)(&' + key[i] + '), 1, MPI_DOUBLE, {0}, MPI_COMM_WORLD);\n'.format(self.iorank)
         src_txt += ('MPI_Allreduce((void*)(&err_while_reading), (void*)(&errr), 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD);\n'
                   + 'if (errr > 0)\n{\n'
                   + 'fprintf(stderr, "Error reading parameters.\\nAttempting to exit.\\n");\n'

@@ -35,6 +35,17 @@ extern int myrank, nprocs;
 template <class rnumber>
 class slab_field_particles
 {
+    protected:
+        //typedef void (slab_field_particles<rnumber>::*tensor_product_interpolation_formula)(
+        //        rnumber *field,
+        //        int *xg,
+        //        double *xx,
+        //        double *dest,
+        //        int *deriv);
+        typedef void (*base_polynomial_values)(
+                int derivative,
+                double fraction,
+                double *destination);
     public:
         fluid_solver_base<rnumber> *fs;
         field_descriptor<rnumber> *buffered_field_descriptor;
@@ -60,9 +71,14 @@ class slab_field_particles
         int nparticles;
         int ncomponents;
         int array_size;
-        int buffer_size;
+        int interp_neighbours;
+        int interp_smoothness;
+        int buffer_width;
+        ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
+        //tensor_product_interpolation_formula spline_formula;
+        base_polynomial_values compute_beta;
 
         /* simulation parameters */
         char name[256];
@@ -86,7 +102,8 @@ class slab_field_particles
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
                 const int NCOMPONENTS,
-                const int BUFFERSIZE);
+                const int INTERP_NEIGHBOURS,
+                const int INTERP_SMOOTHNESS);
         ~slab_field_particles();
 
         /* an Euler step is needed to compute an estimate of future positions,
@@ -102,11 +119,15 @@ class slab_field_particles
         void synchronize();
         void synchronize_single_particle(int p);
         void get_grid_coordinates(double *x, int *xg, double *xx);
-        void linear_interpolation(float *field, int *xg, double *xx, double *dest);
+        void linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void spline_formula(      rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void spline_n1_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void spline_n2_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void spline_n3_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
 
         /* generic methods, should work for all children of this class */
-        ptrdiff_t buffered_local_size();
         void read();
         void write();
 

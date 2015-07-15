@@ -21,6 +21,7 @@
 
 
 from bfps.test import convergence_test
+from bfps.NavierStokes import test as NStest
 
 import numpy as np
 import subprocess
@@ -55,18 +56,18 @@ def main(opt):
     dtype = pickle.load(open(c.name + '_dtype.pickle'))
     stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
     stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
-    #stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
     traj1 = np.fromfile('test1_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     traj2 = np.fromfile('test2_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
     fig = plt.figure(figsize = (12,6))
     a = fig.add_subplot(121)
     a.plot(stats1['t'], stats1['energy'])
     a.plot(stats2['t'], stats2['energy'], dashes = (3, 3))
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
     a = fig.add_subplot(122)
     a.plot(stats1['t'], stats1['enstrophy'])
     a.plot(stats2['t'], stats2['enstrophy'], dashes = (3, 3))
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
+    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
     fig.savefig('test.pdf', format = 'pdf')
 
     fig = plt.figure(figsize = (24, 12))
@@ -142,6 +143,25 @@ def main(opt):
             iteration = 0,
             yval = 26)
     fig.savefig('particle_field.pdf', format = 'pdf')
+
+    k1 = np.fromfile('test1_kshell', dtype = np.float64)
+    k2 = np.fromfile('test2_kshell', dtype = np.float64)
+    fig = plt.figure(figsize=(12, 6))
+    a = fig.add_subplot(121)
+    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
+    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
+    a.plot(k1, s1)
+    a.plot(k2, s2)
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a = fig.add_subplot(122)
+    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(stats1.shape[0]-1), dtype = np.float64)
+    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(stats2.shape[0]-1), dtype = np.float64)
+    a.plot(k1, s1)
+    a.plot(k2, s2)
+    a.set_xscale('log')
+    a.set_yscale('log')
+    fig.savefig('spectra.pdf', format = 'pdf')
     return None
 
 def Kolmogorov_flow_test(opt):
@@ -243,6 +263,7 @@ def Kolmogorov_flow_test(opt):
     fig.savefig('cvort.pdf', format = 'pdf')
     return None
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--clean', dest = 'clean', action = 'store_true')
@@ -251,5 +272,5 @@ if __name__ == '__main__':
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('-n', type = int, dest = 'n', default = 32)
     opt = parser.parse_args()
-    main(opt)
+    NStest(opt)
 

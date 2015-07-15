@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <iostream>
 #include "field_descriptor.hpp"
-#include "vector_field.hpp"
 #include "fluid_solver_base.hpp"
 
 #ifndef FLUID_SOLVER
@@ -77,6 +76,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
+        void ift_velocity();
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);

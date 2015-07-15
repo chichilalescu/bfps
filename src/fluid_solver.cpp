@@ -240,6 +240,12 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
 } \
  \
 template<> \
+void fluid_solver<R>::ift_velocity() \
+{ \
+    FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
+} \
+ \
+template<> \
 void fluid_solver<R>::add_forcing(\
         C *field, R factor) \
 { \
@@ -420,14 +426,14 @@ FLUID_SOLVER_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
         fftwf_complex,
-        MPI_REAL4,
-        MPI_COMPLEX8)
+        MPI_FLOAT,
+        MPI_COMPLEX)
 //FLUID_SOLVER_DEFINITIONS(
 //        FFTW_MANGLE_DOUBLE,
 //        double,
 //        fftw_complex,
-//        MPI_REAL8,
-//        MPI_COMPLEX16)
+//        MPI_DOUBLE,
+//        MPI_C_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 
