@@ -37,84 +37,30 @@ class NavierStokes(bfps.code):
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
-        self.parameters['niter_todo'] = 8
-        self.parameters['dt'] = 0.01
-        self.parameters['nu'] = 0.1
-        self.parameters['famplitude'] = 1.0
-        self.parameters['fmode'] = 1
-        self.parameters['fk0'] = 0.0
-        self.parameters['fk1'] = 3.0
-        self.parameters['forcing_type'] = 'linear'
-        self.parameters['nparticles'] = 0
+        self.parameters['dst_iter'] = 0
+        self.parameters['dst_nx'] = 32
+        self.parameters['dst_ny'] = 32
+        self.parameters['dst_nz'] = 32
+        self.parameters['dst_simname'] = 'new_test'
+        self.parameters['dst_dkx'] = 1.0
+        self.parameters['dst_dky'] = 1.0
+        self.parameters['dst_dkz'] = 1.0
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
         self.fluid_start = ''
         self.fluid_loop = ''
         self.fluid_end  = ''
-        self.particle_includes = '#include "tracers.hpp"\n'
-        self.particle_variables = ''
-        self.particle_definitions = ''
-        self.particle_start = ''
-        self.particle_loop = ''
-        self.particle_end  = ''
         self.fill_up_fluid_code()
-        return None
-    def write_fluid_stats(self):
-        self.fluid_includes += '#include <cmath>\n'
-        self.fluid_variables += ('double stats[3];\n' +
-                                 'FILE *stat_file;\n')
-        self.fluid_definitions += """
-                //begincpp
-                void do_stats(fluid_solver<float> *fsolver)
-                {
-                    double vel_tmp;
-                    fsolver->compute_velocity(fsolver->cvorticity);
-                    stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
-                    stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    fs->ift_velocity();
-                    stats[2] = sqrt(fs->ru[0]*fs->ru[0] +
-                                    fs->ru[1]*fs->ru[1] +
-                                    fs->ru[2]*fs->ru[2]);
-                    for (ptrdiff_t rindex = 1; rindex < fs->rd->local_size; rindex++)
-                    {
-                        vel_tmp = sqrt(fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
-                                       fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
-                                       fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
-                        if (vel_tmp > stats[2])
-                            stats[2] = vel_tmp;
-                    }
-                    if (myrank == 0)
-                    {
-                        fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
-                        fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 3, stat_file);
-                    }
-                    fs->write_spectrum("velocity", fs->cvelocity);
-                }
-                //endcpp
-                """
-        self.stats_dtype = np.dtype([('iteration', np.int32),
-                                     ('t',         np.float64),
-                                     ('energy',    np.float64),
-                                     ('enstrophy', np.float64),
-                                     ('vel_max',   np.float64)])
-        pickle.dump(
-                self.stats_dtype,
-                open(os.path.join(
-                        self.work_dir,
-                        self.name + '_dtype.pickle'),
-                     'w'))
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs;\n')
-        self.write_fluid_stats()
+                                 'fluid_solver<float> *fs0, *fs1;\n')
         self.fluid_start += """
                 //begincpp
                 char fname[512];
-                fs = new fluid_solver<float>(
+                fs0 = new fluid_solver<float>(
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
@@ -338,7 +284,7 @@ def test(opt):
     c.parameters['nu'] = 1e-1
     c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 1.
+    c.parameters['famplitude'] = 0.1
     c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles()

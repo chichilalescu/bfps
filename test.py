@@ -266,6 +266,7 @@ def Kolmogorov_flow_test(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--particles', dest = 'particles', action = 'store_true')
     parser.add_argument('--clean', dest = 'clean', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
