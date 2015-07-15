@@ -176,7 +176,7 @@ class NavierStokes(bfps.code):
                                 'ps{0}->read();\n' +
                                 'if (myrank == 0)\n' +
                                 '{{\n' +
-                                '    sprintf(fname, "%s_traj{0}.bin", ps{0}->name);\n' +
+                                '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
                                 '    traj_file{0} = fopen(fname, "wb");\n' +
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
