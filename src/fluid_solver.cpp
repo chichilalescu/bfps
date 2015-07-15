@@ -153,9 +153,13 @@ fluid_solver<R>::fluid_solver( \
             this->rv[2], this->cv[2], \
             MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
  \
-    /* ``physical'' parameters etc */ \
+    /* ``physical'' parameters etc, initialized here just in case */ \
  \
     this->nu = 0.1; \
+    this->fmode = 1; \
+    this->famplitude = 1.0; \
+    this->fk0  = 0; \
+    this->fk1 = 3.0; \
 } \
  \
 template<> \
@@ -249,16 +253,39 @@ template<> \
 void fluid_solver<R>::add_forcing(\
         C *field, R factor) \
 { \
-    ptrdiff_t cindex; \
-    if (this->cd->myrank == this->cd->rank[this->fmode]) \
+    if (strcmp(this->forcing_type, "none") == 0) \
+        return; \
+    if (strcmp(this->forcing_type, "Kolmogorov") == 0) \
     { \
-        cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
-        field[cindex+2][0] -= this->famplitude*factor/2; \
+        ptrdiff_t cindex; \
+        if (this->cd->myrank == this->cd->rank[this->fmode]) \
+        { \
+            cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
+            field[cindex+2][0] -= this->famplitude*factor/2; \
+        } \
+        if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
+        { \
+            cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
+            field[cindex+2][0] -= this->famplitude*factor/2; \
+        } \
+        return; \
     } \
-    if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
+    if (strcmp(this->forcing_type, "linear") == 0) \
     { \
-        cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
-        field[cindex+2][0] -= this->famplitude*factor/2; \
+        double knorm; \
+        CLOOP( \
+                knorm = sqrt(this->kx[xindex]*this->kx[xindex] + \
+                             this->ky[yindex]*this->ky[yindex] + \
+                             this->kz[zindex]*this->kz[zindex]); \
+                if ((this->fk0  <= knorm) && \
+                    (this->fk1 >= knorm)) \
+                    for (int c=0; c<3; c++) \
+                    { \
+                        field[cindex*3+c][0] += this->famplitude*this->cvorticity[cindex*3+c][0]*factor; \
+                        field[cindex*3+c][1] += this->famplitude*this->cvorticity[cindex*3+c][1]*factor; \
+                    } \
+             ); \
+        return; \
     } \
 } \
  \

@@ -39,6 +39,9 @@ class NavierStokes(bfps.code):
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
         self.parameters['fmode'] = 1
+        self.parameters['fk0'] = 0.0
+        self.parameters['fk1'] = 3.0
+        self.parameters['forcing_type'] = 'linear'
         self.parameters['nparticles'] = 0
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
@@ -112,6 +115,9 @@ class NavierStokes(bfps.code):
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
+                fs->fk0 = fk0;
+                fs->fk1 = fk1;
+                strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iter0;
                 fs->read('v', 'c');
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
@@ -309,7 +315,7 @@ def test(opt):
     c.parameters['nu'] = 1e-1
     c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.0
+    c.parameters['famplitude'] = 0.1
     c.parameters['nparticles'] = 32
     c.add_particles()
     c.add_particles(kcut = 'fs->kM/2')
@@ -324,7 +330,6 @@ def test(opt):
               simname = 'test')
     stats = c.read_stats()
     k, espec = c.read_spec()
-    print k
 
     # plot spectra
     fig = plt.figure(figsize=(6,6))
