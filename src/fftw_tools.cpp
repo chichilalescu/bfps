@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <iostream>
+#include "base.hpp"
 #include "fftw_tools.hpp"
 
 
@@ -30,19 +31,17 @@ int copy_complex_array(
         field_descriptor<rnumber> *fi,
         rnumber (*ai)[2],
         field_descriptor<rnumber> *fo,
-        rnumber (*ao)[2])
+        rnumber (*ao)[2],
+        int howmany)
 {
-    if (((fi->ndims != 3) ||
-         (fo->ndims != 3)) ||
-        (fi->comm != fo->comm))
-        return EXIT_FAILURE;
     fftwf_complex *buffer;
-    buffer = fftwf_alloc_complex(fi->slice_size);
+    buffer = fftwf_alloc_complex(fi->slice_size*howmany);
 
     int min_fast_dim;
     min_fast_dim =
-        (fi->sizes[fi->ndims - 1] > fo->sizes[fi->ndims - 1]) ?
-         fo->sizes[fi->ndims - 1] : fi->sizes[fi->ndims - 1];
+        (fi->sizes[2] > fo->sizes[2]) ?
+         fo->sizes[2] : fi->sizes[2];
+    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX8 : MPI_COMPLEX16;
 
     // clean up destination, in case we're padding with zeros
     // (even if only for one dimension)
@@ -85,7 +84,7 @@ int copy_complex_array(
                 MPI_Send(
                         (void*)(ai + (ii0-fi->starts[0])*fi->slice_size),
                         fi->slice_size,
-                        MPI_COMPLEX8,
+                        MPI_CNUM,
                         orank,
                         ii0,
                         fi->comm);
@@ -95,7 +94,7 @@ int copy_complex_array(
                 MPI_Recv(
                         (void*)(buffer),
                         fi->slice_size,
-                        MPI_COMPLEX8,
+                        MPI_CNUM,
                         irank,
                         ii0,
                         fi->comm,
@@ -119,11 +118,11 @@ int copy_complex_array(
                         continue;
                 }
                 std::copy(
-                        (rnumber*)(buffer + ii1*fi->sizes[2]),
-                        (rnumber*)(buffer + ii1*fi->sizes[2] + min_fast_dim),
+                        (rnumber*)(buffer + (ii1*fi->sizes[2]*howmany)),
+                        (rnumber*)(buffer + (ii1*fi->sizes[2] + min_fast_dim)*howmany),
                         (rnumber*)(ao +
                                  ((oi0 - fo->starts[0])*fo->sizes[1] +
-                                  oi1)*fo->sizes[2]));
+                                  oi1)*fo->sizes[2]*howmany));
             }
         }
     }
@@ -164,15 +163,17 @@ int get_descriptors_3D(
         field_descriptor<rnumber> **fr,
         field_descriptor<rnumber> **fc)
 {
+    MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
+    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX8 : MPI_COMPLEX16;
     int ntmp[3];
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2;
-   *fr = new field_descriptor<rnumber>(3, ntmp, MPI_FLOAT, MPI_COMM_WORLD);
+    *fr = new field_descriptor<rnumber>(3, ntmp, MPI_RNUM, MPI_COMM_WORLD);
     ntmp[0] = n0;
     ntmp[1] = n1;
     ntmp[2] = n2/2+1;
-    *fc = new field_descriptor<rnumber>(3, ntmp, MPI_COMPLEX8, MPI_COMM_WORLD);
+    *fc = new field_descriptor<rnumber>(3, ntmp, MPI_CNUM, MPI_COMM_WORLD);
     return EXIT_SUCCESS;
 }
 
@@ -182,7 +183,8 @@ int copy_complex_array<rnumber>( \
         field_descriptor<rnumber> *fi, \
         rnumber (*ai)[2], \
         field_descriptor<rnumber> *fo, \
-        rnumber (*ao)[2]); \
+        rnumber (*ao)[2], \
+        int howmany); \
  \
 template \
 int clip_zero_padding<rnumber>( \

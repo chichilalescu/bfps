@@ -25,12 +25,12 @@ import numpy as np
 import pickle
 import os
 
-class NavierStokes(bfps.code):
+class vorticity_resize(bfps.code):
     def __init__(
             self,
-            name = 'NavierStokes',
+            name = 'vorticity_resize',
             work_dir = './'):
-        super(NavierStokes, self).__init__()
+        super(vorticity_resize, self).__init__()
         self.work_dir = work_dir
         self.particle_species = 0
         self.name = name
@@ -45,122 +45,43 @@ class NavierStokes(bfps.code):
         self.parameters['dst_dkx'] = 1.0
         self.parameters['dst_dky'] = 1.0
         self.parameters['dst_dkz'] = 1.0
-        self.fluid_includes = '#include "fluid_solver.hpp"\n'
-        self.fluid_variables = ''
-        self.fluid_definitions = ''
-        self.fluid_start = ''
-        self.fluid_loop = ''
-        self.fluid_end  = ''
-        self.fill_up_fluid_code()
+        self.fill_up_code()
         return None
-    def fill_up_fluid_code(self):
-        self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs0, *fs1;\n')
-        self.fluid_start += """
+    def fill_up_code(self):
+        self.includes = '#include "fluid_solver.hpp"\n'
+        self.variables  += self.cdef_pars()
+        self.definitions+= self.cread_pars()
+        self.includes += '#include <cstring>\n'
+        self.includes += '#include "fftw_tools.hpp"\n'
+        self.variables += 'fluid_solver<float> *fs0, *fs1;\n'
+        self.main = """
                 //begincpp
                 char fname[512];
                 fs0 = new fluid_solver<float>(
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
-                fs->nu = nu;
-                fs->fmode = fmode;
-                fs->famplitude = famplitude;
-                fs->fk0 = fk0;
-                fs->fk1 = fk1;
-                strncpy(fs->forcing_type, forcing_type, 128);
-                fs->iteration = iter0;
-                fs->read('v', 'c');
-                fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
-                fs->force_divfree(fs->cvorticity);
-                fs->symmetrize(fs->cvorticity, 3);
-                if (myrank == 0)
-                {
-                    sprintf(fname, "%s_stats.bin", simname);
-                    stat_file = fopen(fname, "wb");
-                }
-                t = 0.0;
-                do_stats(fs);
+                fs1 = new fluid_solver<float>(
+                        dst_simname,
+                        dst_nx, dst_ny, dst_nz,
+                        dst_dkx, dst_dky, dst_dkz);
+                fs0->iteration = iter0;
+                fs0->read('v', 'c');
+                fs0->low_pass_Fourier(fs0->cvorticity, 3, fs0->kM);
+                fs0->force_divfree(fs0->cvorticity);
+                fs0->symmetrize(fs0->cvorticity, 3);
+                fs0->write('v', 'r');
+                fs0->write('u', 'r');
+                copy_complex_array(fs0->cd, fs0->cvorticity,
+                                   fs1->cd, fs1->cvorticity,
+                                   3);
+                fs1->write('v', 'c');
+                fs1->write('v', 'r');
+                fs1->write('u', 'r');
+                delete fs0;
+                delete fs1;
                 //endcpp
                 """
-        self.fluid_loop += """
-                //begincpp
-                fs->step(dt);
-                t += dt;
-                do_stats(fs);
-                //endcpp
-                """
-        self.fluid_end += """
-                //begincpp
-                if (myrank == 0)
-                {
-                    fclose(stat_file);
-                }
-                fs->write('v', 'c');
-                delete fs;
-                //endcpp
-                """
-        return None
-    def add_particles(
-            self,
-            neighbours = 1,
-            smoothness = 1,
-            kcut = 'fs->kM'):
-        self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
-        self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
-        self.parameters['kcut{0}'.format(self.particle_species)] = kcut
-        self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
-        self.particle_variables += 'FILE *traj_file{0};\n'.format(self.particle_species)
-        #self.particle_definitions
-        update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
-                        'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
-                        'fs->ift_velocity();\n' +
-                        'ps{0}->update_field();\n').format(self.particle_species)
-        self.particle_start += ('sprintf(fname, "%s_tracers{0}", simname);\n' +
-                                'ps{0} = new tracers<float>(\n' +
-                                    'fname, fs,\n' +
-                                    'nparticles, neighbours{0}, smoothness{0},\n' +
-                                    'fs->ru);\n' +
-                                'ps{0}->dt = dt;\n' +
-                                'ps{0}->iteration = iter0;\n' +
-                                update_field +
-                                'ps{0}->read();\n' +
-                                'if (myrank == 0)\n' +
-                                '{{\n' +
-                                '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
-                                '    traj_file{0} = fopen(fname, "wb");\n' +
-                                '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
-                                '}}\n').format(self.particle_species)
-        self.particle_loop +=  (update_field +
-                               'ps{0}->Euler();\n' +
-                               'ps{0}->iteration++;\n' +
-                               'ps{0}->synchronize();\n').format(self.particle_species)
-        self.particle_end += ('ps{0}->write();\n' +
-                              'delete ps{0};\n').format(self.particle_species)
-        self.particle_species += 1
-        return None
-    def finalize_code(self):
-        self.variables  += self.cdef_pars()
-        self.definitions+= self.cread_pars()
-        self.includes   += self.fluid_includes
-        self.variables  += self.fluid_variables
-        self.definitions+= self.fluid_definitions
-        if self.particle_species > 0:
-            self.includes    += self.particle_includes
-            self.variables   += self.particle_variables
-            self.definitions += self.particle_definitions
-        self.main        = self.fluid_start
-        if self.particle_species > 0:
-            self.main   += self.particle_start
-        self.main       += 'for (; fs->iteration < iter0 + niter_todo;)\n{\n'
-        if self.particle_species > 0:
-            self.main   += self.particle_loop
-        self.main       += self.fluid_loop
-        self.main       += '\n}\n'
-        if self.particle_species > 0:
-            self.main   += self.particle_end
-        self.main       += self.fluid_end
         return None
     def plot_vel_cut(
             self,
@@ -172,7 +93,7 @@ class NavierStokes(bfps.code):
             filename = None):
         axis.set_axis_off()
         if type(filename) == type(None):
-            filename = simname + '_' + field + '_i{0:0>5x}'.format(iteration)
+            filename = os.path.join(self.work_dir, simname + '_' + field + '_i{0:0>5x}'.format(iteration))
         Rdata0 = np.fromfile(
                 filename,
                 dtype = np.float32).reshape((-1,
@@ -180,9 +101,10 @@ class NavierStokes(bfps.code):
                                              self.parameters['nx'], 3))
         energy = np.sum(Rdata0[:, yval, :, :]**2, axis = 2)*.5
         axis.imshow(energy, interpolation='none')
-        axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
-                                               Rdata0[..., 1]**2 +
-                                               Rdata0[..., 2]**2)*.5))
+        axis.set_title('{0} {1}'.format(field,
+                                        np.average(Rdata0[..., 0]**2 +
+                                                   Rdata0[..., 1]**2 +
+                                                   Rdata0[..., 2]**2)*.5))
         return Rdata0
     def generate_vector_field(
             self,
@@ -268,7 +190,7 @@ class NavierStokes(bfps.code):
 import subprocess
 import matplotlib.pyplot as plt
 
-def test(opt):
+def double(opt):
     if opt.run or opt.clean:
         subprocess.call(['rm {0}/test_*'.format(opt.work_dir)], shell = True)
         subprocess.call(['rm {0}/*.pickle'.format(opt.work_dir)], shell = True)
@@ -277,47 +199,53 @@ def test(opt):
     if opt.clean:
         subprocess.call(['make', 'clean'])
         return None
-    c = NavierStokes(work_dir = opt.work_dir)
+    c = vorticity_resize(work_dir = opt.work_dir)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 1e-1
-    c.parameters['dt'] = 2e-3
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.1
-    c.parameters['nparticles'] = 32
-    if opt.particles:
-        c.add_particles()
-        c.add_particles(kcut = 'fs->kM/2')
-    c.finalize_code()
+    c.parameters['dst_nx'] = 2*opt.n
+    c.parameters['dst_ny'] = 2*opt.n
+    c.parameters['dst_nz'] = 2*opt.n
+    c.parameters['dst_simname'] = 'test2'
     c.write_src()
-    c.write_par(simname = 'test')
+    c.write_par(simname = 'test1')
     if opt.run:
-        c.generate_vector_field(simname = 'test')
-        c.generate_tracer_state(simname = 'test', species = 0)
-        c.generate_tracer_state(simname = 'test', species = 1)
+        c.generate_vector_field(simname = 'test1')
         c.run(ncpu = opt.ncpu,
-              simname = 'test')
-    stats = c.read_stats()
-    k, espec = c.read_spec()
+              simname = 'test1')
 
-    # plot spectra
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(111)
-    for i in range(espec.shape[0]):
-        a.plot(k, espec[i]['val'])
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.savefig('spectrum.pdf', format = 'pdf')
-
-    #plot consistency checks
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(111)
-    etaK = (c.parameters['nu']**2 / (stats['enstrophy']*2))**.25
-    a.plot(k[-3]*etaK, label = '$k_M \eta_K$')
-    a.plot(c.parameters['dt']*stats['vel_max'] / (2*np.pi/c.parameters['nx']),
-            label = '$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    a.legend(loc = 'best')
-    fig.savefig('consistency_checks.pdf', format = 'pdf')
+    fig = plt.figure(figsize=(12, 12))
+    a = fig.add_subplot(221)
+    c.plot_vel_cut(
+            a,
+            simname = 'test1',
+            field = 'rvorticity',
+            iteration = 0,
+            yval = 13)
+    a = fig.add_subplot(222)
+    c.plot_vel_cut(
+            a,
+            simname = 'test1',
+            field = 'rvelocity',
+            iteration = 0,
+            yval = 13)
+    c.parameters['nx'] *= 2
+    c.parameters['ny'] *= 2
+    c.parameters['nz'] *= 2
+    a = fig.add_subplot(223)
+    c.plot_vel_cut(
+            a,
+            simname = 'test2',
+            field = 'rvorticity',
+            iteration = 0,
+            yval = 26)
+    a = fig.add_subplot(224)
+    c.plot_vel_cut(
+            a,
+            simname = 'test2',
+            field = 'rvelocity',
+            iteration = 0,
+            yval = 26)
+    fig.savefig('resize.pdf', format = 'pdf')
     return None
 
