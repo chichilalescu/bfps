@@ -91,6 +91,7 @@ class NavierStokes(bfps.code):
                         fwrite((void*)stats, sizeof(double), 3, stat_file);
                     }
                     fs->write_spectrum("velocity", fs->cvelocity);
+                    fs->write_spectrum("kvelocity", fs->cvelocity, 1.0);
                     fs->write_spectrum("vorticity", fs->cvorticity);
                 }
                 //endcpp
@@ -355,6 +356,7 @@ def test(opt):
     stats = c.read_stats()
     k, enespec = c.read_spec()
     k, ensspec = c.read_spec(field = 'vorticity')
+    k, k2enespec = c.read_spec(field = 'kvelocity')
 
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 6))
@@ -378,16 +380,27 @@ def test(opt):
     fig.savefig('stats.pdf', format = 'pdf')
 
     # plot spectra
-    fig = plt.figure(figsize=(12,6))
-    a = fig.add_subplot(121)
-    for i in range(0, enespec.shape[0]):
+    spec_skip = 64
+    fig = plt.figure(figsize=(12,4))
+    a = fig.add_subplot(131)
+    for i in range(0, enespec.shape[0], spec_skip):
         a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
     a.set_xscale('log')
     a.set_yscale('log')
     a.set_title('velocity')
-    a = fig.add_subplot(122)
-    for i in range(0, ensspec.shape[0], 64):
+    a = fig.add_subplot(132)
+    for i in range(0, ensspec.shape[0], spec_skip):
         a.plot(k, ensspec[i]['val'],
+               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+        a.plot(k, k2enespec[i]['val'],
+               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
+               dashes = (2, 2))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('vorticity')
+    a = fig.add_subplot(133)
+    for i in range(0, ensspec.shape[0], spec_skip):
+        a.plot(k, k2enespec[i]['val'],
                color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
         a.plot(k, k**2*enespec[i]['val'],
                color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),

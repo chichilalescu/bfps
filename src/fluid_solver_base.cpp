@@ -31,7 +31,7 @@
 
 
 template <class rnumber>
-void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, double k2exponent)
+void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
     double *cospec_local = fftw_alloc_real(this->nshells);
     std::fill_n(cospec_local, this->nshells, 0);
@@ -70,10 +70,10 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
-void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a)
+void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, const double k2exponent)
 {
     double *spec = fftw_alloc_real(this->nshells);
-    this->cospectrum(a, a, spec);
+    this->cospectrum(a, a, spec, k2exponent);
     if (this->cd->myrank == 0)
     {
         FILE *spec_file;
