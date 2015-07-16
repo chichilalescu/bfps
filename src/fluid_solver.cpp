@@ -250,6 +250,24 @@ void fluid_solver<R>::ift_velocity() \
 } \
  \
 template<> \
+void fluid_solver<R>::ift_vorticity() \
+{ \
+    FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
+} \
+ \
+template<> \
+void fluid_solver<R>::dft_velocity() \
+{ \
+    FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
+} \
+ \
+template<> \
+void fluid_solver<R>::dft_vorticity() \
+{ \
+    FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
+} \
+ \
+template<> \
 void fluid_solver<R>::add_forcing(\
         C *field, R factor) \
 { \
@@ -437,7 +455,7 @@ int fluid_solver<R>::write(char field, char representation) \
         return this->write_base("cvelocity", this->cvelocity); \
     if ((field == 'u') && (representation == 'r')) \
     { \
-        FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
+        this->ift_velocity(); \
         clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
         return this->write_base("rvelocity", this->rvelocity); \
     } \
