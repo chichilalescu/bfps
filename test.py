@@ -276,7 +276,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
     parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
     opt = parser.parse_args()
-    #test_curl(opt)
-    NStest(opt)
+    test_curl(opt)
+    #NStest(opt)
     #resize_test(opt)
 

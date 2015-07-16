@@ -53,29 +53,8 @@ class test_curl(bfps.code):
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver)
                 {
-                    double vel_tmp;
-                    fsolver->compute_velocity(fsolver->cvorticity);
-                    stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
-                    stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    fs->ift_velocity();
-                    stats[2] = sqrt(fs->ru[0]*fs->ru[0] +
-                                    fs->ru[1]*fs->ru[1] +
-                                    fs->ru[2]*fs->ru[2]);
-                    for (ptrdiff_t rindex = 1; rindex < fs->rd->local_size; rindex++)
-                    {
-                        vel_tmp = sqrt(fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
-                                       fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
-                                       fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
-                        if (vel_tmp > stats[2])
-                            stats[2] = vel_tmp;
-                    }
-                    if (myrank == 0)
-                    {
-                        fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
-                        fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 3, stat_file);
-                    }
                     fs->write_spectrum("velocity", fs->cvelocity);
+                    fs->write_spectrum("kvelocity", fs->cvelocity, 1.0);
                     fs->write_spectrum("vorticity", fs->cvorticity);
                 }
                 //endcpp
@@ -110,14 +89,17 @@ class test_curl(bfps.code):
                 fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
                 fs->write('v', 'r');
+                do_stats(fs);
                 fs->compute_velocity(fs->cvorticity);
                 fs->compute_vorticity();
                 fs->iteration++;
                 fs->write('v', 'r');
+                do_stats(fs);
                 fs->compute_velocity(fs->cvorticity);
                 fs->compute_vorticity();
                 fs->iteration++;
                 fs->write('v', 'r');
+                do_stats(fs);
                 //endcpp
                 """
         self.fluid_end += """
@@ -274,6 +256,12 @@ def test(opt):
             c.generate_tracer_state(simname = 'test', species = 1)
         c.run(ncpu = opt.ncpu,
               simname = 'test')
+    k, enespec = c.read_spec()
+    print k, enespec
+    k, ensspec = c.read_spec(field = 'vorticity')
+    print k, ensspec
+    k, k2enespec = c.read_spec(field = 'kvelocity')
+    print k, k2enespec
 
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 6))
@@ -296,5 +284,36 @@ def test(opt):
             iteration = 2,
             yval = 13)
     fig.savefig('test_curl.pdf', format = 'pdf')
+
+    # plot spectra
+    spec_skip = 64
+    fig = plt.figure(figsize=(12,4))
+    a = fig.add_subplot(131)
+    for i in range(1, enespec.shape[0], spec_skip):
+        a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('velocity')
+    a = fig.add_subplot(132)
+    for i in range(1, ensspec.shape[0], spec_skip):
+        a.plot(k, ensspec[i]['val'],
+               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+        a.plot(k, k2enespec[i]['val'],
+               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
+               dashes = (2, 2))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('vorticity')
+    a = fig.add_subplot(133)
+    for i in range(1, ensspec.shape[0], spec_skip):
+        a.plot(k, k2enespec[i]['val'],
+               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+        a.plot(k, k**2*enespec[i]['val'],
+               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
+               dashes = (2, 2))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('vorticity')
+    fig.savefig('spectrum.pdf', format = 'pdf')
     return None
 

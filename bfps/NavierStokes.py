@@ -91,7 +91,6 @@ class NavierStokes(bfps.code):
                         fwrite((void*)stats, sizeof(double), 3, stat_file);
                     }
                     fs->write_spectrum("velocity", fs->cvelocity);
-                    fs->write_spectrum("kvelocity", fs->cvelocity, 1.0);
                     fs->write_spectrum("vorticity", fs->cvorticity);
                 }
                 //endcpp
