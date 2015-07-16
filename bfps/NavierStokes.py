@@ -127,9 +127,6 @@ class NavierStokes(bfps.code):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iter0;
                 fs->read('v', 'c');
-                fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
-                //fs->force_divfree(fs->cvorticity);
-                fs->symmetrize(fs->cvorticity, 3);
                 if (myrank == 0)
                 {
                     sprintf(fname, "%s_stats.bin", simname);
@@ -338,9 +335,9 @@ def test(opt):
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    c.parameters['dt'] = 2e-3
+    c.parameters['dt'] = 5e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.0
+    c.parameters['famplitude'] = 1.
     c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles()
@@ -369,11 +366,15 @@ def test(opt):
     a.legend(loc = 'best')
     a = fig.add_subplot(122)
     a.plot(stats['t'], stats['energy'], label = 'energy', color = (0, 0, 1))
-    a.set_ylabel('energy')
+    a.set_ylabel('energy', color = (0, 0, 1))
     a.set_xlabel('$t$')
+    for tt in a.get_yticklabels():
+        tt.set_color((0, 0, 1))
     b = a.twinx()
     b.plot(stats['t'], stats['enstrophy'], label = 'enstrophy', color = (1, 0, 0))
-    b.set_ylabel('enstrophy')
+    b.set_ylabel('enstrophy', color = (1, 0, 0))
+    for tt in b.get_yticklabels():
+        tt.set_color((1, 0, 0))
     fig.savefig('stats.pdf', format = 'pdf')
 
     # plot spectra
@@ -385,9 +386,12 @@ def test(opt):
     a.set_yscale('log')
     a.set_title('velocity')
     a = fig.add_subplot(122)
-    for i in range(0, ensspec.shape[0]):
-        a.plot(k, ensspec[i]['val'], color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
-        a.plot(k, k**2*enespec[i]['val'], color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]))
+    for i in range(0, ensspec.shape[0], 64):
+        a.plot(k, ensspec[i]['val'],
+               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+        a.plot(k, k**2*enespec[i]['val'],
+               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
+               dashes = (2, 2))
     a.set_xscale('log')
     a.set_yscale('log')
     a.set_title('vorticity')
