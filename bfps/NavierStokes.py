@@ -91,6 +91,7 @@ class NavierStokes(bfps.code):
                         fwrite((void*)stats, sizeof(double), 3, stat_file);
                     }
                     fs->write_spectrum("velocity", fs->cvelocity);
+                    fs->write_spectrum("vorticity", fs->cvorticity);
                 }
                 //endcpp
                 """
@@ -127,14 +128,14 @@ class NavierStokes(bfps.code):
                 fs->iteration = iter0;
                 fs->read('v', 'c');
                 fs->low_pass_Fourier(fs->cvorticity, 3, fs->kM);
-                fs->force_divfree(fs->cvorticity);
+                //fs->force_divfree(fs->cvorticity);
                 fs->symmetrize(fs->cvorticity, 3);
                 if (myrank == 0)
                 {
                     sprintf(fname, "%s_stats.bin", simname);
-                    stat_file = fopen(fname, "wb");
+                    stat_file = fopen(fname, "ab");
                 }
-                t = 0.0;
+                t = dt*iter0;
                 do_stats(fs);
                 //endcpp
                 """
@@ -152,6 +153,7 @@ class NavierStokes(bfps.code):
                     fclose(stat_file);
                 }
                 fs->write('v', 'c');
+                fs->write('u', 'r');
                 delete fs;
                 //endcpp
                 """
@@ -335,10 +337,10 @@ def test(opt):
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 1e-1
+    c.parameters['nu'] = 5.5*opt.n**(-4./3)
     c.parameters['dt'] = 2e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 1.
+    c.parameters['famplitude'] = 0.0
     c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles()
@@ -348,30 +350,47 @@ def test(opt):
     c.write_par(simname = 'test')
     if opt.run:
         c.generate_vector_field(simname = 'test')
-        c.generate_tracer_state(simname = 'test', species = 0)
-        c.generate_tracer_state(simname = 'test', species = 1)
+        if opt.particles:
+            c.generate_tracer_state(simname = 'test', species = 0)
+            c.generate_tracer_state(simname = 'test', species = 1)
         c.run(ncpu = opt.ncpu,
               simname = 'test')
     stats = c.read_stats()
-    k, espec = c.read_spec()
+    k, enespec = c.read_spec()
+    k, ensspec = c.read_spec(field = 'vorticity')
 
-    # plot spectra
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(111)
-    for i in range(espec.shape[0]):
-        a.plot(k, espec[i]['val'])
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.savefig('spectrum.pdf', format = 'pdf')
-
-    #plot consistency checks
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(111)
+    # plot energy and enstrophy
+    fig = plt.figure(figsize = (12, 6))
+    a = fig.add_subplot(121)
     etaK = (c.parameters['nu']**2 / (stats['enstrophy']*2))**.25
-    a.plot(k[-3]*etaK, label = '$k_M \eta_K$')
-    a.plot(c.parameters['dt']*stats['vel_max'] / (2*np.pi/c.parameters['nx']),
+    a.plot(stats['t'], k[-3]*etaK, label = '$k_M \eta_K$')
+    a.plot(stats['t'], c.parameters['dt']*stats['vel_max'] / (2*np.pi/c.parameters['nx']),
             label = '$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     a.legend(loc = 'best')
-    fig.savefig('consistency_checks.pdf', format = 'pdf')
+    a = fig.add_subplot(122)
+    a.plot(stats['t'], stats['energy'], label = 'energy', color = (0, 0, 1))
+    a.set_ylabel('energy')
+    a.set_xlabel('$t$')
+    b = a.twinx()
+    b.plot(stats['t'], stats['enstrophy'], label = 'enstrophy', color = (1, 0, 0))
+    b.set_ylabel('enstrophy')
+    fig.savefig('stats.pdf', format = 'pdf')
+
+    # plot spectra
+    fig = plt.figure(figsize=(12,6))
+    a = fig.add_subplot(121)
+    for i in range(0, enespec.shape[0]):
+        a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('velocity')
+    a = fig.add_subplot(122)
+    for i in range(0, ensspec.shape[0]):
+        a.plot(k, ensspec[i]['val'], color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+        a.plot(k, k**2*enespec[i]['val'], color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]))
+    a.set_xscale('log')
+    a.set_yscale('log')
+    a.set_title('vorticity')
+    fig.savefig('spectrum.pdf', format = 'pdf')
     return None
 

@@ -314,7 +314,6 @@ void fluid_solver_base<R>::force_divfree(C *a) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            if (k2 >= this->kM2) \
             { \
                 tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) + \
                            this->ky[yindex]*((*(a + cindex*3+1))[0]) + \
@@ -322,14 +321,16 @@ void fluid_solver_base<R>::force_divfree(C *a) \
                 tval[1] = (this->kx[xindex]*((*(a + cindex*3  ))[1]) + \
                            this->ky[yindex]*((*(a + cindex*3+1))[1]) + \
                            this->kz[zindex]*((*(a + cindex*3+2))[1]) ) / k2; \
-                a[cindex*3  ][0] -= tval[0]*this->kx[xindex]; \
-                a[cindex*3+1][1] -= tval[1]*this->kx[xindex]; \
-                a[cindex*3+2][0] -= tval[0]*this->ky[yindex]; \
-                a[cindex*3  ][1] -= tval[1]*this->ky[yindex]; \
-                a[cindex*3+1][0] -= tval[0]*this->kz[zindex]; \
-                a[cindex*3+2][1] -= tval[1]*this->kz[zindex]; \
+                for (int imag_part=0; imag_part<2; imag_part++) \
+                { \
+                    a[cindex*3  ][imag_part] -= tval[imag_part]*this->kx[xindex]; \
+                    a[cindex*3+1][imag_part] -= tval[imag_part]*this->ky[yindex]; \
+                    a[cindex*3+2][imag_part] -= tval[imag_part]*this->kz[zindex]; \
+                } \
             } \
             );\
+    if (this->cd->myrank == this->cd->rank[0]) \
+        std::fill_n((R*)(a), 6, 0.0); \
 } \
  \
 template<> \

@@ -210,7 +210,7 @@ def double(opt):
     c.write_src()
     c.write_par(simname = 'test1')
     if opt.run:
-        c.generate_vector_field(simname = 'test1')
+        #c.generate_vector_field(simname = 'test1')
         c.run(ncpu = opt.ncpu,
               simname = 'test1')
 
