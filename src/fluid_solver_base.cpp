@@ -360,12 +360,10 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
         rankdst = this->cd->rank[this->cd->sizes[0] - yy]; \
         if (this->cd->myrank == ranksrc) \
             for (ii = 0; ii < this->cd->sizes[1]; ii++) \
-                for (cc = 0; cc < howmany; cc++) { \
-                    (*(buffer + howmany*ii+cc))[0] = \
-                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0]; \
-                    (*(buffer + howmany*ii+cc))[1] = \
-                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1]; \
-                } \
+                for (cc = 0; cc < howmany; cc++) \
+                    for (int imag_comp=0; imag_comp<2; imag_comp++) \
+                    (*(buffer + howmany*ii+cc))[imag_comp] = \
+                        (*(data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[imag_comp]; \
         if (ranksrc != rankdst) \
         { \
             if (this->cd->myrank == ranksrc) \
@@ -382,9 +380,9 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
             for (ii = 1; ii < this->cd->sizes[1]; ii++) \
                 for (cc = 0; cc < howmany; cc++) \
                 { \
-                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0] = \
+                    (*(data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[0] = \
                         (*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[0]; \
-                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1] = \
+                    (*(data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[1] = \
                        -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
                 } \
             for (cc = 0; cc < howmany; cc++) \
