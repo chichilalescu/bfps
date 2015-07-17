@@ -235,6 +235,7 @@ int field_descriptor<rnumber>::read(
     else if (sizeof(rnumber)==8)
         ttype = MPI_DOUBLE_COMPLEX;
     DEBUG_MSG("aloha 00\n");
+    char representation[] = "native";
     if (this->subsizes[0] > 0)
     {
         MPI_Info info;
@@ -259,7 +260,7 @@ int field_descriptor<rnumber>::read(
                 0,
                 MPI_UNSIGNED_CHAR,
                 this->mpi_array_dtype,
-                "native",
+                representation,
                 info);
         MPI_File_read_all(
                 f,
@@ -282,6 +283,7 @@ int field_descriptor<rnumber>::write(
         ttype = MPI_COMPLEX;
     else if (sizeof(rnumber)==8)
         ttype = MPI_DOUBLE_COMPLEX;
+    char representation[] = "native";
     if (this->subsizes[0] > 0)
     {
         MPI_Info info;
@@ -304,7 +306,7 @@ int field_descriptor<rnumber>::write(
                 0,
                 MPI_UNSIGNED_CHAR,
                 this->mpi_array_dtype,
-                "native",
+                representation,
                 info);
         MPI_File_write_all(
                 f,

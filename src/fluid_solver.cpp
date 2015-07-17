@@ -417,10 +417,7 @@ int fluid_solver<R>::read(char field, char representation) \
             this->fill_up_filename("cvorticity", fname); \
             read_result = this->cd->read(fname, (void*)this->cvorticity); \
             if (read_result != EXIT_SUCCESS) \
-            { \
-                DEBUG_MSG("read error"); \
                 return read_result; \
-            } \
         } \
         if (representation == 'r') \
         { \
@@ -455,16 +452,21 @@ int fluid_solver<R>::write(char field, char representation) \
     { \
         FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
         clip_zero_padding<R>(this->rd, this->rvorticity, 3); \
-        return this->write_base("rvorticity", this->rvorticity); \
+        this->fill_up_filename("rvorticity", fname); \
+        return this->rd->write(fname, this->rvorticity); \
     } \
     this->compute_velocity(this->cvorticity); \
     if ((field == 'u') && (representation == 'c')) \
-        return this->write_base("cvelocity", this->cvelocity); \
+    { \
+        this->fill_up_filename("cvelocity", fname); \
+        return this->cd->write(fname, this->cvelocity); \
+    } \
     if ((field == 'u') && (representation == 'r')) \
     { \
         this->ift_velocity(); \
         clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
-        return this->write_base("rvelocity", this->rvelocity); \
+        this->fill_up_filename("rvelocity", fname); \
+        return this->rd->write(fname, this->rvelocity); \
     } \
     return EXIT_FAILURE; \
 }
