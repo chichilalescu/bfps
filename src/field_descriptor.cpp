@@ -91,7 +91,7 @@ field_descriptor<rnumber>::field_descriptor(
     tsizes[ndims-1] *= sizeof(rnumber);
     tsubsizes[ndims-1] *= sizeof(rnumber);
     tstarts[ndims-1] *= sizeof(rnumber);
-    if (this->mpi_dtype == MPI_COMPLEX8 ||
+    if (this->mpi_dtype == MPI_COMPLEX ||
         this->mpi_dtype == MPI_COMPLEX16)
     {
         tsizes[ndims-1] *= 2;
@@ -224,20 +224,28 @@ field_descriptor<rnumber>::~field_descriptor()
     delete[] this->rank;
 }
 
-template<>
-int field_descriptor<float>::read(
+template<class rnumber>
+int field_descriptor<rnumber>::read(
         const char *fname,
         void *buffer)
 {
+    MPI_Datatype ttype;
+    if (sizeof(rnumber)==4)
+        ttype = MPI_COMPLEX;
+    else if (sizeof(rnumber)==8)
+        ttype = MPI_DOUBLE_COMPLEX;
+    DEBUG_MSG("aloha 00\n");
     if (this->subsizes[0] > 0)
     {
         MPI_Info info;
         MPI_Info_create(&info);
         MPI_File f;
-        int read_size = this->local_size*sizeof(float);
+        ptrdiff_t read_size = this->local_size*sizeof(rnumber);
+        DEBUG_MSG("aloha %ld\n", read_size);
         char ffname[200];
-        if (this->mpi_dtype == MPI_COMPLEX8)
+        if (this->mpi_dtype == ttype)
             read_size *= 2;
+        DEBUG_MSG("aloha %ld\n", read_size);
         sprintf(ffname, "%s", fname);
 
         MPI_File_open(
@@ -264,19 +272,24 @@ int field_descriptor<float>::read(
     return EXIT_SUCCESS;
 }
 
-template<>
-int field_descriptor<float>::write(
+template<class rnumber>
+int field_descriptor<rnumber>::write(
         const char *fname,
         void *buffer)
 {
+    MPI_Datatype ttype;
+    if (sizeof(rnumber)==4)
+        ttype = MPI_COMPLEX;
+    else if (sizeof(rnumber)==8)
+        ttype = MPI_DOUBLE_COMPLEX;
     if (this->subsizes[0] > 0)
     {
         MPI_Info info;
         MPI_Info_create(&info);
         MPI_File f;
-        int read_size = this->local_size*sizeof(float);
+        ptrdiff_t read_size = this->local_size*sizeof(rnumber);
         char ffname[200];
-        if (this->mpi_dtype == MPI_COMPLEX8)
+        if (this->mpi_dtype == ttype)
             read_size *= 2;
         sprintf(ffname, "%s", fname);
 

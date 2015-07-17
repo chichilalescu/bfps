@@ -389,11 +389,11 @@ void fluid_solver<R>::step(double dt) \
     this->symmetrize(this->cu, 3); \
     this->force_divfree(this->cv[0]); \
     this->low_pass_Fourier(this->cv[0], 3, this->kM); \
-    this->write_base("cvorticity", this->cvorticity); \
+    /*this->write_base("cvorticity", this->cvorticity); \
     this->read_base("cvorticity", this->cvorticity); \
         this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
         this->force_divfree(this->cvorticity); \
-        this->symmetrize(this->cvorticity, 3); \
+        this->symmetrize(this->cvorticity, 3);*/ \
     /*this->ift_vorticity(); \
     this->dft_vorticity(); \
     CLOOP( \
@@ -408,14 +408,19 @@ void fluid_solver<R>::step(double dt) \
 template<> \
 int fluid_solver<R>::read(char field, char representation) \
 { \
+    char fname[512]; \
     int read_result; \
     if (field == 'v') \
     { \
         if (representation == 'c') \
         { \
-            read_result = this->read_base("cvorticity", this->cvorticity); \
+            this->fill_up_filename("cvorticity", fname); \
+            read_result = this->cd->read(fname, (void*)this->cvorticity); \
             if (read_result != EXIT_SUCCESS) \
+            { \
+                DEBUG_MSG("read error"); \
                 return read_result; \
+            } \
         } \
         if (representation == 'r') \
         { \
@@ -440,8 +445,12 @@ int fluid_solver<R>::read(char field, char representation) \
 template<> \
 int fluid_solver<R>::write(char field, char representation) \
 { \
+    char fname[512]; \
     if ((field == 'v') && (representation == 'c')) \
-        return this->write_base("cvorticity", this->cvorticity); \
+    { \
+        this->fill_up_filename("cvorticity", fname); \
+        return this->cd->write(fname, (void*)this->cvorticity); \
+    } \
     if ((field == 'v') && (representation == 'r')) \
     { \
         FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
