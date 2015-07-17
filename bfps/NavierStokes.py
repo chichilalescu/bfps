@@ -62,36 +62,45 @@ class NavierStokes(bfps.code):
         return None
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
-        self.fluid_variables += ('double stats[3];\n' +
+        self.fluid_includes += '#include "fftw_tools.hpp"\n'
+        self.fluid_variables += ('double stats[4];\n' +
                                  'FILE *stat_file;\n')
         self.fluid_definitions += """
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver)
                 {
-                    double vel_tmp;
+                    double vel_tmp, val_tmp;
                     fsolver->compute_velocity(fsolver->cvorticity);
                     stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
                     stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    fs->ift_velocity();
-                    stats[2] = sqrt(fs->ru[0]*fs->ru[0] +
-                                    fs->ru[1]*fs->ru[1] +
-                                    fs->ru[2]*fs->ru[2]);
-                    for (ptrdiff_t rindex = 1; rindex < fs->rd->local_size; rindex++)
-                    {
-                        vel_tmp = sqrt(fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
-                                       fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
-                                       fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
+                    fsolver->ift_velocity();
+                    val_tmp = (fsolver->ru[0]*fsolver->ru[0] +
+                               fsolver->ru[1]*fsolver->ru[1] +
+                               fsolver->ru[2]*fsolver->ru[2]);
+                    stats[2] = sqrt(val_tmp);
+                    stats[3] = val_tmp*.5;
+                    //for (ptrdiff_t rindex = 0; rindex < (fsolver->cd->local_size/3)*2; rindex++)
+                    RLOOP_FOR_OBJECT(
+                        fsolver,
+                        val_tmp = (fsolver->ru[rindex*3+0]*fsolver->ru[rindex*3+0] +
+                                   fsolver->ru[rindex*3+1]*fsolver->ru[rindex*3+1] +
+                                   fsolver->ru[rindex*3+2]*fsolver->ru[rindex*3+2]);
+                        stats[3] += val_tmp*.5;
+                        vel_tmp = sqrt(val_tmp);
                         if (vel_tmp > stats[2])
                             stats[2] = vel_tmp;
-                    }
+                        );
+                    stats[3] /= fsolver->normalization_factor;
+                    MPI_Allreduce((void*)(stats + 3), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fsolver->rd->comm);
+                    stats[3] = val_tmp;
                     if (myrank == 0)
                     {
                         fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                         fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 3, stat_file);
+                        fwrite((void*)stats, sizeof(double), 4, stat_file);
                     }
-                    fs->write_spectrum("velocity", fs->cvelocity);
-                    fs->write_spectrum("vorticity", fs->cvorticity);
+                    fsolver->write_spectrum("velocity",  fsolver->cvelocity);
+                    fsolver->write_spectrum("vorticity", fsolver->cvorticity);
                 }
                 //endcpp
                 """
@@ -99,7 +108,8 @@ class NavierStokes(bfps.code):
                                      ('t',         np.float64),
                                      ('energy',    np.float64),
                                      ('enstrophy', np.float64),
-                                     ('vel_max',   np.float64)])
+                                     ('vel_max',   np.float64),
+                                     ('renergy',   np.float64)])
         pickle.dump(
                 self.stats_dtype,
                 open(os.path.join(
@@ -127,12 +137,21 @@ class NavierStokes(bfps.code):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iter0;
                 fs->read('v', 'c');
+                fs->ift_vorticity();
+                fs->write('v', 'r');
+                fs->compute_velocity(fs->cvorticity);
+                fs->ift_velocity();
+                fs->write('u', 'r');
                 if (myrank == 0)
                 {
                     sprintf(fname, "%s_stats.bin", simname);
                     stat_file = fopen(fname, "ab");
+                    sprintf(fname, "%s_time_i%.5x", simname, iter0);
+                    FILE *time_file = fopen(fname, "rb");
+                    fread((void*)&t, sizeof(double), 1, time_file);
+                    fclose(time_file);
                 }
-                t = dt*iter0;
+                MPI_Bcast((void*)&t, 1, MPI_DOUBLE, 0, fs->cd->comm);
                 do_stats(fs);
                 //endcpp
                 """
@@ -148,6 +167,10 @@ class NavierStokes(bfps.code):
                 if (myrank == 0)
                 {
                     fclose(stat_file);
+                    sprintf(fname, "%s_time_i%.5x", simname, fs->iteration);
+                    FILE *time_file = fopen(fname, "wb");
+                    fwrite((void*)&t, sizeof(double), 1, time_file);
+                    fclose(time_file);
                 }
                 fs->write('v', 'c');
                 fs->write('u', 'r');
@@ -317,17 +340,26 @@ class NavierStokes(bfps.code):
                 os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
         return np.fromfile(os.path.join(self.work_dir, simname + '_stats.bin'),
                            dtype = dtype)
+    def generate_initial_condition(self, simname = 'test'):
+        np.array([0.0]).tofile(
+                os.path.join(
+                        self.work_dir, simname + '_time_i00000'))
+        self.generate_vector_field(simname = 'test')
+        for species in range(self.particle_species):
+            self.generate_tracer_state(
+                    simname = simname,
+                    species = species)
+        return None
 
 import subprocess
 import matplotlib.pyplot as plt
 
 def test(opt):
-    if opt.run or opt.clean:
+    if opt.clean:
         subprocess.call(['rm {0}/test_*'.format(opt.work_dir)], shell = True)
         subprocess.call(['rm {0}/*.pickle'.format(opt.work_dir)], shell = True)
         subprocess.call(['rm {0}/*.elf'.format(opt.work_dir)], shell = True)
         subprocess.call(['rm {0}/*version_info.txt'.format(opt.work_dir)], shell = True)
-    if opt.clean:
         subprocess.call(['make', 'clean'])
         return None
     c = NavierStokes(work_dir = opt.work_dir)
@@ -337,7 +369,7 @@ def test(opt):
     c.parameters['nu'] = 5.5*opt.n**(-4./3)
     c.parameters['dt'] = 5e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 1.
+    c.parameters['famplitude'] = 0.
     c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles()
@@ -346,16 +378,22 @@ def test(opt):
     c.write_src()
     c.write_par(simname = 'test')
     if opt.run:
-        c.generate_vector_field(simname = 'test')
-        if opt.particles:
-            c.generate_tracer_state(simname = 'test', species = 0)
-            c.generate_tracer_state(simname = 'test', species = 1)
+        if opt.iteration == 0:
+            c.generate_initial_condition(simname = 'test')
         c.run(ncpu = opt.ncpu,
-              simname = 'test')
+              simname = 'test',
+              iter0 = opt.iteration)
+        subprocess.call([
+            'cp',
+            os.path.join(c.work_dir, 'test_rvelocity_i{0:0>5x}'.format(opt.nsteps)),
+            os.path.join(c.work_dir, 'tmp')])
+        opt.iteration += opt.nsteps
+        c.run(ncpu = opt.ncpu,
+              simname = 'test',
+              iter0 = opt.iteration)
     stats = c.read_stats()
     k, enespec = c.read_spec()
     k, ensspec = c.read_spec(field = 'vorticity')
-    k, k2enespec = c.read_spec(field = 'kvelocity')
 
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 6))
@@ -367,6 +405,7 @@ def test(opt):
     a.legend(loc = 'best')
     a = fig.add_subplot(122)
     a.plot(stats['t'], stats['energy'], label = 'energy', color = (0, 0, 1))
+    a.plot(stats['t'], stats['renergy'], label = 'energy', color = (1, 0, 1), dashes = (2, 2))
     a.set_ylabel('energy', color = (0, 0, 1))
     a.set_xlabel('$t$')
     for tt in a.get_yticklabels():
@@ -379,27 +418,17 @@ def test(opt):
     fig.savefig('stats.pdf', format = 'pdf')
 
     # plot spectra
-    spec_skip = 64
-    fig = plt.figure(figsize=(12,4))
-    a = fig.add_subplot(131)
+    spec_skip = 1
+    fig = plt.figure(figsize=(12,6))
+    a = fig.add_subplot(121)
     for i in range(0, enespec.shape[0], spec_skip):
         a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
     a.set_xscale('log')
     a.set_yscale('log')
     a.set_title('velocity')
-    a = fig.add_subplot(132)
+    a = fig.add_subplot(122)
     for i in range(0, ensspec.shape[0], spec_skip):
         a.plot(k, ensspec[i]['val'],
-               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
-        a.plot(k, k2enespec[i]['val'],
-               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
-               dashes = (2, 2))
-    a.set_xscale('log')
-    a.set_yscale('log')
-    a.set_title('vorticity')
-    a = fig.add_subplot(133)
-    for i in range(0, ensspec.shape[0], spec_skip):
-        a.plot(k, k2enespec[i]['val'],
                color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
         a.plot(k, k**2*enespec[i]['val'],
                color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
@@ -408,5 +437,19 @@ def test(opt):
     a.set_yscale('log')
     a.set_title('vorticity')
     fig.savefig('spectrum.pdf', format = 'pdf')
+
+    ##check io
+    #fig = plt.figure(figsize = (12, 6))
+    #a = fig.add_subplot(121)
+    #b = np.fromfile('data/test_rvelocity_i00004', dtype = np.float32).reshape(c.parameters['nz'], c.parameters['ny'], c.parameters['nx'], 3)
+    #c = np.fromfile('data/tmp', dtype = np.float32).reshape(c.parameters['nz'], c.parameters['ny'], c.parameters['nx'], 3)
+    #bla = np.where(np.abs(b-c) > 0.01)
+    #print bla[0].shape, 3*32**3
+    #a.imshow((b - c)[0, :, :, 0], interpolation = 'none')
+    #a = fig.add_subplot(222)
+    #a.imshow(b[0, :, :, 0], interpolation = 'none')
+    #a = fig.add_subplot(224)
+    #a.imshow(c[0, :, :, 0], interpolation = 'none')
+    #fig.savefig('io_test.pdf', format = 'pdf')
     return None
 

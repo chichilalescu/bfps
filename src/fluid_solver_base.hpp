@@ -76,6 +76,7 @@ class fluid_solver_base
         void low_pass_Fourier(cnumber *a, int howmany, double kmax);
         void force_divfree(cnumber *a);
         void symmetrize(cnumber *a, int howmany);
+        void clean_up_real_space(rnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent = 0.0);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
@@ -117,6 +118,23 @@ class fluid_solver_base
     { \
         rindex = (zindex * this->rd->subsizes[1] + yindex)*(this->rd->subsizes[2]+2); \
     for (int xindex = 0; xindex < this->rd->subsizes[2]; xindex++) \
+        { \
+            expression; \
+            rindex++; \
+        } \
+    } \
+}
+
+/* real space loop */
+#define RLOOP_FOR_OBJECT(obj, expression) \
+ \
+{ \
+    ptrdiff_t rindex; \
+    for (int zindex = 0; zindex < obj->rd->subsizes[0]; zindex++) \
+    for (int yindex = 0; yindex < obj->rd->subsizes[1]; yindex++) \
+    { \
+        rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2); \
+    for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++) \
         { \
             expression; \
             rindex++; \

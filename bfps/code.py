@@ -62,7 +62,9 @@ class code(base):
                     {
                         strcpy(simname, argv[1]);
                         iter0 = atoi(argv[2]);
-                        std::cerr << "myrank = " << myrank << ", simulation name is " << simname << std::endl;
+                        std::cerr << "myrank = " << myrank <<
+                                     ", simulation name is " << simname <<
+                                     " and iter0 is " << iter0 << std::endl;
                     }
                     read_parameters();
                 //endcpp

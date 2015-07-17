@@ -33,6 +33,7 @@ DEFINES = #-DNDEBUG
 CFLAGS  = -Wall \
 		  -O2 \
 		  -g \
+		  -ffast-math \
 		  ${LOCAL_INCLUDE} \
 		  ${FFTW_INCLUDE}
 		  #-pg \

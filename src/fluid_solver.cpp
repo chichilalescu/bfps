@@ -204,44 +204,37 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
                 this->cu[3*cindex+1][1] =  (this->kz[zindex]*vorticity[3*cindex+0][0] - this->kx[xindex]*vorticity[3*cindex+2][0]) / k2; \
                 this->cu[3*cindex+2][1] =  (this->kx[xindex]*vorticity[3*cindex+1][0] - this->ky[yindex]*vorticity[3*cindex+0][0]) / k2; \
             } \
-            else \
-            { \
-                this->cu[3*cindex+0][0] = 0.0; \
-                this->cu[3*cindex+1][0] = 0.0; \
-                this->cu[3*cindex+2][0] = 0.0; \
-                this->cu[3*cindex+0][1] = 0.0; \
-                this->cu[3*cindex+1][1] = 0.0; \
-                this->cu[3*cindex+2][1] = 0.0; \
-            } \
             ); \
     if (this->cd->myrank == this->cd->rank[0]) \
         std::fill_n((R*)(this->cu), 6, 0.0); \
-    this->impose_zero_modes(); \
-    this->symmetrize(this->cu, 3); \
-    this->low_pass_Fourier(this->cu, 3, this->kM); \
+    /*this->symmetrize(this->cu, 3);*/ \
 } \
  \
 template<> \
 void fluid_solver<R>::ift_velocity() \
 { \
+    std::fill_n(this->ru, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::ift_vorticity() \
 { \
+    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::dft_velocity() \
 { \
+    std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::dft_vorticity() \
 { \
+    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
 } \
  \
@@ -293,10 +286,12 @@ void fluid_solver<R>::omega_nonlin( \
     /* compute velocity */ \
     this->compute_velocity(this->cv[src]); \
     /* get fields from Fourier space to real space */ \
-    /*std::fill_n(this->ru, 2*this->cd->local_size, 0);     */ \
-    /*std::fill_n(this->rv[src], 2*this->cd->local_size, 0);*/ \
+    std::fill_n(this->ru, 2*this->cd->local_size, 0);      \
+    std::fill_n(this->rv[src], 2*this->cd->local_size, 0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity ));  \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[src]));      \
+    this->clean_up_real_space(this->ru, 3); \
+    this->clean_up_real_space(this->rv[src], 3); \
     /* compute cross product $u \times \omega$, and normalize */ \
     R tmpx0, tmpy0, tmpz0; \
     RLOOP ( \
@@ -308,9 +303,11 @@ void fluid_solver<R>::omega_nonlin( \
              this->ru[(3*rindex)+2] = tmpz0 / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
+    this->clean_up_real_space(this->ru, 3); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
-    this->low_pass_Fourier(this->cu, 3, this->kM); \
     this->symmetrize(this->cu, 3); \
+    this->low_pass_Fourier(this->cu, 3, this->kM); \
+    this->force_divfree(this->cu); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
     CLOOP( \
@@ -327,8 +324,8 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[3*cindex+1][1] = tmpy1; \
             this->cu[3*cindex+2][1] = tmpz1; \
             ); \
-    this->symmetrize(this->cu, 3); \
     this->add_forcing(this->cu, 1.0); \
+    this->symmetrize(this->cu, 3); \
     this->force_divfree(this->cu); \
 } \
  \
@@ -336,6 +333,13 @@ template<> \
 void fluid_solver<R>::step(double dt) \
 { \
     double k2, factor0, factor1; \
+    std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->ru, this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->rv[0], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->rv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->rv[2], this->cd->local_size*2, 0.0); \
     this->omega_nonlin(0); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
@@ -350,9 +354,9 @@ void fluid_solver<R>::step(double dt) \
             this->cv[1][3*cindex+2][1] = (this->cv[0][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor0; \
             ); \
  \
-    this->low_pass_Fourier(this->cv[1], 3, this->kM); \
     this->force_divfree(this->cv[1]); \
     this->omega_nonlin(1); \
+    this->low_pass_Fourier(this->cv[1], 3, this->kM); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -367,9 +371,9 @@ void fluid_solver<R>::step(double dt) \
             this->cv[2][3*cindex+2][1] = (3*this->cv[0][3*cindex+2][1]*factor0 + (this->cv[1][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor1)*0.25; \
             ); \
  \
-    this->low_pass_Fourier(this->cv[2], 3, this->kM); \
     this->force_divfree(this->cv[2]); \
     this->omega_nonlin(2); \
+    this->low_pass_Fourier(this->cv[2], 3, this->kM); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -382,8 +386,21 @@ void fluid_solver<R>::step(double dt) \
             this->cv[3][3*cindex+1][1] = (this->cv[0][3*cindex+1][1]*factor0 + 2*(this->cv[2][3*cindex+1][1] + dt*this->cu[3*cindex+1][1]))*factor0/3; \
             this->cv[3][3*cindex+2][1] = (this->cv[0][3*cindex+2][1]*factor0 + 2*(this->cv[2][3*cindex+2][1] + dt*this->cu[3*cindex+2][1]))*factor0/3; \
             );  \
-    this->low_pass_Fourier(this->cv[0], 3, this->kM); \
+    this->symmetrize(this->cu, 3); \
     this->force_divfree(this->cv[0]); \
+    this->low_pass_Fourier(this->cv[0], 3, this->kM); \
+    this->write_base("cvorticity", this->cvorticity); \
+    this->read_base("cvorticity", this->cvorticity); \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
+        this->force_divfree(this->cvorticity); \
+        this->symmetrize(this->cvorticity, 3); \
+    /*this->ift_vorticity(); \
+    this->dft_vorticity(); \
+    CLOOP( \
+            for (int component = 0; component < 3; component++) \
+            for (int imag_part = 0; imag_part < 2; imag_part++) \
+                this->cvorticity[cindex*3+component][imag_part] /= this->normalization_factor; \
+            );*/ \
  \
     this->iteration++; \
 } \

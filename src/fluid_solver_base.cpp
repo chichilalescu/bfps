@@ -31,6 +31,13 @@
 
 
 template <class rnumber>
+void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
+{
+//    for (ptrdiff_t rindex = 0; rindex < this->cd->local_size*2; rindex += howmany*(this->rd->subsizes[2]+2))
+//        std::fill_n(a+rindex+this->rd->subsizes[2]*howmany, 2*howmany, 0.0);
+}
+
+template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
     double *cospec_local = fftw_alloc_real(this->nshells);
@@ -117,6 +124,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     ntmp[0] = ny; \
     ntmp[1] = nz; \
     ntmp[2] = nx/2 + 1; \
+    ntmp[3] = 3; \
     this->cd = new field_descriptor<R>( \
             4, ntmp, MPI_CNUM, this->rd->comm);\
  \
