@@ -294,8 +294,10 @@ if __name__ == '__main__':
     a = fig.add_subplot(121)
     a.plot(stats['t'], stats['energy'])
     a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
+    a.set_xlim(0, 2)
     a = fig.add_subplot(122)
     a.plot(stats['t'], stats['enstrophy'])
     a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
+    a.set_xlim(0, 2)
     fig.savefig('vortex_comparison.pdf', format = 'pdf')
 

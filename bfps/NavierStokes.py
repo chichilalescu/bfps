@@ -369,7 +369,7 @@ def test(opt):
     c.parameters['nu'] = 5.5*opt.n**(-4./3)
     c.parameters['dt'] = 5e-3
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.
+    c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles()
@@ -418,7 +418,7 @@ def test(opt):
     fig.savefig('stats.pdf', format = 'pdf')
 
     # plot spectra
-    spec_skip = 1
+    spec_skip = 64
     fig = plt.figure(figsize=(12,6))
     a = fig.add_subplot(121)
     for i in range(0, enespec.shape[0], spec_skip):
