@@ -78,7 +78,7 @@ class NavierStokes(bfps.code):
                                fsolver->ru[1]*fsolver->ru[1] +
                                fsolver->ru[2]*fsolver->ru[2]);
                     stats[2] = sqrt(val_tmp);
-                    stats[3] = val_tmp*.5;
+                    stats[3] = 0.0; //val_tmp*.5;
                     //for (ptrdiff_t rindex = 0; rindex < (fsolver->cd->local_size/3)*2; rindex++)
                     RLOOP_FOR_OBJECT(
                         fsolver,

@@ -280,24 +280,24 @@ if __name__ == '__main__':
     #test_curl(opt)
     NStest(opt)
     #resize_test(opt)
-    Rdata = np.fromfile(
-            'data/test_rvorticity_i00000',
-            dtype = np.float32).reshape(opt.n,
-                                        opt.n,
-                                        opt.n, 3)
-    tdata = Rdata.transpose(3, 0, 1, 2).copy()
-    tdata.tofile('../vortex/input_split_per_component')
-    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    dtype = pickle.load(open('data/NavierStokes_dtype.pickle', 'r'))
-    stats = np.fromfile('data/test_stats.bin', dtype = dtype)
-    fig = plt.figure(figsize = (12, 6))
-    a = fig.add_subplot(121)
-    a.plot(stats['t'], stats['energy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
-    a.set_xlim(0, 2)
-    a = fig.add_subplot(122)
-    a.plot(stats['t'], stats['enstrophy'])
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
-    a.set_xlim(0, 2)
-    fig.savefig('vortex_comparison.pdf', format = 'pdf')
+    #Rdata = np.fromfile(
+    #        'data/test_rvorticity_i00000',
+    #        dtype = np.float32).reshape(opt.n,
+    #                                    opt.n,
+    #                                    opt.n, 3)
+    #tdata = Rdata.transpose(3, 0, 1, 2).copy()
+    #tdata.tofile('../vortex/input_split_per_component')
+    #stats_vortex = np.loadtxt('../vortex/sim_000000.log')
+    #dtype = pickle.load(open('data/NavierStokes_dtype.pickle', 'r'))
+    #stats = np.fromfile('data/test_stats.bin', dtype = dtype)
+    #fig = plt.figure(figsize = (12, 6))
+    #a = fig.add_subplot(121)
+    #a.plot(stats['t'], stats['energy'])
+    #a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
+    #a.set_xlim(0, 2)
+    #a = fig.add_subplot(122)
+    #a.plot(stats['t'], stats['enstrophy'])
+    #a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
+    #a.set_xlim(0, 2)
+    #fig.savefig('vortex_comparison.pdf', format = 'pdf')
 

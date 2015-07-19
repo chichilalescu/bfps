@@ -21,6 +21,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstring>
 #include "fluid_solver.hpp"
 #include "fftw_tools.hpp"
 
