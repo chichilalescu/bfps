@@ -37,7 +37,8 @@ int copy_complex_array(
         field_descriptor<rnumber> *fi,
         rnumber (*ai)[2],
         field_descriptor<rnumber> *fo,
-        rnumber (*ao)[2]);
+        rnumber (*ao)[2],
+        int howmany=1);
 
 template <class rnumber>
 int clip_zero_padding(

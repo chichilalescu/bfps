@@ -18,4 +18,23 @@
 #
 ########################################################################
 
+import subprocess
+
+from pkg_resources import get_distribution, DistributionNotFound
+
+try:
+    _dist = get_distribution('bfps')
+    # Normalize case for Windows systems
+    dist_loc = os.path.normcase(_dist.location)
+    here = os.path.normcase(__file__)
+    if not here.startswith(os.path.join(dist_loc, 'bfps')):
+        # not installed, but there is another version that *is*
+        raise DistributionNotFound
+except DistributionNotFound:
+    #__version__ = 'Please install this project with setup.py'
+    import subprocess
+    __version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+else:
+    __version__ = _dist.version
+
 from .code import code

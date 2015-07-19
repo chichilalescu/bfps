@@ -31,7 +31,20 @@
 
 
 template <class rnumber>
-void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, double k2exponent)
+void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *destination)
+{
+    sprintf(destination, "%s_%s_i%.5x", this->name, base_name, this->iteration); \
+}
+
+template <class rnumber>
+void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
+{
+    for (ptrdiff_t rindex = 0; rindex < this->cd->local_size*2; rindex += howmany*(this->rd->subsizes[2]+2))
+        std::fill_n(a+rindex+this->rd->subsizes[2]*howmany, 2*howmany, 0.0);
+}
+
+template <class rnumber>
+void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
     double *cospec_local = fftw_alloc_real(this->nshells);
     std::fill_n(cospec_local, this->nshells, 0);
@@ -70,10 +83,10 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
-void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a)
+void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, const double k2exponent)
 {
     double *spec = fftw_alloc_real(this->nshells);
-    this->cospectrum(a, a, spec);
+    this->cospectrum(a, a, spec, k2exponent);
     if (this->cd->myrank == 0)
     {
         FILE *spec_file;
@@ -117,6 +130,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     ntmp[0] = ny; \
     ntmp[1] = nz; \
     ntmp[2] = nx/2 + 1; \
+    ntmp[3] = 3; \
     this->cd = new field_descriptor<R>( \
             4, ntmp, MPI_CNUM, this->rd->comm);\
  \
@@ -314,7 +328,6 @@ void fluid_solver_base<R>::force_divfree(C *a) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            if (k2 >= this->kM2) \
             { \
                 tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) + \
                            this->ky[yindex]*((*(a + cindex*3+1))[0]) + \
@@ -322,14 +335,16 @@ void fluid_solver_base<R>::force_divfree(C *a) \
                 tval[1] = (this->kx[xindex]*((*(a + cindex*3  ))[1]) + \
                            this->ky[yindex]*((*(a + cindex*3+1))[1]) + \
                            this->kz[zindex]*((*(a + cindex*3+2))[1]) ) / k2; \
-                a[cindex*3  ][0] -= tval[0]*this->kx[xindex]; \
-                a[cindex*3+1][1] -= tval[1]*this->kx[xindex]; \
-                a[cindex*3+2][0] -= tval[0]*this->ky[yindex]; \
-                a[cindex*3  ][1] -= tval[1]*this->ky[yindex]; \
-                a[cindex*3+1][0] -= tval[0]*this->kz[zindex]; \
-                a[cindex*3+2][1] -= tval[1]*this->kz[zindex]; \
+                for (int imag_part=0; imag_part<2; imag_part++) \
+                { \
+                    a[cindex*3  ][imag_part] -= tval[imag_part]*this->kx[xindex]; \
+                    a[cindex*3+1][imag_part] -= tval[imag_part]*this->ky[yindex]; \
+                    a[cindex*3+2][imag_part] -= tval[imag_part]*this->kz[zindex]; \
+                } \
             } \
             );\
+    if (this->cd->myrank == this->cd->rank[0]) \
+        std::fill_n((R*)(a), 6, 0.0); \
 } \
  \
 template<> \
@@ -359,12 +374,10 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
         rankdst = this->cd->rank[this->cd->sizes[0] - yy]; \
         if (this->cd->myrank == ranksrc) \
             for (ii = 0; ii < this->cd->sizes[1]; ii++) \
-                for (cc = 0; cc < howmany; cc++) { \
-                    (*(buffer + howmany*ii+cc))[0] = \
-                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0]; \
-                    (*(buffer + howmany*ii+cc))[1] = \
-                        (*((data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1]; \
-                } \
+                for (cc = 0; cc < howmany; cc++) \
+                    for (int imag_comp=0; imag_comp<2; imag_comp++) \
+                    (*(buffer + howmany*ii+cc))[imag_comp] = \
+                        (*(data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[imag_comp]; \
         if (ranksrc != rankdst) \
         { \
             if (this->cd->myrank == ranksrc) \
@@ -381,9 +394,9 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
             for (ii = 1; ii < this->cd->sizes[1]; ii++) \
                 for (cc = 0; cc < howmany; cc++) \
                 { \
-                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[0] = \
+                    (*(data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[0] = \
                         (*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[0]; \
-                    (*((data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2]) + cc))[1] = \
+                    (*(data + howmany*((this->cd->sizes[0] - yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[1] = \
                        -(*(buffer + howmany*(this->cd->sizes[1]-ii)+cc))[1]; \
                 } \
             for (cc = 0; cc < howmany; cc++) \

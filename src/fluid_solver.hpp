@@ -60,8 +60,10 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         /* physical parameters */
         double nu;
-        int fmode;
-        double famplitude;
+        int fmode;         // for Kolmogorov flow
+        double famplitude; // both for Kflow and band forcing
+        double fk0, fk1;   // for band forcing
+        char forcing_type[128];
 
         /* methods */
         fluid_solver(
@@ -77,6 +79,9 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
         void ift_velocity();
+        void dft_velocity();
+        void ift_vorticity();
+        void dft_vorticity();
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
