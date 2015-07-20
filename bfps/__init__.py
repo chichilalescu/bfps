@@ -18,6 +18,7 @@
 #
 ########################################################################
 
+import os
 import subprocess
 
 from pkg_resources import get_distribution, DistributionNotFound
