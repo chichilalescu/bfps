@@ -66,18 +66,26 @@ class vorticity_resize(bfps.code):
                         dst_nx, dst_ny, dst_nz,
                         dst_dkx, dst_dky, dst_dkz);
                 fs0->iteration = iter0;
+                fs1->iteration = 0;
                 fs0->read('v', 'c');
                 fs0->low_pass_Fourier(fs0->cvorticity, 3, fs0->kM);
                 fs0->force_divfree(fs0->cvorticity);
                 fs0->symmetrize(fs0->cvorticity, 3);
                 fs0->write('v', 'r');
                 fs0->write('u', 'r');
+                double a, b;
+                a = 0.5*fs0->correl_vec(fs0->cvelocity, fs0->cvelocity);
+                b = 0.5*fs0->correl_vec(fs0->cvorticity, fs0->cvorticity);
+                DEBUG_MSG("old field %d %g %g\\n", fs0->iteration, a, b);
                 copy_complex_array(fs0->cd, fs0->cvorticity,
                                    fs1->cd, fs1->cvorticity,
                                    3);
                 fs1->write('v', 'c');
                 fs1->write('v', 'r');
                 fs1->write('u', 'r');
+                a = 0.5*fs1->correl_vec(fs1->cvelocity, fs1->cvelocity);
+                b = 0.5*fs1->correl_vec(fs1->cvorticity, fs1->cvorticity);
+                DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
                 delete fs0;
                 delete fs1;
                 //endcpp

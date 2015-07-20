@@ -260,6 +260,35 @@ class NavierStokes(bfps.code):
                                                Rdata0[..., 1]**2 +
                                                Rdata0[..., 2]**2)*.5))
         return Rdata0
+    def generate_vdf(
+            self,
+            simname = 'test',
+            field = 'velocity',
+            iteration = 0,
+            filename = None):
+        if type(filename) == type(None):
+            filename = simname + '_' + field + '_i{0:0>5x}'.format(iteration)
+        Rdata0 = np.fromfile(
+                filename,
+                dtype = np.float32).reshape((self.parameters['nz'],
+                                             self.parameters['ny'],
+                                             self.parameters['nx'], 3))
+        subprocess.call(['vdfcreate',
+                         '-dimension',
+                         '{0}x{1}x{2}'.format(self.parameters['nz'],
+                                              self.parameters['ny'],
+                                              self.parameters['nx']),
+                         '-numts', '1',
+                         '-varnames', '{0}x:{0}y:{0}z'.format(field),
+                         filename + '.vdf'])
+        for loop_data in [(0, 'x'), (1, 'y'), (2, 'z')]:
+            Rdata0[..., loop_data[0]].tofile('tmprawfile')
+            subprocess.call(['raw2vdf',
+                             '-ts', '0',
+                             '-varname', '{0}{1}'.format(field, loop_data[1]),
+                             filename + '.vdf',
+                             'tmprawfile'])
+        return Rdata0
     def generate_vector_field(
             self,
             rseed = 7547,
@@ -367,7 +396,7 @@ def test(opt):
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    c.parameters['dt'] = 5e-3
+    c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32
@@ -378,19 +407,13 @@ def test(opt):
     c.write_src()
     c.write_par(simname = 'test')
     if opt.run:
-        if opt.iteration == 0:
+        if opt.iteration == 0 and opt.initialize:
             c.generate_initial_condition(simname = 'test')
-        c.run(ncpu = opt.ncpu,
-              simname = 'test',
-              iter0 = opt.iteration)
-        subprocess.call([
-            'cp',
-            os.path.join(c.work_dir, 'test_rvelocity_i{0:0>5x}'.format(opt.nsteps)),
-            os.path.join(c.work_dir, 'tmp')])
-        opt.iteration += opt.nsteps
-        c.run(ncpu = opt.ncpu,
-              simname = 'test',
-              iter0 = opt.iteration)
+        for nrun in range(opt.njobs):
+            c.run(ncpu = opt.ncpu,
+                  simname = 'test',
+                  iter0 = opt.iteration)
+            opt.iteration += opt.nsteps
     stats = c.read_stats()
     k, enespec = c.read_spec()
     k, ensspec = c.read_spec(field = 'vorticity')
