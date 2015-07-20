@@ -30,6 +30,7 @@ local_install_dir = '/scratch.local/chichi/installs'
 
 include_dirs = ['src',
                 '/usr/lib64/mpi/gcc/openmpi/include',
+                '/usr/include/mpich',
                 os.path.join(local_install_dir, 'include')]
 ########################################################################
 
