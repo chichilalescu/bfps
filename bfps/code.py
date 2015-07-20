@@ -124,7 +124,7 @@ class code(base):
             if not os.path.isdir(self.work_dir):
                 os.mkdir(self.work_dir)
             if self.work_dir != './':
-                shutil.copy(self.name + '.elf', self.work_dir)
+                shutil.copy(self.name, self.work_dir)
             os.chdir(self.work_dir)
             with open(self.name + '_version_info.txt', 'w') as outfile:
                 outfile.write(self.version_message)
