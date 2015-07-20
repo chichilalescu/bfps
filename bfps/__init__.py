@@ -31,11 +31,16 @@ try:
     if not here.startswith(os.path.join(dist_loc, 'bfps')):
         # not installed, but there is another version that *is*
         raise DistributionNotFound
+    header_dir = _dist.location
+    lib_dir = header_dir
 except DistributionNotFound:
     #__version__ = 'Please install this project with setup.py'
     import subprocess
     __version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+    header_dir = './src'
+    lib_dir = './lib'
 else:
     __version__ = _dist.version
+
 
 from .code import code

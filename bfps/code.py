@@ -83,7 +83,7 @@ class code(base):
                 """
         return None
     def write_src(self):
-        with open('src/' + self.name + '.cpp', 'w') as outfile:
+        with open(self.name + '.cpp', 'w') as outfile:
             outfile.write(self.version_message)
             outfile.write(self.includes)
             outfile.write(self.variables)
@@ -92,15 +92,34 @@ class code(base):
             outfile.write(self.main)
             outfile.write(self.main_end)
         return None
+    def compile_code(self):
+        # compile code
+        local_install_dir = '/scratch.local/chichi/installs'
+        include_dirs = [bfps.header_dir,
+                        '/usr/lib64/mpi/gcc/openmpi/include',
+                        os.path.join(local_install_dir, 'include')]
+        libraries = ['fftw3_mpi',
+                     'fftw3',
+                     'fftw3f_mpi',
+                     'fftw3f',
+                     'bfps']
+
+        command_strings = ['mpicxx']
+        for idir in include_dirs:
+            command_strings += ['-I{0}'.format(idir)]
+        command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
+        command_strings.append('-L' + bfps.lib_dir)
+        for libname in libraries:
+            command_strings += ['-l' + libname]
+        command_strings += [self.name + '.cpp', '-o', self.name]
+        print command_strings
+#        print sum(command_strings)
+        return subprocess.call(command_strings)
     def run(self,
             ncpu = 2,
             simname = 'test',
             iter0 = 0):
-        # compile code and run
-        if subprocess.call(['make',
-                            '-f',
-                            '~/repos/bfps/makefile',
-                            self.name + '.elf']) == 0:
+        if self.compile_code():
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
                 os.mkdir(self.work_dir)
