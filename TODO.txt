@@ -1,2 +1,0 @@
-multi-step method for particles
-real space energy vs fourier space energy should be within numerical precision
