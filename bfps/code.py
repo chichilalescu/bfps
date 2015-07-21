@@ -98,6 +98,10 @@ class code(base):
         include_dirs = [bfps.header_dir,
                         '/usr/lib64/mpi/gcc/openmpi/include',
                         os.path.join(local_install_dir, 'include')]
+        if not os.path.isfile(os.path.join(bfps.header_dir, 'base.hpp')):
+            raise IOError('header not there:\n' +
+                          '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
+                          '{0}\n'.format(bfps.dist_loc))
         libraries = ['fftw3_mpi',
                      'fftw3',
                      'fftw3f_mpi',
@@ -108,6 +112,7 @@ class code(base):
         for idir in include_dirs:
             command_strings += ['-I{0}'.format(idir)]
         command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
+        command_strings += ['-L' + os.path.join(local_install_dir, 'lib64')]
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
@@ -119,7 +124,7 @@ class code(base):
             ncpu = 2,
             simname = 'test',
             iter0 = 0):
-        if self.compile_code():
+        if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
                 os.makedirs(self.work_dir)
@@ -132,7 +137,7 @@ class code(base):
                              'mpirun',
                              '-np',
                              '{0}'.format(ncpu),
-                             './' + self.name + '.elf',
+                             './' + self.name,
                              simname,
                              '{0}'.format(iter0)])
             os.chdir(current_dir)

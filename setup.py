@@ -35,6 +35,9 @@ include_dirs = ['src',
 ########################################################################
 
 
+AUTHOR = 'Cristian C Lalescu'
+AUTHOR_EMAIL = 'Cristian.Lalescu@ds.mpg.de'
+
 import datetime
 now = datetime.datetime.now()
 date_name = '{0:0>4}{1:0>2}{2:0>2}'.format(now.year, now.month, now.day)
@@ -51,11 +54,11 @@ src_file_list = ['field_descriptor',
                  'spline_n2',
                  'spline_n3']
 
-header_list = ['src/base.hpp'] + ['src/' + fname + '.hpp' for fname in src_file_list]
+header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
 # not sure we need the MANIFEST.in file, but I might as well
 with open('MANIFEST.in', 'w') as manifest_in_file:
-    for fname in ['src/' + fname + '.cpp' for fname in src_file_list] + header_list:
+    for fname in ['cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
         manifest_in_file.write('include {0}\n'.format(fname))
 
 libraries = ['fftw3_mpi',
@@ -67,20 +70,23 @@ from setuptools import setup, Extension
 
 libbfps = Extension(
         'libbfps',
-        sources = ['src/' + fname + '.cpp' for fname in src_file_list],
+        sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
         include_dirs = include_dirs,
         libraries = libraries,
-        library_dirs = [os.path.join(local_install_dir, 'lib')])
+        library_dirs = [os.path.join(local_install_dir, 'lib'),
+                        os.path.join(local_install_dir, 'lib64')])
 
 setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
-        data_files = header_list,
+        package_data = {'bfps': header_list},
 ########################################################################
 # useless stuff folows
 ########################################################################
+        author = AUTHOR,
+        author_email = AUTHOR_EMAIL,
         version = VERSION,
         license = 'Apache Version 2.0')
 
