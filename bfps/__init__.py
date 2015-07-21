@@ -26,10 +26,12 @@ from pkg_resources import get_distribution, DistributionNotFound
 try:
     _dist = get_distribution('bfps')
     # Normalize case for Windows systems
-    dist_loc = os.path.normcase(_dist.location)
+    dist_loc = os.path.normcase(os.path.realpath(_dist.location))
     here = os.path.normcase(__file__)
     if not here.startswith(os.path.join(dist_loc, 'bfps')):
         # not installed, but there is another version that *is*
+        header_dir = os.path.join(os.path.dirname(here), 'cpp')
+        lib_dir = os.path.join(os.path.dirname(here), os.pardir)
         raise DistributionNotFound
     header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
     lib_dir = _dist.location
