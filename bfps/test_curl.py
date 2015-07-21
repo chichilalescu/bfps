@@ -257,11 +257,8 @@ def test(opt):
         c.run(ncpu = opt.ncpu,
               simname = 'test')
     k, enespec = c.read_spec()
-    print k, enespec
     k, ensspec = c.read_spec(field = 'vorticity')
-    print k, ensspec
     k, k2enespec = c.read_spec(field = 'kvelocity')
-    print k, k2enespec
 
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 6))

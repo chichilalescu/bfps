@@ -20,7 +20,7 @@
 
 
 import bfps
-from base import base
+from bfps.base import base
 import subprocess
 import os
 import shutil
@@ -83,7 +83,7 @@ class code(base):
                 """
         return None
     def write_src(self):
-        with open('src/' + self.name + '.cpp', 'w') as outfile:
+        with open(self.name + '.cpp', 'w') as outfile:
             outfile.write(self.version_message)
             outfile.write(self.includes)
             outfile.write(self.variables)
@@ -92,20 +92,44 @@ class code(base):
             outfile.write(self.main)
             outfile.write(self.main_end)
         return None
+    def compile_code(self):
+        # compile code
+        local_install_dir = '/scratch.local/chichi/installs'
+        include_dirs = [bfps.header_dir,
+                        '/usr/lib64/mpi/gcc/openmpi/include',
+                        os.path.join(local_install_dir, 'include')]
+        if not os.path.isfile(os.path.join(bfps.header_dir, 'base.hpp')):
+            raise IOError('header not there:\n' +
+                          '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
+                          '{0}\n'.format(bfps.dist_loc))
+        libraries = ['fftw3_mpi',
+                     'fftw3',
+                     'fftw3f_mpi',
+                     'fftw3f',
+                     'bfps']
+
+        command_strings = ['mpicxx']
+        for idir in include_dirs:
+            command_strings += ['-I{0}'.format(idir)]
+        command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
+        command_strings += ['-L' + os.path.join(local_install_dir, 'lib64')]
+        command_strings.append('-L' + bfps.lib_dir)
+        for libname in libraries:
+            command_strings += ['-l' + libname]
+        command_strings += [self.name + '.cpp', '-o', self.name]
+        print(command_strings)
+#        print sum(command_strings)
+        return subprocess.call(command_strings)
     def run(self,
             ncpu = 2,
             simname = 'test',
             iter0 = 0):
-        # compile code and run
-        if subprocess.call(['make',
-                            '-f',
-                            '~/repos/bfps/makefile',
-                            self.name + '.elf']) == 0:
+        if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
-                os.mkdir(self.work_dir)
+                os.makedirs(self.work_dir)
             if self.work_dir != './':
-                shutil.copy(self.name + '.elf', self.work_dir)
+                shutil.copy(self.name, self.work_dir)
             os.chdir(self.work_dir)
             with open(self.name + '_version_info.txt', 'w') as outfile:
                 outfile.write(self.version_message)
@@ -113,7 +137,7 @@ class code(base):
                              'mpirun',
                              '-np',
                              '{0}'.format(ncpu),
-                             './' + self.name + '.elf',
+                             './' + self.name,
                              simname,
                              '{0}'.format(iter0)])
             os.chdir(current_dir)

@@ -3,3 +3,4 @@ obj/*
 .*.swp
 *.elf
 *.pyc
+.tox

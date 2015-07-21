@@ -110,6 +110,8 @@ class NavierStokes(bfps.code):
                                      ('enstrophy', np.float64),
                                      ('vel_max',   np.float64),
                                      ('renergy',   np.float64)])
+        if not os.path.isdir(self.work_dir):
+            os.makedirs(self.work_dir)
         pickle.dump(
                 self.stats_dtype,
                 open(os.path.join(
