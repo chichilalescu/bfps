@@ -24,6 +24,7 @@ import bfps.tools
 import numpy as np
 import pickle
 import os
+import matplotlib.pyplot as plt
 
 class NavierStokes(bfps.code):
     def __init__(
@@ -413,18 +414,71 @@ class NavierStokes(bfps.code):
                     simname = simname,
                     species = species)
         return None
+    def basic_plots(self):
+        stats = self.read_stats()
+        k, enespec = self.read_spec()
+        k, ensspec = self.read_spec(field = 'vorticity')
+
+        # plot energy and enstrophy
+        fig = plt.figure(figsize = (12, 6))
+        a = fig.add_subplot(121)
+        etaK = (self.parameters['nu']**2 / (stats['enstrophy']*2))**.25
+        a.plot(stats['t'], k[-3]*etaK, label = '$k_M \eta_K$')
+        a.plot(stats['t'], self.parameters['dt']*stats['vel_max'] / (2*np.pi/self.parameters['nx']),
+                label = '$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+        a.legend(loc = 'best')
+        a = fig.add_subplot(122)
+        a.plot(stats['t'], stats['energy'], label = 'energy', color = (0, 0, 1))
+        a.plot(stats['t'], stats['renergy'], label = 'energy', color = (1, 0, 1), dashes = (2, 2))
+        a.set_ylabel('energy', color = (0, 0, 1))
+        a.set_xlabel('$t$')
+        for tt in a.get_yticklabels():
+            tt.set_color((0, 0, 1))
+        b = a.twinx()
+        b.plot(stats['t'], stats['enstrophy'], label = 'enstrophy', color = (1, 0, 0))
+        b.set_ylabel('enstrophy', color = (1, 0, 0))
+        for tt in b.get_yticklabels():
+            tt.set_color((1, 0, 0))
+        fig.savefig('stats.pdf', format = 'pdf')
+
+        # plot spectra
+        fig = plt.figure(figsize=(12,6))
+        a = fig.add_subplot(121)
+        for i in range(0, enespec.shape[0]):
+            a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
+        a.set_xscale('log')
+        a.set_yscale('log')
+        a.set_title('velocity')
+        a = fig.add_subplot(122)
+        for i in range(0, ensspec.shape[0]):
+            a.plot(k, ensspec[i]['val'],
+                   color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
+            a.plot(k, k**2*enespec[i]['val'],
+                   color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
+                   dashes = (2, 2))
+        a.set_xscale('log')
+        a.set_yscale('log')
+        a.set_title('vorticity')
+        fig.savefig('spectrum.pdf', format = 'pdf')
+
+        # plot particles
+        if self.particle_species > 0:
+            traj = self.read_traj()
+            fig = plt.figure(figsize = (12, 12))
+            a = fig.add_subplot(111, projection = '3d')
+            for t in range(self.parameters['nparticles']):
+                a.plot(traj['state'][0, :, t, 0],
+                       traj['state'][0, :, t, 1],
+                       traj['state'][0, :, t, 2], color = 'blue')
+                a.plot(traj['state'][1, :, t, 0],
+                       traj['state'][1, :, t, 1],
+                       traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
+            fig.savefig('traj.pdf', format = 'pdf')
+        return None
 
 import subprocess
-import matplotlib.pyplot as plt
 
-def test(opt):
-    if opt.clean:
-        subprocess.call(['rm {0}/test_*'.format(opt.work_dir)], shell = True)
-        subprocess.call(['rm {0}/*.pickle'.format(opt.work_dir)], shell = True)
-        subprocess.call(['rm {0}/*.elf'.format(opt.work_dir)], shell = True)
-        subprocess.call(['rm {0}/*version_info.txt'.format(opt.work_dir)], shell = True)
-        subprocess.call(['make', 'clean'])
-        return None
+def launch(opt):
     c = NavierStokes(work_dir = opt.work_dir)
     assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
@@ -452,63 +506,10 @@ def test(opt):
                   simname = 'test',
                   iter0 = opt.iteration)
             opt.iteration += opt.nsteps
-    stats = c.read_stats()
-    k, enespec = c.read_spec()
-    k, ensspec = c.read_spec(field = 'vorticity')
+    return c
 
-    # plot energy and enstrophy
-    fig = plt.figure(figsize = (12, 6))
-    a = fig.add_subplot(121)
-    etaK = (c.parameters['nu']**2 / (stats['enstrophy']*2))**.25
-    a.plot(stats['t'], k[-3]*etaK, label = '$k_M \eta_K$')
-    a.plot(stats['t'], c.parameters['dt']*stats['vel_max'] / (2*np.pi/c.parameters['nx']),
-            label = '$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    a.legend(loc = 'best')
-    a = fig.add_subplot(122)
-    a.plot(stats['t'], stats['energy'], label = 'energy', color = (0, 0, 1))
-    a.plot(stats['t'], stats['renergy'], label = 'energy', color = (1, 0, 1), dashes = (2, 2))
-    a.set_ylabel('energy', color = (0, 0, 1))
-    a.set_xlabel('$t$')
-    for tt in a.get_yticklabels():
-        tt.set_color((0, 0, 1))
-    b = a.twinx()
-    b.plot(stats['t'], stats['enstrophy'], label = 'enstrophy', color = (1, 0, 0))
-    b.set_ylabel('enstrophy', color = (1, 0, 0))
-    for tt in b.get_yticklabels():
-        tt.set_color((1, 0, 0))
-    fig.savefig('stats.pdf', format = 'pdf')
-
-    # plot spectra
-    fig = plt.figure(figsize=(12,6))
-    a = fig.add_subplot(121)
-    for i in range(0, enespec.shape[0]):
-        a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
-    a.set_xscale('log')
-    a.set_yscale('log')
-    a.set_title('velocity')
-    a = fig.add_subplot(122)
-    for i in range(0, ensspec.shape[0]):
-        a.plot(k, ensspec[i]['val'],
-               color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
-        a.plot(k, k**2*enespec[i]['val'],
-               color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
-               dashes = (2, 2))
-    a.set_xscale('log')
-    a.set_yscale('log')
-    a.set_title('vorticity')
-    fig.savefig('spectrum.pdf', format = 'pdf')
-
-    # plot particles
-    fig = plt.figure(figsize = (12, 12))
-    a = fig.add_subplot(111, projection = '3d')
-    traj = c.read_traj()
-    for t in range(c.parameters['nparticles']):
-        a.plot(traj['state'][0, :, t, 0],
-               traj['state'][0, :, t, 1],
-               traj['state'][0, :, t, 2], color = 'blue')
-        a.plot(traj['state'][1, :, t, 0],
-               traj['state'][1, :, t, 1],
-               traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
-    fig.savefig('traj.pdf', format = 'pdf')
+def test(opt):
+    c = launch(opt)
+    c.basic_plots()
     return None
 

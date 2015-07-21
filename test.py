@@ -272,16 +272,15 @@ def Kolmogorov_flow_test(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--particles', dest = 'particles', action = 'store_true')
-    parser.add_argument('--clean', dest = 'clean', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('--double', dest = 'double', action = 'store_true')
+    parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
     parser.add_argument('--njobs', type = int, dest = 'njobs', default = 1)
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
     parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
-    parser.add_argument('--double', dest = 'double', action = 'store_true')
-    parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     opt = parser.parse_args()
     #test_curl(opt)
     if not opt.double:
