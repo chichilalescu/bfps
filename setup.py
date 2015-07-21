@@ -28,8 +28,7 @@ import os
 # first off, this is the install folder for fftw and/or openmpi etc
 local_install_dir = '/scratch.local/chichi/installs'
 
-include_dirs = ['src',
-                '/usr/lib64/mpi/gcc/openmpi/include',
+include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
                 '/usr/include/mpich',
                 os.path.join(local_install_dir, 'include')]
 ########################################################################
@@ -85,6 +84,8 @@ setup(
 ########################################################################
 # useless stuff folows
 ########################################################################
+        description = 'Big Fluid and Particle Solver',
+        long_description = open('README.rst', 'r').read(),
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
         version = VERSION,
