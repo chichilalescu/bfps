@@ -20,7 +20,7 @@
 
 
 import bfps
-from base import base
+from bfps.base import base
 import subprocess
 import os
 import shutil
@@ -112,7 +112,7 @@ class code(base):
         for libname in libraries:
             command_strings += ['-l' + libname]
         command_strings += [self.name + '.cpp', '-o', self.name]
-        print command_strings
+        print(command_strings)
 #        print sum(command_strings)
         return subprocess.call(command_strings)
     def run(self,
@@ -122,7 +122,7 @@ class code(base):
         if self.compile_code():
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
-                os.mkdir(self.work_dir)
+                os.makedirs(self.work_dir)
             if self.work_dir != './':
                 shutil.copy(self.name, self.work_dir)
             os.chdir(self.work_dir)

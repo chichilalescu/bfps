@@ -39,6 +39,17 @@ except DistributionNotFound:
     __version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
     header_dir = './src'
     lib_dir = './lib'
+    if not os.path.isfile(os.path.join(header_dir, 'base.hpp')):
+        tdir = os.path.dirname(os.path.realpath(__file__))
+        header_dir = os.path.join(tdir, os.pardir)
+        if not os.path.isfile(os.path.join(header_dir, 'base.hpp')):
+            raise ImportError('can not find base.hpp\n' +
+                              'tdir is {0}\n'.format(tdir) +
+                              'header_dir is {0}\n'.format(header_dir))
+        if os.path.isfile(os.path.join(header_dir, 'libbfps.so')):
+            lib_dir = tdir
+        else:
+            raise ImportError('can not find libbfps.so')
 else:
     __version__ = _dist.version
 

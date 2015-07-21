@@ -29,6 +29,7 @@ import argparse
 import pickle
 import os
 
+import bfps
 from bfps.test import convergence_test
 from bfps.NavierStokes import test as NStest
 from bfps.resize import double as resize_test

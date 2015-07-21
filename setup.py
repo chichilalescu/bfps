@@ -75,7 +75,7 @@ libbfps = Extension(
 setup(
         name = 'bfps',
         packages = ['bfps'],
-        install_requires = ['numpy>=1.8'],
+        install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
         data_files = header_list,
 ########################################################################
