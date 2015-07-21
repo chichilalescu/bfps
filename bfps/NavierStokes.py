@@ -225,7 +225,6 @@ class NavierStokes(bfps.code):
                                'ps{0}->synchronize();\n' +
                                 'if (myrank == 0 && (ps{0}->iteration % niter_part == 0))\n' +
                                 '{{\n' +
-                                'DEBUG_MSG("this is species {0}, iteration %d\\n", ps{0}->iteration);\n' +
                                 '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
@@ -503,7 +502,6 @@ def test(opt):
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(111, projection = '3d')
     traj = c.read_traj()
-    print traj['iteration']
     for t in range(c.parameters['nparticles']):
         a.plot(traj['state'][0, :, t, 0],
                traj['state'][0, :, t, 1],
