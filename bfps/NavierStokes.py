@@ -38,6 +38,9 @@ class NavierStokes(bfps.code):
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
         self.parameters['niter_todo'] = 8
+        self.parameters['niter_stat'] = 1
+        self.parameters['niter_spec'] = 1
+        self.parameters['niter_part'] = 1
         self.parameters['dt'] = 0.01
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
@@ -69,38 +72,43 @@ class NavierStokes(bfps.code):
                 //begincpp
                 void do_stats(fluid_solver<float> *fsolver)
                 {
-                    double vel_tmp, val_tmp;
-                    fsolver->compute_velocity(fsolver->cvorticity);
-                    stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
-                    stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
-                    fsolver->ift_velocity();
-                    val_tmp = (fsolver->ru[0]*fsolver->ru[0] +
-                               fsolver->ru[1]*fsolver->ru[1] +
-                               fsolver->ru[2]*fsolver->ru[2]);
-                    stats[2] = sqrt(val_tmp);
-                    stats[3] = 0.0; //val_tmp*.5;
-                    //for (ptrdiff_t rindex = 0; rindex < (fsolver->cd->local_size/3)*2; rindex++)
-                    RLOOP_FOR_OBJECT(
-                        fsolver,
-                        val_tmp = (fsolver->ru[rindex*3+0]*fsolver->ru[rindex*3+0] +
-                                   fsolver->ru[rindex*3+1]*fsolver->ru[rindex*3+1] +
-                                   fsolver->ru[rindex*3+2]*fsolver->ru[rindex*3+2]);
-                        stats[3] += val_tmp*.5;
-                        vel_tmp = sqrt(val_tmp);
-                        if (vel_tmp > stats[2])
-                            stats[2] = vel_tmp;
-                        );
-                    stats[3] /= fsolver->normalization_factor;
-                    MPI_Allreduce((void*)(stats + 3), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fsolver->rd->comm);
-                    stats[3] = val_tmp;
-                    if (myrank == 0)
+                    if (fsolver->iteration % niter_stat == 0)
                     {
-                        fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
-                        fwrite((void*)&t, sizeof(double), 1, stat_file);
-                        fwrite((void*)stats, sizeof(double), 4, stat_file);
+                        double vel_tmp, val_tmp;
+                        fsolver->compute_velocity(fsolver->cvorticity);
+                        stats[0] = .5*fsolver->correl_vec(fsolver->cvelocity,  fsolver->cvelocity);
+                        stats[1] = .5*fsolver->correl_vec(fsolver->cvorticity, fsolver->cvorticity);
+                        fsolver->ift_velocity();
+                        val_tmp = (fsolver->ru[0]*fsolver->ru[0] +
+                                   fsolver->ru[1]*fsolver->ru[1] +
+                                   fsolver->ru[2]*fsolver->ru[2]);
+                        stats[2] = sqrt(val_tmp);
+                        stats[3] = 0.0;
+                        RLOOP_FOR_OBJECT(
+                            fsolver,
+                            val_tmp = (fsolver->ru[rindex*3+0]*fsolver->ru[rindex*3+0] +
+                                       fsolver->ru[rindex*3+1]*fsolver->ru[rindex*3+1] +
+                                       fsolver->ru[rindex*3+2]*fsolver->ru[rindex*3+2]);
+                            stats[3] += val_tmp*.5;
+                            vel_tmp = sqrt(val_tmp);
+                            if (vel_tmp > stats[2])
+                                stats[2] = vel_tmp;
+                            );
+                        stats[3] /= fsolver->normalization_factor;
+                        MPI_Allreduce((void*)(stats + 3), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fsolver->rd->comm);
+                        stats[3] = val_tmp;
+                        if (myrank == 0)
+                        {
+                            fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
+                            fwrite((void*)&t, sizeof(double), 1, stat_file);
+                            fwrite((void*)stats, sizeof(double), 4, stat_file);
+                        }
                     }
-                    fsolver->write_spectrum("velocity",  fsolver->cvelocity);
-                    fsolver->write_spectrum("vorticity", fsolver->cvorticity);
+                    if (fsolver->iteration % niter_spec == 0)
+                    {
+                        fsolver->write_spectrum("velocity",  fsolver->cvelocity);
+                        fsolver->write_spectrum("vorticity", fsolver->cvorticity);
+                    }
                 }
                 //endcpp
                 """
@@ -208,13 +216,21 @@ class NavierStokes(bfps.code):
                                 '{{\n' +
                                 '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
                                 '    traj_file{0} = fopen(fname, "wb");\n' +
+                                '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
         self.particle_loop +=  (update_field +
                                'ps{0}->Euler();\n' +
                                'ps{0}->iteration++;\n' +
-                               'ps{0}->synchronize();\n').format(self.particle_species)
+                               'ps{0}->synchronize();\n' +
+                                'if (myrank == 0 && (ps{0}->iteration % niter_part == 0))\n' +
+                                '{{\n' +
+                                'DEBUG_MSG("this is species {0}, iteration %d\\n", ps{0}->iteration);\n' +
+                                '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
+                                '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
+                                '}}\n').format(self.particle_species)
         self.particle_end += ('ps{0}->write();\n' +
+                              'if (myrank == 0) fclose(traj_file{0});\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
@@ -371,6 +387,23 @@ class NavierStokes(bfps.code):
                 os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
         return np.fromfile(os.path.join(self.work_dir, simname + '_stats.bin'),
                            dtype = dtype)
+    def read_traj(
+            self, simname = 'test'):
+        if self.particle_species == 0:
+            return None
+        pdtype = np.dtype([('iteration', np.int32),
+                           ('state', np.float64, (self.parameters['nparticles'], 3))])
+        traj_list = []
+        for t in range(self.particle_species):
+            traj_list.append(np.fromfile(
+                    os.path.join(
+                        self.work_dir,
+                        simname + '_tracers{0}_traj.bin'.format(t)),
+                    dtype = pdtype))
+        traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
+        for t in range(self.particle_species):
+            traj[t] = traj_list[t]
+        return traj
     def generate_initial_condition(self, simname = 'test'):
         np.array([0.0]).tofile(
                 os.path.join(
@@ -394,12 +427,16 @@ def test(opt):
         subprocess.call(['make', 'clean'])
         return None
     c = NavierStokes(work_dir = opt.work_dir)
+    assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
     c.parameters['nu'] = 5.5*opt.n**(-4./3)
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
+    c.parameters['niter_stat'] = 1
+    c.parameters['niter_spec'] = 4
+    c.parameters['niter_part'] = 2
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32
     if opt.particles:
@@ -443,16 +480,15 @@ def test(opt):
     fig.savefig('stats.pdf', format = 'pdf')
 
     # plot spectra
-    spec_skip = 64
     fig = plt.figure(figsize=(12,6))
     a = fig.add_subplot(121)
-    for i in range(0, enespec.shape[0], spec_skip):
+    for i in range(0, enespec.shape[0]):
         a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
     a.set_xscale('log')
     a.set_yscale('log')
     a.set_title('velocity')
     a = fig.add_subplot(122)
-    for i in range(0, ensspec.shape[0], spec_skip):
+    for i in range(0, ensspec.shape[0]):
         a.plot(k, ensspec[i]['val'],
                color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
         a.plot(k, k**2*enespec[i]['val'],
@@ -463,18 +499,18 @@ def test(opt):
     a.set_title('vorticity')
     fig.savefig('spectrum.pdf', format = 'pdf')
 
-    ##check io
-    #fig = plt.figure(figsize = (12, 6))
-    #a = fig.add_subplot(121)
-    #b = np.fromfile('data/test_rvelocity_i00004', dtype = np.float32).reshape(c.parameters['nz'], c.parameters['ny'], c.parameters['nx'], 3)
-    #c = np.fromfile('data/tmp', dtype = np.float32).reshape(c.parameters['nz'], c.parameters['ny'], c.parameters['nx'], 3)
-    #bla = np.where(np.abs(b-c) > 0.01)
-    #print bla[0].shape, 3*32**3
-    #a.imshow((b - c)[0, :, :, 0], interpolation = 'none')
-    #a = fig.add_subplot(222)
-    #a.imshow(b[0, :, :, 0], interpolation = 'none')
-    #a = fig.add_subplot(224)
-    #a.imshow(c[0, :, :, 0], interpolation = 'none')
-    #fig.savefig('io_test.pdf', format = 'pdf')
+    # plot particles
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(111, projection = '3d')
+    traj = c.read_traj()
+    print traj['iteration']
+    for t in range(c.parameters['nparticles']):
+        a.plot(traj['state'][0, :, t, 0],
+               traj['state'][0, :, t, 1],
+               traj['state'][0, :, t, 2], color = 'blue')
+        a.plot(traj['state'][1, :, t, 0],
+               traj['state'][1, :, t, 1],
+               traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
+    fig.savefig('traj.pdf', format = 'pdf')
     return None
 

@@ -117,8 +117,6 @@ class code(base):
         for libname in libraries:
             command_strings += ['-l' + libname]
         command_strings += [self.name + '.cpp', '-o', self.name]
-        print(command_strings)
-#        print sum(command_strings)
         return subprocess.call(command_strings)
     def run(self,
             ncpu = 2,
