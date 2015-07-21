@@ -20,11 +20,6 @@
 ########################################################################
 
 
-from bfps.test import convergence_test
-from bfps.NavierStokes import test as NStest
-from bfps.resize import double as resize_test
-from bfps.test_curl import test as test_curl
-
 import numpy as np
 import subprocess
 import matplotlib
@@ -32,6 +27,14 @@ from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 import argparse
 import pickle
+import os
+
+import bfps
+from bfps.test import convergence_test
+from bfps.NavierStokes import test as NStest
+from bfps.resize import double as resize_test
+from bfps.resize import vorticity_resize
+from bfps.test_curl import test as test_curl
 
 def main(opt):
     if opt.run or opt.clean:
@@ -268,18 +271,51 @@ def Kolmogorov_flow_test(opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--particles', dest = 'particles', action = 'store_true')
     parser.add_argument('--clean', dest = 'clean', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
+    parser.add_argument('--njobs', type = int, dest = 'njobs', default = 1)
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
     parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
+    parser.add_argument('--double', dest = 'double', action = 'store_true')
+    parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     opt = parser.parse_args()
     #test_curl(opt)
-    NStest(opt)
-    #resize_test(opt)
+    if not opt.double:
+        opt.work_dir += '/N{0:0>3x}'.format(opt.n)
+        NStest(opt)
+    else:
+        old_simname = 'N{0:0>3x}'.format(opt.n)
+        new_simname = 'N{0:0>3x}'.format(opt.n*2)
+        c = vorticity_resize(work_dir = opt.work_dir + '/resize')
+        c.parameters['nx'] = opt.n
+        c.parameters['ny'] = opt.n
+        c.parameters['nz'] = opt.n
+        c.parameters['dst_nx'] = 2*opt.n
+        c.parameters['dst_ny'] = 2*opt.n
+        c.parameters['dst_nz'] = 2*opt.n
+        c.parameters['dst_simname'] = new_simname
+        c.write_src()
+        c.write_par(simname = old_simname)
+        print ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
+                opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
+        subprocess.call(['cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
+                opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname)], shell = True)
+        c.run(ncpu = opt.ncpu,
+              simname = old_simname,
+              iter0 = opt.iteration)
+        if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
+            os.mkdir(os.path.join(opt.work_dir, new_simname))
+        print('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
+                opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
+        subprocess.call(['cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
+                opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname)], shell = True)
+        np.array([0.0]).tofile(
+                os.path.join(
+                        opt.work_dir + '/' + new_simname, 'test_time_i00000'))
     #Rdata = np.fromfile(
     #        'data/test_rvorticity_i00000',
     #        dtype = np.float32).reshape(opt.n,

@@ -86,10 +86,10 @@ obj := $(patsubst %, ./obj/%.o, ${base_files})
 base: ${obj}
 	ar rcs ./lib/libbfps.a $^
 
-%.elf: ${obj} ./obj/%.o
-	${LINKER} \
-		$^ \
-		-o $@ \
+%.elf: ./src/%.cpp
+	${MPICXX} ${DEFINES} \
+		${CFLAGS} \
+		$^ -o $@ \
 		${LIBS} \
 		-L./lib/ \
 		-lbfps \
