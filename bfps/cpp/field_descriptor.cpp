@@ -18,7 +18,10 @@
 *
 ************************************************************************/
 
-#define NDEBUG
+// code is generally compiled via setuptools, therefore NDEBUG is present
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <stdlib.h>
 #include <algorithm>
