@@ -474,6 +474,12 @@ class NavierStokes(bfps.code):
                        traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
+    def compute_taverages(
+            self,
+            simname = 'test'):
+        stats = self.read_stats()
+        self.taverages = {}
+        return None
     def plot_spectrum(
             self,
             axis,
@@ -481,17 +487,40 @@ class NavierStokes(bfps.code):
             field = 'velocity',
             average = True,
             color = (1, 0, 0),
-            cmap = 'coolwarm'):
+            cmap = 'coolwarm',
+            add_Kspec = True,
+            normalization = 'energy',
+            label = None):
+        stats = self.read_stats()
         k, spec = self.read_spec(field = field)
-        index = np.where(spec['iteration'] == iter0)[0]
+        index = np.where(spec['iteration'] == iter0)[0][0]
+        sindex = np.where(stats['iteration'] == iter0)[0][0]
+        E = np.average(stats['energy'][sindex:])
+        aens = np.average(stats['enstrophy'][sindex:])
+        diss = self.parameters['nu']*aens*2
+        etaK = (self.parameters['nu']**2 / (aens*2))**.25
+        norm_factor = 1.0
+        if normalization == 'energy':
+            norm_factor = (self.parameters['nu']**5 * diss)**(-.25)
         if average:
             aspec = np.average(spec[index:]['val'], axis = 0)
-            axis.plot(k, aspec, color = color)
+            axis.plot(
+                    k*etaK,
+                    aspec*norm_factor,
+                    color = color,
+                    label = label)
         else:
             for i in range(index, spec.shape[0]):
-                axis.plot(k,
-                          spec[i]['val'],
+                axis.plot(k*etaK,
+                          spec[i]['val']*norm_factor,
                           color = plt.get_cmap(cmap)((i - iter0)*1.0/(spec.shape[0] - iter0)))
+        if add_Kspec:
+            axis.plot(
+                    k*etaK,
+                    2*(k*etaK)**(-5./3),
+                    color = 'black',
+                    dashes = (1, 1),
+                    label = '$2(k \\eta_K)^{-5/3}$')
         axis.set_xscale('log')
         axis.set_yscale('log')
         return k, spec
