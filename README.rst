@@ -1,4 +1,4 @@
-Big Field and Particle Simulator
+Big Fluid and Particle Simulator
 ================================
 
 At the moment, this code is meant to run pseudospectral DNS of
@@ -18,3 +18,6 @@ randomly ordered list of stuff that needs to be done
 
     * complex field IO should be space efficient (i.e. don't write modes
       that are 0 due to dealiasing scheme)
+
+    * make templates work for `double` as well, and python wrappers
+      should control precision.

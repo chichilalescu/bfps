@@ -84,7 +84,7 @@ setup(
 ########################################################################
 # useless stuff folows
 ########################################################################
-        description = 'Big Fluid and Particle Solver',
+        description = 'Big Fluid and Particle Simulator',
         long_description = open('README.rst', 'r').read(),
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
