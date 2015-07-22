@@ -131,6 +131,7 @@ class code(base):
             os.chdir(self.work_dir)
             with open(self.name + '_version_info.txt', 'w') as outfile:
                 outfile.write(self.version_message)
+            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
             subprocess.call(['time',
                              'mpirun',
                              '-np',
