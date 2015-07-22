@@ -414,12 +414,19 @@ class NavierStokes(bfps.code):
                     simname = simname,
                     species = species)
         return None
-    def basic_plots(self):
-        stats = self.read_stats()
-        k, enespec = self.read_spec()
-        k, ensspec = self.read_spec(field = 'vorticity')
+    def basic_plots(
+            self,
+            simname = 'test',
+            spectra_on = True,
+            particles_on = True):
+        k = np.fromfile(
+                os.path.join(
+                    self.work_dir,
+                    simname + '_kshell'),
+                dtype = np.float64)
 
         # plot energy and enstrophy
+        stats = self.read_stats()
         fig = plt.figure(figsize = (12, 6))
         a = fig.add_subplot(121)
         etaK = (self.parameters['nu']**2 / (stats['enstrophy']*2))**.25
@@ -442,27 +449,19 @@ class NavierStokes(bfps.code):
         fig.savefig('stats.pdf', format = 'pdf')
 
         # plot spectra
-        fig = plt.figure(figsize=(12,6))
-        a = fig.add_subplot(121)
-        for i in range(0, enespec.shape[0]):
-            a.plot(k, enespec[i]['val'], color = (i*1./enespec.shape[0], 0, 1 - i*1./enespec.shape[0]))
-        a.set_xscale('log')
-        a.set_yscale('log')
-        a.set_title('velocity')
-        a = fig.add_subplot(122)
-        for i in range(0, ensspec.shape[0]):
-            a.plot(k, ensspec[i]['val'],
-                   color = (i*1./ensspec.shape[0], 0, 1 - i*1./ensspec.shape[0]))
-            a.plot(k, k**2*enespec[i]['val'],
-                   color = (0, 1 - i*1./ensspec.shape[0], i*1./ensspec.shape[0]),
-                   dashes = (2, 2))
-        a.set_xscale('log')
-        a.set_yscale('log')
-        a.set_title('vorticity')
-        fig.savefig('spectrum.pdf', format = 'pdf')
+        if spectra_on:
+            fig = plt.figure(figsize=(12, 6))
+            a = fig.add_subplot(121)
+            self.plot_spectrum(a, average = False)
+            a.set_title('velocity')
+            a = fig.add_subplot(122)
+            self.plot_spectrum(a, average = False, field = 'vorticity')
+            a.set_title('vorticity')
+            fig.savefig('spectrum.pdf', format = 'pdf')
+
 
         # plot particles
-        if self.particle_species > 0:
+        if particles_on and self.particle_species > 0:
             traj = self.read_traj()
             fig = plt.figure(figsize = (12, 12))
             a = fig.add_subplot(111, projection = '3d')
@@ -475,6 +474,27 @@ class NavierStokes(bfps.code):
                        traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
+    def plot_spectrum(
+            self,
+            axis,
+            iter0 = 0,
+            field = 'velocity',
+            average = True,
+            color = (1, 0, 0),
+            cmap = 'coolwarm'):
+        k, spec = self.read_spec(field = field)
+        index = np.where(spec['iteration'] == iter0)[0]
+        if average:
+            aspec = np.average(spec[index:]['val'], axis = 0)
+            axis.plot(k, aspec, color = color)
+        else:
+            for i in range(index, spec.shape[0]):
+                axis.plot(k,
+                          spec[i]['val'],
+                          color = plt.get_cmap(cmap)((i - iter0)*1.0/(spec.shape[0] - iter0)))
+        axis.set_xscale('log')
+        axis.set_yscale('log')
+        return k, spec
 
 import subprocess
 
