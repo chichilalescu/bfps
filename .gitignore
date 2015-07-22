@@ -1,6 +1,7 @@
-obj/*
 .ipynb_checkpoints/*
 .*.swp
-*.elf
 *.pyc
 .tox
+dist
+build
+bfps.egg-info
