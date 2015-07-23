@@ -110,6 +110,22 @@ class base(object):
                 ofile.write('{0} = {1}\n'.format(key[i], self.parameters[key[i]]))
         ofile.close()
         return None
+    def read_par(self, simname = 'test'):
+        def read_value(s):
+            try:
+                return int(s)
+            except ValueError:
+                try:
+                    return float(s)
+                except ValueError:
+                    return str(s)
+        ifile = open(simname + '_pars.txt', 'r')
+        for line in ifile:
+            a = line.split()
+            if len(a)==3 and a[1] == '=':
+                self.parameters[a[0]] = read_value(a[2])
+        ifile.close()
+        return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')
         return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]

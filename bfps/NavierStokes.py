@@ -30,9 +30,11 @@ class NavierStokes(bfps.code):
     def __init__(
             self,
             name = 'NavierStokes',
-            work_dir = './'):
+            work_dir = './',
+            simname = 'test'):
         super(NavierStokes, self).__init__()
         self.work_dir = work_dir
+        self.simname = simname
         self.particle_species = 0
         self.name = name
         self.parameters['dkx'] = 1.0
@@ -256,17 +258,29 @@ class NavierStokes(bfps.code):
             self.main   += self.particle_end
         self.main       += self.fluid_end
         return None
+    def read_parameters(
+            self,
+            simname = None,
+            work_dir = None):
+        if not type(simname) == type(None):
+            self.simname = simname
+        if not type(work_dir) == type(None):
+            self.work_dir = work_dir
+        current_dir = os.getcwd()
+        os.chdir(self.work_dir)
+        self.read_par(self.simname)
+        os.chdir(current_dir)
+        return None
     def plot_vel_cut(
             self,
             axis,
-            simname = 'test',
             field = 'velocity',
             iteration = 0,
             yval = 13,
             filename = None):
         axis.set_axis_off()
         if type(filename) == type(None):
-            filename = simname + '_' + field + '_i{0:0>5x}'.format(iteration)
+            filename = self.simname + '_' + field + '_i{0:0>5x}'.format(iteration)
         Rdata0 = np.fromfile(
                 filename,
                 dtype = np.float32).reshape((-1,
@@ -280,12 +294,11 @@ class NavierStokes(bfps.code):
         return Rdata0
     def generate_vdf(
             self,
-            simname = 'test',
             field = 'velocity',
             iteration = 0,
             filename = None):
         if type(filename) == type(None):
-            filename = simname + '_' + field + '_i{0:0>5x}'.format(iteration)
+            filename = self.simname + '_' + field + '_i{0:0>5x}'.format(iteration)
         Rdata0 = np.fromfile(
                 filename,
                 dtype = np.float32).reshape((self.parameters['nz'],
@@ -312,8 +325,8 @@ class NavierStokes(bfps.code):
             rseed = 7547,
             spectra_slope = 1.,
             precision = 'single',
-            simname = None,
-            iteration = 0):
+            iteration = 0,
+            write_to_file = False):
         if precision == 'single':
             dtype = np.complex64
         elif precision == 'double':
@@ -345,50 +358,47 @@ class NavierStokes(bfps.code):
                 self.parameters['nz'],
                 self.parameters['ny'],
                 self.parameters['nx'])
-        if not (type(simname) == type(None)):
+        if write_to_file:
             Kdata1.tofile(
                     os.path.join(self.work_dir,
-                                 simname + "_cvorticity_i{0:0>5x}".format(iteration)))
+                                 self.simname + "_cvorticity_i{0:0>5x}".format(iteration)))
         return Kdata1
     def generate_tracer_state(
             self,
             rseed = 34982,
-            simname = None,
             iteration = 0,
-            species = 0):
+            species = 0,
+            write_to_file = False):
         np.random.seed(rseed*self.particle_species + species)
         data = np.random.random(self.parameters['nparticles']*3)*2*np.pi
-        if not (type(simname) == type(None)):
+        if write_to_file:
             data.tofile(
                     os.path.join(
                         self.work_dir,
-                        simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration)))
+                        self.simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration)))
         return data
     def read_spec(
             self,
-            simname = 'test',
             field = 'velocity'):
         k = np.fromfile(
                 os.path.join(
                     self.work_dir,
-                    simname + '_kshell'),
+                    self.simname + '_kshell'),
                 dtype = np.float64)
         spec_dtype = np.dtype([('iteration', np.int32),
                                ('val', np.float64, k.shape[0])])
         spec = np.fromfile(
                 os.path.join(
                     self.work_dir,
-                    simname + '_' + field + '_spec'),
+                    self.simname + '_' + field + '_spec'),
                 dtype = spec_dtype)
         return k, spec
-    def read_stats(
-            self, simname = 'test'):
+    def read_stats(self):
         dtype = pickle.load(open(
                 os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
-        return np.fromfile(os.path.join(self.work_dir, simname + '_stats.bin'),
+        return np.fromfile(os.path.join(self.work_dir, self.simname + '_stats.bin'),
                            dtype = dtype)
-    def read_traj(
-            self, simname = 'test'):
+    def read_traj(self):
         if self.particle_species == 0:
             return None
         pdtype = np.dtype([('iteration', np.int32),
@@ -398,31 +408,30 @@ class NavierStokes(bfps.code):
             traj_list.append(np.fromfile(
                     os.path.join(
                         self.work_dir,
-                        simname + '_tracers{0}_traj.bin'.format(t)),
+                        self.simname + '_tracers{0}_traj.bin'.format(t)),
                     dtype = pdtype))
         traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
         for t in range(self.particle_species):
             traj[t] = traj_list[t]
         return traj
-    def generate_initial_condition(self, simname = 'test'):
+    def generate_initial_condition(self):
         np.array([0.0]).tofile(
                 os.path.join(
-                        self.work_dir, simname + '_time_i00000'))
-        self.generate_vector_field(simname = 'test')
+                        self.work_dir, self.simname + '_time_i00000'))
+        self.generate_vector_field(write_to_file = True)
         for species in range(self.particle_species):
             self.generate_tracer_state(
-                    simname = simname,
-                    species = species)
+                    species = species,
+                    write_to_file = True)
         return None
     def basic_plots(
             self,
-            simname = 'test',
             spectra_on = True,
             particles_on = True):
         k = np.fromfile(
                 os.path.join(
                     self.work_dir,
-                    simname + '_kshell'),
+                    self.simname + '_kshell'),
                 dtype = np.float64)
 
         # plot energy and enstrophy
@@ -474,11 +483,39 @@ class NavierStokes(bfps.code):
                        traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
-    def compute_taverages(
-            self,
-            simname = 'test'):
+    def compute_statistics(self, iter0 = 0):
+        self.read_parameters()
         stats = self.read_stats()
-        self.taverages = {}
+        assert(stats.shape[0] > 0)
+        iter0 = min(stats['iteration'][-1], iter0)
+        iter0 = np.where(stats['iteration'] == iter0)[0][0]
+        self.statistics = {}
+        self.statistics['t'] = stats['t'][iter0:]
+        self.statistics['t_indices'] = stats['iteration'][iter0:]
+        for key in ['energy', 'enstrophy', 'vel_max']:
+            self.statistics[key + '(t)'] = stats[key][iter0:]
+            self.statistics[key] = np.average(stats[key][iter0:])
+        for suffix in ['', '(t)']:
+            self.statistics['diss'    + suffix] = (self.parameters['nu'] *
+                                                   self.statistics['enstrophy' + suffix]*2)
+            self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
+                                                   self.statistics['diss' + suffix])**.25
+            self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
+                                                   (self.statistics['energy' + suffix] /
+                                                   (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
+            self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
+                                                    self.statistics['diss' + suffix])**.5
+        k, spec = self.read_spec()
+        assert(spec.shape[0] > 0 and iter0 < spec['iteration'][-1])
+        self.statistics['k'] = k
+        iter0 = np.where(spec['iteration'] == iter0)[0][0]
+        self.statistics['spec_indices'] = spec['iteration'][iter0:]
+        list_of_indices = []
+        for bla in self.statistics['spec_indices']:
+            list_of_indices.append(np.where(self.statistics['t_indices'] == bla)[0][0])
+        self.statistics['spec_t'] = self.statistics['t'][list_of_indices]
+        self.statistics['energy(t, k)'] = spec[iter0:]['val']
+        self.statistics['energy(k)'] = np.average(spec[iter0:]['val'], axis = 0)
         return None
     def plot_spectrum(
             self,
@@ -491,6 +528,7 @@ class NavierStokes(bfps.code):
             add_Kspec = True,
             normalization = 'energy',
             label = None):
+        self.compute_statistics()
         stats = self.read_stats()
         k, spec = self.read_spec(field = field)
         index = np.where(spec['iteration'] == iter0)[0][0]
@@ -546,10 +584,10 @@ def launch(opt):
         c.add_particles(kcut = 'fs->kM/2')
     c.finalize_code()
     c.write_src()
-    c.write_par(simname = 'test')
+    c.write_par(simname = c.simname)
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
-            c.generate_initial_condition(simname = 'test')
+            c.generate_initial_condition()
         for nrun in range(opt.njobs):
             c.run(ncpu = opt.ncpu,
                   simname = 'test',
