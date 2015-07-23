@@ -505,7 +505,7 @@ class NavierStokes(bfps.code):
                                                    (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
             self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                     self.statistics['diss' + suffix])**.5
-        k, spec = self.read_spec()
+        k, spec = self.read_spec(field = 'velocity')
         assert(spec.shape[0] > 0 and iter0 < spec['iteration'][-1])
         self.statistics['k'] = k
         index0 = np.where(spec['iteration'] == iter0)[0][0]
@@ -514,8 +514,8 @@ class NavierStokes(bfps.code):
         for bla in self.statistics['spec_indices']:
             list_of_indices.append(np.where(self.statistics['t_indices'] == bla)[0][0])
         self.statistics['spec_t'] = self.statistics['t'][list_of_indices]
-        self.statistics['energy(t, k)'] = spec[index0:]['val']
-        self.statistics['energy(k)'] = np.average(spec[index0:]['val'], axis = 0)
+        self.statistics['energy(t, k)'] = spec[index0:]['val'] / 2
+        self.statistics['energy(k)'] = np.average(spec[index0:]['val'], axis = 0) / 2
         return None
     def plot_spectrum(
             self,
