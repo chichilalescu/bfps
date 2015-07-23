@@ -72,6 +72,7 @@ libbfps = Extension(
         sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
         include_dirs = include_dirs,
         libraries = libraries,
+        extra_compile_args = ['-mtune=native', '-ffast-math'],
         library_dirs = [os.path.join(local_install_dir, 'lib'),
                         os.path.join(local_install_dir, 'lib64')])
 
