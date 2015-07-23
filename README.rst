@@ -10,7 +10,7 @@ expanded in the future; it remains to be seen how well this will work.
 TODO
 ----
 
-* multi-step method for particles
+* multi-step methods for particles
 
 * try to make code more memory efficient
 
@@ -19,3 +19,5 @@ TODO
 
 * make templates work for `double` as well, and python wrappers
   should control precision.
+
+* implement alternate spectrum computation.
