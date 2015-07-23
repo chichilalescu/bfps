@@ -488,13 +488,13 @@ class NavierStokes(bfps.code):
         stats = self.read_stats()
         assert(stats.shape[0] > 0)
         iter0 = min(stats['iteration'][-1], iter0)
-        iter0 = np.where(stats['iteration'] == iter0)[0][0]
+        index0 = np.where(stats['iteration'] == iter0)[0][0]
         self.statistics = {}
-        self.statistics['t'] = stats['t'][iter0:]
-        self.statistics['t_indices'] = stats['iteration'][iter0:]
+        self.statistics['t'] = stats['t'][index0:]
+        self.statistics['t_indices'] = stats['iteration'][index0:]
         for key in ['energy', 'enstrophy', 'vel_max']:
-            self.statistics[key + '(t)'] = stats[key][iter0:]
-            self.statistics[key] = np.average(stats[key][iter0:])
+            self.statistics[key + '(t)'] = stats[key][index0:]
+            self.statistics[key] = np.average(stats[key][index0:])
         for suffix in ['', '(t)']:
             self.statistics['diss'    + suffix] = (self.parameters['nu'] *
                                                    self.statistics['enstrophy' + suffix]*2)
@@ -508,14 +508,14 @@ class NavierStokes(bfps.code):
         k, spec = self.read_spec()
         assert(spec.shape[0] > 0 and iter0 < spec['iteration'][-1])
         self.statistics['k'] = k
-        iter0 = np.where(spec['iteration'] == iter0)[0][0]
-        self.statistics['spec_indices'] = spec['iteration'][iter0:]
+        index0 = np.where(spec['iteration'] == iter0)[0][0]
+        self.statistics['spec_indices'] = spec['iteration'][index0:]
         list_of_indices = []
         for bla in self.statistics['spec_indices']:
             list_of_indices.append(np.where(self.statistics['t_indices'] == bla)[0][0])
         self.statistics['spec_t'] = self.statistics['t'][list_of_indices]
-        self.statistics['energy(t, k)'] = spec[iter0:]['val']
-        self.statistics['energy(k)'] = np.average(spec[iter0:]['val'], axis = 0)
+        self.statistics['energy(t, k)'] = spec[index0:]['val']
+        self.statistics['energy(k)'] = np.average(spec[index0:]['val'], axis = 0)
         return None
     def plot_spectrum(
             self,
