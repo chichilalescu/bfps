@@ -150,11 +150,6 @@ class NavierStokes(bfps.code):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iter0;
                 fs->read('v', 'c');
-                fs->ift_vorticity();
-                fs->write('v', 'r');
-                fs->compute_velocity(fs->cvorticity);
-                fs->ift_velocity();
-                fs->write('u', 'r');
                 if (myrank == 0)
                 {
                     sprintf(fname, "%s_stats.bin", simname);
@@ -186,7 +181,6 @@ class NavierStokes(bfps.code):
                     fclose(time_file);
                 }
                 fs->write('v', 'c');
-                fs->write('u', 'r');
                 delete fs;
                 //endcpp
                 """
