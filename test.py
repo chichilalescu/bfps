@@ -171,7 +171,6 @@ def convergence_test(opt):
     default_wd = opt.work_dir
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
     c0 = NSlaunch(opt)
-    c0.compute_statistics()
     opt.initialize = False
     opt.work_dir = default_wd
     double(opt)
@@ -196,9 +195,71 @@ def convergence_test(opt):
     c2 = NSlaunch(
             opt,
             nu = c0.parameters['nu'])
-    # second, read data
+    ## fluid test:
+    # read data
+    c0.compute_statistics()
+    c0.set_plt_style(
+            {'dashes': (None, None),
+             'label' : '${0}\\times {1} \\times {2}$'.format(c0.parameters['nx'],
+                                                             c0.parameters['ny'],
+                                                             c0.parameters['nz'])})
     c1.compute_statistics()
+    c1.set_plt_style(
+            {'dashes': (2, 3),
+             'label' : '${0}\\times {1} \\times {2}$'.format(c1.parameters['nx'],
+                                                             c1.parameters['ny'],
+                                                             c1.parameters['nz'])})
     c2.compute_statistics()
+    c2.set_plt_style(
+            {'dashes': (3, 4),
+             'label' : '${0}\\times {1} \\times {2}$'.format(c2.parameters['nx'],
+                                                             c2.parameters['ny'],
+                                                             c2.parameters['nz'])})
+    # plot spectra
+    def plot_spec(a, c):
+        for i in range(c.statistics['energy(t, k)'].shape[0]):
+            a.plot(c.statistics['k'],
+                   c.statistics['energy(t, k)'][i],
+                   color = plt.get_cmap('coolwarm')(i*1.0/(c.statistics['energy(t, k)'].shape[0])))
+        a.set_xscale('log')
+        a.set_yscale('log')
+        a.set_title(c.style['label'])
+    fig = plt.figure(figsize=(12, 4))
+    plot_spec(fig.add_subplot(131), c0)
+    plot_spec(fig.add_subplot(132), c1)
+    plot_spec(fig.add_subplot(133), c2)
+    fig.savefig('spectra.pdf', format = 'pdf')
+    # plot energy and enstrophy
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(221)
+    for c in [c0, c1, c2]:
+        a.plot(c.statistics['t'],
+               c.statistics['energy(t)'],
+               label = c.style['label'],
+               dashes = c.style['dashes'])
+    a.set_title('energy')
+    a.legend(loc = 'best')
+    a = fig.add_subplot(222)
+    for c in [c0, c1, c2]:
+        a.plot(c.statistics['t'],
+               c.statistics['enstrophy(t)'],
+               dashes = c.style['dashes'])
+    a.set_title('enstrophy')
+    a = fig.add_subplot(223)
+    for c in [c0, c1, c2]:
+        a.plot(c.statistics['t'],
+               c.statistics['kM']*c.statistics['etaK(t)'],
+               dashes = c.style['dashes'])
+    a.set_title('$k_M \\eta_K$')
+    a = fig.add_subplot(224)
+    for c in [c0, c1, c2]:
+        a.plot(c.statistics['t'],
+               c.statistics['vel_max(t)'] * (c.parameters['dt'] * c.parameters['dkx'] /
+                                             (2*np.pi / c.parameters['nx'])),
+               dashes = c.style['dashes'])
+    a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    fig.savefig('stats.pdf', format = 'pdf')
+    ## particle test:
     # compute distance between final positions for species 0
     e0 = np.abs(c0.trajectories['state'][0, -1, :, :3] - c1.trajectories['state'][0, -1, :, :3])
     e1 = np.abs(c1.trajectories['state'][0, -1, :, :3] - c2.trajectories['state'][0, -1, :, :3])

@@ -65,6 +65,7 @@ class NavierStokes(bfps.code):
         self.particle_loop = ''
         self.particle_end  = ''
         self.fill_up_fluid_code()
+        self.style = {}
         return None
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
@@ -502,6 +503,7 @@ class NavierStokes(bfps.code):
         k, spec = self.read_spec(field = 'velocity')
         assert(spec.shape[0] > 0 and iter0 < spec['iteration'][-1])
         self.statistics['k'] = k
+        self.statistics['kM'] = np.nanmax(k)
         index0 = np.where(spec['iteration'] == iter0)[0][0]
         self.statistics['spec_indices'] = spec['iteration'][index0:]
         list_of_indices = []
@@ -522,6 +524,7 @@ class NavierStokes(bfps.code):
             color = (1, 0, 0),
             cmap = 'coolwarm',
             add_Kspec = True,
+            normalize_k = True,
             normalization = 'energy',
             label = None):
         self.compute_statistics()
@@ -536,28 +539,35 @@ class NavierStokes(bfps.code):
         norm_factor = 1.0
         if normalization == 'energy':
             norm_factor = (self.parameters['nu']**5 * diss)**(-.25)
+        if normalize_k:
+            k *= etaK
         if average:
             aspec = np.average(spec[index:]['val'], axis = 0)
             axis.plot(
-                    k*etaK,
+                    k,
                     aspec*norm_factor,
                     color = color,
                     label = label)
         else:
             for i in range(index, spec.shape[0]):
-                axis.plot(k*etaK,
+                axis.plot(k,
                           spec[i]['val']*norm_factor,
                           color = plt.get_cmap(cmap)((i - iter0)*1.0/(spec.shape[0] - iter0)))
         if add_Kspec:
             axis.plot(
-                    k*etaK,
-                    2*(k*etaK)**(-5./3),
+                    k,
+                    2*k**(-5./3),
                     color = 'black',
                     dashes = (1, 1),
                     label = '$2(k \\eta_K)^{-5/3}$')
         axis.set_xscale('log')
         axis.set_yscale('log')
         return k, spec
+    def set_plt_style(
+            self,
+            style = {'dashes' : (None, None)}):
+        self.style.update(style)
+        return None
 
 import subprocess
 
