@@ -30,144 +30,9 @@ import pickle
 import os
 
 import bfps
-from bfps.test import convergence_test
 from bfps.NavierStokes import launch as NSlaunch
-from bfps.resize import double as resize_test
 from bfps.resize import vorticity_resize
 from bfps.test_curl import test as test_curl
-
-def main(opt):
-    if opt.run or opt.clean:
-        subprocess.call(['rm test1_*'], shell = True)
-        subprocess.call(['rm test2_*'], shell = True)
-        subprocess.call(['rm input_split_per_component'], shell = True)
-        subprocess.call(['rm *.pickle'], shell = True)
-    if opt.clean:
-        subprocess.call(['make', 'clean'])
-        return None
-    c = convergence_test()
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 1e-1
-    c.parameters['dt'] = 2e-3
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['famplitude'] = 0.0
-    c.parameters['nparticles'] = 32
-    if opt.run:
-        c.execute(
-                ncpu = opt.ncpu)#,
-#                tracer_state = np.array([1.56292, 2.33185, 1.42517]))
-    dtype = pickle.load(open(c.name + '_dtype.pickle'))
-    stats1 = np.fromfile('test1_stats.bin', dtype = dtype)
-    stats2 = np.fromfile('test2_stats.bin', dtype = dtype)
-    stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    traj1 = np.fromfile('test1_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
-    traj2 = np.fromfile('test2_tracers_traj.bin', dtype = np.float64).reshape(-1, c.parameters['nparticles'], 3)
-    fig = plt.figure(figsize = (12,6))
-    a = fig.add_subplot(121)
-    a.plot(stats1['t'], stats1['energy'])
-    a.plot(stats2['t'], stats2['energy'], dashes = (3, 3))
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
-    a = fig.add_subplot(122)
-    a.plot(stats1['t'], stats1['enstrophy'])
-    a.plot(stats2['t'], stats2['enstrophy'], dashes = (3, 3))
-    a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
-    fig.savefig('test.pdf', format = 'pdf')
-
-    fig = plt.figure(figsize = (24, 12))
-    a = fig.add_subplot(121, projection = '3d')
-    for t in range(traj1.shape[1]):
-        a.plot(traj1[:, t, 0], traj1[:, t, 1], traj1[:, t, 2], color = 'blue')
-        a.plot(traj2[:, t, 0], traj2[:, t, 1], traj2[:, t, 2], color = 'red', dashes = (1,1))
-    a = fig.add_subplot(322)
-    for t in range(traj1.shape[1]):
-        a.plot(stats1['t'], traj1[:, t, 0], color = 'blue')
-        a.plot(stats2['t'], traj2[:, t, 0], color = 'red', dashes = (1,1))
-    a = fig.add_subplot(324)
-    for t in range(traj1.shape[1]):
-        a.plot(stats1['t'], traj1[:, t, 1], color = 'blue')
-        a.plot(stats2['t'], traj2[:, t, 1], color = 'red', dashes = (1,1))
-    a = fig.add_subplot(326)
-    for t in range(traj1.shape[1]):
-        a.plot(stats1['t'], traj1[:, t, 2], color = 'blue')
-        a.plot(stats2['t'], traj2[:, t, 2], color = 'red', dashes = (1,1))
-    fig.savefig('traj.pdf', format = 'pdf')
-
-    fig = plt.figure(figsize=(12, 12))
-    a = fig.add_subplot(221)
-    c.plot_vel_cut(
-            a,
-            simname = 'test1',
-            field = 'rvelocity',
-            iteration = 0)
-    a = fig.add_subplot(223)
-    c.plot_vel_cut(
-            a,
-            simname = 'test1',
-            field = 'rvelocity',
-            iteration = stats1.shape[0] - 1)
-    a = fig.add_subplot(222)
-    c.parameters['nx'] *= 2
-    c.parameters['ny'] *= 2
-    c.parameters['nz'] *= 2
-    c.plot_vel_cut(
-            a,
-            simname = 'test2',
-            field = 'rvelocity',
-            iteration = 0,
-            yval = 26)
-    a = fig.add_subplot(224)
-    c.plot_vel_cut(
-            a,
-            simname = 'test2',
-            field = 'rvelocity',
-            iteration = stats2.shape[0] - 1,
-            yval = 26)
-    fig.savefig('vel_cut.pdf', format = 'pdf')
-
-    fig = plt.figure(figsize=(12, 6))
-    a = fig.add_subplot(121)
-    c.parameters['nx'] /= 2
-    c.parameters['ny'] /= 2
-    c.parameters['nz'] /= 2
-    c.plot_vel_cut(
-            a,
-            simname = 'test1',
-            field = 'particle_field',
-            iteration = 0,
-            yval = 13)
-    a = fig.add_subplot(122)
-    c.parameters['nx'] *= 2
-    c.parameters['ny'] *= 2
-    c.parameters['nz'] *= 2
-    c.plot_vel_cut(
-            a,
-            simname = 'test2',
-            field = 'particle_field',
-            iteration = 0,
-            yval = 26)
-    fig.savefig('particle_field.pdf', format = 'pdf')
-
-    k1 = np.fromfile('test1_kshell', dtype = np.float64)
-    k2 = np.fromfile('test2_kshell', dtype = np.float64)
-    fig = plt.figure(figsize=(12, 6))
-    a = fig.add_subplot(121)
-    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
-    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(0), dtype = np.float64)
-    a.plot(k1, s1)
-    a.plot(k2, s2)
-    a.set_xscale('log')
-    a.set_yscale('log')
-    a = fig.add_subplot(122)
-    s1 = np.fromfile('test1_velocity_spec_i{0:0>5x}'.format(stats1.shape[0]-1), dtype = np.float64)
-    s2 = np.fromfile('test2_velocity_spec_i{0:0>5x}'.format(stats2.shape[0]-1), dtype = np.float64)
-    a.plot(k1, s1)
-    a.plot(k2, s2)
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.savefig('spectra.pdf', format = 'pdf')
-    return None
 
 def Kolmogorov_flow_test(opt):
     c = convergence_test(name = 'Kflow_test')
@@ -299,6 +164,56 @@ def double(opt):
                     opt.work_dir + '/' + new_simname, 'test_time_i00000'))
     return None
 
+def convergence_test(opt):
+    ### test Navier Stokes convergence
+    # first, run code three times, doubling and quadrupling the resolution
+    # initial condition and viscosity must be the same!
+    default_wd = opt.work_dir
+    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    c0 = NSlaunch(opt)
+    c0.compute_statistics()
+    opt.initialize = False
+    opt.work_dir = default_wd
+    double(opt)
+    opt.iteration = 0
+    opt.n *= 2
+    opt.nsteps *= 2
+    opt.ncpu *= 2
+    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+    subprocess.call([cp_command], shell = True)
+    c1 = NSlaunch(
+            opt,
+            nu = c0.parameters['nu'])
+    opt.work_dir = default_wd
+    double(opt)
+    opt.n *= 2
+    opt.nsteps *= 2
+    opt.ncpu *= 2
+    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+    subprocess.call([cp_command], shell = True)
+    c2 = NSlaunch(
+            opt,
+            nu = c0.parameters['nu'])
+    # second, read data
+    c1.compute_statistics()
+    c2.compute_statistics()
+    # compute distance between final positions for species 0
+    e0 = np.abs(c0.trajectories['state'][0, -1, :, :3] - c1.trajectories['state'][0, -1, :, :3])
+    e1 = np.abs(c1.trajectories['state'][0, -1, :, :3] - c2.trajectories['state'][0, -1, :, :3])
+    err0 = np.average(np.sqrt(np.sum(e0**2, axis = 1)))
+    err1 = np.average(np.sqrt(np.sum(e0**2, axis = 1)))
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    a.plot([c0.parameters['dt'], c1.parameters['dt']],
+           [err0, err1],
+           marker = '.')
+    a.set_xscale('log')
+    a.set_yscale('log')
+    fig.savefig('traj_evdt.pdf', format = 'pdf')
+    return None
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--particles', dest = 'particles', action = 'store_true')
@@ -313,44 +228,11 @@ if __name__ == '__main__':
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
     parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
     opt = parser.parse_args()
-    ### test Navier Stokes convergence
-    # first, run code three times, doubling and quadrupling the resolution
-    # initial condition and viscosity must be the same!
-    default_wd = opt.work_dir
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    c0 = NSlaunch(opt)
     if opt.convergence:
-        opt.initialize = False
-        opt.work_dir = default_wd
-        double(opt)
-        opt.iteration = 0
-        opt.n *= 2
-        opt.nsteps *= 2
-        opt.ncpu *= 2
-        opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-        cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-        subprocess.call([cp_command], shell = True)
-        c1 = NSlaunch(
-                opt,
-                nu = c0.parameters['nu'])
-        opt.work_dir = default_wd
-        double(opt)
-        opt.n *= 2
-        opt.nsteps *= 2
-        opt.ncpu *= 2
-        opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-        cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-        subprocess.call([cp_command], shell = True)
-        c2 = NSlaunch(
-                opt,
-                nu = c0.parameters['nu'])
-        # second, read data
+        convergence_test(opt)
+    else:
+        opt.work_dir += '/N{0:0>3x}'.format(opt.n)
+        c0 = NSlaunch(opt)
         c0.compute_statistics()
-        c1.compute_statistics()
-        c2.compute_statistics()
-        # compute distance between final positions for species 0
-        e0 = np.abs(c0.trajectories['state'][0, -1, :, :3] - c1.trajectories['state'][0, -1, :, :3])
-        e1 = np.abs(c1.trajectories['state'][0, -1, :, :3] - c2.trajectories['state'][0, -1, :, :3])
-        err0 = np.average(np.sum(e0**2, axis = 1))
-        err1 = np.average(np.sum(e0**2, axis = 1))
+        c0.basic_plots()
 
