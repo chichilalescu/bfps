@@ -585,8 +585,7 @@ def launch(opt):
         for nrun in range(opt.njobs):
             c.run(ncpu = opt.ncpu,
                   simname = 'test',
-                  iter0 = opt.iteration)
-            opt.iteration += opt.nsteps
+                  iter0 = opt.iteration + nrun*opt.nsteps)
     return c
 
 def test(opt):
