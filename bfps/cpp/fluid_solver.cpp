@@ -308,7 +308,7 @@ void fluid_solver<R>::omega_nonlin( \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->symmetrize(this->cu, 3); \
     this->low_pass_Fourier(this->cu, 3, this->kM); \
-    /*this->force_divfree(this->cu);*/ \
+    this->force_divfree(this->cu); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
     R tmpx1, tmpy1, tmpz1; \
     CLOOP( \
@@ -355,7 +355,9 @@ void fluid_solver<R>::step(double dt) \
             this->cv[1][3*cindex+2][1] = (this->cv[0][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor0; \
             ); \
  \
+    this->force_divfree(this->cv[1]); \
     this->omega_nonlin(1); \
+    this->low_pass_Fourier(this->cv[1], 3, this->kM); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -370,7 +372,9 @@ void fluid_solver<R>::step(double dt) \
             this->cv[2][3*cindex+2][1] = (3*this->cv[0][3*cindex+2][1]*factor0 + (this->cv[1][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor1)*0.25; \
             ); \
  \
+    this->force_divfree(this->cv[2]); \
     this->omega_nonlin(2); \
+    this->low_pass_Fourier(this->cv[2], 3, this->kM); \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -384,8 +388,20 @@ void fluid_solver<R>::step(double dt) \
             this->cv[3][3*cindex+2][1] = (this->cv[0][3*cindex+2][1]*factor0 + 2*(this->cv[2][3*cindex+2][1] + dt*this->cu[3*cindex+2][1]))*factor0/3; \
             );  \
     this->symmetrize(this->cu, 3); \
-    /*this->force_divfree(this->cv[0]); \
-    this->low_pass_Fourier(this->cv[0], 3, this->kM);*/ \
+    this->force_divfree(this->cv[0]); \
+    this->low_pass_Fourier(this->cv[0], 3, this->kM); \
+    /*this->write_base("cvorticity", this->cvorticity); \
+    this->read_base("cvorticity", this->cvorticity); \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
+        this->force_divfree(this->cvorticity); \
+        this->symmetrize(this->cvorticity, 3);*/ \
+    /*this->ift_vorticity(); \
+    this->dft_vorticity(); \
+    CLOOP( \
+            for (int component = 0; component < 3; component++) \
+            for (int imag_part = 0; imag_part < 2; imag_part++) \
+                this->cvorticity[cindex*3+component][imag_part] /= this->normalization_factor; \
+            );*/ \
  \
     this->iteration++; \
 } \
