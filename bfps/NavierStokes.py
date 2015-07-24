@@ -44,6 +44,7 @@ class NavierStokes(bfps.code):
         self.parameters['niter_stat'] = 1
         self.parameters['niter_spec'] = 1
         self.parameters['niter_part'] = 1
+        self.parameters['niter_out'] = 1024
         self.parameters['dt'] = 0.01
         self.parameters['nu'] = 0.1
         self.parameters['famplitude'] = 1.0
@@ -169,6 +170,8 @@ class NavierStokes(bfps.code):
                 fs->step(dt);
                 t += dt;
                 do_stats(fs);
+                if (fs->iteration % niter_out == 0)
+                    fs->write('v', 'c');
                 //endcpp
                 """
         self.fluid_end += """
@@ -181,7 +184,8 @@ class NavierStokes(bfps.code):
                     fwrite((void*)&t, sizeof(double), 1, time_file);
                     fclose(time_file);
                 }
-                fs->write('v', 'c');
+                if (fs->iteration % niter_out != 0)
+                    fs->write('v', 'c');
                 delete fs;
                 //endcpp
                 """
