@@ -34,7 +34,7 @@ from bfps.NavierStokes import launch as NSlaunch
 from bfps.resize import vorticity_resize
 from bfps.test_curl import test as test_curl
 
-def Kolmogorov_flow_test(opt):
+def Kolmogorov_flow_test_broken(opt):
     c = convergence_test(name = 'Kflow_test')
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
