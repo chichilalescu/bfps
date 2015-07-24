@@ -510,6 +510,8 @@ class NavierStokes(bfps.code):
         self.statistics['spec_t'] = self.statistics['t'][list_of_indices]
         self.statistics['energy(t, k)'] = spec[index0:]['val'] / 2
         self.statistics['energy(k)'] = np.average(spec[index0:]['val'], axis = 0) / 2
+        self.trajectories = self.read_traj()
+        #if self.particle_species > 0: get some velocity histograms or smth
         return None
     def plot_spectrum(
             self,
@@ -559,13 +561,16 @@ class NavierStokes(bfps.code):
 
 import subprocess
 
-def launch(opt):
+def launch(
+        opt,
+        nu = None):
     c = NavierStokes(work_dir = opt.work_dir)
     assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
-    c.parameters['nu'] = 5.5*opt.n**(-4./3)
+    if type(nu) == type(None):
+        c.parameters['nu'] = 5.5*opt.n**(-4./3)
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['niter_stat'] = 1
