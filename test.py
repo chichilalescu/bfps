@@ -268,6 +268,36 @@ def Kolmogorov_flow_test(opt):
     fig.savefig('cvort.pdf', format = 'pdf')
     return None
 
+def double(opt):
+    old_simname = 'N{0:0>3x}'.format(opt.n)
+    new_simname = 'N{0:0>3x}'.format(opt.n*2)
+    c = vorticity_resize(work_dir = opt.work_dir + '/resize')
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    c.parameters['dst_nx'] = 2*opt.n
+    c.parameters['dst_ny'] = 2*opt.n
+    c.parameters['dst_nz'] = 2*opt.n
+    c.parameters['dst_simname'] = new_simname
+    c.write_src()
+    if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
+        os.mkdir(os.path.join(opt.work_dir, 'resize'))
+    c.write_par(simname = old_simname)
+    cp_command = ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
+            opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
+    subprocess.call([cp_command], shell = True)
+    c.run(ncpu = opt.ncpu,
+          simname = old_simname,
+          iter0 = opt.iteration)
+    if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
+        os.mkdir(os.path.join(opt.work_dir, new_simname))
+    cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
+            opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
+    subprocess.call([cp_command], shell = True)
+    np.array([0.0]).tofile(
+            os.path.join(
+                    opt.work_dir + '/' + new_simname, 'test_time_i00000'))
+    return None
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -275,6 +305,7 @@ if __name__ == '__main__':
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--double', dest = 'double', action = 'store_true')
     parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
+    parser.add_argument('--convergence', dest = 'convergence', action = 'store_true')
     parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
@@ -282,53 +313,44 @@ if __name__ == '__main__':
     parser.add_argument('-n', type = int, dest = 'n', default = 64)
     parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
     opt = parser.parse_args()
-    #test_curl(opt)
-    if not opt.double:
-        ### test Navier Stokes convergence
-        # first, run code twice
-        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
-        c0 = NSlaunch(opt)
+    ### test Navier Stokes convergence
+    # first, run code three times, doubling and quadrupling the resolution
+    # initial condition and viscosity must be the same!
+    default_wd = opt.work_dir
+    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    c0 = NSlaunch(opt)
+    if opt.convergence:
+        opt.initialize = False
+        opt.work_dir = default_wd
+        double(opt)
+        opt.iteration = 0
         opt.n *= 2
         opt.nsteps *= 2
         opt.ncpu *= 2
-        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
-        c1 = NSlaunch(opt)
+        opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+        cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+        subprocess.call([cp_command], shell = True)
+        c1 = NSlaunch(
+                opt,
+                nu = c0.parameters['nu'])
+        opt.work_dir = default_wd
+        double(opt)
         opt.n *= 2
         opt.nsteps *= 2
         opt.ncpu *= 2
-        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
-        c2 = NSlaunch(opt)
-        # second, read data and make comparisons
+        opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+        cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+        subprocess.call([cp_command], shell = True)
+        c2 = NSlaunch(
+                opt,
+                nu = c0.parameters['nu'])
+        # second, read data
         c0.compute_statistics()
         c1.compute_statistics()
         c2.compute_statistics()
-    else:
-        old_simname = 'N{0:0>3x}'.format(opt.n)
-        new_simname = 'N{0:0>3x}'.format(opt.n*2)
-        c = vorticity_resize(work_dir = opt.work_dir + '/resize')
-        c.parameters['nx'] = opt.n
-        c.parameters['ny'] = opt.n
-        c.parameters['nz'] = opt.n
-        c.parameters['dst_nx'] = 2*opt.n
-        c.parameters['dst_ny'] = 2*opt.n
-        c.parameters['dst_nz'] = 2*opt.n
-        c.parameters['dst_simname'] = new_simname
-        c.write_src()
-        c.write_par(simname = old_simname)
-        print ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
-                opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
-        subprocess.call(['cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
-                opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname)], shell = True)
-        c.run(ncpu = opt.ncpu,
-              simname = old_simname,
-              iter0 = opt.iteration)
-        if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
-            os.mkdir(os.path.join(opt.work_dir, new_simname))
-        print('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
-                opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
-        subprocess.call(['cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
-                opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname)], shell = True)
-        np.array([0.0]).tofile(
-                os.path.join(
-                        opt.work_dir + '/' + new_simname, 'test_time_i00000'))
+        # compute distance between final positions for species 0
+        e0 = np.abs(c0.trajectories['state'][0, -1, :, :3] - c1.trajectories['state'][0, -1, :, :3])
+        e1 = np.abs(c1.trajectories['state'][0, -1, :, :3] - c2.trajectories['state'][0, -1, :, :3])
+        err0 = np.average(np.sum(e0**2, axis = 1))
+        err1 = np.average(np.sum(e0**2, axis = 1))
 
