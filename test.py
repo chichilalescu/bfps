@@ -31,7 +31,7 @@ import os
 
 import bfps
 from bfps.test import convergence_test
-from bfps.NavierStokes import test as NStest
+from bfps.NavierStokes import launch as NSlaunch
 from bfps.resize import double as resize_test
 from bfps.resize import vorticity_resize
 from bfps.test_curl import test as test_curl
@@ -284,8 +284,24 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     #test_curl(opt)
     if not opt.double:
-        opt.work_dir += '/N{0:0>3x}'.format(opt.n)
-        NStest(opt)
+        ### test Navier Stokes convergence
+        # first, run code twice
+        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
+        c0 = NSlaunch(opt)
+        opt.n *= 2
+        opt.nsteps *= 2
+        opt.ncpu *= 2
+        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
+        c1 = NSlaunch(opt)
+        opt.n *= 2
+        opt.nsteps *= 2
+        opt.ncpu *= 2
+        opt.work_dir = 'data/N{0:0>3x}'.format(opt.n)
+        c2 = NSlaunch(opt)
+        # second, read data and make comparisons
+        c0.compute_statistics()
+        c1.compute_statistics()
+        c2.compute_statistics()
     else:
         old_simname = 'N{0:0>3x}'.format(opt.n)
         new_simname = 'N{0:0>3x}'.format(opt.n*2)
@@ -315,24 +331,4 @@ if __name__ == '__main__':
         np.array([0.0]).tofile(
                 os.path.join(
                         opt.work_dir + '/' + new_simname, 'test_time_i00000'))
-    #Rdata = np.fromfile(
-    #        'data/test_rvorticity_i00000',
-    #        dtype = np.float32).reshape(opt.n,
-    #                                    opt.n,
-    #                                    opt.n, 3)
-    #tdata = Rdata.transpose(3, 0, 1, 2).copy()
-    #tdata.tofile('../vortex/input_split_per_component')
-    #stats_vortex = np.loadtxt('../vortex/sim_000000.log')
-    #dtype = pickle.load(open('data/NavierStokes_dtype.pickle', 'r'))
-    #stats = np.fromfile('data/test_stats.bin', dtype = dtype)
-    #fig = plt.figure(figsize = (12, 6))
-    #a = fig.add_subplot(121)
-    #a.plot(stats['t'], stats['energy'])
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 3], dashes = (2, 4))
-    #a.set_xlim(0, 2)
-    #a = fig.add_subplot(122)
-    #a.plot(stats['t'], stats['enstrophy'])
-    #a.plot(stats_vortex[:, 2], stats_vortex[:, 9]/2, dashes = (2, 4))
-    #a.set_xlim(0, 2)
-    #fig.savefig('vortex_comparison.pdf', format = 'pdf')
 
