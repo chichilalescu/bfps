@@ -101,6 +101,21 @@ class fluid_particle_base(bfps.code):
         self.read_par(self.simname)
         os.chdir(current_dir)
         return None
+    def read_rfield(
+            self,
+            field = 'velocity',
+            iteration = 0,
+            filename = None):
+        if type(filename) == type(None):
+            filename = os.path.join(
+                    self.work_dir,
+                    self.simname + '_r' + field + '_i{0:0>5x}'.format(iteration))
+        return np.memmap(
+                filename,
+                dtype = np.float32,
+                shape = (self.parameters['nz'],
+                         self.parameters['ny'],
+                         self.parameters['nx'], 3))
     def plot_vel_cut(
             self,
             axis,

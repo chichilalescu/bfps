@@ -44,4 +44,5 @@ except DistributionNotFound:
 
 from .code import code
 from .NavierStokes import NavierStokes
+from .fluid_converter import fluid_converter
 

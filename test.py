@@ -195,26 +195,71 @@ def convergence_test(opt):
     c2 = NSlaunch(
             opt,
             nu = c0.parameters['nu'])
-    ## fluid test:
+    # get real space fields
+    converter = bfps.fluid_converter()
+    converter.write_src()
+    for c in [c0, c1, c2]:
+        converter.work_dir = c.work_dir
+        converter.simname = c.simname + '_converter'
+        for key in converter.parameters.keys():
+            if key in c.parameters.keys():
+                converter.parameters[key] = c.parameters[key]
+        converter.parameters['fluid_name'] = c.simname
+        converter.parameters['niter_todo'] = 0
+        converter.write_par(simname = converter.simname)
+        converter.run(
+                ncpu = 2,
+                iter0 = c.parameters['niter_todo'],
+                simname = converter.simname)
     # read data
     c0.compute_statistics()
-    c0.set_plt_style(
-            {'dashes': (None, None),
-             'label' : '${0}\\times {1} \\times {2}$'.format(c0.parameters['nx'],
-                                                             c0.parameters['ny'],
-                                                             c0.parameters['nz'])})
+    c0.set_plt_style({'dashes': (None, None)})
     c1.compute_statistics()
-    c1.set_plt_style(
-            {'dashes': (2, 3),
-             'label' : '${0}\\times {1} \\times {2}$'.format(c1.parameters['nx'],
-                                                             c1.parameters['ny'],
-                                                             c1.parameters['nz'])})
+    c1.set_plt_style({'dashes': (2, 3)})
     c2.compute_statistics()
-    c2.set_plt_style(
-            {'dashes': (3, 4),
-             'label' : '${0}\\times {1} \\times {2}$'.format(c2.parameters['nx'],
-                                                             c2.parameters['ny'],
-                                                             c2.parameters['nz'])})
+    c2.set_plt_style({'dashes': (3, 4)})
+    for c in [c0, c1, c2]:
+        c.style.update({'label' : '${0}\\times {1} \\times {2}$'.format(c.parameters['nx'],
+                                                                        c.parameters['ny'],
+                                                                        c.parameters['nz'])})
+    # plot slices
+    def plot_face_contours(axis, field, levels = None):
+        xx, yy = np.meshgrid(np.linspace(0, 1, field.shape[1]),
+                             np.linspace(0, 1, field.shape[2]))
+        if type(levels) == type(None):
+            emin = np.min(field)
+            emax = np.max(field)
+            levels = np.linspace(emin + (emax - emin)/20,
+                                 emax - (emax - emin)/20,
+                                 20)
+        cz = axis.contour(xx, yy, field[0],       zdir = 'z', offset = 0.0, levels = levels)
+        xx, yy = np.meshgrid(np.linspace(0, 1, field.shape[0]),
+                             np.linspace(0, 1, field.shape[2]))
+        cy = axis.contour(xx, field[:, 0], yy,    zdir = 'y', offset = 1.0, levels = levels)
+        xx, yy = np.meshgrid(np.linspace(0, 1, field.shape[0]),
+                             np.linspace(0, 1, field.shape[1]))
+        cx = axis.contour(field[:, :, 0], xx, yy, zdir = 'x', offset = 0.0, levels = levels)
+        axis.set_xlim(0, 1)
+        axis.set_ylim(0, 1)
+        axis.set_zlim(0, 1)
+        return levels
+    def full_face_contours_fig(field_name = 'velocity'):
+        fig = plt.figure(figsize = (18,6))
+        a = fig.add_subplot(131, projection = '3d')
+        vec = c0.read_rfield(iteration = c0.parameters['niter_todo'], field = field_name)
+        levels = plot_face_contours(a, .5*np.sum(vec**2, axis = 3))
+        a.set_title(c0.style['label'])
+        a = fig.add_subplot(132, projection = '3d')
+        vec = c1.read_rfield(iteration = c1.parameters['niter_todo'], field = field_name)
+        plot_face_contours(a, .5*np.sum(vec**2, axis = 3), levels = levels)
+        a.set_title(c1.style['label'])
+        a = fig.add_subplot(133, projection = '3d')
+        vec = c2.read_rfield(iteration = c2.parameters['niter_todo'], field = field_name)
+        plot_face_contours(a, .5*np.sum(vec**2, axis = 3), levels = levels)
+        a.set_title(c2.style['label'])
+        fig.savefig(field_name + '_contour.pdf', format = 'pdf')
+    full_face_contours_fig()
+    full_face_contours_fig(field_name = 'vorticity')
     # plot spectra
     def plot_spec(a, c):
         for i in range(c.statistics['energy(t, k)'].shape[0]):
