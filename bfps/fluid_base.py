@@ -124,13 +124,7 @@ class fluid_particle_base(bfps.code):
             yval = 13,
             filename = None):
         axis.set_axis_off()
-        if type(filename) == type(None):
-            filename = self.simname + '_' + field + '_i{0:0>5x}'.format(iteration)
-        Rdata0 = np.fromfile(
-                filename,
-                dtype = np.float32).reshape((-1,
-                                             self.parameters['ny'],
-                                             self.parameters['nx'], 3))
+        Rdata0 = self.read_rfield(field = field, iteration = iteration, filename = filename)
         energy = np.sum(Rdata0[:, yval, :, :]**2, axis = 2)*.5
         axis.imshow(energy, interpolation='none')
         axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
