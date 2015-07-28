@@ -191,7 +191,6 @@ fluid_solver_base<R>::fluid_solver_base( \
     for (int i=0; i < this->Fourier_filter_size; i++) \
     { \
         this->Fourier_filter[i] = exp(-36*pow(sqrt(double(i))*this->dk / this->kM, 36)); \
-        /*DEBUG_MSG("%d %lg\n", i, this->Fourier_filter[i]);*/ \
     } \
     /* spectra stuff */ \
     this->nshells = int(this->kM / this->dk) + 2; \
@@ -328,25 +327,19 @@ void fluid_solver_base<R>::dealias(C *a, const int howmany) \
         } \
     double k2; \
     double tval; \
+    int findex; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            tval = this->Fourier_filter[int(k2/this->dk2)]; \
+            findex = int(k2/this->dk2); \
+            tval = (findex < this->Fourier_filter_size) ? this->Fourier_filter[findex] : 0.0; \
             for (int tcounter = 0; tcounter < howmany; tcounter++) \
             { \
                 a[howmany*cindex+tcounter][0] *= tval; \
                 a[howmany*cindex+tcounter][1] *= tval; \
             } \
-            if ((xindex == this->rd->sizes[2]/2) || \
-                (zindex == this->rd->sizes[1]/2) || \
-                ((yindex == this->cd->subsizes[0]) && (this->cd->myrank == this->cd->rank[this->rd->sizes[0]/2]))) \
-                for (int tcounter = 0; tcounter < howmany; tcounter++) \
-                { \
-                    a[howmany*cindex+tcounter][0] = 0; \
-                    a[howmany*cindex+tcounter][1] = 0; \
-                } \
-            );\
+         ); \
 } \
  \
 template<> \

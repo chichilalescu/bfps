@@ -68,7 +68,6 @@ class vorticity_resize(bfps.code):
                 fs0->iteration = iter0;
                 fs1->iteration = 0;
                 fs0->read('v', 'c');
-                //fs0->low_pass_Fourier(fs0->cvorticity, 3, fs0->kM);
                 fs0->dealias(fs0->cvorticity, 3);
                 fs0->force_divfree(fs0->cvorticity);
                 fs0->symmetrize(fs0->cvorticity, 3);
