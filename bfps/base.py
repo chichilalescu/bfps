@@ -66,6 +66,7 @@ class base(object):
             else:
                 src_txt += ('if (fscanf(par_file, "' + key[i] + ' = %le\\n", &' + key[i] + ') != 1)\n'
                           + '    err_while_reading++;\n')
+            #src_txt += 'DEBUG_MSG("read ' + key[i] + ', err_while_reading is %d\\n", err_while_reading);\n'
         src_txt += '}\n' # finishing if myrank == 0
         # now broadcasting values to all ranks
         for i in range(len(key)):
