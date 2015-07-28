@@ -143,50 +143,28 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->kx = new double[this->cd->sizes[2]]; \
     this->ky = new double[this->cd->subsizes[0]]; \
     this->kz = new double[this->cd->sizes[1]]; \
-    this->knullx = new bool[this->cd->sizes[2]]; \
-    this->knully = new bool[this->cd->subsizes[0]]; \
-    this->knullz = new bool[this->cd->sizes[1]]; \
-    this->nonzerokx = int(this->rd->sizes[2] / 3); \
-    this->kMx = this->dkx*(this->nonzerokx-1); \
-    this->nonzeroky = int(this->rd->sizes[1] / 3); \
-    this->kMy = this->dky*(this->nonzeroky-1); \
-    this->nonzeroky = 2*this->nonzeroky - 1; \
-    this->nonzerokz = int(this->rd->sizes[0] / 3); \
-    this->kMz = this->dkz*(this->nonzerokz-1); \
-    this->nonzerokz = 2*this->nonzerokz - 1; \
+    this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
+    this->kMy = this->dky*(int(this->rd->sizes[1] / 3)-1); \
+    this->kMz = this->dkz*(int(this->rd->sizes[0] / 3)-1); \
     int i, ii; \
     for (i = 0; i<this->cd->sizes[2]; i++) \
     { \
         this->kx[i] = i*this->dkx; \
-        if (i < this->nonzerokx) \
-            this->knullx[i] = false; \
-        else \
-            this->knullx[i] = true; \
     } \
     for (i = 0; i<this->cd->subsizes[0]; i++) \
     { \
-        int tval = (this->nonzeroky+1)/2; \
         ii = i + this->cd->starts[0]; \
         if (ii <= this->rd->sizes[1]/2) \
             this->ky[i] = this->dky*ii; \
         else \
             this->ky[i] = this->dky*(ii - this->rd->sizes[1]); \
-        if (ii < tval || (this->rd->sizes[1] - ii) < tval) \
-            this->knully[i] = false; \
-        else \
-            this->knully[i] = true; \
     } \
     for (i = 0; i<this->cd->sizes[1]; i++) \
     { \
-        int tval = (this->nonzerokz+1)/2; \
         if (i <= this->rd->sizes[0]/2) \
             this->kz[i] = this->dkz*i; \
         else \
             this->kz[i] = this->dkz*(i - this->rd->sizes[0]); \
-        if (i < tval || (this->rd->sizes[0] - i) < tval) \
-            this->knullz[i] = false; \
-        else \
-            this->knullz[i] = true; \
     } \
     this->kM = this->kMx; \
     if (this->kM < this->kMy) this->kM = this->kMy; \
@@ -257,9 +235,6 @@ fluid_solver_base<R>::~fluid_solver_base() \
     delete[] this->kx;\
     delete[] this->ky;\
     delete[] this->kz;\
-    delete[] this->knullx;\
-    delete[] this->knully;\
-    delete[] this->knullz;\
  \
     delete this->cd; \
     delete this->rd; \
