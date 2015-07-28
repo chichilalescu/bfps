@@ -116,6 +116,30 @@ class fluid_particle_base(bfps.code):
                 shape = (self.parameters['nz'],
                          self.parameters['ny'],
                          self.parameters['nx'], 3))
+    def transpose_frame(
+            self,
+            field = 'velocity',
+            iteration = 0,
+            filename = None,
+            ofile = None):
+        Rdata = self.read_rfield(
+                field = field,
+                iteration = iteration,
+                filename = filename)
+        new_data = np.zeros(
+                (3,
+                 self.parameters['nz'],
+                 self.parameters['ny'],
+                 self.parameters['nx']),
+                dtype = Rdata.dtype)
+        for i in range(3):
+            new_data[i] = Rdata[..., i]
+        if type(ofile) == type(None):
+            ofile = os.path.join(
+                    self.work_dir,
+                    self.simname + '_r' + field + '_i{0:0>5x}_3xNZxNYxNX'.format(iteration))
+        new_data.tofile(ofile)
+        return new_data
     def plot_vel_cut(
             self,
             axis,
@@ -136,13 +160,7 @@ class fluid_particle_base(bfps.code):
             field = 'velocity',
             iteration = 0,
             filename = None):
-        if type(filename) == type(None):
-            filename = self.simname + '_' + field + '_i{0:0>5x}'.format(iteration)
-        Rdata0 = np.fromfile(
-                filename,
-                dtype = np.float32).reshape((self.parameters['nz'],
-                                             self.parameters['ny'],
-                                             self.parameters['nx'], 3))
+        Rdata0 = self.read_rfield(field = field, iteration = iteration, filename = filename)
         subprocess.call(['vdfcreate',
                          '-dimension',
                          '{0}x{1}x{2}'.format(self.parameters['nz'],

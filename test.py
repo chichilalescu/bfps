@@ -210,6 +210,7 @@ def convergence_test(opt):
                 ncpu = 2,
                 iter0 = c.parameters['niter_todo'],
                 simname = converter.simname)
+        c.transpose_frame(iteration = c.parameters['niter_todo'])
     # read data
     c0.compute_statistics()
     c0.set_plt_style({'dashes': (None, None)})
