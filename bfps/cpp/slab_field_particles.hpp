@@ -67,13 +67,15 @@ class slab_field_particles
          * in the beginning, we will only need to solve 3D ODEs, but I figured
          * a general ncomponents is better, since we may change our minds.
          * */
-        double *state;
+        double *state[5];
+        double *rhs[5];
         int nparticles;
         int ncomponents;
         int array_size;
         int interp_neighbours;
         int interp_smoothness;
         int buffer_width;
+        int integration_steps;
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
@@ -103,7 +105,8 @@ class slab_field_particles
                 const int NPARTICLES,
                 const int NCOMPONENTS,
                 const int INTERP_NEIGHBOURS,
-                const int INTERP_SMOOTHNESS);
+                const int INTERP_SMOOTHNESS,
+                const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();
 
         /* an Euler step is needed to compute an estimate of future positions,

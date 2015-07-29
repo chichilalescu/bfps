@@ -42,7 +42,7 @@ void tracers<rnumber>::jump_estimate(double *jump)
     float *vel = this->data + this->buffer_size;
     double tmp[3];
     /* get grid coordinates */
-    this->get_grid_coordinates(this->state, xg, xx);
+    this->get_grid_coordinates(this->state[0], xg, xx);
     DEBUG_MSG("finished get_grid_coordinate\n");
 
     std::fill_n(tjump, this->nparticles, 0.0);

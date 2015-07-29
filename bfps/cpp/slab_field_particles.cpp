@@ -46,16 +46,20 @@ slab_field_particles<rnumber>::slab_field_particles(
         const int NPARTICLES,
         const int NCOMPONENTS,
         const int INTERP_NEIGHBOURS,
-        const int INTERP_SMOOTHNESS)
+        const int INTERP_SMOOTHNESS,
+        const int INTEGRATION_STEPS)
 {
     assert((NCOMPONENTS % 3) == 0);
     assert((INTERP_NEIGHBOURS == 1) ||
            (INTERP_NEIGHBOURS == 2) ||
            (INTERP_NEIGHBOURS == 3));
+    assert((INTEGRATION_STEPS <= 5) &&
+           (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
     this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
     this->ncomponents = NCOMPONENTS;
+    this->integration_steps = INTEGRATION_STEPS;
     this->interp_neighbours = INTERP_NEIGHBOURS;
     this->interp_smoothness = INTERP_SMOOTHNESS;
     switch(this->interp_neighbours)
@@ -136,8 +140,13 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->buffer_width = this->interp_neighbours+1;
     this->buffer_size = this->buffer_width*this->fs->rd->slice_size;
     this->array_size = this->nparticles * this->ncomponents;
-    this->state = fftw_alloc_real(this->array_size);
-    std::fill_n(this->state, this->array_size, 0.0);
+    for (int i=0; i < this->integration_steps; i++)
+    {
+        this->state[i] = fftw_alloc_real(this->array_size);
+        std::fill_n(this->state[i], this->array_size, 0.0);
+        this->rhs[i] = fftw_alloc_real(this->array_size);
+        std::fill_n(this->rhs[i], this->array_size, 0.0);
+    }
     this->watching = new bool[nparticles];
     std::fill_n(this->watching, this->nparticles, false);
     this->computing = new int[nparticles];
@@ -193,7 +202,11 @@ slab_field_particles<rnumber>::~slab_field_particles()
 {
     delete[] this->computing;
     delete[] this->watching;
-    fftw_free(this->state);
+    for (int i=0; i < this->integration_steps; i++)
+    {
+        fftw_free(this->state[i]);
+        fftw_free(this->rhs[i]);
+    }
     delete[] this->lbound;
     delete[] this->ubound;
     delete this->buffered_field_descriptor;
@@ -228,7 +241,7 @@ void slab_field_particles<rnumber>::synchronize_single_particle(int p)
         {
             if (this->fs->rd->myrank == this->computing[p])
                 MPI_Send(
-                        this->state + p*this->ncomponents,
+                        this->state[0] + p*this->ncomponents,
                         this->ncomponents,
                         MPI_DOUBLE,
                         r,
@@ -236,7 +249,7 @@ void slab_field_particles<rnumber>::synchronize_single_particle(int p)
                         this->fs->rd->comm);
             if (this->fs->rd->myrank == r)
                 MPI_Recv(
-                        this->state + p*this->ncomponents,
+                        this->state[0] + p*this->ncomponents,
                         this->ncomponents,
                         MPI_DOUBLE,
                         this->computing[p],
@@ -257,14 +270,14 @@ void slab_field_particles<rnumber>::synchronize()
     for (int p=0; p<this->nparticles; p++)
     {
         if (this->fs->rd->myrank == this->computing[p])
-            std::copy(this->state + p*this->ncomponents,
-                      this->state + (p+1)*this->ncomponents,
+            std::copy(this->state[0] + p*this->ncomponents,
+                      this->state[0] + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
     }
-    std::fill_n(this->state, this->array_size, 0.0);
+    std::fill_n(this->state[0], this->array_size, 0.0);
     MPI_Allreduce(
             tstate,
-            this->state,
+            this->state[0],
             this->array_size,
             MPI_DOUBLE,
             MPI_SUM,
@@ -272,7 +285,7 @@ void slab_field_particles<rnumber>::synchronize()
     fftw_free(tstate);
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
-        this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
+        this->computing[p] = this->get_rank(this->state[0][p*this->ncomponents + 2]);
     this->jump_estimate(jump);
     // now, see who needs to watch
     bool *local_watching = new bool[this->nparticles];
@@ -280,9 +293,9 @@ void slab_field_particles<rnumber>::synchronize()
     for (int p=0; p<this->nparticles; p++)
         if (this->fs->rd->myrank == this->computing[p])
         {
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])] = true;
+            local_watching[this->get_rank(this->state[0][this->ncomponents*p+2])] = true;
+            local_watching[this->get_rank(this->state[0][this->ncomponents*p+2]-jump[p])] = true;
+            local_watching[this->get_rank(this->state[0][this->ncomponents*p+2]+jump[p])] = true;
         }
     fftw_free(jump);
     MPI_Allreduce(
@@ -301,14 +314,14 @@ template <class rnumber>
 void slab_field_particles<rnumber>::Euler()
 {
     double *y = fftw_alloc_real(this->array_size);
-    this->get_rhs(this->state, y);
+    this->get_rhs(this->state[0], y);
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         for (int i=0; i<this->ncomponents; i++)
-            this->state[p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
+            this->state[0][p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
         DEBUG_MSG(
                 "particle %d state is %lg %lg %lg\n",
-                p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
+                p, this->state[0][p*this->ncomponents], this->state[0][p*this->ncomponents+1], this->state[0][p*this->ncomponents+2]);
     }
     fftw_free(y);
 }
@@ -451,25 +464,25 @@ void slab_field_particles<rnumber>::linear_interpolation(rnumber *field, int *xg
 template <class rnumber>
 void slab_field_particles<rnumber>::read()
 {
-    std::fill_n(this->state, this->array_size, 0.0);
+    std::fill_n(this->state[0], this->array_size, 0.0);
     if (this->fs->rd->myrank == 0)
     {
         char full_name[512];
         sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
         FILE *ifile;
         ifile = fopen(full_name, "rb");
-        fread((void*)this->state, sizeof(double), this->array_size, ifile);
+        fread((void*)this->state[0], sizeof(double), this->array_size, ifile);
         fclose(ifile);
     }
     MPI_Bcast(
-            this->state,
+            this->state[0],
             this->array_size,
             MPI_DOUBLE,
             0,
             this->fs->rd->comm);
     // initial assignment of particles
     for (int p=0; p<this->nparticles; p++)
-        this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
+        this->computing[p] = this->get_rank(this->state[0][p*this->ncomponents + 2]);
     // now actual synchronization
     this->synchronize();
 }
@@ -484,7 +497,7 @@ void slab_field_particles<rnumber>::write()
         sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
         FILE *ofile;
         ofile = fopen(full_name, "wb");
-        fwrite((void*)this->state, sizeof(double), this->array_size, ofile);
+        fwrite((void*)this->state[0], sizeof(double), this->array_size, ofile);
         fclose(ofile);
     }
 }
