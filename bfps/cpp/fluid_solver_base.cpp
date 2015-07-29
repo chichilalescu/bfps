@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -116,7 +116,8 @@ fluid_solver_base<R>::fluid_solver_base( \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) \
+        double DKZ, \
+        int dealias_type) \
 { \
     strncpy(this->name, NAME, 256); \
     this->name[255] = '\0'; \
@@ -143,50 +144,39 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->kx = new double[this->cd->sizes[2]]; \
     this->ky = new double[this->cd->subsizes[0]]; \
     this->kz = new double[this->cd->sizes[1]]; \
-    this->knullx = new bool[this->cd->sizes[2]]; \
-    this->knully = new bool[this->cd->subsizes[0]]; \
-    this->knullz = new bool[this->cd->sizes[1]]; \
-    this->nonzerokx = int(this->rd->sizes[2] / 3); \
-    this->kMx = this->dkx*(this->nonzerokx-1); \
-    this->nonzeroky = int(this->rd->sizes[1] / 3); \
-    this->kMy = this->dky*(this->nonzeroky-1); \
-    this->nonzeroky = 2*this->nonzeroky - 1; \
-    this->nonzerokz = int(this->rd->sizes[0] / 3); \
-    this->kMz = this->dkz*(this->nonzerokz-1); \
-    this->nonzerokz = 2*this->nonzerokz - 1; \
+    this->dealias_type = dealias_type; \
+    switch(this->dealias_type) \
+    { \
+        /* HL07 smooth filter */ \
+        case 1: \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)-1); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)-1); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)-1); \
+            break; \
+        default: \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 3)-1); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 3)-1); \
+    } \
     int i, ii; \
     for (i = 0; i<this->cd->sizes[2]; i++) \
     { \
         this->kx[i] = i*this->dkx; \
-        if (i < this->nonzerokx) \
-            this->knullx[i] = false; \
-        else \
-            this->knullx[i] = true; \
     } \
     for (i = 0; i<this->cd->subsizes[0]; i++) \
     { \
-        int tval = (this->nonzeroky+1)/2; \
         ii = i + this->cd->starts[0]; \
         if (ii <= this->rd->sizes[1]/2) \
             this->ky[i] = this->dky*ii; \
         else \
             this->ky[i] = this->dky*(ii - this->rd->sizes[1]); \
-        if (ii < tval || (this->rd->sizes[1] - ii) < tval) \
-            this->knully[i] = false; \
-        else \
-            this->knully[i] = true; \
     } \
     for (i = 0; i<this->cd->sizes[1]; i++) \
     { \
-        int tval = (this->nonzerokz+1)/2; \
         if (i <= this->rd->sizes[0]/2) \
             this->kz[i] = this->dkz*i; \
         else \
             this->kz[i] = this->dkz*(i - this->rd->sizes[0]); \
-        if (i < tval || (this->rd->sizes[0] - i) < tval) \
-            this->knullz[i] = false; \
-        else \
-            this->knullz[i] = true; \
     } \
     this->kM = this->kMx; \
     if (this->kM < this->kMy) this->kM = this->kMy; \
@@ -195,6 +185,13 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
+    this->dk2 = this->dk*this->dk; \
+    this->Fourier_filter_size = int(this->kM2 / (this->dk*this->dk))+1; \
+    this->Fourier_filter = new double[this->Fourier_filter_size]; \
+    for (int i=0; i < this->Fourier_filter_size; i++) \
+    { \
+        this->Fourier_filter[i] = exp(-36*pow(sqrt(double(i))*this->dk / this->kM, 36)); \
+    } \
     /* spectra stuff */ \
     this->nshells = int(this->kM / this->dk) + 2; \
     this->kshell = new double[this->nshells]; \
@@ -251,15 +248,13 @@ fluid_solver_base<R>::fluid_solver_base( \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
+    delete[] this->Fourier_filter; \
     delete[] this->kshell; \
     delete[] this->nshell; \
  \
     delete[] this->kx;\
     delete[] this->ky;\
     delete[] this->kz;\
-    delete[] this->knullx;\
-    delete[] this->knully;\
-    delete[] this->knullz;\
  \
     delete this->cd; \
     delete this->rd; \
@@ -320,6 +315,31 @@ void fluid_solver_base<R>::low_pass_Fourier(C *a, const int howmany, const doubl
                 std::fill_n((R*)(a + howmany*cindex), howmany2, 0.0); \
             } \
             );\
+} \
+ \
+template<> \
+void fluid_solver_base<R>::dealias(C *a, const int howmany) \
+{ \
+    if (this->dealias_type == 0) \
+        { \
+            this->low_pass_Fourier(a, howmany, this->kM); \
+            return; \
+        } \
+    double k2; \
+    double tval; \
+    int findex; \
+    CLOOP( \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            findex = int(k2/this->dk2); \
+            tval = (findex < this->Fourier_filter_size) ? this->Fourier_filter[findex] : 0.0; \
+            for (int tcounter = 0; tcounter < howmany; tcounter++) \
+            { \
+                a[howmany*cindex+tcounter][0] *= tval; \
+                a[howmany*cindex+tcounter][1] *= tval; \
+            } \
+         ); \
 } \
  \
 template<> \

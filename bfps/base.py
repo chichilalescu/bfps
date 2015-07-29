@@ -66,6 +66,7 @@ class base(object):
             else:
                 src_txt += ('if (fscanf(par_file, "' + key[i] + ' = %le\\n", &' + key[i] + ') != 1)\n'
                           + '    err_while_reading++;\n')
+            #src_txt += 'DEBUG_MSG("read ' + key[i] + ', err_while_reading is %d\\n", err_while_reading);\n'
         src_txt += '}\n' # finishing if myrank == 0
         # now broadcasting values to all ranks
         for i in range(len(key)):
@@ -109,6 +110,22 @@ class base(object):
             else:
                 ofile.write('{0} = {1}\n'.format(key[i], self.parameters[key[i]]))
         ofile.close()
+        return None
+    def read_par(self, simname = 'test'):
+        def read_value(s):
+            try:
+                return int(s)
+            except ValueError:
+                try:
+                    return float(s)
+                except ValueError:
+                    return str(s)
+        ifile = open(simname + '_pars.txt', 'r')
+        for line in ifile:
+            a = line.split()
+            if len(a)==3 and a[1] == '=':
+                self.parameters[a[0]] = read_value(a[2])
+        ifile.close()
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')

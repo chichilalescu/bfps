@@ -56,9 +56,9 @@ src_file_list = ['field_descriptor',
 header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
 # not sure we need the MANIFEST.in file, but I might as well
-with open('MANIFEST.in', 'w') as manifest_in_file:
-    for fname in ['cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
-        manifest_in_file.write('include {0}\n'.format(fname))
+#with open('MANIFEST.in', 'w') as manifest_in_file:
+#    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
+#        manifest_in_file.write('include {0}\n'.format(fname))
 
 libraries = ['fftw3_mpi',
              'fftw3',
@@ -72,6 +72,7 @@ libbfps = Extension(
         sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
         include_dirs = include_dirs,
         libraries = libraries,
+        extra_compile_args = ['-mtune=native', '-ffast-math'],
         library_dirs = [os.path.join(local_install_dir, 'lib'),
                         os.path.join(local_install_dir, 'lib64')])
 
@@ -84,7 +85,7 @@ setup(
 ########################################################################
 # useless stuff folows
 ########################################################################
-        description = 'Big Fluid and Particle Solver',
+        description = 'Big Fluid and Particle Simulator',
         long_description = open('README.rst', 'r').read(),
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
