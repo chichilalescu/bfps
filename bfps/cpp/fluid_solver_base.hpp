@@ -50,13 +50,14 @@ class fluid_solver_base
         int iteration;
 
         /* physical parameters */
-        rnumber dkx, dky, dkz, dk;
+        rnumber dkx, dky, dkz, dk, dk2;
 
         /* mode and dealiasing information */
+        int dealias_type;
         double kMx, kMy, kMz, kM, kM2;
         double *kx, *ky, *kz;
-        bool *knullx, *knully, *knullz;
-        int nonzerokx, nonzeroky, nonzerokz;
+        double *Fourier_filter;
+        int Fourier_filter_size;
         double *kshell;
         int64_t *nshell;
         int nshells;
@@ -70,10 +71,12 @@ class fluid_solver_base
                 int nz,
                 double DKX = 1.0,
                 double DKY = 1.0,
-                double DKZ = 1.0);
+                double DKZ = 1.0,
+                int dealias_type = 0);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *a, int howmany, double kmax);
+        void dealias(cnumber *a, int howmany);
         void force_divfree(cnumber *a);
         void symmetrize(cnumber *a, int howmany);
         void clean_up_real_space(rnumber *a, int howmany);
