@@ -264,20 +264,12 @@ template <class rnumber>
 void slab_field_particles<rnumber>::synchronize()
 {
     double *tstate = fftw_alloc_real(this->array_size);
-    double *trhs = fftw_alloc_real(this->array_size);
-    double *jump = fftw_alloc_real(this->nparticles);
     // first, synchronize state and jump across CPUs
     std::fill_n(tstate, this->array_size, 0.0);
-    std::fill_n(trhs, this->array_size, 0.0);
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-        {
             std::copy(this->state + p*this->ncomponents,
                       this->state + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
-            std::copy(this->rhs[1] + p*this->ncomponents,
-                      this->rhs[1] + (p+1)*this->ncomponents,
-                      trhs + p*this->ncomponents);
-        }
     std::fill_n(this->state, this->array_size, 0.0);
     MPI_Allreduce(
             tstate,
@@ -286,19 +278,27 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
-    std::fill_n(this->rhs[1], this->array_size, 0.0);
-    MPI_Allreduce(
-            trhs,
-            this->rhs[1],
-            this->array_size,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->fs->rd->comm);
+    if (this->integration_steps > 1)
+    {
+        std::fill_n(tstate, this->array_size, 0.0);
+        for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+                std::copy(this->rhs[1] + p*this->ncomponents,
+                          this->rhs[1] + (p+1)*this->ncomponents,
+                          tstate + p*this->ncomponents);
+        std::fill_n(this->rhs[1], this->array_size, 0.0);
+        MPI_Allreduce(
+                tstate,
+                this->rhs[1],
+                this->array_size,
+                MPI_DOUBLE,
+                MPI_SUM,
+                this->fs->rd->comm);
+    }
     fftw_free(tstate);
-    fftw_free(trhs);
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
+    double *jump = fftw_alloc_real(this->nparticles);
     this->jump_estimate(jump);
     // now, see who needs to watch
     bool *local_watching = new bool[this->nparticles];

@@ -162,7 +162,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             neighbours = 1,
             smoothness = 1,
-            integration_steps = 2,
+            integration_steps = 1,
             kcut = 'fs->kM'):
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
