@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -264,16 +264,20 @@ template <class rnumber>
 void slab_field_particles<rnumber>::synchronize()
 {
     double *tstate = fftw_alloc_real(this->array_size);
+    double *trhs = fftw_alloc_real(this->array_size);
     double *jump = fftw_alloc_real(this->nparticles);
     // first, synchronize state and jump across CPUs
     std::fill_n(tstate, this->array_size, 0.0);
-    for (int p=0; p<this->nparticles; p++)
-    {
-        if (this->fs->rd->myrank == this->computing[p])
+    std::fill_n(trhs, this->array_size, 0.0);
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+        {
             std::copy(this->state + p*this->ncomponents,
                       this->state + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
-    }
+            std::copy(this->rhs[1] + p*this->ncomponents,
+                      this->rhs[1] + (p+1)*this->ncomponents,
+                      trhs + p*this->ncomponents);
+        }
     std::fill_n(this->state, this->array_size, 0.0);
     MPI_Allreduce(
             tstate,
@@ -282,7 +286,16 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
+    std::fill_n(this->rhs[1], this->array_size, 0.0);
+    MPI_Allreduce(
+            trhs,
+            this->rhs[1],
+            this->array_size,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->fs->rd->comm);
     fftw_free(tstate);
+    fftw_free(trhs);
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
@@ -313,11 +326,17 @@ void slab_field_particles<rnumber>::synchronize()
 template <class rnumber>
 void slab_field_particles<rnumber>::roll_rhs()
 {
-    double *trhs;
-    trhs = this->rhs[this->integration_steps-1];
+    double *trhs = fftw_alloc_real(this->array_size);
+    std::copy(this->rhs[this->integration_steps-1],
+              this->rhs[this->integration_steps-1] + this->array_size,
+              trhs);
     for (int i=0; i<this->integration_steps-1; i++)
-        this->rhs[i+1] = this->rhs[i];
-    this->rhs[0] = trhs;
+        std::copy(this->rhs[i],
+                  this->rhs[i] + this->array_size,
+                  this->rhs[i+1]);
+    std::copy(trhs,
+              trhs + this->array_size,
+              this->rhs[0]);
 }
 
 
@@ -395,9 +414,11 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
+    DEBUG_MSG("entered particle step\n");
     this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
     this->iteration++;
     this->synchronize();
+    DEBUG_MSG("exiting particle step\n");
 }
 
 

@@ -162,10 +162,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             neighbours = 1,
             smoothness = 1,
+            integration_steps = 2,
             kcut = 'fs->kM'):
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
+        self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
         self.particle_variables += 'FILE *traj_file{0};\n'.format(self.particle_species)
         #self.particle_definitions
@@ -176,7 +178,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_start += ('sprintf(fname, "%s_tracers{0}", simname);\n' +
                                 'ps{0} = new tracers<float>(\n' +
                                     'fname, fs,\n' +
-                                    'nparticles, neighbours{0}, smoothness{0},\n' +
+                                    'nparticles, neighbours{0}, smoothness{0}, integration_steps{0},\n' +
                                     'fs->ru);\n' +
                                 'ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iter0;\n' +
