@@ -53,7 +53,7 @@ slab_field_particles<rnumber>::slab_field_particles(
     assert((INTERP_NEIGHBOURS == 1) ||
            (INTERP_NEIGHBOURS == 2) ||
            (INTERP_NEIGHBOURS == 3));
-    assert((INTEGRATION_STEPS <= 5) &&
+    assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
     this->fs = FSOLVER;
@@ -281,18 +281,21 @@ void slab_field_particles<rnumber>::synchronize()
     if (this->integration_steps > 1)
     {
         std::fill_n(tstate, this->array_size, 0.0);
-        for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                std::copy(this->rhs[1] + p*this->ncomponents,
-                          this->rhs[1] + (p+1)*this->ncomponents,
+        for (int i=1; i<this->integration_steps; i++)
+        {
+            for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+                std::copy(this->rhs[i] + p*this->ncomponents,
+                          this->rhs[i] + (p+1)*this->ncomponents,
                           tstate + p*this->ncomponents);
-        std::fill_n(this->rhs[1], this->array_size, 0.0);
-        MPI_Allreduce(
-                tstate,
-                this->rhs[1],
-                this->array_size,
-                MPI_DOUBLE,
-                MPI_SUM,
-                this->fs->rd->comm);
+            std::fill_n(this->rhs[i], this->array_size, 0.0);
+            MPI_Allreduce(
+                    tstate,
+                    this->rhs[i],
+                    this->array_size,
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    this->fs->rd->comm);
+        }
     }
     fftw_free(tstate);
     // assignment of particles
@@ -400,6 +403,19 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
                                                + 2616*this->rhs[2][ii]
                                                - 1274*this->rhs[3][ii]
                                                +  251*this->rhs[4][ii])/720;
+                }
+            break;
+        case 6:
+            for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+                for (int i=0; i<this->ncomponents; i++)
+                {
+                    ii = p*this->ncomponents+i;
+                    this->state[ii] += this->dt*(4277*this->rhs[0][ii]
+                                               - 7923*this->rhs[1][ii]
+                                               + 9982*this->rhs[2][ii]
+                                               - 7298*this->rhs[3][ii]
+                                               + 2877*this->rhs[4][ii]
+                                               -  475*this->rhs[5][ii])/720;
                 }
             break;
     }

@@ -68,7 +68,7 @@ class slab_field_particles
          * a general ncomponents is better, since we may change our minds.
          * */
         double *state;
-        double *rhs[5];
+        double *rhs[6];
         int nparticles;
         int ncomponents;
         int array_size;
