@@ -67,7 +67,7 @@ class slab_field_particles
          * in the beginning, we will only need to solve 3D ODEs, but I figured
          * a general ncomponents is better, since we may change our minds.
          * */
-        double *state[5];
+        double *state;
         double *rhs[5];
         int nparticles;
         int ncomponents;
@@ -111,10 +111,11 @@ class slab_field_particles
 
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
-         * functions are virtual since we want children to do different things,
-         * depending on the type of particle.
          * */
         virtual void jump_estimate(double *jump_length);
+        /* function get_rhs is virtual since we want children to do different things,
+         * depending on the type of particle.
+         * */
         virtual void get_rhs(double *x, double *rhs);
 
         /* generic methods, should work for all children of this class */
@@ -134,7 +135,10 @@ class slab_field_particles
         void read();
         void write();
 
-        /* solvers */
+        /* solver stuff */
+        void step();
+        void roll_rhs();
+        void AdamsBashforth(int nsteps);
         void Euler();
 };
 

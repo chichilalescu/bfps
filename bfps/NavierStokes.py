@@ -190,9 +190,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
         self.particle_loop +=  (update_field +
-                               'ps{0}->Euler();\n' +
-                               'ps{0}->iteration++;\n' +
-                               'ps{0}->synchronize();\n' +
+                               'ps{0}->step();\n' +
                                 'if (myrank == 0 && (ps{0}->iteration % niter_part == 0))\n' +
                                 '{{\n' +
                                 '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
