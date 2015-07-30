@@ -149,9 +149,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     { \
         /* HL07 smooth filter */ \
         case 1: \
-            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)-1); \
-            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)-1); \
-            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)-1); \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)); \
             break; \
         default: \
             this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
@@ -186,12 +186,6 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
     this->dk2 = this->dk*this->dk; \
-    this->Fourier_filter_size = int(this->kM2 / (this->dk*this->dk))+1; \
-    this->Fourier_filter = new double[this->Fourier_filter_size]; \
-    for (int i=0; i < this->Fourier_filter_size; i++) \
-    { \
-        this->Fourier_filter[i] = exp(-36*pow(sqrt(double(i))*this->dk / this->kM, 36)); \
-    } \
     /* spectra stuff */ \
     this->nshells = int(this->kM / this->dk) + 2; \
     this->kshell = new double[this->nshells]; \
@@ -204,6 +198,8 @@ fluid_solver_base<R>::fluid_solver_base( \
     std::fill_n(nshell_local, this->nshells, 0.0); \
     double k2; \
     int nxmodes; \
+    int min_local_k_squared = this->kM2 / this->dk2; \
+    int max_local_k_squared = 0; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -215,6 +211,8 @@ fluid_solver_base<R>::fluid_solver_base( \
                 nshell_local[int(k2/this->dk)] += nxmodes; \
                 kshell_local[int(k2/this->dk)] += nxmodes*k2; \
             } \
+            min_local_k_squared = (min_local_k_squared < k2/this->dk2) ? min_local_k_squared : k2/this->dk2; \
+            max_local_k_squared = (max_local_k_squared > k2/this->dk2) ? max_local_k_squared : k2/this->dk2; \
             ); \
     \
     MPI_Allreduce( \
@@ -243,6 +241,18 @@ fluid_solver_base<R>::fluid_solver_base( \
         fwrite((void*)this->kshell, sizeof(double), this->nshells, kshell_file); \
         fclose(kshell_file); \
     } \
+    this->Fourier_filter_size = max_local_k_squared - min_local_k_squared + 1; \
+    this->Fourier_filter = new double[this->Fourier_filter_size]; \
+    std::fill_n(this->Fourier_filter, this->Fourier_filter_size, 0.0); \
+    CLOOP( \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            if (k2 < this->kM2) \
+            { \
+                this->Fourier_filter[int(k2)] = exp(-36 * pow(k2/this->kM2, 18)); \
+            } \
+            ); \
 } \
  \
 template<> \
