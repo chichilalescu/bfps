@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -250,7 +250,8 @@ fluid_solver_base<R>::fluid_solver_base( \
                   this->kz[zindex]*this->kz[zindex]); \
             if (k2 < this->kM2) \
             { \
-                this->Fourier_filter[int(k2)] = exp(-36 * pow(k2/this->kM2, 18)); \
+                this->Fourier_filter[int(k2 / this->dk2)] = exp(-36 * pow(k2/this->kM2, 18)); \
+                DEBUG_MSG("%d %lg\n", int(k2 / this->dk2), this->Fourier_filter[int(k2 / this->dk2)]); \
             } \
             ); \
 } \
