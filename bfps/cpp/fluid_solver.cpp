@@ -198,7 +198,7 @@ void fluid_solver<R>::compute_velocity(C *vorticity) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            if (k2 < this->kM2) \
+            if (k2 <= this->kM2) \
             { \
                 this->cu[3*cindex+0][0] = -(this->ky[yindex]*vorticity[3*cindex+2][1] - this->kz[zindex]*vorticity[3*cindex+1][1]) / k2; \
                 this->cu[3*cindex+1][0] = -(this->kz[zindex]*vorticity[3*cindex+0][1] - this->kx[xindex]*vorticity[3*cindex+2][1]) / k2; \
@@ -269,7 +269,7 @@ void fluid_solver<R>::add_forcing(\
                 knorm = sqrt(this->kx[xindex]*this->kx[xindex] + \
                              this->ky[yindex]*this->ky[yindex] + \
                              this->kz[zindex]*this->kz[zindex]); \
-                if ((this->fk0  <= knorm) && \
+                if ((this->fk0 <= knorm) && \
                     (this->fk1 >= knorm)) \
                     for (int c=0; c<3; c++) \
                     { \
@@ -330,7 +330,7 @@ void fluid_solver<R>::omega_nonlin( \
             ); \
     this->add_forcing(this->cu, 1.0); \
     this->symmetrize(this->cu, 3); \
-    this->force_divfree(this->cu); \
+    /*this->force_divfree(this->cu);*/ \
 } \
  \
 template<> \
