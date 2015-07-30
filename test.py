@@ -30,7 +30,6 @@ import pickle
 import os
 
 import bfps
-from bfps.NavierStokes import launch as NSlaunch
 from bfps.resize import vorticity_resize
 
 def Kolmogorov_flow_test_broken(opt):
@@ -162,6 +161,45 @@ def double(opt):
             os.path.join(
                     opt.work_dir + '/' + new_simname, 'test_time_i00000'))
     return None
+
+def NSlaunch(
+        opt,
+        nu = None):
+    c = bfps.NavierStokes(work_dir = opt.work_dir)
+    assert((opt.nsteps % 4) == 0)
+    c.parameters['nx'] = opt.n
+    c.parameters['ny'] = opt.n
+    c.parameters['nz'] = opt.n
+    if type(nu) == type(None):
+        c.parameters['nu'] = 5.5*opt.n**(-4./3)
+    else:
+        c.parameters['nu'] = nu
+    c.parameters['dt'] = 2e-3 * (64. / opt.n)
+    c.parameters['niter_todo'] = opt.nsteps
+    c.parameters['niter_stat'] = 1
+    c.parameters['niter_spec'] = 4
+    c.parameters['niter_part'] = 2
+    c.parameters['famplitude'] = 0.2
+    c.parameters['nparticles'] = 32
+    if opt.particles:
+        c.add_particles(kcut = 'fs->kM/2')
+        c.add_particles(integration_steps = 1)
+        c.add_particles(integration_steps = 2)
+        c.add_particles(integration_steps = 3)
+        c.add_particles(integration_steps = 4)
+        c.add_particles(integration_steps = 5)
+        c.add_particles(integration_steps = 6)
+    c.finalize_code()
+    c.write_src()
+    c.write_par(simname = c.simname)
+    if opt.run:
+        if opt.iteration == 0 and opt.initialize:
+            c.generate_initial_condition()
+        for nrun in range(opt.njobs):
+            c.run(ncpu = opt.ncpu,
+                  simname = 'test',
+                  iter0 = opt.iteration + nrun*opt.nsteps)
+    return c
 
 def convergence_test(opt):
     ### test Navier Stokes convergence
@@ -305,18 +343,24 @@ def convergence_test(opt):
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('stats.pdf', format = 'pdf')
     ## particle test:
-    # compute distance between final positions for species 0
-    e0 = np.abs(c0.trajectories['state'][0, -1, :, :3] - c1.trajectories['state'][0, -1, :, :3])
-    e1 = np.abs(c1.trajectories['state'][0, -1, :, :3] - c2.trajectories['state'][0, -1, :, :3])
-    err0 = np.average(np.sqrt(np.sum(e0**2, axis = 1)))
-    err1 = np.average(np.sqrt(np.sum(e0**2, axis = 1)))
+    # compute distance between final positions for species 1
+    def get_traj_error(species):
+        e0 = np.abs(c0.trajectories['state'][species, -1, :, :3] - c1.trajectories['state'][species, -1, :, :3])
+        e1 = np.abs(c1.trajectories['state'][species, -1, :, :3] - c2.trajectories['state'][species, -1, :, :3])
+        return np.array([np.average(np.sqrt(np.sum(e0**2, axis = 1))),
+                         np.average(np.sqrt(np.sum(e1**2, axis = 1)))])
+    err = [get_traj_error(i) for i in range(1, c0.particle_species)]
     fig = plt.figure()
     a = fig.add_subplot(111)
-    a.plot([c0.parameters['dt'], c1.parameters['dt']],
-           [err0, err1],
-           marker = '.')
+    for i in range(1, c0.particle_species):
+        print i, err[i-1]
+        a.plot([c0.parameters['dt'], c1.parameters['dt']],
+               err[i-1],
+               marker = '.',
+               label = '${0}$'.format(i))
     a.set_xscale('log')
     a.set_yscale('log')
+    a.legend(loc = 'best')
     fig.savefig('traj_evdt.pdf', format = 'pdf')
     return None
 

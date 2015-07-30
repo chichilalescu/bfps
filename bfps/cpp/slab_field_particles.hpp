@@ -68,12 +68,14 @@ class slab_field_particles
          * a general ncomponents is better, since we may change our minds.
          * */
         double *state;
+        double *rhs[6];
         int nparticles;
         int ncomponents;
         int array_size;
         int interp_neighbours;
         int interp_smoothness;
         int buffer_width;
+        int integration_steps;
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
@@ -103,15 +105,17 @@ class slab_field_particles
                 const int NPARTICLES,
                 const int NCOMPONENTS,
                 const int INTERP_NEIGHBOURS,
-                const int INTERP_SMOOTHNESS);
+                const int INTERP_SMOOTHNESS,
+                const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();
 
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
-         * functions are virtual since we want children to do different things,
-         * depending on the type of particle.
          * */
         virtual void jump_estimate(double *jump_length);
+        /* function get_rhs is virtual since we want children to do different things,
+         * depending on the type of particle.
+         * */
         virtual void get_rhs(double *x, double *rhs);
 
         /* generic methods, should work for all children of this class */
@@ -131,7 +135,10 @@ class slab_field_particles
         void read();
         void write();
 
-        /* solvers */
+        /* solver stuff */
+        void step();
+        void roll_rhs();
+        void AdamsBashforth(int nsteps);
         void Euler();
 };
 
