@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -57,7 +57,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
             k2 = (this->kx[xindex]*this->kx[xindex] +
                   this->ky[yindex]*this->ky[yindex] +
                   this->kz[zindex]*this->kz[zindex]);
-            if (k2 < this->kM2)
+            if (k2 <= this->kM2)
             {
                 factor = (xindex == 0) ? 1 : 2;
                 knorm = sqrt(k2);
@@ -76,12 +76,12 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
             (void*)spec,
             this->nshells,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
-    for (int n=0; n<this->nshells; n++)
-    {
-        spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
-        /*is normalization needed?
-         * spec[n] /= this->normalization_factor*/
-    }
+    //for (int n=0; n<this->nshells; n++)
+    //{
+    //    spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
+    //    /*is normalization needed?
+    //     * spec[n] /= this->normalization_factor*/
+    //}
     fftw_free(cospec_local);
 }
 
@@ -244,16 +244,19 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->Fourier_filter_size = max_local_k_squared - min_local_k_squared + 1; \
     this->Fourier_filter = new double[this->Fourier_filter_size]; \
     std::fill_n(this->Fourier_filter, this->Fourier_filter_size, 0.0); \
+    double knorm; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            if (k2 < this->kM2) \
-            { \
-                this->Fourier_filter[int(k2 / this->dk2)] = exp(-36 * pow(k2/this->kM2, 18)); \
-                DEBUG_MSG("%d %lg\n", int(k2 / this->dk2), this->Fourier_filter[int(k2 / this->dk2)]); \
-            } \
+            knorm = R(sqrt(R(k2))); \
+            /*k2 += (this->dk2/4);*/ \
+            this->Fourier_filter[int(k2 / this->dk2)] = R(exp(-R(36.0) * R(pow((R(knorm)/R(this->kM)), R(36.))))); \
             ); \
+    for (int i=0; i<this->Fourier_filter_size; i++) \
+    { \
+        DEBUG_MSG("%d %.16e\n", i, this->Fourier_filter[i]); \
+    } \
 } \
  \
 template<> \
