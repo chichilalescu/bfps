@@ -71,7 +71,7 @@ setup(
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
-        package_data = {'bfps': header_list},
+        package_data = {'bfps': header_list + ['../machine_settings.py']},
 ########################################################################
 # useless stuff folows
 ########################################################################

@@ -8,8 +8,11 @@ hostname = os.getenv('HOSTNAME')
 
 extra_compile_args = ['-mtune=native', '-ffast-math', '-std=c++11']
 
-include_dirs = []
-library_dirs = []
+if hostname == 'chichi-G':
+    include_dirs = ['/usr/local/include',
+                    '/usr/include/mpich']
+    library_dirs = ['/usr/local/lib'
+                    '/usr/lib/mpich']
 
 if hostname in ['frontend01', 'frontend02']:
     include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
