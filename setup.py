@@ -22,16 +22,7 @@
 
 import os
 
-########################################################################
-#### these you're supposed to adapt to your environment
-
-# first off, this is the install folder for fftw and/or openmpi etc
-local_install_dir = '/scratch.local/chichi/installs'
-
-include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
-                '/usr/include/mpich',
-                os.path.join(local_install_dir, 'include')]
-########################################################################
+from machine_settings import include_dirs, library_dirs, extra_compile_args
 
 
 AUTHOR = 'Cristian C Lalescu'
@@ -72,9 +63,8 @@ libbfps = Extension(
         sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
         include_dirs = include_dirs,
         libraries = libraries,
-        extra_compile_args = ['-mtune=native', '-ffast-math', '-std=c++11'],
-        library_dirs = [os.path.join(local_install_dir, 'lib'),
-                        os.path.join(local_install_dir, 'lib64')])
+        extra_compile_args = extra_compile_args,
+        library_dirs = library_dirs)
 
 setup(
         name = 'bfps',
