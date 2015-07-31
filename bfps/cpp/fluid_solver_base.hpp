@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <unordered_map>
 #include "base.hpp"
 #include "field_descriptor.hpp"
 
@@ -56,8 +57,7 @@ class fluid_solver_base
         int dealias_type;
         double kMx, kMy, kMz, kM, kM2;
         double *kx, *ky, *kz;
-        double *Fourier_filter;
-        int Fourier_filter_size;
+        std::unordered_map<int, double> Fourier_filter;
         double *kshell;
         int64_t *nshell;
         int nshells;
