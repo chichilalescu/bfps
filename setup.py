@@ -20,9 +20,14 @@
 
 
 
-import os
-
 from machine_settings import include_dirs, library_dirs, extra_compile_args
+import pickle
+pickle.dump(
+        {'include_dirs' : include_dirs,
+       'library_dirs' : library_dirs,
+       'extra_compile_args' : extra_compile_args},
+        open('bfps/machine_settings.pickle', 'wb'),
+        protocol = 2)
 
 
 AUTHOR = 'Cristian C Lalescu'
@@ -71,7 +76,8 @@ setup(
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
-        package_data = {'bfps': header_list + ['../machine_settings.py']},
+        package_data = {'bfps': header_list + ['../machine_settings.py',
+                                               'machine_settings.pickle']},
 ########################################################################
 # useless stuff folows
 ########################################################################

@@ -20,6 +20,7 @@
 
 import os
 import subprocess
+import pickle
 
 from pkg_resources import get_distribution, DistributionNotFound
 
@@ -41,6 +42,10 @@ except DistributionNotFound:
     #import subprocess
     #__version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
 
+machine_settings = pickle.load(
+        open(os.path.join(os.path.join(dist_loc, 'bfps'),
+                          'machine_settings.pickle'),
+             'r'))
 
 from .code import code
 from .NavierStokes import NavierStokes

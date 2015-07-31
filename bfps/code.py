@@ -24,6 +24,7 @@ from bfps.base import base
 import subprocess
 import os
 import shutil
+import pickle
 
 
 class code(base):
@@ -94,10 +95,6 @@ class code(base):
         return None
     def compile_code(self):
         # compile code
-        local_install_dir = '/scratch.local/chichi/installs'
-        include_dirs = [bfps.header_dir,
-                        '/usr/lib64/mpi/gcc/openmpi/include',
-                        os.path.join(local_install_dir, 'include')]
         if not os.path.isfile(os.path.join(bfps.header_dir, 'base.hpp')):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
@@ -110,11 +107,10 @@ class code(base):
 
         command_strings = ['mpicxx']
         command_strings += [self.name + '.cpp', '-o', self.name]
-        command_strings += ['-ffast-math', '-mtune=native', '-O2', '-std=c++11']
-        for idir in include_dirs:
-            command_strings += ['-I{0}'.format(idir)]
-        command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
-        command_strings += ['-L' + os.path.join(local_install_dir, 'lib64')]
+        command_strings += ['-O2'] + bfps.machine_settings['extra_compile_args']
+        command_strings += ['-I' + idir for idir in bfps.machine_settings['include_dirs']]
+        command_strings.append('-I' + bfps.header_dir)
+        command_strings += ['-L' + ldir for ldir in bfps.machine_settings['library_dirs']]
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
