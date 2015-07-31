@@ -24,8 +24,8 @@ from machine_settings import include_dirs, library_dirs, extra_compile_args
 import pickle
 pickle.dump(
         {'include_dirs' : include_dirs,
-       'library_dirs' : library_dirs,
-       'extra_compile_args' : extra_compile_args},
+         'library_dirs' : library_dirs,
+         'extra_compile_args' : extra_compile_args},
         open('bfps/machine_settings.pickle', 'wb'),
         protocol = 2)
 
@@ -34,8 +34,22 @@ AUTHOR = 'Cristian C Lalescu'
 AUTHOR_EMAIL = 'Cristian.Lalescu@ds.mpg.de'
 
 import datetime
+import subprocess
+from subprocess import CalledProcessError
+
 now = datetime.datetime.now()
 date_name = '{0:0>4}{1:0>2}{2:0>2}'.format(now.year, now.month, now.day)
+
+try:
+    git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+except CalledProcessError:
+    git_revision = ''
+pickle.dump(
+        {'install_date' : now,
+         'git_revision' : git_revision},
+        open('bfps/version_info.pickle', 'wb'),
+        protocol = 2)
+
 VERSION = date_name
 
 src_file_list = ['field_descriptor',
@@ -77,7 +91,8 @@ setup(
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
         package_data = {'bfps': header_list + ['../machine_settings.py',
-                                               'machine_settings.pickle']},
+                                               'machine_settings.pickle',
+                                               'version_info.pickle']},
 ########################################################################
 # useless stuff folows
 ########################################################################

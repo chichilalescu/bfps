@@ -38,13 +38,16 @@ try:
     lib_dir = _dist.location
     __version__ = _dist.version
 except DistributionNotFound:
-    __version__ = 'Please install this project with setup.py'
-    #import subprocess
-    #__version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+    __version__ = ''
 
 machine_settings = pickle.load(
-        open(os.path.join(os.path.join(dist_loc, 'bfps'),
+        open(os.path.join(os.path.dirname(here),
                           'machine_settings.pickle'),
+             'r'))
+
+version_info = pickle.load(
+        open(os.path.join(os.path.dirname(here),
+                          'version_info.pickle'),
              'r'))
 
 from .code import code
