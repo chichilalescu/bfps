@@ -207,7 +207,7 @@ fluid_solver_base<R>::fluid_solver_base( \
                 knorm = sqrt(k2); \
                 nxmodes = (xindex == 0) ? 1 : 2; \
                 nshell_local[int(knorm/this->dk)] += nxmodes; \
-                kshell_local[int(knorm/this->dk)] += nxmodes*k2; \
+                kshell_local[int(knorm/this->dk)] += nxmodes*knorm; \
             } \
             min_local_k_squared = (min_local_k_squared < k2/this->dk2) ? min_local_k_squared : k2/this->dk2; \
             max_local_k_squared = (max_local_k_squared > k2/this->dk2) ? max_local_k_squared : k2/this->dk2; \
