@@ -184,6 +184,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
     this->dk2 = this->dk*this->dk; \
+    DEBUG_MSG( \
+            "kM = %g, kM2 = %g, dk = %g, dk2 = %g\n", \
+            this->kM, this->kM2, this->dk, this->dk2); \
     /* spectra stuff */ \
     this->nshells = int(this->kM / this->dk) + 2; \
     this->kshell = new double[this->nshells]; \
