@@ -107,13 +107,15 @@ tracers<R>::tracers( \
                 const int NPARTICLES, \
                 const int NEIGHBOURS, \
                 const int SMOOTHNESS, \
+                const int INTEGRATION_STEPS, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
                     NAME, \
                     FSOLVER, \
                     NPARTICLES, \
                     3, \
                     NEIGHBOURS, \
-                    SMOOTHNESS) \
+                    SMOOTHNESS, \
+                    INTEGRATION_STEPS) \
 { \
     this->source_data = SOURCE_DATA; \
     this->data = FFTW(alloc_real)(this->buffered_field_descriptor->local_size); \

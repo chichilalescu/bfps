@@ -10,8 +10,6 @@ expanded in the future; it remains to be seen how well this will work.
 TODO
 ----
 
-* multi-step methods for particles
-
 * try to make code more memory efficient
 
 * complex field IO should be space efficient (i.e. don't write modes

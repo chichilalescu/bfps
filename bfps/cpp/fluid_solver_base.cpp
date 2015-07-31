@@ -57,7 +57,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
             k2 = (this->kx[xindex]*this->kx[xindex] +
                   this->ky[yindex]*this->ky[yindex] +
                   this->kz[zindex]*this->kz[zindex]);
-            if (k2 < this->kM2)
+            if (k2 <= this->kM2)
             {
                 factor = (xindex == 0) ? 1 : 2;
                 knorm = sqrt(k2);
@@ -76,12 +76,12 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
             (void*)spec,
             this->nshells,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
-    for (int n=0; n<this->nshells; n++)
-    {
-        spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
-        /*is normalization needed?
-         * spec[n] /= this->normalization_factor*/
-    }
+    //for (int n=0; n<this->nshells; n++)
+    //{
+    //    spec[n] *= 12.5663706144*pow(this->kshell[n], 2) / this->nshell[n];
+    //    /*is normalization needed?
+    //     * spec[n] /= this->normalization_factor*/
+    //}
     fftw_free(cospec_local);
 }
 
@@ -149,9 +149,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     { \
         /* HL07 smooth filter */ \
         case 1: \
-            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)-1); \
-            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)-1); \
-            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)-1); \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)); \
             break; \
         default: \
             this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
@@ -160,9 +160,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     } \
     int i, ii; \
     for (i = 0; i<this->cd->sizes[2]; i++) \
-    { \
         this->kx[i] = i*this->dkx; \
-    } \
     for (i = 0; i<this->cd->subsizes[0]; i++) \
     { \
         ii = i + this->cd->starts[0]; \
@@ -186,12 +184,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
     this->dk2 = this->dk*this->dk; \
-    this->Fourier_filter_size = int(this->kM2 / (this->dk*this->dk))+1; \
-    this->Fourier_filter = new double[this->Fourier_filter_size]; \
-    for (int i=0; i < this->Fourier_filter_size; i++) \
-    { \
-        this->Fourier_filter[i] = exp(-36*pow(sqrt(double(i))*this->dk / this->kM, 36)); \
-    } \
+    DEBUG_MSG( \
+            "kM = %g, kM2 = %g, dk = %g, dk2 = %g\n", \
+            this->kM, this->kM2, this->dk, this->dk2); \
     /* spectra stuff */ \
     this->nshells = int(this->kM / this->dk) + 2; \
     this->kshell = new double[this->nshells]; \
@@ -202,7 +197,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     std::fill_n(kshell_local, this->nshells, 0.0); \
     int64_t *nshell_local = new int64_t[this->nshells]; \
     std::fill_n(nshell_local, this->nshells, 0.0); \
-    double k2; \
+    double k2, knorm; \
     int nxmodes; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
@@ -210,11 +205,12 @@ fluid_solver_base<R>::fluid_solver_base( \
                   this->kz[zindex]*this->kz[zindex]); \
             if (k2 < this->kM2) \
             { \
-                k2 = sqrt(k2); \
+                knorm = sqrt(k2); \
                 nxmodes = (xindex == 0) ? 1 : 2; \
-                nshell_local[int(k2/this->dk)] += nxmodes; \
-                kshell_local[int(k2/this->dk)] += nxmodes*k2; \
+                nshell_local[int(knorm/this->dk)] += nxmodes; \
+                kshell_local[int(knorm/this->dk)] += nxmodes*knorm; \
             } \
+            this->Fourier_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.)); \
             ); \
     \
     MPI_Allreduce( \
@@ -243,12 +239,14 @@ fluid_solver_base<R>::fluid_solver_base( \
         fwrite((void*)this->kshell, sizeof(double), this->nshells, kshell_file); \
         fclose(kshell_file); \
     } \
+    /*for (int i=0; i<this->Fourier_filter_size; i++) \
+        DEBUG_MSG("%d %.16e\n", i, this->Fourier_filter[i]); \
+    */ \
 } \
  \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
-    delete[] this->Fourier_filter; \
     delete[] this->kshell; \
     delete[] this->nshell; \
  \
@@ -327,13 +325,11 @@ void fluid_solver_base<R>::dealias(C *a, const int howmany) \
         } \
     double k2; \
     double tval; \
-    int findex; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            findex = int(k2/this->dk2); \
-            tval = (findex < this->Fourier_filter_size) ? this->Fourier_filter[findex] : 0.0; \
+            tval = this->Fourier_filter[int(round(k2/this->dk2))]; \
             for (int tcounter = 0; tcounter < howmany; tcounter++) \
             { \
                 a[howmany*cindex+tcounter][0] *= tval; \

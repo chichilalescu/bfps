@@ -110,7 +110,7 @@ class code(base):
 
         command_strings = ['mpicxx']
         command_strings += [self.name + '.cpp', '-o', self.name]
-        command_strings += ['-ffast-math', '-mtune=native', '-O2']
+        command_strings += ['-ffast-math', '-mtune=native', '-O2', '-std=c++11']
         for idir in include_dirs:
             command_strings += ['-I{0}'.format(idir)]
         command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
