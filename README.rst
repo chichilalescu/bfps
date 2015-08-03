@@ -17,5 +17,3 @@ TODO
 
 * make templates work for `double` as well, and python wrappers
   should control precision.
-
-* implement alternate spectrum computation.
