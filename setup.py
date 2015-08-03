@@ -42,7 +42,7 @@ date_name = '{0:0>4}{1:0>2}{2:0>2}'.format(now.year, now.month, now.day)
 
 try:
     git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
-except CalledProcessError:
+except:
     git_revision = ''
 pickle.dump(
         {'install_date' : now,
