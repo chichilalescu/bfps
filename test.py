@@ -174,7 +174,7 @@ def NSlaunch(
         c.parameters['nu'] = 5.5*opt.n**(-4./3)
     else:
         c.parameters['nu'] = nu
-    c.parameters['dt'] = 2e-3 * (64. / opt.n)
+    c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['niter_stat'] = 1
     c.parameters['niter_spec'] = 4
@@ -369,7 +369,6 @@ def convergence_test(opt):
                label = '${0}$'.format(i))
     a.set_xscale('log')
     a.set_yscale('log')
-    a.set_ylim(1e-4, 1e0)
     a.legend(loc = 'best')
     fig.savefig('traj_evdt.pdf', format = 'pdf')
     # plot all trajectories... just in case
