@@ -180,7 +180,7 @@ def NSlaunch(
     c.parameters['niter_spec'] = 4
     c.parameters['niter_part'] = 2
     c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 16
+    c.parameters['nparticles'] = 32
     if opt.particles:
         c.add_particles(kcut = 'fs->kM/2')
         c.add_particles(integration_steps = 1)
@@ -374,7 +374,7 @@ def convergence_test(opt):
     fig.savefig('traj_evdt.pdf', format = 'pdf')
     # plot all trajectories... just in case
     for c in [c0, c1, c2]:
-        fig = plt.figure(figsize=(6,6))
+        fig = plt.figure(figsize=(12,12))
         a = fig.add_subplot(111, projection = '3d')
         for t in range(c.parameters['nparticles']):
             for i in range(1, c.particle_species):

@@ -281,7 +281,7 @@ void slab_field_particles<rnumber>::synchronize()
     if (this->integration_steps > 1)
     {
         std::fill_n(tstate, this->array_size, 0.0);
-        for (int i=0; i<this->integration_steps; i++)
+        int i=1;
         {
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
                 std::copy(this->rhs[i] + p*this->ncomponents,
@@ -416,7 +416,7 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
                                                + 9982*this->rhs[2][ii]
                                                - 7298*this->rhs[3][ii]
                                                + 2877*this->rhs[4][ii]
-                                               -  475*this->rhs[5][ii])/720;
+                                               -  475*this->rhs[5][ii])/1440;
                 }
             break;
     }
