@@ -118,7 +118,9 @@ class code(base):
     def run(self,
             ncpu = 2,
             simname = 'test',
-            iter0 = 0):
+            iter0 = 0,
+            out_file = 'out_file',
+            err_file = 'err_file'):
         if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
@@ -135,7 +137,9 @@ class code(base):
                              '{0}'.format(ncpu),
                              './' + self.name,
                              simname,
-                             '{0}'.format(iter0)])
+                             '{0}'.format(iter0)],
+                             stdout = open(out_file + '_' + simname, 'w'),
+                             stderr = open(err_file + '_' + simname, 'w'))
             os.chdir(current_dir)
         return None
 

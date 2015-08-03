@@ -223,14 +223,19 @@ class fluid_particle_base(bfps.code):
         return Kdata1
     def generate_tracer_state(
             self,
-            rseed = 34982,
+            rseed = None,
             iteration = 0,
             species = 0,
             write_to_file = False,
-            ncomponents = 3):
-        np.random.seed(rseed*self.particle_species + species)
+            ncomponents = 3,
+            testing = False):
+        if not type(rseed) == type(None):
+                np.random.seed(rseed)
+        #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
         data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
         data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
+        if testing:
+            data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
         if write_to_file:
             data.tofile(
                     os.path.join(

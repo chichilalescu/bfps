@@ -180,7 +180,7 @@ def NSlaunch(
     c.parameters['niter_spec'] = 4
     c.parameters['niter_part'] = 2
     c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 32
+    c.parameters['nparticles'] = 16
     if opt.particles:
         c.add_particles(kcut = 'fs->kM/2')
         c.add_particles(integration_steps = 1)
@@ -194,7 +194,16 @@ def NSlaunch(
     c.write_par(simname = c.simname)
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
-            c.generate_initial_condition()
+            np.array([0.0]).tofile(
+                    os.path.join(
+                            c.work_dir, c.simname + '_time_i00000'))
+            c.generate_vector_field(write_to_file = True)
+            for species in range(c.particle_species):
+                c.generate_tracer_state(
+                        species = species,
+                        write_to_file = True,
+                        testing = True,
+                        rseed = 3284)
         for nrun in range(opt.njobs):
             c.run(ncpu = opt.ncpu,
                   simname = 'test',
@@ -360,8 +369,19 @@ def convergence_test(opt):
                label = '${0}$'.format(i))
     a.set_xscale('log')
     a.set_yscale('log')
+    a.set_ylim(1e-4, 1e0)
     a.legend(loc = 'best')
     fig.savefig('traj_evdt.pdf', format = 'pdf')
+    # plot all trajectories... just in case
+    for c in [c0, c1, c2]:
+        fig = plt.figure(figsize=(6,6))
+        a = fig.add_subplot(111, projection = '3d')
+        for t in range(c.parameters['nparticles']):
+            for i in range(1, c.particle_species):
+                a.plot(c.trajectories['state'][i, :, t, 0],
+                       c.trajectories['state'][i, :, t, 1],
+                       c.trajectories['state'][i, :, t, 2])
+        fig.savefig('traj_N{0:0>3x}.pdf'.format(c.parameters['nx'], format = 'pdf'))
     return None
 
 if __name__ == '__main__':
