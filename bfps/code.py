@@ -26,6 +26,88 @@ import os
 import shutil
 import pickle
 
+class cluster_launcher:
+    def __init__(
+            self,
+            file_name     = None,
+            queue         = None,
+            environment   = None,
+            envprocs      = None,
+            nprocesses    = None,
+            name_of_run   = None,
+            command_atoms = None,
+            hours         = None,
+            minutes       = None,
+            seconds       = None,
+            err_file      = None,
+            out_file      = None,
+            mail_address  = None,
+            mail_events   = None):
+        self.file_name     = file_name
+        self.queue         = queue
+        self.environment   = environment
+        self.nprocesses    = nprocesses
+        self.name_of_run   = name_of_run
+        self.command_atoms = command_atoms
+        self.hours         = hours
+        self.minutes       = minutes
+        self.seconds       = seconds
+        self.err_file      = err_file
+        self.out_file      = out_file
+        self.mail_address  = mail_address
+        self.mail_events   = mail_events
+        if type(envprocs) == type(None):
+            self.envprocs = self.nprocesses
+        return None
+    def write_pbs_file(self):
+        script_file = open(file_name, 'w')
+        script_file.write('#!/bin/tcsh\n'
+                        + '#PBS -q ' + queue + '\n'
+                        + '#PBS -l walltime={0}:{1}:{2}\n'.format(hours, minutes, seconds))
+        if nprocesses%8 == 0:
+            script_file.write('#PBS -l nodes={0}:ppn=8\n'.format(nprocesses/8))
+        else:
+            script_file.write('#PBS -l nodes={0}\n'.format(nprocesses))
+        script_file.write('#PBS -j n\n'
+                        + '#PBS -e ' + err_file + '\n'
+                        + '#PBS -o ' + out_file + '\n'
+                        + '#PBS -N ' + name_of_run + '\n\n')
+        if mail_address != None:
+            script_file.write('#PBS -M {0}\n'.format(mail_address))
+            if mail_events != None:
+                script_file.write('#PBS -m {0}\n\n'.format(mail_events))
+        script_file.write('cd $PBS_O_WORKDIR\n'
+                        + 'setenv MPI_NPROCS `wc -l $PBS_NODEFILE`\n'
+                        + 'echo "Workdir is $PBS_O_WORKDIR"\n'
+                        + 'echo Start time is `date`\n'
+                        + 'mpirun -machinefile $PBS_NODEFILE ' + name_of_executable + '\n'
+                        + 'echo End time is `date`\n')
+        script_file.close()
+        return None
+    def write_sge_file(self):
+        script_file = open(self.file_name, 'w')
+        script_file.write('#!/bin/bash\n')
+        # export all environment variables
+        script_file.write('#$ -V\n')
+        # job name
+        script_file.write('#$ -N {0}\n'.format(self.name_of_run))
+        # use current working directory
+        script_file.write('#$ -cwd\n')
+        # error file
+        if not type(self.err_file) == type(None):
+            script_file.write('#$ -e ' + self.err_file + '\n')
+        # output file
+        if not type(self.out_file) == type(None):
+            script_file.write('#$ -o ' + self.out_file + '\n')
+        if not type(self.environment) == type(None):
+            script_file.write('#$ -pe {0} {1}\n'.format(self.environment, self.envprocs))
+        script_file.write('echo "got $NSLOTS slots."\n')
+        script_file.write('echo Start time is `date`\n')
+        script_file.write('mpiexec -machinefile $TMPDIR/machines -n {0} {1}\n'.format(self.nprocesses, ' '.join(self.command_atoms)))
+        script_file.write('echo End time is `date`\n')
+        script_file.write('exit 0\n')
+        script_file.close()
+        return None
 
 class code(base):
     def __init__(self):
@@ -120,7 +202,8 @@ class code(base):
             simname = 'test',
             iter0 = 0,
             out_file = 'out_file',
-            err_file = 'err_file'):
+            err_file = 'err_file',
+            hostinfo = {'type' : ''}):
         if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
@@ -130,16 +213,32 @@ class code(base):
             os.chdir(self.work_dir)
             with open(self.name + '_version_info.txt', 'w') as outfile:
                 outfile.write(self.version_message)
-            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
-            subprocess.call(['time',
-                             'mpirun',
-                             '-np',
-                             '{0}'.format(ncpu),
-                             './' + self.name,
-                             simname,
-                             '{0}'.format(iter0)],
-                             stdout = open(out_file + '_' + simname, 'w'),
-                             stderr = open(err_file + '_' + simname, 'w'))
             os.chdir(current_dir)
-        return None
+        command = ['mpirun',
+                   '-np',
+                   '{0}'.format(ncpu),
+                   './' + self.name,
+                   simname,
+                   '{0}'.format(iter0)]
+        if hostinfo['type'] == 'cluster':
+            cl = cluster_launcher(
+                file_name     = os.path.join(self.work_dir, 'run_' + simname + '.sh'),
+                environment   = hostinfo['environment'],
+                nprocesses    = ncpu,
+                name_of_run   = self.name + '_' + simname,
+                command_atoms = command[3:],
+                hours         = 1,
+                minutes       = 0,
+                seconds       = 0,
+                out_file      = out_file,
+                err_file      = err_file)
+            cl.write_sge_file()
+        elif hostinfo['type'] == 'pc':
+            os.chdir(self.work_dir)
+            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
+            subprocess.call(command,
+                            stdout = open(out_file + '_' + simname, 'w'),
+                            stderr = open(err_file + '_' + simname, 'w'))
+            os.chdir(current_dir)
+        return command
 
