@@ -40,14 +40,9 @@ try:
 except DistributionNotFound:
     __version__ = ''
 
-machine_settings = pickle.load(
+install_info = pickle.load(
         open(os.path.join(os.path.dirname(here),
-                          'machine_settings.pickle'),
-             'r'))
-
-version_info = pickle.load(
-        open(os.path.join(os.path.dirname(here),
-                          'version_info.pickle'),
+                          'install_info.pickle'),
              'r'))
 
 from .code import code

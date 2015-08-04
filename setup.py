@@ -22,12 +22,6 @@
 
 from machine_settings import include_dirs, library_dirs, extra_compile_args
 import pickle
-pickle.dump(
-        {'include_dirs' : include_dirs,
-         'library_dirs' : library_dirs,
-         'extra_compile_args' : extra_compile_args},
-        open('bfps/machine_settings.pickle', 'wb'),
-        protocol = 2)
 
 
 AUTHOR = 'Cristian C Lalescu'
@@ -45,9 +39,12 @@ try:
 except:
     git_revision = ''
 pickle.dump(
-        {'install_date' : now,
+        {'include_dirs' : include_dirs,
+         'library_dirs' : library_dirs,
+         'extra_compile_args' : extra_compile_args,
+         'install_date' : now,
          'git_revision' : git_revision},
-        open('bfps/version_info.pickle', 'wb'),
+        open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
 
 VERSION = date_name
@@ -91,8 +88,7 @@ setup(
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
         package_data = {'bfps': header_list + ['../machine_settings.py',
-                                               'machine_settings.pickle',
-                                               'version_info.pickle']},
+                                               'install_info.pickle']},
 ########################################################################
 # useless stuff folows
 ########################################################################
