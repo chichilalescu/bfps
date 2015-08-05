@@ -200,9 +200,9 @@ class code(base):
                     self.host_info['environment'],
                     envprocs))
         script_file.write('echo "got $NSLOTS slots."\n')
-        script_file.write('echo Start time is `date`\n')
+        script_file.write('echo "Start time is `date`"\n')
         script_file.write('mpiexec -machinefile $TMPDIR/machines -n {0} {1}\n'.format(nprocesses, ' '.join(command_atoms)))
-        script_file.write('echo End time is `date`\n')
+        script_file.write('echo "End time is `date`\n"')
         script_file.write('exit 0\n')
         script_file.close()
         return None
