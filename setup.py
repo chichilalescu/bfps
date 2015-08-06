@@ -20,7 +20,7 @@
 
 
 
-from machine_settings import include_dirs, library_dirs, extra_compile_args
+from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
 import pickle
 
 
@@ -38,14 +38,6 @@ try:
     git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
 except:
     git_revision = ''
-pickle.dump(
-        {'include_dirs' : include_dirs,
-         'library_dirs' : library_dirs,
-         'extra_compile_args' : extra_compile_args,
-         'install_date' : now,
-         'git_revision' : git_revision},
-        open('bfps/install_info.pickle', 'wb'),
-        protocol = 2)
 
 VERSION = date_name
 
@@ -71,6 +63,18 @@ libraries = ['fftw3_mpi',
              'fftw3',
              'fftw3f_mpi',
              'fftw3f']
+
+libraries += extra_libraries
+
+pickle.dump(
+        {'include_dirs' : include_dirs,
+         'library_dirs' : library_dirs,
+         'extra_compile_args' : extra_compile_args,
+         'extra_libraries' : extra_libraries,
+         'install_date' : now,
+         'git_revision' : git_revision},
+        open('bfps/install_info.pickle', 'wb'),
+        protocol = 2)
 
 from setuptools import setup, Extension
 

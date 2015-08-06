@@ -104,13 +104,9 @@ class code(base):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['fftw3_mpi',
-                     'fftw3',
-                     'fftw3f_mpi',
-                     'fftw3f',
-                     'bfps']
+        libraries = ['bfps'] + bfps.install_info['extra_libraries']
 
-        command_strings = ['mpicxx']
+        command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]
         command_strings += ['-O2'] + bfps.install_info['extra_compile_args']
         command_strings += ['-I' + idir for idir in bfps.install_info['include_dirs']]
@@ -186,8 +182,6 @@ class code(base):
         script_file.write('#$ -N {0}\n'.format(name_of_run))
         # use current working directory
         script_file.write('#$ -cwd\n')
-        script_file.write('#$ -v LD_LIBRARY_PATH="' +
-                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) + '"\n')
         # error file
         if not type(err_file) == type(None):
             script_file.write('#$ -e ' + err_file + '\n')
@@ -201,7 +195,12 @@ class code(base):
                     envprocs))
         script_file.write('echo "got $NSLOTS slots."\n')
         script_file.write('echo "Start time is `date`"\n')
-        script_file.write('mpiexec -machinefile $TMPDIR/machines -n {0} {1}\n'.format(nprocesses, ' '.join(command_atoms)))
+        script_file.write('mpiexec -machinefile $TMPDIR/machines ' +
+                          '-genv LD_LIBRARY_PATH ' +
+                          '"' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          '" ' +
+                          '-n {0} {1}\n'.format(nprocesses, ' '.join(command_atoms)))
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
         script_file.close()
