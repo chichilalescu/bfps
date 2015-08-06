@@ -20,26 +20,25 @@
 
 
 
-import os
-
-########################################################################
-#### these you're supposed to adapt to your environment
-
-# first off, this is the install folder for fftw and/or openmpi etc
-local_install_dir = '/scratch.local/chichi/installs'
-
-include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
-                '/usr/include/mpich',
-                os.path.join(local_install_dir, 'include')]
-########################################################################
+from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
+import pickle
 
 
 AUTHOR = 'Cristian C Lalescu'
 AUTHOR_EMAIL = 'Cristian.Lalescu@ds.mpg.de'
 
 import datetime
+import subprocess
+from subprocess import CalledProcessError
+
 now = datetime.datetime.now()
 date_name = '{0:0>4}{1:0>2}{2:0>2}'.format(now.year, now.month, now.day)
+
+try:
+    git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+except:
+    git_revision = ''
+
 VERSION = date_name
 
 src_file_list = ['field_descriptor',
@@ -65,6 +64,18 @@ libraries = ['fftw3_mpi',
              'fftw3f_mpi',
              'fftw3f']
 
+libraries += extra_libraries
+
+pickle.dump(
+        {'include_dirs' : include_dirs,
+         'library_dirs' : library_dirs,
+         'extra_compile_args' : extra_compile_args,
+         'extra_libraries' : extra_libraries,
+         'install_date' : now,
+         'git_revision' : git_revision},
+        open('bfps/install_info.pickle', 'wb'),
+        protocol = 2)
+
 from setuptools import setup, Extension
 
 libbfps = Extension(
@@ -72,16 +83,16 @@ libbfps = Extension(
         sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
         include_dirs = include_dirs,
         libraries = libraries,
-        extra_compile_args = ['-mtune=native', '-ffast-math', '-std=c++11'],
-        library_dirs = [os.path.join(local_install_dir, 'lib'),
-                        os.path.join(local_install_dir, 'lib64')])
+        extra_compile_args = extra_compile_args,
+        library_dirs = library_dirs)
 
 setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
         ext_modules = [libbfps],
-        package_data = {'bfps': header_list},
+        package_data = {'bfps': header_list + ['../machine_settings.py',
+                                               'install_info.pickle']},
 ########################################################################
 # useless stuff folows
 ########################################################################

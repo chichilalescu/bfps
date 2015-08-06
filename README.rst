@@ -10,12 +10,12 @@ expanded in the future; it remains to be seen how well this will work.
 TODO
 ----
 
+* use FFTW wisdom with some host dependent cache
+
 * try to make code more memory efficient
 
 * complex field IO should be space efficient (i.e. don't write modes
   that are 0 due to dealiasing scheme)
 
 * make templates work for `double` as well, and python wrappers
-  should control precision.
-
-* implement alternate spectrum computation.
+  should control precision

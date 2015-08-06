@@ -20,6 +20,7 @@
 
 import os
 import subprocess
+import pickle
 
 from pkg_resources import get_distribution, DistributionNotFound
 
@@ -37,10 +38,12 @@ try:
     lib_dir = _dist.location
     __version__ = _dist.version
 except DistributionNotFound:
-    __version__ = 'Please install this project with setup.py'
-    #import subprocess
-    #__version__ = 'git revision ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+    __version__ = ''
 
+install_info = pickle.load(
+        open(os.path.join(os.path.dirname(here),
+                          'install_info.pickle'),
+             'r'))
 
 from .code import code
 from .NavierStokes import NavierStokes

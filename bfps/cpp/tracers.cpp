@@ -81,7 +81,13 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
-        DEBUG_MSG("particle %d found y %lg %lg %lg\n", p, y[p*3], y[p*3+1], y[p*3+2]);
+        DEBUG_MSG(
+                "particle %d position %lg %lg %lg, i.e. %d %d %d %lg %lg %lg, found y %lg %lg %lg\n",
+                p,
+                x[p*3], x[p*3+1], x[p*3+2],
+                xg[p*3], xg[p*3+1], xg[p*3+2],
+                xx[p*3], xx[p*3+1], xx[p*3+2],
+                y[p*3], y[p*3+1], y[p*3+2]);
     }
     delete[] xg;
     delete[] xx;

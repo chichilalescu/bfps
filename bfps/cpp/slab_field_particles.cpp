@@ -281,7 +281,7 @@ void slab_field_particles<rnumber>::synchronize()
     if (this->integration_steps > 1)
     {
         std::fill_n(tstate, this->array_size, 0.0);
-        for (int i=1; i<this->integration_steps; i++)
+        int i=1;
         {
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
                 std::copy(this->rhs[i] + p*this->ncomponents,
@@ -350,7 +350,8 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
     int ii;
     this->get_rhs(this->state, this->rhs[0]);
     DEBUG_MSG(
-            "in AdamsBashforth, integration_steps is %d and nsteps is %d\n",
+            "in AdamsBashforth for particles %s, integration_steps is %d and nsteps is %d\n",
+            this->name,
             this->integration_steps,
             nsteps);
     switch(nsteps)
@@ -415,7 +416,7 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
                                                + 9982*this->rhs[2][ii]
                                                - 7298*this->rhs[3][ii]
                                                + 2877*this->rhs[4][ii]
-                                               -  475*this->rhs[5][ii])/720;
+                                               -  475*this->rhs[5][ii])/1440;
                 }
             break;
     }
@@ -430,11 +431,11 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
-    DEBUG_MSG("entered particle step\n");
+    DEBUG_MSG("entered particle step for particles %s\n", this->name);
     this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
     this->iteration++;
     this->synchronize();
-    DEBUG_MSG("exiting particle step\n");
+    DEBUG_MSG("exiting particle step for particles %s\n", this->name);
 }
 
 
@@ -473,12 +474,12 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        //DEBUG_MSG(
-        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-        //        p,
-        //         x[p*3],  x[p*3+1],  x[p*3+2],
-        //        xx[p*3], xx[p*3+1], xx[p*3+2],
-        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
+        DEBUG_MSG(
+                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+                p,
+                 x[p*3],  x[p*3+1],  x[p*3+2],
+                xx[p*3], xx[p*3+1], xx[p*3+2],
+                xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -486,11 +487,11 @@ template <class rnumber>
 void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
 {
     double bx[this->interp_neighbours*2+2], by[this->interp_neighbours*2+2], bz[this->interp_neighbours*2+2];
-    DEBUG_MSG("entered spline_formula\n");
+    //DEBUG_MSG("entered spline_formula\n");
     this->compute_beta(deriv[0], xx[0], bx);
     this->compute_beta(deriv[1], xx[1], by);
     this->compute_beta(deriv[2], xx[2], bz);
-    DEBUG_MSG("computed beta polynomials\n");
+    //DEBUG_MSG("computed beta polynomials\n");
     std::fill_n(dest, 3, 0);
     for (int iz = -this->interp_neighbours; iz <= this->interp_neighbours+1; iz++)
     for (int iy = -this->interp_neighbours; iy <= this->interp_neighbours+1; iy++)
@@ -505,13 +506,13 @@ void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, doub
             //          ptrdiff_t(xg[0]+ix))*3+c,
             //        this->buffered_field_descriptor->local_size
             //        );
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*(bz[iz+this->interp_neighbours]*
-                                                          by[iy+this->interp_neighbours]*
-                                                          bx[ix+this->interp_neighbours]);
+            dest[c] += field[((ptrdiff_t(    xg[2]+iz                         ) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(MOD(xg[1]+iy, this->fs->rd->sizes[1])))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(MOD(xg[0]+ix, this->fs->rd->sizes[2])))*3+c]*(bz[iz+this->interp_neighbours]*
+                                                                                       by[iy+this->interp_neighbours]*
+                                                                                       bx[ix+this->interp_neighbours]);
         }
-    DEBUG_MSG("finishing spline_formula\n");
+    //DEBUG_MSG("finishing spline_formula\n");
 }
 
 template <class rnumber>
@@ -526,9 +527,9 @@ void slab_field_particles<rnumber>::spline_n1_formula(rnumber *field, int *xg, d
     for (int iy = -1; iy <= 2; iy++)
     for (int ix = -1; ix <= 2; ix++)
         for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+1]*by[iy+1]*bx[ix+1];
+            dest[c] += field[((ptrdiff_t(    xg[2]+iz                         ) *this->fs->rd->subsizes[1] +
+                               ptrdiff_t(MOD(xg[1]+iy, this->fs->rd->sizes[1])))*this->fs->rd->subsizes[2] +
+                               ptrdiff_t(MOD(xg[0]+ix, this->fs->rd->sizes[2])))*3+c]*bz[iz+1]*by[iy+1]*bx[ix+1];
 }
 
 template <class rnumber>

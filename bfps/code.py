@@ -24,7 +24,7 @@ from bfps.base import base
 import subprocess
 import os
 import shutil
-
+import pickle
 
 class code(base):
     def __init__(self):
@@ -81,6 +81,12 @@ class code(base):
                 }
                 //endcpp
                 """
+        self.host_info = {'type'        : 'cluster',
+                          'environment' : None,
+                          'deltanprocs' : 1,
+                          'queue'       : '',
+                          'mail_address': '',
+                          'mail_events' : None}
         return None
     def write_src(self):
         with open(self.name + '.cpp', 'w') as outfile:
@@ -94,35 +100,36 @@ class code(base):
         return None
     def compile_code(self):
         # compile code
-        local_install_dir = '/scratch.local/chichi/installs'
-        include_dirs = [bfps.header_dir,
-                        '/usr/lib64/mpi/gcc/openmpi/include',
-                        os.path.join(local_install_dir, 'include')]
         if not os.path.isfile(os.path.join(bfps.header_dir, 'base.hpp')):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['fftw3_mpi',
-                     'fftw3',
-                     'fftw3f_mpi',
-                     'fftw3f',
-                     'bfps']
+        libraries = ['bfps'] + bfps.install_info['extra_libraries']
 
-        command_strings = ['mpicxx']
+        command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]
-        command_strings += ['-ffast-math', '-mtune=native', '-O2', '-std=c++11']
-        for idir in include_dirs:
-            command_strings += ['-I{0}'.format(idir)]
-        command_strings += ['-L' + os.path.join(local_install_dir, 'lib')]
-        command_strings += ['-L' + os.path.join(local_install_dir, 'lib64')]
+        command_strings += ['-O2'] + bfps.install_info['extra_compile_args']
+        command_strings += ['-I' + idir for idir in bfps.install_info['include_dirs']]
+        command_strings.append('-I' + bfps.header_dir)
+        command_strings += ['-L' + ldir for ldir in bfps.install_info['library_dirs']]
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
+        print('compiling code with command\n' + ' '.join(command_strings))
         return subprocess.call(command_strings)
+    def set_host_info(
+            self,
+            host_info = {}):
+        self.host_info.update(host_info)
+        return None
     def run(self,
             ncpu = 2,
             simname = 'test',
-            iter0 = 0):
+            iter0 = 0,
+            out_file = 'out_file',
+            err_file = 'err_file',
+            hours = 1,
+            minutes = 0):
         if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
@@ -132,14 +139,70 @@ class code(base):
             os.chdir(self.work_dir)
             with open(self.name + '_version_info.txt', 'w') as outfile:
                 outfile.write(self.version_message)
-            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
-            subprocess.call(['time',
-                             'mpirun',
-                             '-np',
-                             '{0}'.format(ncpu),
-                             './' + self.name,
-                             simname,
-                             '{0}'.format(iter0)])
             os.chdir(current_dir)
+        command_atoms = ['mpirun',
+                         '-np',
+                         '{0}'.format(ncpu),
+                         './' + self.name,
+                         simname,
+                         '{0}'.format(iter0)]
+        if self.host_info['type'] == 'cluster':
+            self.write_sge_file(
+                file_name     = os.path.join(self.work_dir, 'run_' + simname + '.sh'),
+                nprocesses    = ncpu,
+                name_of_run   = self.name + '_' + simname,
+                command_atoms = command_atoms[3:],
+                hours         = hours,
+                minutes       = minutes,
+                out_file      = out_file,
+                err_file      = err_file)
+        elif hostinfo['type'] == 'pc':
+            os.chdir(self.work_dir)
+            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
+            subprocess.call(command,
+                            stdout = open(out_file + '_' + simname, 'w'),
+                            stderr = open(err_file + '_' + simname, 'w'))
+            os.chdir(current_dir)
+        return None
+    def write_sge_file(
+            self,
+            file_name = None,
+            nprocesses = None,
+            name_of_run = None,
+            command_atoms = [],
+            hours = None,
+            minutes = None,
+            out_file = None,
+            err_file = None):
+        script_file = open(file_name, 'w')
+        script_file.write('#!/bin/bash\n')
+        # export all environment variables
+        script_file.write('#$ -V\n')
+        # job name
+        script_file.write('#$ -N {0}\n'.format(name_of_run))
+        # use current working directory
+        script_file.write('#$ -cwd\n')
+        # error file
+        if not type(err_file) == type(None):
+            script_file.write('#$ -e ' + err_file + '\n')
+        # output file
+        if not type(out_file) == type(None):
+            script_file.write('#$ -o ' + out_file + '\n')
+        if not type(self.host_info['environment']) == type(None):
+            envprocs = (nprocesses / self.host_info['deltanprocs'] + 1) * self.host_info['deltanprocs']
+            script_file.write('#$ -pe {0} {1}\n'.format(
+                    self.host_info['environment'],
+                    envprocs))
+        script_file.write('echo "got $NSLOTS slots."\n')
+        script_file.write('echo "Start time is `date`"\n')
+        script_file.write('mpiexec -machinefile $TMPDIR/machines ' +
+                          '-genv LD_LIBRARY_PATH ' +
+                          '"' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          '" ' +
+                          '-n {0} {1}\n'.format(nprocesses, ' '.join(command_atoms)))
+        script_file.write('echo "End time is `date`"\n')
+        script_file.write('exit 0\n')
+        script_file.close()
         return None
 
