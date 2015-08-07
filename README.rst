@@ -10,6 +10,8 @@ expanded in the future; it remains to be seen how well this will work.
 TODO
 ----
 
+* use only HDF5 for IO
+
 * use FFTW wisdom with some host dependent cache
 
 * try to make code more memory efficient
