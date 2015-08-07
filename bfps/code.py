@@ -164,7 +164,7 @@ class code(base):
                 os.chdir(self.work_dir)
                 qsub_atoms = ['qsub']
                 if len(job_name_list) >= 1:
-                    qsub_atoms += ['-hold_id', job_name_list[-1]]
+                    qsub_atoms += ['-hold_jid', job_name_list[-1]]
                 subprocess.call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
                 job_name_list.append(self.name + '_' + suffix)
