@@ -129,7 +129,8 @@ class code(base):
             out_file = 'out_file',
             err_file = 'err_file',
             hours = 1,
-            minutes = 0):
+            minutes = 0,
+            njobs = 1):
         if self.compile_code() == 0:
             current_dir = os.getcwd()
             if not os.path.isdir(self.work_dir):
@@ -147,15 +148,26 @@ class code(base):
                          simname,
                          '{0}'.format(iter0)]
         if self.host_info['type'] == 'cluster':
-            self.write_sge_file(
-                file_name     = os.path.join(self.work_dir, 'run_' + simname + '.sh'),
-                nprocesses    = ncpu,
-                name_of_run   = self.name + '_' + simname,
-                command_atoms = command_atoms[3:],
-                hours         = hours,
-                minutes       = minutes,
-                out_file      = out_file,
-                err_file      = err_file)
+            job_name_list = []
+            for j in range(njobs):
+                suffix = simname + '_{0}.sh'.format(iter0 + j*self.parameters['niter_todo'])
+                qsub_script_name = 'run_' + suffix
+                self.write_sge_file(
+                    file_name     = os.path.join(self.work_dir, qsub_script_name),
+                    nprocesses    = ncpu,
+                    name_of_run   = self.name + '_' + suffix,
+                    command_atoms = command_atoms[3:],
+                    hours         = hours,
+                    minutes       = minutes,
+                    out_file      = out_file,
+                    err_file      = err_file)
+                os.chdir(self.work_dir)
+                qsub_atoms = ['qsub']
+                if len(job_name_list) >= 1:
+                    qsub_atoms += ['-hold_id', job_name_list[-1]]
+                subprocess.call(qsub_atoms + [qsub_script_name])
+                os.chdir(current_dir)
+                job_name_list.append(self.name + '_' + suffix)
         elif hostinfo['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
