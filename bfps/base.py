@@ -90,17 +90,16 @@ class base(object):
         src_txt = ''
         for i in range(len(key)):
             if type(self.parameters[key[i]]) == int:
-                src_txt += ('fprintf(stderr, "myrank = %d, '
-                          + key[i] + ' = %d\\n", myrank, ' + key[i] + ');\n')
+                src_txt += 'DEBUG_MSG("'+ key[i] + ' = %d\\n", ' + key[i] + ');\n'
             elif type(self.parameters[key[i]]) == str:
-                src_txt += ('fprintf(stderr, "myrank = %d, '
-                          + key[i] + ' = %s\\n", myrank, ' + key[i] + ');\n')
+                src_txt += 'DEBUG_MSG("'+ key[i] + ' = %s\\n", ' + key[i] + ');\n'
             else:
-                src_txt += ('fprintf(stderr, "myrank = %d, '
-                          + key[i] + ' = %le\\n", myrank, ' + key[i] + ');\n')
+                src_txt += 'DEBUG_MSG("'+ key[i] + ' = %le\\n", ' + key[i] + ');\n'
         return src_txt
     def write_par(self, simname = 'test'):
         filename = simname + '_pars.txt'
+        if not os.path.isdir(self.work_dir):
+            os.makedirs(self.work_dir)
         ofile = open(os.path.join(self.work_dir, filename), 'w')
         key = self.parameters.keys()
         key.sort()
