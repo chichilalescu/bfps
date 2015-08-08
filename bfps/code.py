@@ -104,7 +104,7 @@ class code(base):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['bfps'] + bfps.install_info['extra_libraries']
+        libraries = ['bfps'] + bfps.install_info['libraries']
 
         command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]
@@ -168,10 +168,10 @@ class code(base):
                 subprocess.call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
                 job_name_list.append(self.name + '_' + suffix)
-        elif hostinfo['type'] == 'pc':
+        elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
-            subprocess.call(command,
+            subprocess.call(command_atoms,
                             stdout = open(out_file + '_' + simname, 'w'),
                             stderr = open(err_file + '_' + simname, 'w'))
             os.chdir(current_dir)
