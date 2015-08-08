@@ -393,6 +393,8 @@ if __name__ == '__main__':
     parser.add_argument('--double', dest = 'double', action = 'store_true')
     parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     parser.add_argument('--convergence', dest = 'convergence', action = 'store_true')
+    parser.add_argument('--plain', dest = 'plain', action = 'store_true')
+    parser.add_argument('--io', dest = 'io', action = 'store_true')
     parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
@@ -402,9 +404,17 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     if opt.convergence:
         convergence_test(opt)
-    else:
+    if opt.plain:
         opt.work_dir += '/N{0:0>3x}'.format(opt.n)
         c0 = NSlaunch(opt)
         c0.compute_statistics()
         c0.basic_plots()
+    if opt.io:
+        c = bfps.test_io(work_dir = opt.work_dir + '/test_io')
+        c.write_src()
+        c.write_par(simname = c.simname)
+        c.set_host_info({'type' : 'pc'})
+        c.run(ncpu = opt.ncpu,
+              simname = c.simname,
+              iter0 = opt.iteration)
 

@@ -46,6 +46,7 @@ install_info = pickle.load(
              'r'))
 
 from .code import code
-from .NavierStokes import NavierStokes
 from .fluid_converter import fluid_converter
+from .test_io import test_io
+from .NavierStokes import NavierStokes
 
