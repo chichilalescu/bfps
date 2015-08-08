@@ -70,7 +70,7 @@ pickle.dump(
         {'include_dirs' : include_dirs,
          'library_dirs' : library_dirs,
          'extra_compile_args' : extra_compile_args,
-         'extra_libraries' : extra_libraries,
+         'libraries' : libraries,
          'install_date' : now,
          'git_revision' : git_revision},
         open('bfps/install_info.pickle', 'wb'),
