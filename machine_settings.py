@@ -7,14 +7,14 @@ import os
 hostname = os.getenv('HOSTNAME')
 
 extra_compile_args = ['-mtune=native', '-ffast-math', '-std=c++11']
-extra_libraries = []
+extra_libraries = ['hdf5_cpp', 'hdf5']
 
 if hostname == 'chichi-G':
     include_dirs = ['/usr/local/include',
                     '/usr/include/mpich']
     library_dirs = ['/usr/local/lib'
                     '/usr/lib/mpich']
-    extra_libraries = ['mpich']
+    extra_libraries += ['mpich']
 
 if hostname in ['frontend01', 'frontend02']:
     include_dirs = ['/usr/nld/mvapich2-1.9a2-gcc/include',
@@ -26,7 +26,7 @@ if hostname in ['frontend01', 'frontend02']:
                     '/usr/nld/gcc-4.7.2/lib64',
                     '/usr/nld/fftw-3.3.3-mvapich2-1.9a2-gcc/lib',
                     '/usr/nld/fftw-3.3.3-float-mvapich2-1.9a2-gcc/lib']
-    extra_libraries = ['mpich']
+    extra_libraries += ['mpich']
 
 if hostname == 'tolima':
     local_install_dir = '/scratch.local/chichi/installs'

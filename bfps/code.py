@@ -41,6 +41,7 @@ class code(base):
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include <iostream>
+                #include <H5Cpp.h>
                 #include <fftw3-mpi.h>
                 //endcpp
                 """

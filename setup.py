@@ -89,7 +89,7 @@ libbfps = Extension(
 setup(
         name = 'bfps',
         packages = ['bfps'],
-        install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
+        install_requires = ['numpy>=1.8', 'matplotlib>=1.3', 'h5py>=2.2.1'],
         ext_modules = [libbfps],
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'install_info.pickle']},
