@@ -62,7 +62,6 @@ class base(object):
                  + 'H5::StrType strdtype(0, H5T_VARIABLE);\n'
                  + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
                  + 'std::string tempstr;')
-        #src_txt += 'std::cerr << fname << std::endl;\n'
         for i in range(len(key)):
             src_txt += 'dset = par_file.openDataSet("parameters/{0}");\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
@@ -98,25 +97,15 @@ class base(object):
     def write_par(self):
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
-        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w')
+        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             ofile['parameters/' + k] = self.parameters[k]
         ofile.close()
         return None
     def read_parameters(self):
-        def read_value(s):
-            try:
-                return int(s)
-            except ValueError:
-                try:
-                    return float(s)
-                except ValueError:
-                    return str(s)
-        ifile = open(os.path.join(self.work_dir, self.simname + '_pars.txt'), 'r')
-        for line in ifile:
-            a = line.split()
-            if len(a)==3 and a[1] == '=':
-                self.parameters[a[0]] = read_value(a[2])
+        ifile = open(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
+        for k in ifile['parameters'].keys():
+            self.parameters[k] = ifile['parameters/' + k].value
         ifile.close()
         return None
     def get_coord(self, direction):
