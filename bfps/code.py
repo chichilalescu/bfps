@@ -131,16 +131,16 @@ class code(base):
             hours = 1,
             minutes = 0,
             njobs = 1):
-        if self.compile_code() == 0:
-            current_dir = os.getcwd()
-            if not os.path.isdir(self.work_dir):
-                os.makedirs(self.work_dir)
-            if self.work_dir != './':
-                shutil.copy(self.name, self.work_dir)
-            os.chdir(self.work_dir)
-            with open(self.name + '_version_info.txt', 'w') as outfile:
-                outfile.write(self.version_message)
-            os.chdir(current_dir)
+        assert(self.compile_code() == 0)
+        current_dir = os.getcwd()
+        if not os.path.isdir(self.work_dir):
+            os.makedirs(self.work_dir)
+        if self.work_dir != './':
+            shutil.copy(self.name, self.work_dir)
+        os.chdir(self.work_dir)
+        with open(self.name + '_version_info.txt', 'w') as outfile:
+            outfile.write(self.version_message)
+        os.chdir(current_dir)
         command_atoms = ['mpirun',
                          '-np',
                          '{0}'.format(ncpu),
