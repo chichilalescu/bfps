@@ -143,6 +143,7 @@ def double(opt):
     c.parameters['dst_nz'] = 2*opt.n
     c.parameters['dst_simname'] = new_simname
     c.write_src()
+    c.set_host_info({'type' : 'pc'})
     if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
         os.mkdir(os.path.join(opt.work_dir, 'resize'))
     c.write_par(simname = old_simname)
@@ -192,6 +193,7 @@ def NSlaunch(
     c.finalize_code()
     c.write_src()
     c.write_par(simname = c.simname)
+    c.set_host_info({'type' : 'pc'})
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             np.array([0.0]).tofile(
@@ -204,10 +206,10 @@ def NSlaunch(
                         write_to_file = True,
                         testing = True,
                         rseed = 3284)
-        for nrun in range(opt.njobs):
-            c.run(ncpu = opt.ncpu,
-                  simname = 'test',
-                  iter0 = opt.iteration + nrun*opt.nsteps)
+        c.run(ncpu = opt.ncpu,
+              simname = 'test',
+              iter0 = opt.iteration,
+              njobs = opt.njobs)
     return c
 
 def convergence_test(opt):
@@ -244,6 +246,7 @@ def convergence_test(opt):
     # get real space fields
     converter = bfps.fluid_converter()
     converter.write_src()
+    converter.set_host_info({'type' : 'pc'})
     for c in [c0, c1, c2]:
         converter.work_dir = c.work_dir
         converter.simname = c.simname + '_converter'

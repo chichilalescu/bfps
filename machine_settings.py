@@ -14,6 +14,7 @@ if hostname == 'chichi-G':
                     '/usr/include/mpich']
     library_dirs = ['/usr/local/lib'
                     '/usr/lib/mpich']
+    extra_libraries = ['mpich']
 
 if hostname in ['frontend01', 'frontend02']:
     include_dirs = ['/usr/nld/mvapich2-1.9a2-gcc/include',
