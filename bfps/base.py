@@ -23,14 +23,18 @@
 import os
 
 class base(object):
-    def __init__(self):
+    def __init__(
+            self,
+            work_dir = './',
+            simname = 'test'):
         self.iorank = 0
         ### simulation parameters
         self.parameters = {'nx' : 32,
                            'ny' : 32,
                            'nz' : 32}
         self.string_length = 512
-        self.work_dir = './'
+        self.work_dir = work_dir
+        self.simname = simname
         return None
     def cdef_pars(self):
         key = self.parameters.keys()
@@ -96,8 +100,8 @@ class base(object):
             else:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %le\\n", ' + key[i] + ');\n'
         return src_txt
-    def write_par(self, simname = 'test'):
-        filename = simname + '_pars.txt'
+    def write_par(self):
+        filename = self.simname + '_pars.txt'
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
         ofile = open(os.path.join(self.work_dir, filename), 'w')
@@ -110,7 +114,7 @@ class base(object):
                 ofile.write('{0} = {1}\n'.format(key[i], self.parameters[key[i]]))
         ofile.close()
         return None
-    def read_par(self, simname = 'test'):
+    def read_parameters(self):
         def read_value(s):
             try:
                 return int(s)
@@ -119,7 +123,7 @@ class base(object):
                     return float(s)
                 except ValueError:
                     return str(s)
-        ifile = open(simname + '_pars.txt', 'r')
+        ifile = open(os.path.join(self.work_dir, self.simname + '_pars.txt'), 'r')
         for line in ifile:
             a = line.split()
             if len(a)==3 and a[1] == '=':

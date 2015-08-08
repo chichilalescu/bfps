@@ -32,7 +32,10 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
             name = 'fluid_converter',
             work_dir = './',
             simname = 'test'):
-        super(fluid_converter, self).__init__(name = name, work_dir = work_dir, simname = simname)
+        super(fluid_converter, self).__init__(
+                name = name,
+                work_dir = work_dir,
+                simname = simname)
         self.parameters['write_rvelocity']  = 1
         self.parameters['write_rvorticity'] = 1
         self.parameters['fluid_name'] = 'test'

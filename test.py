@@ -30,7 +30,7 @@ import pickle
 import os
 
 import bfps
-from bfps.resize import vorticity_resize
+from bfps import fluid_resize
 
 def Kolmogorov_flow_test_broken(opt):
     c = convergence_test(name = 'Kflow_test')
@@ -52,9 +52,9 @@ def Kolmogorov_flow_test_broken(opt):
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
         c.write_src()
-        c.write_par(simname = 'test')
+        c.write_par()
         Kdata0.tofile("test_cvorticity_i00000")
-        c.run(ncpu = opt.ncpu, simname = 'test')
+        c.run(ncpu = opt.ncpu)
         Rdata = np.fromfile(
                 'test_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
@@ -71,23 +71,19 @@ def Kolmogorov_flow_test_broken(opt):
     fig = plt.figure(figsize=(12, 12))
     a = fig.add_subplot(221)
     c.plot_vel_cut(a,
-            simname = 'test',
             field = 'velocity',
             iteration = 0)
     a = fig.add_subplot(222)
     a.set_axis_off()
     c.plot_vel_cut(a,
-            simname = 'test',
             field = 'vorticity',
             iteration = 0)
     a = fig.add_subplot(223)
     ufin = c.plot_vel_cut(a,
-            simname = 'test',
             field = 'velocity',
             iteration = stats.shape[0]-1)
     a = fig.add_subplot(224)
     vfin = c.plot_vel_cut(a,
-            simname = 'test',
             field = 'vorticity',
             iteration = stats.shape[0]-1)
     fig.savefig('field_cut.pdf', format = 'pdf')
@@ -134,7 +130,9 @@ def Kolmogorov_flow_test_broken(opt):
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = vorticity_resize(work_dir = opt.work_dir + '/resize')
+    c = fluid_resize(
+            work_dir = opt.work_dir + '/resize',
+            simname = old_simname)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -146,13 +144,14 @@ def double(opt):
     c.set_host_info({'type' : 'pc'})
     if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
         os.mkdir(os.path.join(opt.work_dir, 'resize'))
-    c.write_par(simname = old_simname)
+    c.write_par()
     cp_command = ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
             opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
     subprocess.call([cp_command], shell = True)
     c.run(ncpu = opt.ncpu,
-          simname = old_simname,
-          iter0 = opt.iteration)
+          iter0 = opt.iteration,
+          err_file = 'err_' + old_simname + '_' + new_simname,
+          out_file = 'out_' + old_simname + '_' + new_simname)
     if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
         os.mkdir(os.path.join(opt.work_dir, new_simname))
     cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
@@ -192,7 +191,7 @@ def NSlaunch(
         c.add_particles(integration_steps = 6)
     c.finalize_code()
     c.write_src()
-    c.write_par(simname = c.simname)
+    c.write_par()
     c.set_host_info({'type' : 'pc'})
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
@@ -207,7 +206,6 @@ def NSlaunch(
                         testing = True,
                         rseed = 3284)
         c.run(ncpu = opt.ncpu,
-              simname = 'test',
               iter0 = opt.iteration,
               njobs = opt.njobs)
     return c
@@ -255,11 +253,10 @@ def convergence_test(opt):
                 converter.parameters[key] = c.parameters[key]
         converter.parameters['fluid_name'] = c.simname
         converter.parameters['niter_todo'] = 0
-        converter.write_par(simname = converter.simname)
+        converter.write_par()
         converter.run(
                 ncpu = 2,
-                iter0 = c.parameters['niter_todo'],
-                simname = converter.simname)
+                iter0 = c.parameters['niter_todo'])
         c.transpose_frame(iteration = c.parameters['niter_todo'])
     # read data
     c0.compute_statistics()
@@ -412,9 +409,8 @@ if __name__ == '__main__':
     if opt.io:
         c = bfps.test_io(work_dir = opt.work_dir + '/test_io')
         c.write_src()
-        c.write_par(simname = c.simname)
+        c.write_par()
         c.set_host_info({'type' : 'pc'})
         c.run(ncpu = opt.ncpu,
-              simname = c.simname,
               iter0 = opt.iteration)
 

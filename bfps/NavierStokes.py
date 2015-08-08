@@ -32,7 +32,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             name = 'NavierStokes',
             work_dir = './',
             simname = 'test'):
-        super(NavierStokes, self).__init__(name = name, work_dir = work_dir, simname = simname)
+        super(NavierStokes, self).__init__(
+                name = name,
+                work_dir = work_dir,
+                simname = simname)
         self.fill_up_fluid_code()
         self.style = {}
         return None
@@ -379,13 +382,12 @@ def launch(
         c.add_particles(kcut = 'fs->kM/2')
     c.finalize_code()
     c.write_src()
-    c.write_par(simname = c.simname)
+    c.write_par()
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             c.generate_initial_condition()
         for nrun in range(opt.njobs):
             c.run(ncpu = opt.ncpu,
-                  simname = 'test',
                   iter0 = opt.iteration + nrun*opt.nsteps)
     return c
 

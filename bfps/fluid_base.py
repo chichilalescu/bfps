@@ -32,11 +32,11 @@ class fluid_particle_base(bfps.code):
             name = 'solver',
             work_dir = './',
             simname = 'test'):
-        super(fluid_particle_base, self).__init__()
-        self.work_dir = work_dir
-        self.simname = simname
-        self.particle_species = 0
+        super(fluid_particle_base, self).__init__(
+                work_dir = work_dir,
+                simname = simname)
         self.name = name
+        self.particle_species = 0
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
@@ -87,19 +87,6 @@ class fluid_particle_base(bfps.code):
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
-        return None
-    def read_parameters(
-            self,
-            simname = None,
-            work_dir = None):
-        if not type(simname) == type(None):
-            self.simname = simname
-        if not type(work_dir) == type(None):
-            self.work_dir = work_dir
-        current_dir = os.getcwd()
-        os.chdir(self.work_dir)
-        self.read_par(self.simname)
-        os.chdir(current_dir)
         return None
     def read_rfield(
             self,
