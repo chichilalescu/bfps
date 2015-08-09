@@ -149,7 +149,6 @@ def double(opt):
             opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
     subprocess.call([cp_command], shell = True)
     c.run(ncpu = opt.ncpu,
-          iter0 = opt.iteration,
           err_file = 'err_' + old_simname + '_' + new_simname,
           out_file = 'out_' + old_simname + '_' + new_simname)
     if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
@@ -206,7 +205,6 @@ def NSlaunch(
                         testing = True,
                         rseed = 3284)
         c.run(ncpu = opt.ncpu,
-              iter0 = opt.iteration,
               njobs = opt.njobs)
     return c
 
@@ -255,8 +253,7 @@ def convergence_test(opt):
         converter.parameters['niter_todo'] = 0
         converter.write_par()
         converter.run(
-                ncpu = 2,
-                iter0 = c.parameters['niter_todo'])
+                ncpu = 2)
         c.transpose_frame(iteration = c.parameters['niter_todo'])
     # read data
     c0.compute_statistics()
@@ -460,6 +457,5 @@ if __name__ == '__main__':
         c.write_src()
         c.write_par()
         c.set_host_info({'type' : 'pc'})
-        c.run(ncpu = opt.ncpu,
-              iter0 = opt.iteration)
+        c.run(ncpu = opt.ncpu)
 

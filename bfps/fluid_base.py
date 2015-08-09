@@ -79,7 +79,7 @@ class fluid_particle_base(bfps.code):
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
-        self.main       += 'for (int iteration = iter0; iteration < iter0 + niter_todo; iteration++)\n{\n'
+        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
         if self.particle_species > 0:
             self.main   += self.particle_loop
         self.main       += self.fluid_loop

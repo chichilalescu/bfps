@@ -121,13 +121,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->fk0 = fk0;
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
-                fs->iteration = iter0;
+                fs->iteration = iteration;
                 fs->read('v', 'c');
                 if (myrank == 0)
                 {
                     sprintf(fname, "%s_stats.bin", simname);
                     stat_file = fopen(fname, "ab");
-                    sprintf(fname, "%s_time_i%.5x", simname, iter0);
+                    sprintf(fname, "%s_time_i%.5x", simname, iteration);
                     FILE *time_file = fopen(fname, "rb");
                     fread((void*)&t, sizeof(double), 1, time_file);
                     fclose(time_file);
@@ -184,7 +184,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                     'nparticles, neighbours{0}, smoothness{0}, integration_steps{0},\n' +
                                     'fs->ru);\n' +
                                 'ps{0}->dt = dt;\n' +
-                                'ps{0}->iteration = iter0;\n' +
+                                'ps{0}->iteration = iteration;\n' +
                                 update_field +
                                 'ps{0}->read();\n' +
                                 'if (myrank == 0)\n' +
@@ -386,9 +386,7 @@ def launch(
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             c.generate_initial_condition()
-        for nrun in range(opt.njobs):
-            c.run(ncpu = opt.ncpu,
-                  iter0 = opt.iteration + nrun*opt.nsteps)
+        c.run(ncpu = opt.ncpu, njobs = opt.njobs)
     return c
 
 def test(opt):

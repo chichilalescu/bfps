@@ -58,7 +58,7 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                         dst_simname,
                         dst_nx, dst_ny, dst_nz,
                         dst_dkx, dst_dky, dst_dkz);
-                fs0->iteration = iter0;
+                fs0->iteration = iteration;
                 fs1->iteration = 0;
                 fs0->read('v', 'c');
                 double a, b;

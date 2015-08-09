@@ -57,13 +57,12 @@ class base(object):
                  + '\n{\n'
                  + 'char fname[{0}];\n'.format(self.string_length)
                  + 'sprintf(fname, "%s.h5", simname);\n'
-                 + 'H5::H5File par_file(fname, H5F_ACC_RDONLY);\n'
                  + 'H5::DataSet dset;\n'
                  + 'H5::StrType strdtype(0, H5T_VARIABLE);\n'
                  + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
                  + 'std::string tempstr;')
         for i in range(len(key)):
-            src_txt += 'dset = par_file.openDataSet("parameters/{0}");\n'.format(key[i])
+            src_txt += 'dset = data_file.openDataSet("parameters/{0}");\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
                 src_txt += 'dset.read(&{0}, H5::PredType::NATIVE_INT);\n'.format(key[i])
             elif type(self.parameters[key[i]]) == str:
@@ -100,13 +99,13 @@ class base(object):
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             ofile['parameters/' + k] = self.parameters[k]
+        ofile['iteration'] = int(0)
         ofile.close()
         return None
     def read_parameters(self):
-        ifile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
-        for k in ifile['parameters'].keys():
-            self.parameters[k] = ifile['parameters/' + k].value
-        ifile.close()
+        self.data_file = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
+        for k in self.data_file['parameters'].keys():
+            self.parameters[k] = self.data_file['parameters/' + k].value
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')

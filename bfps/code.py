@@ -42,12 +42,15 @@ class code(base):
                 #include "fluid_solver.hpp"
                 #include <iostream>
                 #include <H5Cpp.h>
+                #include <string>
                 #include <fftw3-mpi.h>
                 //endcpp
                 """
         self.variables = 'int myrank, nprocs;\n'
-        self.variables += 'int iter0;\n'
+        self.variables += 'int iteration;\n'
         self.variables += 'char simname[256];\n'
+        self.variables += ('H5::H5File data_file;\n' +
+                           'H5::DataSet H5dset;\n')
         self.definitions = ''
         self.main_start = """
                 //begincpp
@@ -56,7 +59,7 @@ class code(base):
                     MPI_Init(&argc, &argv);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-                    if (argc != 3)
+                    if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
                         MPI_Finalize();
@@ -65,10 +68,10 @@ class code(base):
                     else
                     {
                         strcpy(simname, argv[1]);
-                        iter0 = atoi(argv[2]);
-                        std::cerr << "myrank = " << myrank <<
-                                     ", simulation name is " << simname <<
-                                     " and iter0 is " << iter0 << std::endl;
+                        data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        H5dset = data_file.openDataSet("iteration");
+                        H5dset.read(&iteration, H5::PredType::NATIVE_INT);
+                        DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
                     }
                     read_parameters();
                 //endcpp
@@ -78,6 +81,9 @@ class code(base):
         self.main_end = """
                 //begincpp
                     // clean up
+                    H5dset = data_file.openDataSet("iteration");
+                    H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                    data_file.close();
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
                     MPI_Finalize();
@@ -128,12 +134,13 @@ class code(base):
         return None
     def run(self,
             ncpu = 2,
-            iter0 = 0,
             out_file = 'out_file',
             err_file = 'err_file',
             hours = 1,
             minutes = 0,
             njobs = 1):
+        self.read_parameters()
+        iter0 = self.data_file['iteration'].value
         assert(self.compile_code() == 0)
         current_dir = os.getcwd()
         if not os.path.isdir(self.work_dir):
@@ -148,8 +155,7 @@ class code(base):
                          '-np',
                          '{0}'.format(ncpu),
                          './' + self.name,
-                         self.simname,
-                         '{0}'.format(iter0)]
+                         self.simname]
         if self.host_info['type'] == 'cluster':
             job_name_list = []
             for j in range(njobs):
@@ -175,7 +181,6 @@ class code(base):
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
             for j in range(njobs):
-                command_atoms[-1] = '{0}'.format(iter0 + j*self.parameters['niter_todo'])
                 subprocess.call(command_atoms,
                                 stdout = open(out_file + '_' + self.simname, 'w'),
                                 stderr = open(err_file + '_' + self.simname, 'w'))

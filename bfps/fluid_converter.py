@@ -65,7 +65,7 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                         fluid_name,
                         nx, ny, nz,
                         dkx, dky, dkz);
-                fs->iteration = iter0;
+                fs->iteration = iteration;
                 do_conversion(fs);
                 //endcpp
                 """
