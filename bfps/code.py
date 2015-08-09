@@ -174,9 +174,11 @@ class code(base):
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
-            subprocess.call(command_atoms,
-                            stdout = open(out_file + '_' + self.simname, 'w'),
-                            stderr = open(err_file + '_' + self.simname, 'w'))
+            for j in range(njobs):
+                command_atoms[-1] = '{0}'.format(iter0 + j*self.parameters['niter_todo'])
+                subprocess.call(command_atoms,
+                                stdout = open(out_file + '_' + self.simname, 'w'),
+                                stderr = open(err_file + '_' + self.simname, 'w'))
             os.chdir(current_dir)
         return None
     def write_sge_file(

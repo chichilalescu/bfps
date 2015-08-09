@@ -350,7 +350,7 @@ def convergence_test(opt):
                                              (2*np.pi / c.parameters['nx'])),
                dashes = c.style['dashes'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    fig.savefig('stats.pdf', format = 'pdf')
+    fig.savefig('convergence_stats.pdf', format = 'pdf')
     ## particle test:
     # compute distance between final positions for species 1
     def get_traj_error(species):
@@ -383,6 +383,58 @@ def convergence_test(opt):
         fig.savefig('traj_N{0:0>3x}.pdf'.format(c.parameters['nx'], format = 'pdf'))
     return None
 
+def plain(opt):
+    wd = opt.work_dir
+    opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
+    c0 = NSlaunch(opt)
+    c0.compute_statistics()
+    opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
+    opt.njobs *= 2
+    opt.nsteps /= 2
+    c1 = NSlaunch(opt)
+    c1.compute_statistics()
+    # plot energy and enstrophy
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(221)
+    c0.set_plt_style({'label' : '1',
+                      'dashes' : (None, None),
+                      'color' : (1, 0, 0)})
+    c1.set_plt_style({'label' : '2',
+                      'dashes' : (2, 2),
+                      'color' : (0, 0, 1)})
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['energy(t)'],
+               label = c.style['label'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('energy')
+    a.legend(loc = 'best')
+    a = fig.add_subplot(222)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['enstrophy(t)'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('enstrophy')
+    a = fig.add_subplot(223)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['kM']*c.statistics['etaK(t)'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('$k_M \\eta_K$')
+    a = fig.add_subplot(224)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['vel_max(t)'] * (c.parameters['dt'] * c.parameters['dkx'] /
+                                             (2*np.pi / c.parameters['nx'])),
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    fig.savefig('plain_stats.pdf', format = 'pdf')
+    return None
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--particles', dest = 'particles', action = 'store_true')
@@ -402,10 +454,7 @@ if __name__ == '__main__':
     if opt.convergence:
         convergence_test(opt)
     if opt.plain:
-        opt.work_dir += '/N{0:0>3x}'.format(opt.n)
-        c0 = NSlaunch(opt)
-        c0.compute_statistics()
-        c0.basic_plots()
+        plain(opt)
     if opt.io:
         c = bfps.test_io(work_dir = opt.work_dir + '/test_io')
         c.write_src()
