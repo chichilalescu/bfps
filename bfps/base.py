@@ -103,7 +103,7 @@ class base(object):
         ofile.close()
         return None
     def read_parameters(self):
-        ifile = open(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
+        ifile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
         for k in ifile['parameters'].keys():
             self.parameters[k] = ifile['parameters/' + k].value
         ifile.close()
