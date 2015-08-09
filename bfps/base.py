@@ -53,10 +53,6 @@ class base(object):
         key = self.parameters.keys()
         key.sort()
         src_txt = ('int read_parameters()\n{\n'
-                 + 'if (myrank == {0})'.format(self.iorank)
-                 + '\n{\n'
-                 + 'char fname[{0}];\n'.format(self.string_length)
-                 + 'sprintf(fname, "%s.h5", simname);\n'
                  + 'H5::DataSet dset;\n'
                  + 'H5::StrType strdtype(0, H5T_VARIABLE);\n'
                  + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
@@ -70,15 +66,6 @@ class base(object):
                             'sprintf({0}, "%s", tempstr.c_str());\n').format(key[i])
             else:
                 src_txt += 'dset.read(&{0}, H5::PredType::NATIVE_DOUBLE);\n'.format(key[i])
-        src_txt += '}\n' # finishing if myrank == 0
-        # now broadcasting values to all ranks
-        for i in range(len(key)):
-            if type(self.parameters[key[i]]) == int:
-                src_txt += 'MPI_Bcast((void*)(&' + key[i] + '), 1, MPI_INTEGER, {0}, MPI_COMM_WORLD);\n'.format(self.iorank)
-            elif type(self.parameters[key[i]]) == str:
-                src_txt += 'MPI_Bcast((void*)(' + key[i] + '), {0}, MPI_CHAR, {1}, MPI_COMM_WORLD);\n'.format(self.string_length, self.iorank)
-            else:
-                src_txt += 'MPI_Bcast((void*)(&' + key[i] + '), 1, MPI_DOUBLE, {0}, MPI_COMM_WORLD);\n'.format(self.iorank)
         src_txt += 'return 0;\n}\n' # finishing read_parameters
         return src_txt
     def cprint_pars(self):

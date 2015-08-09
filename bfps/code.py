@@ -81,8 +81,11 @@ class code(base):
         self.main_end = """
                 //begincpp
                     // clean up
-                    H5dset = data_file.openDataSet("iteration");
-                    H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                    if (myrank == 0)
+                    {
+                        H5dset = data_file.openDataSet("iteration");
+                        H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                    }
                     data_file.close();
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();

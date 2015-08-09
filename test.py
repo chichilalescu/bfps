@@ -175,6 +175,7 @@ def NSlaunch(
         c.parameters['nu'] = nu
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
+    c.parameters['niter_out'] = opt.nsteps
     c.parameters['niter_stat'] = 1
     c.parameters['niter_spec'] = 4
     c.parameters['niter_part'] = 2
@@ -250,7 +251,6 @@ def convergence_test(opt):
             if key in c.parameters.keys():
                 converter.parameters[key] = c.parameters[key]
         converter.parameters['fluid_name'] = c.simname
-        converter.parameters['niter_todo'] = 0
         converter.write_par()
         converter.run(
                 ncpu = 2)

@@ -72,6 +72,11 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
         self.fluid_loop += """
                 //begincpp
                 fs->iteration++;
+                DEBUG_MSG(
+                        "iteration is %d, fsiteration is %d, niter_out is %d\\n",
+                        iteration,
+                        fs->iteration,
+                        niter_out);
                 if (fs->iteration % niter_out == 0)
                     do_conversion(fs);
                 //endcpp
