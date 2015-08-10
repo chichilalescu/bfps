@@ -54,7 +54,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         hsize_t maxdims[2];
                         try
                         {
-                            H5::Exception::dontPrint();
+                            //H5::Exception::dontPrint();
                             H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
                             hsize_t old_dims[2];
                             H5::DataSet dset = data_file.openDataSet("/statistics/maximum_velocity");
@@ -95,7 +95,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 }
                 void do_stats(fluid_solver<float> *fsolver)
                 {
-                    if (fsolver->iteration % niter_stat == 0)
                     {
                         double vel_tmp, val_tmp;
                         fsolver->compute_velocity(fsolver->cvorticity);
@@ -123,8 +122,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         if (myrank == 0)
                         {
                             H5::DataSet dset;
-                            //dset = data_file.openDataSet("statistics/maximum_velocity");
-                            //dset.write(stats+2, H5::PredType::NATIVE_DOUBLE);
+                            H5::DataSpace memspace, writespace;
+                            hsize_t count[2], offset[2], dims[2];
+                            dset = data_file.openDataSet("statistics/maximum_velocity");
+                            writespace = dset.getSpace();
+                            count[0] = 1;
+                            offset[0] = iteration;
+                            memspace = H5::DataSpace(1, count);
+                            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                            dset.write(stats+2, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                             fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                             fwrite((void*)&t, sizeof(double), 1, stat_file);
                             fwrite((void*)stats, sizeof(double), 4, stat_file);
