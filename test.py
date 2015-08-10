@@ -430,6 +430,16 @@ def plain(opt):
                color = c.style['color'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
+    fig = plt.figure(figsize=(6, 6))
+    a = fig.add_subplot(111)
+    c0.plot_spectrum(a, average = False)
+    data_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r')
+    for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
+        a.plot(c0.statistics['k'], data_file['statistics/spectrum_velocity'][i], dashes = (2, 2))
+        print data_file['statistics/spectrum_velocity'][i]
+    a.set_xscale('log')
+    a.set_yscale('log')
+    fig.savefig('h5spec_vs_binspec.pdf', format = 'pdf')
     return None
 
 if __name__ == '__main__':
