@@ -46,40 +46,50 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                  'FILE *stat_file;\n')
         self.fluid_definitions += """
                 //begincpp
-                void create_stats(fluid_solver<float> *fsolver)
-                {
-                    hsize_t dims[2];
-                    hsize_t maxdims[2];
-                    dims[0] = niter_todo+1;
-                    dims[1] = fsolver->nshells;
-                    maxdims[0] = H5S_UNLIMITED;
-                    maxdims[1] = dims[1];
-                    H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
-                    H5::DataSpace tfunc_dspace(1, dims, maxdims);
-                    H5::DataSpace tkfunc_dspace(2, dims, maxdims);
-                    H5::Group *group = new H5::Group(data_file.createGroup("/statistics"));
-                    H5::DSetCreatPropList cparms;
-                    hsize_t chunk_dims[2] = {1, dims[1]};
-                    cparms.setChunk(1, chunk_dims);
-                    double fill_val = 0;
-                    cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
-                    group->createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
-                    cparms.setChunk(2, chunk_dims);
-                    group->createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
-                    group->createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
-                }
                 void init_stats(fluid_solver<float> *fsolver)
                 {
                     if (myrank == 0)
                     {
+                        hsize_t dims[2];
+                        hsize_t maxdims[2];
                         try
                         {
                             H5::Exception::dontPrint();
                             H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                            hsize_t old_dims[2];
+                            H5::DataSet dset = data_file.openDataSet("/statistics/maximum_velocity");
+                            H5::DataSpace dspace = dset.getSpace();
+                            dspace.getSimpleExtentDims(old_dims);
+                            dims[0] = niter_todo + old_dims[0];
+                            dset.extend(dims);
+                            dset = data_file.openDataSet("/statistics/spectrum_velocity");
+                            dspace = dset.getSpace();
+                            dspace.getSimpleExtentDims(old_dims);
+                            dims[0] = niter_todo + old_dims[0];
+                            dims[1] = old_dims[1];
+                            dset.extend(dims);
+                            dset = data_file.openDataSet("/statistics/spectrum_vorticity");
+                            dset.extend(dims);
                         }
                         catch (H5::FileIException)
                         {
-                            create_stats(fsolver);
+                            dims[0] = niter_todo+1;
+                            dims[1] = fsolver->nshells;
+                            maxdims[0] = H5S_UNLIMITED;
+                            maxdims[1] = dims[1];
+                            H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
+                            H5::DataSpace tfunc_dspace(1, dims, maxdims);
+                            H5::DataSpace tkfunc_dspace(2, dims, maxdims);
+                            H5::Group *group = new H5::Group(data_file.createGroup("/statistics"));
+                            H5::DSetCreatPropList cparms;
+                            hsize_t chunk_dims[2] = {1, dims[1]};
+                            cparms.setChunk(1, chunk_dims);
+                            double fill_val = 0;
+                            cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
+                            group->createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
+                            cparms.setChunk(2, chunk_dims);
+                            group->createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
+                            group->createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
                         }
                     }
                 }
