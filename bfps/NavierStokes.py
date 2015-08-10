@@ -127,7 +127,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                             dset = data_file.openDataSet("statistics/maximum_velocity");
                             writespace = dset.getSpace();
                             count[0] = 1;
-                            offset[0] = iteration;
+                            offset[0] = fsolver->iteration;
                             memspace = H5::DataSpace(1, count);
                             writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                             dset.write(stats+2, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
