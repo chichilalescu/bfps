@@ -46,6 +46,43 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                  'FILE *stat_file;\n')
         self.fluid_definitions += """
                 //begincpp
+                void create_stats(fluid_solver<float> *fsolver)
+                {
+                    hsize_t dims[2];
+                    hsize_t maxdims[2];
+                    dims[0] = niter_todo+1;
+                    dims[1] = fsolver->nshells;
+                    maxdims[0] = H5S_UNLIMITED;
+                    maxdims[1] = dims[1];
+                    H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
+                    H5::DataSpace tfunc_dspace(1, dims, maxdims);
+                    H5::DataSpace tkfunc_dspace(2, dims, maxdims);
+                    H5::Group *group = new H5::Group(data_file.createGroup("/statistics"));
+                    H5::DSetCreatPropList cparms;
+                    hsize_t chunk_dims[2] = {1, dims[1]};
+                    cparms.setChunk(1, chunk_dims);
+                    double fill_val = 0;
+                    cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
+                    group->createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
+                    cparms.setChunk(2, chunk_dims);
+                    group->createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
+                    group->createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
+                }
+                void init_stats(fluid_solver<float> *fsolver)
+                {
+                    if (myrank == 0)
+                    {
+                        try
+                        {
+                            H5::Exception::dontPrint();
+                            H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                        }
+                        catch (H5::FileIException)
+                        {
+                            create_stats(fsolver);
+                        }
+                    }
+                }
                 void do_stats(fluid_solver<float> *fsolver)
                 {
                     if (fsolver->iteration % niter_stat == 0)
@@ -75,6 +112,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         stats[3] = val_tmp;
                         if (myrank == 0)
                         {
+                            H5::DataSet dset;
+                            //dset = data_file.openDataSet("statistics/maximum_velocity");
+                            //dset.write(stats+2, H5::PredType::NATIVE_DOUBLE);
                             fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                             fwrite((void*)&t, sizeof(double), 1, stat_file);
                             fwrite((void*)stats, sizeof(double), 4, stat_file);
@@ -129,6 +169,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     stat_file = fopen(fname, "ab");
                 }
                 t = iteration*dt;
+                init_stats(fs);
                 do_stats(fs);
                 //endcpp
                 """
