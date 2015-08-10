@@ -267,9 +267,6 @@ class fluid_particle_base(bfps.code):
             traj[t] = traj_list[t]
         return traj
     def generate_initial_condition(self):
-        np.array([0.0]).tofile(
-                os.path.join(
-                        self.work_dir, self.simname + '_time_i00000'))
         self.generate_vector_field(write_to_file = True)
         for species in range(self.particle_species):
             self.generate_tracer_state(

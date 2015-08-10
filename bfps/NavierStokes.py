@@ -127,12 +127,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 {
                     sprintf(fname, "%s_stats.bin", simname);
                     stat_file = fopen(fname, "ab");
-                    sprintf(fname, "%s_time_i%.5x", simname, iteration);
-                    FILE *time_file = fopen(fname, "rb");
-                    fread((void*)&t, sizeof(double), 1, time_file);
-                    fclose(time_file);
                 }
-                MPI_Bcast((void*)&t, 1, MPI_DOUBLE, 0, fs->cd->comm);
+                t = iteration*dt;
                 do_stats(fs);
                 //endcpp
                 """
@@ -148,13 +144,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_end += """
                 //begincpp
                 if (myrank == 0)
-                {
                     fclose(stat_file);
-                    sprintf(fname, "%s_time_i%.5x", simname, fs->iteration);
-                    FILE *time_file = fopen(fname, "wb");
-                    fwrite((void*)&t, sizeof(double), 1, time_file);
-                    fclose(time_file);
-                }
                 if (fs->iteration % niter_out != 0)
                     fs->write('v', 'c');
                 delete fs;
