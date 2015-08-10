@@ -434,27 +434,21 @@ def plain(opt):
     fig = plt.figure(figsize=(12, 6))
     a = fig.add_subplot(121)
     c0.plot_spectrum(a, average = False)
-    stats0 = c0.read_stats()
     data_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r')
     nf = (c0.parameters['nu']**5*c0.statistics['diss'])**(-.25)
     for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
-        a.plot(c0.statistics['k']*c0.statistics['etaK'],
+        a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
                nf*data_file['statistics/spectrum_velocity'][i], dashes = (2, 2))
     a.set_xscale('log')
     a.set_yscale('log')
     a = fig.add_subplot(122)
     c0.plot_spectrum(a, field = 'vorticity', average = False, normalization = 'none')
     for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
-        a.plot(c0.statistics['k']*c0.statistics['etaK'],
-               data_file['statistics/spectrum_vorticity'][i], dashes = (2, 2))
+        a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
+               data_file['statistics/spectrum_vorticity'][i]/2, dashes = (2, 2))
     a.set_xscale('log')
     a.set_yscale('log')
     fig.savefig('h5spec_vs_binspec.pdf', format = 'pdf')
-    fig = plt.figure(figsize=(12,6))
-    a = fig.add_subplot(111)
-    a.plot(np.abs(stats0['renergy'] - np.sum(data_file['statistics/spectrum_velocity'][:]/2, axis=1)))
-    a.plot(np.abs(c0.statistics['energy(t)'] - np.sum(data_file['statistics/spectrum_velocity'][:]/2, axis=1)), dashes = (2,2))
-    fig.savefig('h5energy_vs_binenergy.pdf', format = 'pdf')
     return None
 
 if __name__ == '__main__':

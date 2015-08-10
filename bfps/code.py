@@ -22,7 +22,6 @@ import h5py
 import subprocess
 import os
 import shutil
-import pickle
 import bfps
 from bfps.base import base
 

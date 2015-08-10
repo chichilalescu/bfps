@@ -22,7 +22,6 @@ import bfps
 import bfps.code
 import bfps.tools
 import numpy as np
-import pickle
 import os
 import matplotlib.pyplot as plt
 
@@ -245,11 +244,6 @@ class fluid_particle_base(bfps.code):
                     self.simname + '_' + field + '_spec'),
                 dtype = spec_dtype)
         return k, spec
-    def read_stats(self):
-        dtype = pickle.load(open(
-                os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
-        return np.fromfile(os.path.join(self.work_dir, self.simname + '_stats.bin'),
-                           dtype = dtype)
     def read_traj(self):
         if self.particle_species == 0:
             return None
