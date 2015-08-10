@@ -32,9 +32,10 @@ if hostname == 'tolima':
     local_install_dir = '/scratch.local/chichi/installs'
 
     include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
-                    '/usr/include/mpich',
                     os.path.join(local_install_dir, 'include')]
 
-    library_dirs = [os.path.join(local_install_dir, 'lib'),
+    library_dirs = ['/usr/lib64/mpi/gcc/openmpi/lib64',
+                    os.path.join(local_install_dir, 'lib'),
                     os.path.join(local_install_dir, 'lib64')]
+    extra_libraries += ['mpi_cxx', 'mpi']
 
