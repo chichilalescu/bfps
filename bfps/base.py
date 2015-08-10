@@ -90,9 +90,9 @@ class base(object):
         ofile.close()
         return None
     def read_parameters(self):
-        self.data_file = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
-        for k in self.data_file['parameters'].keys():
-            self.parameters[k] = self.data_file['parameters/' + k].value
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
+            for k in data_file['parameters'].keys():
+                self.parameters[k] = data_file['parameters/' + k].value
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')

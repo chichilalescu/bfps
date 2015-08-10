@@ -119,6 +119,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         stats[3] /= fsolver->normalization_factor;
                         MPI_Allreduce((void*)(stats + 3), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fsolver->rd->comm);
                         stats[3] = val_tmp;
+                        double *spec_velocity = fftw_alloc_real(fsolver->nshells);
+                        double *spec_vorticity = fftw_alloc_real(fsolver->nshells);
+                        fsolver->cospectrum(fsolver->cvelocity, fsolver->cvelocity, spec_velocity);
+                        fsolver->cospectrum(fsolver->cvorticity, fsolver->cvorticity, spec_vorticity);
                         if (myrank == 0)
                         {
                             H5::DataSet dset;
@@ -131,10 +135,25 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                             memspace = H5::DataSpace(1, count);
                             writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                             dset.write(stats+2, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                            dset = data_file.openDataSet("statistics/spectrum_velocity");
+                            writespace = dset.getSpace();
+                            count[0] = 1;
+                            count[1] = fsolver->nshells;
+                            memspace = H5::DataSpace(2, count);
+                            offset[0] = fsolver->iteration;
+                            offset[1] = 0;
+                            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                            dset.write(spec_velocity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                            dset = data_file.openDataSet("statistics/spectrum_vorticity");
+                            writespace = dset.getSpace();
+                            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                            dset.write(spec_vorticity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                             fwrite((void*)&fsolver->iteration, sizeof(int), 1, stat_file);
                             fwrite((void*)&t, sizeof(double), 1, stat_file);
                             fwrite((void*)stats, sizeof(double), 4, stat_file);
                         }
+                        fftw_free(spec_velocity);
+                        fftw_free(spec_vorticity);
                     }
                     if (fsolver->iteration % niter_spec == 0)
                     {

@@ -18,13 +18,13 @@
 #
 ########################################################################
 
-
-import bfps
-from bfps.base import base
+import h5py
 import subprocess
 import os
 import shutil
 import pickle
+import bfps
+from bfps.base import base
 
 class code(base):
     def __init__(
@@ -143,7 +143,8 @@ class code(base):
             minutes = 0,
             njobs = 1):
         self.read_parameters()
-        iter0 = self.data_file['iteration'].value
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
+            iter0 = data_file['iteration'].value
         assert(self.compile_code() == 0)
         current_dir = os.getcwd()
         if not os.path.isdir(self.work_dir):
