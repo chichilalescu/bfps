@@ -22,6 +22,7 @@
 
 import os
 import h5py
+import bfps
 
 class base(object):
     def __init__(
@@ -87,6 +88,8 @@ class base(object):
         for k in self.parameters.keys():
             ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(0)
+        for k in bfps.install_info.keys():
+            ofile['install_info/' + k] = str(bfps.install_info[k])
         ofile.close()
         return None
     def read_parameters(self):

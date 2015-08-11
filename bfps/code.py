@@ -151,8 +151,6 @@ class code(base):
         if self.work_dir != './':
             shutil.copy(self.name, self.work_dir)
         os.chdir(self.work_dir)
-        with open(self.name + '_version_info.txt', 'w') as outfile:
-            outfile.write(self.version_message)
         os.chdir(current_dir)
         command_atoms = ['mpirun',
                          '-np',
