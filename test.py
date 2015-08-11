@@ -157,9 +157,6 @@ def double(opt):
     cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
             opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
     subprocess.call([cp_command], shell = True)
-    np.array([0.0]).tofile(
-            os.path.join(
-                    opt.work_dir + '/' + new_simname, 'test_time_i00000'))
     return None
 
 def NSlaunch(
@@ -196,9 +193,6 @@ def NSlaunch(
     c.set_host_info({'type' : 'pc'})
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
-            np.array([0.0]).tofile(
-                    os.path.join(
-                            c.work_dir, c.simname + '_time_i00000'))
             c.generate_vector_field(write_to_file = True)
             for species in range(c.particle_species):
                 c.generate_tracer_state(
