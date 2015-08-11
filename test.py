@@ -184,6 +184,7 @@ def NSlaunch(
     c.add_particles(integration_steps = 4)
     c.add_particles(integration_steps = 5)
     c.add_particles(integration_steps = 6)
+    c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
     c.write_par()
@@ -422,9 +423,6 @@ def plain(opt):
                color = c.style['color'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
-
-    print c0.trajectories['iteration']
-    print c1.trajectories['iteration']
 
     # plot trajectory differences
     for i in range(c0.particle_species):

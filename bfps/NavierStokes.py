@@ -271,7 +271,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                       'chunk_dims[1] = dims[1];\n' +
                                       'cparms.setChunk(2, chunk_dims);\n' +
                                       'group.createDataSet("state", double_dtype, tmp_dspace, cparms);\n' +
-                                      'dims[0] = 2;\n' +
+                                      'dims[0] = 1;\n' +
                                       'dims[1] = integration_steps{0};\n'.format(self.particle_species) +
                                       'dims[2] = nparticles;\n' +
                                       'maxdims[1] = dims[1];\n' +
