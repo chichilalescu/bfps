@@ -343,7 +343,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def plot_spectrum(
             self,
             axis,
-            field = 'velocity',
+            quantity = 'energy',
             average = True,
             color = (1, 0, 0),
             cmap = 'coolwarm',
@@ -361,14 +361,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         if average:
             axis.plot(
                     k,
-                    self.statistics['energy(k)'].value*norm_factor,
+                    self.statistics[quantity + '(k)']*norm_factor,
                     color = color,
                     label = label)
         else:
-            for i in range(self.statistics['energy(t, k)'].shape[0]):
+            for i in range(self.statistics[quantity + '(t, k)'].shape[0]):
                 axis.plot(k,
-                          self.statistics['energy(t, k)'][i]*norm_factor,
-                          color = plt.get_cmap(cmap)(i*1.0/self.statistics['energy(t, k)'].shape[0]))
+                          self.statistics[quantity + '(t, k)'][i]*norm_factor,
+                          color = plt.get_cmap(cmap)(i*1.0/self.statistics[quantity + '(t, k)'].shape[0]))
         if add_Kspec:
             axis.plot(
                     k,

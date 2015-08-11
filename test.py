@@ -438,11 +438,11 @@ def plain(opt):
     nf = (c0.parameters['nu']**5*c0.statistics['diss'])**(-.25)
     for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
         a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
-               nf*data_file['statistics/spectrum_velocity'][i], dashes = (2, 2))
+               nf*data_file['statistics/spectrum_velocity'][i]/2, dashes = (2, 2))
     a.set_xscale('log')
     a.set_yscale('log')
     a = fig.add_subplot(122)
-    c0.plot_spectrum(a, field = 'vorticity', average = False, normalization = 'none')
+    c0.plot_spectrum(a, quantity = 'enstrophy', average = False, normalization = 'none')
     for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
         a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
                data_file['statistics/spectrum_vorticity'][i]/2, dashes = (2, 2))
