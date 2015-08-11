@@ -44,98 +44,142 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
+        self.create_file_datasets = """
+                //begincpp
+                H5::DataSet dset;
+                H5::Group group;
+                H5::DataSpace tkfunc_dspace;
+                H5::DataSpace tfunc_dspace;
+                H5::DataSpace kfunc_dspace;
+                H5::DataSpace value_dspace;
+                H5::DataSpace kcomp_dspace;
+                hsize_t dims[2];
+                hsize_t maxdims[2];
+                H5::DSetCreatPropList cparms;
+                double fill_val = 0;
+                cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
+                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
+                H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
+
+                // first, generate the various data spaces that are to be used
+                dims[0] = niter_todo+1;
+                dims[1] = fs->nshells;
+                maxdims[0] = H5S_UNLIMITED;
+                maxdims[1] = dims[1];
+                tfunc_dspace  = H5::DataSpace(1, dims, maxdims);
+                tkfunc_dspace = H5::DataSpace(2, dims, maxdims);
+                dims[0] = fs->nshells;
+                kfunc_dspace  = H5::DataSpace(1, dims);
+                dims[0] = 1;
+                value_dspace   = H5::DataSpace(1, dims);
+
+                if (myrank == 0)
+                {
+                    // store the information about kspace
+                    group = data_file.createGroup("/kspace");
+                    group.createDataSet("kshell", double_dtype, kfunc_dspace);
+                    group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
+                    group.createDataSet("kM", double_dtype, value_dspace);
+                    group.createDataSet("dk", double_dtype, value_dspace);
+                    dset = data_file.openDataSet("/kspace/kshell");
+                    dset.write(fs->kshell, double_dtype);
+                    dset = data_file.openDataSet("/kspace/nshell");
+                    dset.write(fs->nshell, ptrdiff_t_dtype);
+                    dset = data_file.openDataSet("/kspace/kM");
+                    dset.write(&fs->kM, double_dtype);
+                    dset = data_file.openDataSet("/kspace/dk");
+                    dset.write(&fs->dk, double_dtype);
+                }
+
+                if (myrank == 0)
+                {
+                    // generate datasets for various statistics
+                    group = data_file.createGroup("/statistics");
+                    hsize_t chunk_dims[2] = {1, dims[1]};
+                    cparms.setChunk(1, chunk_dims);
+                    group.createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
+                    group.createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
+                    cparms.setChunk(2, chunk_dims);
+                    group.createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
+                    group.createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
+                }
+                //endcpp
+                """
+        self.grow_file_datasets = """
+                //begincpp
+                H5::DataSet dset;
+                hsize_t dims[2];
+                hsize_t old_dims[2];
+                dset = data_file.openDataSet("/statistics/maximum_velocity");
+                H5::DataSpace dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[0] = niter_todo + old_dims[0];
+                dset.extend(dims);
+                dset = data_file.openDataSet("/statistics/realspace_energy");
+                dset.extend(dims);
+                dset = data_file.openDataSet("/statistics/spectrum_velocity");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[0] = niter_todo + old_dims[0];
+                dims[1] = old_dims[1];
+                dset.extend(dims);
+                dset = data_file.openDataSet("/statistics/spectrum_vorticity");
+                dset.extend(dims);
+                //endcpp
+                """
+        self.fluid_definitions += ('void create_file_datasets()\n{\n' +
+                                   self.create_file_datasets +
+                                   '}\n')
+        self.fluid_definitions += ('void grow_file_datasets()\n{\n' +
+                                   self.grow_file_datasets +
+                                   '}\n')
         self.fluid_definitions += """
                 //begincpp
-                void init_stats(fluid_solver<float> *fsolver)
+                void init_stats()
                 {
-                    if (myrank == 0)
+                    try
                     {
-                        hsize_t dims[2];
-                        hsize_t maxdims[2];
-                        H5::DataSet dset;
-                        try
-                        {
-                            //H5::Exception::dontPrint();
-                            H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
-                            hsize_t old_dims[2];
-                            dset = data_file.openDataSet("/statistics/maximum_velocity");
-                            H5::DataSpace dspace = dset.getSpace();
-                            dspace.getSimpleExtentDims(old_dims);
-                            dims[0] = niter_todo + old_dims[0];
-                            dset.extend(dims);
-                            H5::DataSet dset = data_file.openDataSet("/statistics/realspace_energy");
-                            dset.extend(dims);
-                            dset = data_file.openDataSet("/statistics/spectrum_velocity");
-                            dspace = dset.getSpace();
-                            dspace.getSimpleExtentDims(old_dims);
-                            dims[0] = niter_todo + old_dims[0];
-                            dims[1] = old_dims[1];
-                            dset.extend(dims);
-                            dset = data_file.openDataSet("/statistics/spectrum_vorticity");
-                            dset.extend(dims);
-                        }
-                        catch (H5::FileIException)
-                        {
-                            dims[0] = niter_todo+1;
-                            dims[1] = fsolver->nshells;
-                            maxdims[0] = H5S_UNLIMITED;
-                            maxdims[1] = dims[1];
-                            H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
-                            H5::DataSpace tfunc_dspace(1, dims, maxdims);
-                            H5::DataSpace tkfunc_dspace(2, dims, maxdims);
-                            H5::Group *group = new H5::Group(data_file.createGroup("/statistics"));
-                            H5::DSetCreatPropList cparms;
-                            hsize_t chunk_dims[2] = {1, dims[1]};
-                            cparms.setChunk(1, chunk_dims);
-                            double fill_val = 0;
-                            cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
-                            group->createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
-                            group->createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
-                            cparms.setChunk(2, chunk_dims);
-                            group->createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
-                            group->createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
-                            dims[0] = fsolver->nshells;
-                            H5::DataSpace kfunc_dspace(1, dims);
-                            H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
-                            group->createDataSet("kshell", double_dtype, kfunc_dspace);
-                            group->createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
-                            dset = data_file.openDataSet("/statistics/kshell");
-                            dset.write(fsolver->kshell, H5::PredType::NATIVE_DOUBLE);
-                            dset = data_file.openDataSet("/statistics/nshell");
-                            dset.write(fsolver->nshell, H5::PredType::NATIVE_INT64);
-                        }
+                        //H5::Exception::dontPrint();
+                        H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                        if (myrank == 0)
+                            grow_file_datasets();
+                    }
+                    catch (H5::FileIException)
+                    {
+                        DEBUG_MSG("Please ignore above messages about no group in the file. I will create it now.\\n");
+                        create_file_datasets();
                     }
                 }
-                void do_stats(fluid_solver<float> *fsolver)
+                void do_stats()
                 {
                     double vel_tmp, val_tmp;
                     double max_vel, rspace_energy;
-                    fsolver->compute_velocity(fsolver->cvorticity);
-                    fsolver->ift_velocity();
-                    val_tmp = (fsolver->ru[0]*fsolver->ru[0] +
-                               fsolver->ru[1]*fsolver->ru[1] +
-                               fsolver->ru[2]*fsolver->ru[2]);
+                    fs->compute_velocity(fs->cvorticity);
+                    fs->ift_velocity();
+                    val_tmp = (fs->ru[0]*fs->ru[0] +
+                               fs->ru[1]*fs->ru[1] +
+                               fs->ru[2]*fs->ru[2]);
                     max_vel = sqrt(val_tmp);
                     rspace_energy = 0.0;
                     RLOOP_FOR_OBJECT(
-                        fsolver,
-                        val_tmp = (fsolver->ru[rindex*3+0]*fsolver->ru[rindex*3+0] +
-                                   fsolver->ru[rindex*3+1]*fsolver->ru[rindex*3+1] +
-                                   fsolver->ru[rindex*3+2]*fsolver->ru[rindex*3+2]);
+                        fs,
+                        val_tmp = (fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
+                                   fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
+                                   fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
                         rspace_energy += val_tmp*.5;
                         vel_tmp = sqrt(val_tmp);
                         if (vel_tmp > max_vel)
                             max_vel = vel_tmp;
                         );
-                    rspace_energy /= fsolver->normalization_factor;
-                    MPI_Allreduce((void*)(&rspace_energy), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fsolver->rd->comm);
+                    rspace_energy /= fs->normalization_factor;
+                    MPI_Allreduce((void*)(&rspace_energy), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fs->rd->comm);
                     rspace_energy = val_tmp;
-                    MPI_Allreduce((void*)(&max_vel), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_MAX, fsolver->rd->comm);
+                    MPI_Allreduce((void*)(&max_vel), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_MAX, fs->rd->comm);
                     max_vel = val_tmp;
-                    double *spec_velocity = fftw_alloc_real(fsolver->nshells);
-                    double *spec_vorticity = fftw_alloc_real(fsolver->nshells);
-                    fsolver->cospectrum(fsolver->cvelocity, fsolver->cvelocity, spec_velocity);
-                    fsolver->cospectrum(fsolver->cvorticity, fsolver->cvorticity, spec_vorticity);
+                    double *spec_velocity = fftw_alloc_real(fs->nshells);
+                    double *spec_vorticity = fftw_alloc_real(fs->nshells);
+                    fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
+                    fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     if (myrank == 0)
                     {
                         H5::DataSet dset;
@@ -144,7 +188,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         dset = data_file.openDataSet("statistics/maximum_velocity");
                         writespace = dset.getSpace();
                         count[0] = 1;
-                        offset[0] = fsolver->iteration;
+                        offset[0] = fs->iteration;
                         memspace = H5::DataSpace(1, count);
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                         dset.write(&max_vel, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
@@ -154,7 +198,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         dset.write(&rspace_energy, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                         dset = data_file.openDataSet("statistics/spectrum_velocity");
                         writespace = dset.getSpace();
-                        count[1] = fsolver->nshells;
+                        count[1] = fs->nshells;
                         memspace = H5::DataSpace(2, count);
                         offset[1] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
@@ -191,15 +235,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->iteration = iteration;
                 fs->read('v', 'c');
                 t = iteration*dt;
-                init_stats(fs);
-                do_stats(fs);
+                init_stats();
+                do_stats();
                 //endcpp
                 """
         self.fluid_loop += """
                 //begincpp
                 fs->step(dt);
                 t += dt;
-                do_stats(fs);
+                do_stats();
                 if (fs->iteration % niter_out == 0)
                     fs->write('v', 'c');
                 //endcpp
@@ -336,8 +380,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                        (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
                 self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                         self.statistics['diss' + suffix])**.5
-            self.statistics['kshell'] = data_file['statistics/kshell'].value
-            self.statistics['kM'] = np.nanmax(self.statistics['kshell'])
+            self.statistics['kshell'] = data_file['kspace/kshell'].value
+            self.statistics['kM'] = data_file['kspace/kM'].value
             self.trajectories = self.read_traj()
         return None
     def plot_spectrum(
