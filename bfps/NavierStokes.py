@@ -37,24 +37,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 name = name,
                 work_dir = work_dir,
                 simname = simname)
-        self.fill_up_fluid_code()
-        self.style = {}
-        self.statistics = {}
-        return None
-    def write_fluid_stats(self):
-        self.fluid_includes += '#include <cmath>\n'
-        self.fluid_includes += '#include "fftw_tools.hpp"\n'
-        self.create_file_datasets = """
+        self.file_datasets_create = """
                 //begincpp
+                std::string temp_string;
                 H5::DataSet dset;
                 H5::Group group;
                 H5::DataSpace tkfunc_dspace;
+                H5::DataSpace tmp_dspace;
                 H5::DataSpace tfunc_dspace;
                 H5::DataSpace kfunc_dspace;
                 H5::DataSpace value_dspace;
                 H5::DataSpace kcomp_dspace;
-                hsize_t dims[2];
-                hsize_t maxdims[2];
+                hsize_t dims[3];
+                hsize_t maxdims[3];
                 H5::DSetCreatPropList cparms;
                 double fill_val = 0;
                 cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
@@ -74,63 +69,61 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 value_dspace   = H5::DataSpace(1, dims);
 
                 // store the information about kspace
-                if (myrank == 0)
-                {
-                    group = data_file.createGroup("/kspace");
-                    group.createDataSet("kshell", double_dtype, kfunc_dspace);
-                    group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
-                    group.createDataSet("kM", double_dtype, value_dspace);
-                    group.createDataSet("dk", double_dtype, value_dspace);
-                    dset = data_file.openDataSet("/kspace/kshell");
-                    dset.write(fs->kshell, double_dtype);
-                    dset = data_file.openDataSet("/kspace/nshell");
-                    dset.write(fs->nshell, ptrdiff_t_dtype);
-                    dset = data_file.openDataSet("/kspace/kM");
-                    dset.write(&fs->kM, double_dtype);
-                    dset = data_file.openDataSet("/kspace/dk");
-                    dset.write(&fs->dk, double_dtype);
-                    dims[0] = fs->cd->sizes[2];
-                    kcomp_dspace = H5::DataSpace(1, dims);
-                    group.createDataSet("kx", double_dtype, kcomp_dspace);
-                    dset = data_file.openDataSet("/kspace/kx");
-                    dset.write(fs->kx, double_dtype);
-                    dims[0] = fs->cd->sizes[1];
-                    kcomp_dspace = H5::DataSpace(1, dims);
-                    group.createDataSet("kz", double_dtype, kcomp_dspace);
-                    dset = data_file.openDataSet("/kspace/kz");
-                    dset.write(fs->kz, double_dtype);
-                    dims[0] = fs->cd->sizes[0];
-                    kcomp_dspace = H5::DataSpace(1, dims);
-                    group.createDataSet("ky", double_dtype, kcomp_dspace);
-                    dset = data_file.openDataSet("/kspace/ky");
-                    double *tmp_ky = new double[fs->cd->sizes[0]];
-                    for (int i = 0; i<fs->cd->sizes[0]; i++)
-                        tmp_ky[i] = ((i + fs->cd->sizes[0]/2-1)%fs->cd->sizes[0] - fs->cd->sizes[0]/2+1)*fs->dky;
-                    dset.write(tmp_ky, double_dtype);
-                    delete[] tmp_ky;
-                }
+                group = data_file.createGroup("/kspace");
+                group.createDataSet("kshell", double_dtype, kfunc_dspace);
+                group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
+                group.createDataSet("kM", double_dtype, value_dspace);
+                group.createDataSet("dk", double_dtype, value_dspace);
+                dset = data_file.openDataSet("/kspace/kshell");
+                dset.write(fs->kshell, double_dtype);
+                dset = data_file.openDataSet("/kspace/nshell");
+                dset.write(fs->nshell, ptrdiff_t_dtype);
+                dset = data_file.openDataSet("/kspace/kM");
+                dset.write(&fs->kM, double_dtype);
+                dset = data_file.openDataSet("/kspace/dk");
+                dset.write(&fs->dk, double_dtype);
+                dims[0] = fs->cd->sizes[2];
+                kcomp_dspace = H5::DataSpace(1, dims);
+                group.createDataSet("kx", double_dtype, kcomp_dspace);
+                dset = data_file.openDataSet("/kspace/kx");
+                dset.write(fs->kx, double_dtype);
+                dims[0] = fs->cd->sizes[1];
+                kcomp_dspace = H5::DataSpace(1, dims);
+                group.createDataSet("kz", double_dtype, kcomp_dspace);
+                dset = data_file.openDataSet("/kspace/kz");
+                dset.write(fs->kz, double_dtype);
+                dims[0] = fs->cd->sizes[0];
+                kcomp_dspace = H5::DataSpace(1, dims);
+                group.createDataSet("ky", double_dtype, kcomp_dspace);
+                dset = data_file.openDataSet("/kspace/ky");
+                double *tmp_ky = new double[fs->cd->sizes[0]];
+                for (int i = 0; i<fs->cd->sizes[0]; i++)
+                    tmp_ky[i] = ((i + fs->cd->sizes[0]/2-1)%fs->cd->sizes[0] - fs->cd->sizes[0]/2+1)*fs->dky;
+                dset.write(tmp_ky, double_dtype);
+                delete[] tmp_ky;
 
                 // generate datasets for various statistics
-                if (myrank == 0)
-                {
-                    group = data_file.createGroup("/statistics");
-                    hsize_t chunk_dims[2] = {1, dims[1]};
-                    cparms.setChunk(1, chunk_dims);
-                    group.createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
-                    group.createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
-                    cparms.setChunk(2, chunk_dims);
-                    group.createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
-                    group.createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
-                }
+                group = data_file.openGroup("/statistics");
+                hsize_t chunk_dims[3];
+                chunk_dims[0] = 1;
+                chunk_dims[1] = dims[1];
+                cparms.setChunk(1, chunk_dims);
+                group.createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
+                group.createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
+                cparms.setChunk(2, chunk_dims);
+                group.createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
+                group.createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
                 //endcpp
                 """
-        self.grow_file_datasets = """
+        self.file_datasets_grow = """
                 //begincpp
                 H5::DataSet dset;
-                hsize_t dims[2];
-                hsize_t old_dims[2];
+                H5::DataSpace dspace;
+                std::string temp_string;
+                hsize_t dims[3];
+                hsize_t old_dims[3];
                 dset = data_file.openDataSet("/statistics/maximum_velocity");
-                H5::DataSpace dspace = dset.getSpace();
+                dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
                 dims[0] = niter_todo + old_dims[0];
                 dset.extend(dims);
@@ -146,29 +139,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.extend(dims);
                 //endcpp
                 """
-        self.fluid_definitions += ('void create_file_datasets()\n{\n' +
-                                   self.create_file_datasets +
-                                   '}\n')
-        self.fluid_definitions += ('void grow_file_datasets()\n{\n' +
-                                   self.grow_file_datasets +
-                                   '}\n')
+        self.style = {}
+        self.statistics = {}
+        return None
+    def write_fluid_stats(self):
+        self.fluid_includes += '#include <cmath>\n'
+        self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_definitions += """
                 //begincpp
-                void init_stats()
-                {
-                    try
-                    {
-                        //H5::Exception::dontPrint();
-                        H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
-                        if (myrank == 0)
-                            grow_file_datasets();
-                    }
-                    catch (H5::FileIException)
-                    {
-                        DEBUG_MSG("Please ignore above messages about no group in the file. I will create it now.\\n");
-                        create_file_datasets();
-                    }
-                }
                 void do_stats()
                 {
                     double vel_tmp, val_tmp;
@@ -235,8 +213,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs;\n')
+        self.fluid_variables += 'fluid_solver<float> *fs;\n'
         self.write_fluid_stats()
         self.fluid_start += """
                 //begincpp
@@ -253,15 +230,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 fs->read('v', 'c');
-                t = iteration*dt;
-                init_stats();
-                do_stats();
                 //endcpp
                 """
         self.fluid_loop += """
                 //begincpp
                 fs->step(dt);
-                t += dt;
                 do_stats();
                 if (fs->iteration % niter_out == 0)
                     fs->write('v', 'c');
@@ -287,12 +260,41 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
         self.particle_variables += 'FILE *traj_file{0};\n'.format(self.particle_species)
+        self.file_datasets_create += ('dims[0] = niter_todo/niter_part+1;\n' +
+                                      'dims[1] = nparticles;\n' +
+                                      'maxdims[0] = H5S_UNLIMITED;\n' +
+                                      'maxdims[1] = dims[1];\n' +
+                                      'tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
+                                      'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n'.format(self.particle_species) +
+                                      'group = data_file.createGroup(temp_string);\n' +
+                                      'chunk_dims[0] = 1;\n' +
+                                      'chunk_dims[1] = dims[1];\n' +
+                                      'cparms.setChunk(2, chunk_dims);\n' +
+                                      'group.createDataSet("state", double_dtype, tmp_dspace, cparms);\n' +
+                                      'dims[0] = 2;\n' +
+                                      'dims[1] = integration_steps{0};\n'.format(self.particle_species) +
+                                      'dims[2] = nparticles;\n' +
+                                      'maxdims[1] = dims[1];\n' +
+                                      'maxdims[2] = dims[2];\n' +
+                                      'tmp_dspace = H5::DataSpace(3, dims, maxdims);\n' +
+                                      'chunk_dims[1] = 1;\n' +
+                                      'chunk_dims[2] = dims[2];\n' +
+                                      'cparms.setChunk(3, chunk_dims);\n' +
+                                      'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n')
+        grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
+                         'dset = data_file.openDataSet(temp_string);\n' +
+                         'dspace = dset.getSpace();\n' +
+                         'dspace.getSimpleExtentDims(dims);\n' +
+                         'dims[0] += {2};\n' +
+                         'dset.extend(dims);\n')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', 'niter_todo')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '1')
         #self.particle_definitions
         update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
                         'fs->ift_velocity();\n' +
                         'ps{0}->update_field();\n').format(self.particle_species)
-        self.particle_start += ('sprintf(fname, "%s_tracers{0}", simname);\n' +
+        self.particle_start += ('sprintf(fname, "tracers{0}");\n' +
                                 'ps{0} = new tracers<float>(\n' +
                                     'fname, fs,\n' +
                                     'nparticles, neighbours{0}, smoothness{0}, integration_steps{0},\n' +
@@ -300,7 +302,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{0}->read();\n' +
+                                'ps{0}->read(&data_file);\n' +
                                 'if (myrank == 0)\n' +
                                 '{{\n' +
                                 '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
@@ -315,7 +317,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
-        self.particle_end += ('ps{0}->write();\n' +
+        self.particle_end += ('ps{0}->write(&data_file);\n' +
                               'if (myrank == 0) fclose(traj_file{0});\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1

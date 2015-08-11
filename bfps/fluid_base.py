@@ -62,6 +62,8 @@ class fluid_particle_base(bfps.code):
         self.particle_start = ''
         self.particle_loop = ''
         self.particle_end  = ''
+        self.file_datasets_create = ''
+        self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
         self.variables  += self.cdef_pars()
@@ -69,13 +71,41 @@ class fluid_particle_base(bfps.code):
         self.includes   += self.fluid_includes
         self.variables  += self.fluid_variables
         self.definitions+= self.fluid_definitions
+        self.file_datasets_create = 'data_file.createGroup("/statistics");\n' + self.file_datasets_create
         if self.particle_species > 0:
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
+            self.file_datasets_create = 'data_file.createGroup("/particles");\n' + self.file_datasets_create
+        self.definitions += ('void create_file_datasets()\n{\n' +
+                             self.file_datasets_create +
+                             '}\n')
+        self.definitions += ('void grow_file_datasets()\n{\n' +
+                             self.file_datasets_grow +
+                             '}\n')
+        self.definitions += """
+                //begincpp
+                void init_stats()
+                {
+                    try
+                    {
+                        //H5::Exception::dontPrint();
+                        H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                        grow_file_datasets();
+                    }
+                    catch (H5::FileIException)
+                    {
+                        DEBUG_MSG("Please ignore above messages about no group in the file. I will create it now.\\n");
+                        create_file_datasets();
+                    }
+                }
+                //endcpp
+                """
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
+        self.main       += ('if (myrank == 0) init_stats();\n' +
+                            'do_stats();\n')
         self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
         if self.particle_species > 0:
             self.main   += self.particle_loop
@@ -224,7 +254,7 @@ class fluid_particle_base(bfps.code):
             data.tofile(
                     os.path.join(
                         self.work_dir,
-                        self.simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration)))
+                        "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
         return data
     def read_spec(
             self,
@@ -249,13 +279,13 @@ class fluid_particle_base(bfps.code):
                            ('state', np.float64, (self.parameters['nparticles'], 3))])
         traj_list = []
         for t in range(self.particle_species):
-            traj_list.append(np.fromfile(
+            tmp = np.fromfile(
                     os.path.join(
                         self.work_dir,
-                        self.simname + '_tracers{0}_traj.bin'.format(t)),
-                    dtype = pdtype))
-            tmp, tmpindex = np.unique(traj_list[-1]['iteration'], return_index = True)
-            traj_list[-1] = traj_list[-1][tmpindex]
+                        'tracers{0}_traj.bin'.format(t)),
+                    dtype = pdtype)
+            tmptmp, tmpindex = np.unique(tmp['iteration'], return_index = True)
+            traj_list.append(tmp[tmpindex])
         traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
         for t in range(self.particle_species):
             traj[t] = traj_list[t]

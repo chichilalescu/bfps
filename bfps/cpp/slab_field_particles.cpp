@@ -591,7 +591,7 @@ void slab_field_particles<rnumber>::linear_interpolation(rnumber *field, int *xg
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::read()
+void slab_field_particles<rnumber>::read(H5::H5File *dfile)
 {
     if (this->fs->rd->myrank == 0)
     {
@@ -634,7 +634,7 @@ void slab_field_particles<rnumber>::read()
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::write()
+void slab_field_particles<rnumber>::write(H5::H5File *dfile)
 {
     this->synchronize();
     if (this->fs->rd->myrank == 0)
