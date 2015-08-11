@@ -425,24 +425,6 @@ def plain(opt):
                color = c.style['color'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
-    fig = plt.figure(figsize=(12, 6))
-    a = fig.add_subplot(121)
-    c0.plot_spectrum(a, average = False)
-    data_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r')
-    nf = (c0.parameters['nu']**5*c0.statistics['diss'])**(-.25)
-    for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
-        a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
-               nf*data_file['statistics/spectrum_velocity'][i]/2, dashes = (2, 2))
-    a.set_xscale('log')
-    a.set_yscale('log')
-    a = fig.add_subplot(122)
-    c0.plot_spectrum(a, quantity = 'enstrophy', average = False, normalization = 'none')
-    for i in range(data_file['statistics/spectrum_velocity'].shape[0]):
-        a.plot(c0.statistics['kshell']*c0.statistics['etaK'],
-               data_file['statistics/spectrum_vorticity'][i]/2, dashes = (2, 2))
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.savefig('h5spec_vs_binspec.pdf', format = 'pdf')
     return None
 
 if __name__ == '__main__':
