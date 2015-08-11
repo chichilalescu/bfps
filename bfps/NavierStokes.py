@@ -304,7 +304,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'if (myrank == 0)\n' +
                                 '{{\n' +
                                 '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
-                                '    traj_file{0} = fopen(fname, "wb");\n' +
+                                '    traj_file{0} = fopen(fname, "a");\n' +
                                 '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
                                 '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
                                 '}}\n').format(self.particle_species)
@@ -464,8 +464,6 @@ def launch(
         c.parameters['nu'] = nu
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_stat'] = 1
-    c.parameters['niter_spec'] = 4
     c.parameters['niter_part'] = 2
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32

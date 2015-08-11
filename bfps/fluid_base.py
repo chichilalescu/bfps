@@ -40,8 +40,6 @@ class fluid_particle_base(bfps.code):
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
         self.parameters['niter_todo'] = 8
-        self.parameters['niter_stat'] = 1
-        self.parameters['niter_spec'] = 1
         self.parameters['niter_part'] = 1
         self.parameters['niter_out'] = 1024
         self.parameters['nparticles'] = 0
@@ -256,6 +254,8 @@ class fluid_particle_base(bfps.code):
                         self.work_dir,
                         self.simname + '_tracers{0}_traj.bin'.format(t)),
                     dtype = pdtype))
+            tmp, tmpindex = np.unique(traj_list[-1]['iteration'], return_index = True)
+            traj_list[-1] = traj_list[-1][tmpindex]
         traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
         for t in range(self.particle_species):
             traj[t] = traj_list[t]
