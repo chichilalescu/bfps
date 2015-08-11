@@ -73,9 +73,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dims[0] = 1;
                 value_dspace   = H5::DataSpace(1, dims);
 
+                // store the information about kspace
                 if (myrank == 0)
                 {
-                    // store the information about kspace
                     group = data_file.createGroup("/kspace");
                     group.createDataSet("kshell", double_dtype, kfunc_dspace);
                     group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
@@ -89,11 +89,30 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     dset.write(&fs->kM, double_dtype);
                     dset = data_file.openDataSet("/kspace/dk");
                     dset.write(&fs->dk, double_dtype);
+                    dims[0] = fs->cd->sizes[2];
+                    kcomp_dspace = H5::DataSpace(1, dims);
+                    group.createDataSet("kx", double_dtype, kcomp_dspace);
+                    dset = data_file.openDataSet("/kspace/kx");
+                    dset.write(fs->kx, double_dtype);
+                    dims[0] = fs->cd->sizes[1];
+                    kcomp_dspace = H5::DataSpace(1, dims);
+                    group.createDataSet("kz", double_dtype, kcomp_dspace);
+                    dset = data_file.openDataSet("/kspace/kz");
+                    dset.write(fs->kz, double_dtype);
+                    dims[0] = fs->cd->sizes[0];
+                    kcomp_dspace = H5::DataSpace(1, dims);
+                    group.createDataSet("ky", double_dtype, kcomp_dspace);
+                    dset = data_file.openDataSet("/kspace/ky");
+                    double *tmp_ky = new double[fs->cd->sizes[0]];
+                    for (int i = 0; i<fs->cd->sizes[0]; i++)
+                        tmp_ky[i] = ((i + fs->cd->sizes[0]/2-1)%fs->cd->sizes[0] - fs->cd->sizes[0]/2+1)*fs->dky;
+                    dset.write(tmp_ky, double_dtype);
+                    delete[] tmp_ky;
                 }
 
+                // generate datasets for various statistics
                 if (myrank == 0)
                 {
-                    // generate datasets for various statistics
                     group = data_file.createGroup("/statistics");
                     hsize_t chunk_dims[2] = {1, dims[1]};
                     cparms.setChunk(1, chunk_dims);
