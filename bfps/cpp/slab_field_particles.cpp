@@ -634,7 +634,7 @@ void slab_field_particles<rnumber>::read(H5::H5File *dfile)
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::write(H5::H5File *dfile)
+void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
 {
     this->synchronize();
     if (this->fs->rd->myrank == 0)
@@ -645,13 +645,16 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile)
         ofile0 = fopen(full_name, "wb");
         fwrite((void*)this->state, sizeof(double), this->array_size, ofile0);
         fclose(ofile0);
-        sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
-        ofile1 = fopen(full_name, "wb");
-        for (int i=0; i<this->integration_steps; i++)
+        if (write_rhs)
         {
-            fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
+            sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
+            ofile1 = fopen(full_name, "wb");
+            for (int i=0; i<this->integration_steps; i++)
+            {
+                fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
+            }
+            fclose(ofile1);
         }
-        fclose(ofile1);
     }
 }
 
