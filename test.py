@@ -179,14 +179,13 @@ def NSlaunch(
     c.parameters['niter_part'] = 2
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32
-    if opt.particles:
-        c.add_particles(kcut = 'fs->kM/2')
-        c.add_particles(integration_steps = 1)
-        c.add_particles(integration_steps = 2)
-        c.add_particles(integration_steps = 3)
-        c.add_particles(integration_steps = 4)
-        c.add_particles(integration_steps = 5)
-        c.add_particles(integration_steps = 6)
+    c.add_particles(kcut = 'fs->kM/2')
+    c.add_particles(integration_steps = 1)
+    c.add_particles(integration_steps = 2)
+    c.add_particles(integration_steps = 3)
+    c.add_particles(integration_steps = 4)
+    c.add_particles(integration_steps = 5)
+    c.add_particles(integration_steps = 6)
     c.finalize_code()
     c.write_src()
     c.write_par()
@@ -425,11 +424,23 @@ def plain(opt):
                color = c.style['color'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
+
+    # plot all trajectories... just in case
+    j = 0
+    for c in [c0, c1]:
+        j += 1
+        fig = plt.figure(figsize=(12,12))
+        a = fig.add_subplot(111, projection = '3d')
+        for t in range(c.parameters['nparticles']):
+            for i in range(1, c.particle_species):
+                a.plot(c.trajectories['state'][i, :, t, 0],
+                       c.trajectories['state'][i, :, t, 1],
+                       c.trajectories['state'][i, :, t, 2])
+        fig.savefig('traj_j{0}.pdf'.format(j, format = 'pdf'))
     return None
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--particles', dest = 'particles', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--double', dest = 'double', action = 'store_true')
     parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
