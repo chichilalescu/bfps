@@ -302,7 +302,7 @@ def convergence_test(opt):
     # plot spectra
     def plot_spec(a, c):
         for i in range(c.statistics['energy(t, k)'].shape[0]):
-            a.plot(c.statistics['k'],
+            a.plot(c.statistics['kshell'],
                    c.statistics['energy(t, k)'][i],
                    color = plt.get_cmap('coolwarm')(i*1.0/(c.statistics['energy(t, k)'].shape[0])))
         a.set_xscale('log')
