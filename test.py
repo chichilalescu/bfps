@@ -174,9 +174,7 @@ def NSlaunch(
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['niter_out'] = opt.nsteps
-    c.parameters['niter_stat'] = 1
-    c.parameters['niter_spec'] = 4
-    c.parameters['niter_part'] = 2
+    c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = 32
     c.add_particles(kcut = 'fs->kM/2')
@@ -425,18 +423,17 @@ def plain(opt):
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
 
-    # plot all trajectories... just in case
-    j = 0
-    for c in [c0, c1]:
-        j += 1
-        fig = plt.figure(figsize=(12,12))
-        a = fig.add_subplot(111, projection = '3d')
-        for t in range(c.parameters['nparticles']):
-            for i in range(1, c.particle_species):
-                a.plot(c.trajectories['state'][i, :, t, 0],
-                       c.trajectories['state'][i, :, t, 1],
-                       c.trajectories['state'][i, :, t, 2])
-        fig.savefig('traj_j{0}.pdf'.format(j, format = 'pdf'))
+    print c0.trajectories['iteration']
+    print c1.trajectories['iteration']
+
+    # plot trajectory differences
+    for i in range(c0.particle_species):
+        fig = plt.figure(figsize=(12, 4))
+        for j in range(3):
+            a = fig.add_subplot(131 + j)
+            for t in range(c0.parameters['nparticles']):
+                a.plot(c0.trajectories['state'][i, :, t, j] - c1.trajectories['state'][i, :, t, j])
+        fig.savefig('traj_s{0}.pdf'.format(i, format = 'pdf'))
     return None
 
 if __name__ == '__main__':
