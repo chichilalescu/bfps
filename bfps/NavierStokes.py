@@ -104,7 +104,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
 
                 // generate datasets for various statistics
                 group = data_file.openGroup("/statistics");
-                hsize_t chunk_dims[3];
+                hsize_t chunk_dims[4];
                 chunk_dims[0] = 1;
                 chunk_dims[1] = dims[1];
                 cparms.setChunk(1, chunk_dims);
