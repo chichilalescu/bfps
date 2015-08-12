@@ -91,7 +91,7 @@ class fluid_particle_base(bfps.code):
                     try
                     {
                         //H5::Exception::dontPrint();
-                        H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                        data_file.openGroup("statistics");
                         grow_file_datasets();
                     }
                     catch (H5::FileIException)
