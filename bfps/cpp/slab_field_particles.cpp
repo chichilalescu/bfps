@@ -624,7 +624,7 @@ void slab_field_particles<rnumber>::read(H5::H5File *dfile)
                                        std::string("/state"));
             H5::DataSet dset = dfile->openDataSet(temp_string);
             H5::DataSpace memspace, readspace;
-            hsize_t count[4], offset[4], dims[4];
+            hsize_t count[4], offset[4];
             readspace = dset.getSpace();
             readspace.getSimpleExtentDims(count);
             count[0] = 1;
@@ -711,7 +711,7 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
                                        std::string("/state"));
             H5::DataSet dset = dfile->openDataSet(temp_string);
             H5::DataSpace memspace, writespace;
-            hsize_t count[4], offset[4], dims[4];
+            hsize_t count[4], offset[4];
             writespace = dset.getSpace();
             writespace.getSimpleExtentDims(count);
             count[0] = 1;
