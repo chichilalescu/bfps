@@ -317,6 +317,7 @@ void fluid_solver<R>::omega_nonlin( \
             this->cu[3*cindex+2][1] = tmpz1; \
             ); \
     this->add_forcing(this->cu, 1.0); \
+    this->force_divfree(this->cu); \
 } \
  \
 template<> \
@@ -373,6 +374,7 @@ void fluid_solver<R>::step(double dt) \
             this->cv[3][3*cindex+2][1] = (this->cv[0][3*cindex+2][1]*factor0 + 2*(this->cv[2][3*cindex+2][1] + dt*this->cu[3*cindex+2][1]))*factor0/3; \
             );  \
  \
+    this->force_divfree(this->cvorticity); \
     this->iteration++; \
 } \
  \
