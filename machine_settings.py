@@ -6,7 +6,8 @@ import os
 
 hostname = os.getenv('HOSTNAME')
 
-extra_compile_args = ['-mtune=native', '-ffast-math', '-std=c++11']
+extra_compile_args = ['-Wall', '-O2', '-g', '-mtune=native', '-ffast-math', '-std=c++11']
+#extra_compile_args = ['-Wall', '-O0', '-g', '-std=c++11']
 extra_libraries = ['hdf5_cpp', 'hdf5']
 
 if hostname == 'chichi-G':
