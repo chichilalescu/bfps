@@ -21,10 +21,10 @@
 import bfps
 import bfps.code
 import bfps.tools
-import numpy as np
-import pickle
+
 import os
-import matplotlib.pyplot as plt
+import numpy as np
+import h5py
 
 class fluid_particle_base(bfps.code):
     def __init__(
@@ -32,17 +32,15 @@ class fluid_particle_base(bfps.code):
             name = 'solver',
             work_dir = './',
             simname = 'test'):
-        super(fluid_particle_base, self).__init__()
-        self.work_dir = work_dir
-        self.simname = simname
-        self.particle_species = 0
+        super(fluid_particle_base, self).__init__(
+                work_dir = work_dir,
+                simname = simname)
         self.name = name
+        self.particle_species = 0
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
         self.parameters['niter_todo'] = 8
-        self.parameters['niter_stat'] = 1
-        self.parameters['niter_spec'] = 1
         self.parameters['niter_part'] = 1
         self.parameters['niter_out'] = 1024
         self.parameters['nparticles'] = 0
@@ -65,6 +63,9 @@ class fluid_particle_base(bfps.code):
         self.particle_start = ''
         self.particle_loop = ''
         self.particle_end  = ''
+        self.stat_src = ''
+        self.file_datasets_create = ''
+        self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
         self.variables  += self.cdef_pars()
@@ -72,34 +73,49 @@ class fluid_particle_base(bfps.code):
         self.includes   += self.fluid_includes
         self.variables  += self.fluid_variables
         self.definitions+= self.fluid_definitions
+        self.file_datasets_create = 'data_file.createGroup("/statistics");\n' + self.file_datasets_create
         if self.particle_species > 0:
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
+        self.definitions += ('void create_file_datasets()\n{\n' +
+                             self.file_datasets_create +
+                             '}\n')
+        self.definitions += ('void grow_file_datasets()\n{\n' +
+                             self.file_datasets_grow +
+                             '}\n')
+        self.definitions += """
+                //begincpp
+                void init_stats()
+                {
+                    try
+                    {
+                        //H5::Exception::dontPrint();
+                        H5::Group *group = new H5::Group(data_file.openGroup("statistics"));
+                        grow_file_datasets();
+                    }
+                    catch (H5::FileIException)
+                    {
+                        DEBUG_MSG("Please ignore above messages about no group in the file. I will create it now.\\n");
+                        create_file_datasets();
+                    }
+                }
+                //endcpp
+                """
+        self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
-        self.main       += 'for (; fs->iteration < iter0 + niter_todo;)\n{\n'
+        self.main       += ('if (myrank == 0) init_stats();\n' +
+                            'do_stats();\n')
+        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
+        self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
-        self.main       += self.fluid_loop
-        self.main       += '\n}\n'
+        self.main       += 'do_stats();\n}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
-        return None
-    def read_parameters(
-            self,
-            simname = None,
-            work_dir = None):
-        if not type(simname) == type(None):
-            self.simname = simname
-        if not type(work_dir) == type(None):
-            self.work_dir = work_dir
-        current_dir = os.getcwd()
-        os.chdir(self.work_dir)
-        self.read_par(self.simname)
-        os.chdir(current_dir)
         return None
     def read_rfield(
             self,
@@ -236,11 +252,20 @@ class fluid_particle_base(bfps.code):
         data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
         if testing:
             data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
+            dset = data_file.create_dataset(
+                    '/particles/tracers{0}/state'.format(species),
+                    (self.parameters['niter_todo']//self.parameters['niter_part'] + 1,
+                     self.parameters['nparticles'],
+                     ncomponents),
+                    chunks = (1, self.parameters['nparticles'], ncomponents),
+                    maxshape = (None, self.parameters['nparticles'], ncomponents))
+            dset[0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(
                         self.work_dir,
-                        self.simname + "_tracers{0}_state_i{1:0>5x}".format(species, iteration)))
+                        "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
         return data
     def read_spec(
             self,
@@ -258,35 +283,19 @@ class fluid_particle_base(bfps.code):
                     self.simname + '_' + field + '_spec'),
                 dtype = spec_dtype)
         return k, spec
-    def read_stats(self):
-        dtype = pickle.load(open(
-                os.path.join(self.work_dir, self.name + '_dtype.pickle'), 'r'))
-        return np.fromfile(os.path.join(self.work_dir, self.simname + '_stats.bin'),
-                           dtype = dtype)
     def read_traj(self):
         if self.particle_species == 0:
             return None
-        pdtype = np.dtype([('iteration', np.int32),
-                           ('state', np.float64, (self.parameters['nparticles'], 3))])
-        traj_list = []
-        for t in range(self.particle_species):
-            traj_list.append(np.fromfile(
-                    os.path.join(
-                        self.work_dir,
-                        self.simname + '_tracers{0}_traj.bin'.format(t)),
-                    dtype = pdtype))
-        traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
-        for t in range(self.particle_species):
-            traj[t] = traj_list[t]
-        return traj
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
+            traj_list = []
+            for t in range(self.particle_species):
+                traj_list.append(data_file['particles/tracers{0}/state'.format(t)].value)
+        return traj_list
     def generate_initial_condition(self):
-        np.array([0.0]).tofile(
-                os.path.join(
-                        self.work_dir, self.simname + '_time_i00000'))
         self.generate_vector_field(write_to_file = True)
         for species in range(self.particle_species):
             self.generate_tracer_state(
                     species = species,
-                    write_to_file = True)
+                    write_to_file = False)
         return None
 

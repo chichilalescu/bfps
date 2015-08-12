@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <H5Cpp.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
 
@@ -76,6 +77,7 @@ class slab_field_particles
         int interp_smoothness;
         int buffer_width;
         int integration_steps;
+        int traj_skip;
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
@@ -106,6 +108,7 @@ class slab_field_particles
                 const int NCOMPONENTS,
                 const int INTERP_NEIGHBOURS,
                 const int INTERP_SMOOTHNESS,
+                const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();
 
@@ -132,8 +135,8 @@ class slab_field_particles
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
 
         /* generic methods, should work for all children of this class */
-        void read();
-        void write();
+        void read(H5::H5File *dfile = NULL);
+        void write(H5::H5File *dfile = NULL, bool write_rhs = true);
 
         /* solver stuff */
         void step();

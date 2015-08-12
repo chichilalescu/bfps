@@ -51,7 +51,7 @@ class fluid_solver_base
         int iteration;
 
         /* physical parameters */
-        rnumber dkx, dky, dkz, dk, dk2;
+        double dkx, dky, dkz, dk, dk2;
 
         /* mode and dealiasing information */
         int dealias_type;
