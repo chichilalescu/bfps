@@ -163,7 +163,8 @@ def double(opt):
 
 def NSlaunch(
         opt,
-        nu = None):
+        nu = None,
+        tracer_state_file = None):
     c = bfps.NavierStokes(work_dir = opt.work_dir)
     assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
@@ -194,12 +195,18 @@ def NSlaunch(
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             c.generate_vector_field(write_to_file = True)
+        if opt.iteration == 0:
             for species in range(c.particle_species):
+                if type(tracer_state_file) == type(None):
+                    data = None
+                else:
+                    data = tracer_state_file['particles/tracers{0}/state'.format(species)][0]
                 c.generate_tracer_state(
                         species = species,
                         write_to_file = False,
                         testing = True,
-                        rseed = 3284)
+                        rseed = 3284,
+                        data = data)
         c.run(ncpu = opt.ncpu,
               njobs = opt.njobs)
     return c
@@ -219,22 +226,20 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-    subprocess.call([cp_command], shell = True)
     c1 = NSlaunch(
             opt,
-            nu = c0.parameters['nu'])
+            nu = c0.parameters['nu'],
+            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     opt.work_dir = default_wd
     double(opt)
     opt.n *= 2
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-    subprocess.call([cp_command], shell = True)
     c2 = NSlaunch(
             opt,
-            nu = c0.parameters['nu'])
+            nu = c0.parameters['nu'],
+            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     # get real space fields
     converter = bfps.fluid_converter()
     converter.write_src()
@@ -346,8 +351,8 @@ def convergence_test(opt):
     ## particle test:
     # compute distance between final positions for species 1
     def get_traj_error(species):
-        e0 = np.abs(c0.trajectories['state'][species, -1, :, :3] - c1.trajectories['state'][species, -1, :, :3])
-        e1 = np.abs(c1.trajectories['state'][species, -1, :, :3] - c2.trajectories['state'][species, -1, :, :3])
+        e0 = np.abs(c0.trajectories[species][-1, :, :3] - c1.trajectories[species][-1, :, :3])
+        e1 = np.abs(c1.trajectories[species][-1, :, :3] - c2.trajectories[species][-1, :, :3])
         return np.array([np.average(np.sqrt(np.sum(e0**2, axis = 1))),
                          np.average(np.sqrt(np.sum(e1**2, axis = 1)))])
     err = [get_traj_error(i) for i in range(1, c0.particle_species)]
@@ -369,9 +374,9 @@ def convergence_test(opt):
         a = fig.add_subplot(111, projection = '3d')
         for t in range(c.parameters['nparticles']):
             for i in range(1, c.particle_species):
-                a.plot(c.trajectories['state'][i, :, t, 0],
-                       c.trajectories['state'][i, :, t, 1],
-                       c.trajectories['state'][i, :, t, 2])
+                a.plot(c.trajectories[i][:, t, 0],
+                       c.trajectories[i][:, t, 1],
+                       c.trajectories[i][:, t, 2])
         fig.savefig('traj_N{0:0>3x}.pdf'.format(c.parameters['nx'], format = 'pdf'))
     return None
 

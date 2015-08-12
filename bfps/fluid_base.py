@@ -244,12 +244,16 @@ class fluid_particle_base(bfps.code):
             species = 0,
             write_to_file = False,
             ncomponents = 3,
-            testing = False):
-        if not type(rseed) == type(None):
+            testing = False,
+            data = None):
+        if (type(data) == type(None)):
+            if not type(rseed) == type(None):
                 np.random.seed(rseed)
-        #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
-        data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
-        data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
+            #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
+            data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
+            data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
+        else:
+            assert(data.shape == (self.parameters['nparticles'], ncomponents))
         if testing:
             data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
