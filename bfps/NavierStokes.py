@@ -290,8 +290,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{0} = new tracers<float>(\n' +
                                     'fname, fs,\n' +
                                     'nparticles,\n' +
-                                    'neighbours{0}, smoothness{0}, integration_steps{0},\n' +
-                                    'niter_part,\n' +
+                                    'neighbours{0}, smoothness{0}, niter_part, integration_steps{0},\n' +
                                     'fs->ru);\n' +
                                 'ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +

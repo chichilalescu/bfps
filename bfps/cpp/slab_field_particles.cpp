@@ -21,15 +21,17 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
 #include <cassert>
 #include <cstring>
 #include <string>
+#include <sstream>
+
 #include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
@@ -281,10 +283,10 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
-    if (this->integration_steps > 1)
+    if (this->integration_steps >= 1)
     {
         std::fill_n(tstate, this->array_size, 0.0);
-        int i=1;
+        for (int i=0; i<this->integration_steps; i++)
         {
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
                 std::copy(this->rhs[i] + p*this->ncomponents,
@@ -739,6 +741,11 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
                     offset[1] = i;
                     writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                     dset.write(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                    DEBUG_MSG("iteration %d, integration step %d %d\n", this->iteration, i, this->integration_steps);
+                    std::stringstream tstring;
+                    for (int p=0; p<this->nparticles; p++)
+                        tstring << " " << this->rhs[i][p*3];
+                    DEBUG_MSG("%s", tstring.str().c_str());
                 }
             }
         }
