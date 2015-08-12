@@ -62,6 +62,7 @@ class fluid_particle_base(bfps.code):
         self.particle_start = ''
         self.particle_loop = ''
         self.particle_end  = ''
+        self.stat_src = ''
         self.file_datasets_create = ''
         self.file_datasets_grow   = ''
         return None
@@ -101,6 +102,7 @@ class fluid_particle_base(bfps.code):
                 }
                 //endcpp
                 """
+        self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
@@ -110,7 +112,7 @@ class fluid_particle_base(bfps.code):
         if self.particle_species > 0:
             self.main   += self.particle_loop
         self.main       += self.fluid_loop
-        self.main       += '\n}\n'
+        self.main       += 'do_stats();\n}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end

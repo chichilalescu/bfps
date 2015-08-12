@@ -67,12 +67,17 @@ class code(base):
                     else
                     {
                         strcpy(simname, argv[1]);
-                        data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        if (myrank == 0)
+                            data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        else
+                            data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDONLY);
                         H5dset = data_file.openDataSet("iteration");
                         H5dset.read(&iteration, H5::PredType::NATIVE_INT);
                         DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
                     }
                     read_parameters();
+                    if (myrank != 0)
+                        data_file.close();
                 //endcpp
                 """
         self.main_start += 'if (myrank == 0) std::cout << "{0}" << std::endl;'.format(self.version_message).replace('\n', '\\n') + '\n'
@@ -84,8 +89,8 @@ class code(base):
                     {
                         H5dset = data_file.openDataSet("iteration");
                         H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                        data_file.close();
                     }
-                    data_file.close();
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
                     MPI_Finalize();

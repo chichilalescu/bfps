@@ -52,6 +52,8 @@ def Kolmogorov_flow_test_broken(opt):
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
+        c.fill_up_fluid_code()
+        c.finalize_code()
         c.write_src()
         c.write_par()
         Kdata0.tofile("test_cvorticity_i00000")
@@ -217,7 +219,7 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+    cp_command = ('cp {0}/tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
     subprocess.call([cp_command], shell = True)
     c1 = NSlaunch(
             opt,
@@ -228,7 +230,7 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
+    cp_command = ('cp {0}/tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
     subprocess.call([cp_command], shell = True)
     c2 = NSlaunch(
             opt,

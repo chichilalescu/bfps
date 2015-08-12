@@ -145,10 +145,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
-        self.fluid_definitions += """
+        self.stat_src += """
                 //begincpp
-                void do_stats()
-                {
                     double vel_tmp, val_tmp;
                     double max_vel, rspace_energy;
                     fs->compute_velocity(fs->cvorticity);
@@ -207,7 +205,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     }
                     fftw_free(spec_velocity);
                     fftw_free(spec_vorticity);
-                }
                 //endcpp
                 """
         return None
@@ -235,7 +232,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_loop += """
                 //begincpp
                 fs->step(dt);
-                do_stats();
                 if (fs->iteration % niter_out == 0)
                     fs->write('v', 'c');
                 //endcpp
