@@ -334,17 +334,11 @@ void slab_field_particles<rnumber>::synchronize()
 template <class rnumber>
 void slab_field_particles<rnumber>::roll_rhs()
 {
-    double *trhs = fftw_alloc_real(this->array_size);
-    std::copy(this->rhs[this->integration_steps-1],
-              this->rhs[this->integration_steps-1] + this->array_size,
-              trhs);
-    for (int i=0; i<this->integration_steps-1; i++)
+    int steps = (this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps;
+    for (int i=steps-2; i>=0; i--)
         std::copy(this->rhs[i],
                   this->rhs[i] + this->array_size,
                   this->rhs[i+1]);
-    std::copy(trhs,
-              trhs + this->array_size,
-              this->rhs[0]);
 }
 
 
