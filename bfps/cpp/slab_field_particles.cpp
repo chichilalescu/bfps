@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 
 #include <cmath>
@@ -348,11 +348,22 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 {
     int ii;
     this->get_rhs(this->state, this->rhs[0]);
-    DEBUG_MSG(
-            "in AdamsBashforth for particles %s, integration_steps is %d and nsteps is %d\n",
-            this->name,
-            this->integration_steps,
-            nsteps);
+    //if (myrank == 0)
+    //{
+    //    DEBUG_MSG(
+    //            "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
+    //            this->name,
+    //            this->integration_steps,
+    //            nsteps,
+    //            this->iteration);
+    //    for (int i=0; i<this->integration_steps; i++)
+    //    {
+    //        std::stringstream tstring;
+    //        for (int p=0; p<this->nparticles; p++)
+    //            tstring << " " << this->rhs[i][p*3];
+    //        DEBUG_MSG("%s\n", tstring.str().c_str());
+    //    }
+    //}
     switch(nsteps)
     {
         case 1:
@@ -419,22 +430,16 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
                 }
             break;
     }
-    DEBUG_MSG(
-            "in AdamsBashforth, finished computing formula\n");
     this->roll_rhs();
-    DEBUG_MSG(
-            "in AdamsBashforth, after rolling rhs\n");
 }
 
 
 template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
-    DEBUG_MSG("entered particle step for particles %s\n", this->name);
     this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
     this->iteration++;
     this->synchronize();
-    DEBUG_MSG("exiting particle step for particles %s\n", this->name);
 }
 
 
@@ -447,9 +452,9 @@ void slab_field_particles<rnumber>::Euler()
     {
         for (int i=0; i<this->ncomponents; i++)
             this->state[p*this->ncomponents+i] += this->dt*y[p*this->ncomponents+i];
-        DEBUG_MSG(
-                "particle %d state is %lg %lg %lg\n",
-                p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
+        //DEBUG_MSG(
+        //        "particle %d state is %lg %lg %lg\n",
+        //        p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
     }
     fftw_free(y);
 }
@@ -473,12 +478,12 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        DEBUG_MSG(
-                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-                p,
-                 x[p*3],  x[p*3+1],  x[p*3+2],
-                xx[p*3], xx[p*3+1], xx[p*3+2],
-                xg[p*3], xg[p*3+1], xg[p*3+2]);
+        //DEBUG_MSG(
+        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+        //        p,
+        //         x[p*3],  x[p*3+1],  x[p*3+2],
+        //        xx[p*3], xx[p*3+1], xx[p*3+2],
+        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -735,11 +740,6 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
                     offset[1] = i;
                     writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                     dset.write(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                    DEBUG_MSG("iteration %d, integration step %d %d\n", this->iteration, i, this->integration_steps);
-                    std::stringstream tstring;
-                    for (int p=0; p<this->nparticles; p++)
-                        tstring << " " << this->rhs[i][p*3];
-                    DEBUG_MSG("%s", tstring.str().c_str());
                 }
             }
         }
