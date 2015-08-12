@@ -109,9 +109,9 @@ class fluid_particle_base(bfps.code):
         self.main       += ('if (myrank == 0) init_stats();\n' +
                             'do_stats();\n')
         self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
+        self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
-        self.main       += self.fluid_loop
         self.main       += 'do_stats();\n}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
