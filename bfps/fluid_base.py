@@ -21,9 +21,10 @@
 import bfps
 import bfps.code
 import bfps.tools
-import numpy as np
+
 import os
-import matplotlib.pyplot as plt
+import numpy as np
+import h5py
 
 class fluid_particle_base(bfps.code):
     def __init__(
@@ -77,7 +78,6 @@ class fluid_particle_base(bfps.code):
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
-            self.file_datasets_create = 'data_file.createGroup("/particles");\n' + self.file_datasets_create
         self.definitions += ('void create_file_datasets()\n{\n' +
                              self.file_datasets_create +
                              '}\n')
@@ -252,6 +252,15 @@ class fluid_particle_base(bfps.code):
         data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
         if testing:
             data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
+            dset = data_file.create_dataset(
+                    '/particles/tracers{0}/state'.format(species),
+                    (self.parameters['niter_todo']//self.parameters['niter_part'] + 1,
+                     self.parameters['nparticles'],
+                     ncomponents),
+                    chunks = (1, self.parameters['nparticles'], ncomponents),
+                    maxshape = (None, self.parameters['nparticles'], ncomponents))
+            dset[0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(
@@ -277,26 +286,16 @@ class fluid_particle_base(bfps.code):
     def read_traj(self):
         if self.particle_species == 0:
             return None
-        pdtype = np.dtype([('iteration', np.int32),
-                           ('state', np.float64, (self.parameters['nparticles'], 3))])
-        traj_list = []
-        for t in range(self.particle_species):
-            tmp = np.fromfile(
-                    os.path.join(
-                        self.work_dir,
-                        'tracers{0}_traj.bin'.format(t)),
-                    dtype = pdtype)
-            tmptmp, tmpindex = np.unique(tmp['iteration'], return_index = True)
-            traj_list.append(tmp[tmpindex])
-        traj = np.zeros((self.particle_species, traj_list[0].shape[0]), dtype = pdtype)
-        for t in range(self.particle_species):
-            traj[t] = traj_list[t]
-        return traj
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
+            traj_list = []
+            for t in range(self.particle_species):
+                traj_list.append(data_file['particles/tracers{0}/state'.format(t)].value)
+        return traj_list
     def generate_initial_condition(self):
         self.generate_vector_field(write_to_file = True)
         for species in range(self.particle_species):
             self.generate_tracer_state(
                     species = species,
-                    write_to_file = True)
+                    write_to_file = False)
         return None
 

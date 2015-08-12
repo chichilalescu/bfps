@@ -29,6 +29,7 @@
 #include <cmath>
 #include <cassert>
 #include <cstring>
+#include <string>
 #include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
@@ -47,6 +48,7 @@ slab_field_particles<rnumber>::slab_field_particles(
         const int NCOMPONENTS,
         const int INTERP_NEIGHBOURS,
         const int INTERP_SMOOTHNESS,
+        const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
     assert((NCOMPONENTS % 3) == 0);
@@ -62,6 +64,7 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->integration_steps = INTEGRATION_STEPS;
     this->interp_neighbours = INTERP_NEIGHBOURS;
     this->interp_smoothness = INTERP_SMOOTHNESS;
+    this->traj_skip = TRAJ_SKIP;
     switch(this->interp_neighbours)
     {
         case 1:
@@ -595,20 +598,62 @@ void slab_field_particles<rnumber>::read(H5::H5File *dfile)
 {
     if (this->fs->rd->myrank == 0)
     {
-        char full_name[512];
-        sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
-        FILE *ifile;
-        ifile = fopen(full_name, "rb");
-        fread((void*)this->state, sizeof(double), this->array_size, ifile);
-        fclose(ifile);
-        // if we're not at iteration 0, we should read rhs as well
-        if (this->iteration > 0)
+        if (dfile == NULL)
         {
-            sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
+            char full_name[512];
+            sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
+            FILE *ifile;
             ifile = fopen(full_name, "rb");
-            for (int i=0; i<this->integration_steps; i++)
-                fread((void*)this->rhs[i], sizeof(double), this->array_size, ifile);
+            fread((void*)this->state, sizeof(double), this->array_size, ifile);
             fclose(ifile);
+            // if we're not at iteration 0, we should read rhs as well
+            if (this->iteration > 0)
+            {
+                sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
+                ifile = fopen(full_name, "rb");
+                for (int i=0; i<this->integration_steps; i++)
+                    fread((void*)this->rhs[i], sizeof(double), this->array_size, ifile);
+                fclose(ifile);
+            }
+        }
+        else
+        {
+            std::string temp_string = (std::string("/particles/") +
+                                       std::string(this->name) +
+                                       std::string("/state"));
+            H5::DataSet dset = dfile->openDataSet(temp_string);
+            H5::DataSpace memspace, readspace;
+            hsize_t count[4], offset[4], dims[4];
+            readspace = dset.getSpace();
+            readspace.getSimpleExtentDims(count);
+            count[0] = 1;
+            offset[0] = this->iteration / this->traj_skip;
+            offset[1] = 0;
+            offset[2] = 0;
+            memspace = H5::DataSpace(3, count);
+            readspace.selectHyperslab(H5S_SELECT_SET, count, offset);
+            dset.read(this->state, H5::PredType::NATIVE_DOUBLE, memspace, readspace);
+            if (this->iteration > 0)
+            {
+                temp_string = (std::string("/particles/") +
+                               std::string(this->name) +
+                               std::string("/rhs"));
+                dset = dfile->openDataSet(temp_string);
+                readspace = dset.getSpace();
+                readspace.getSimpleExtentDims(count);
+                //reading from last available position
+                offset[0] = count[0] - 1;
+                offset[3] = 0;
+                count[0] = 1;
+                count[1] = 1;
+                memspace = H5::DataSpace(4, count);
+                for (int i=0; i<this->integration_steps; i++)
+                {
+                    offset[1] = i;
+                    readspace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                    dset.read(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, readspace);
+                }
+            }
         }
     }
     MPI_Bcast(
@@ -639,21 +684,63 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
     this->synchronize();
     if (this->fs->rd->myrank == 0)
     {
-        char full_name[512];
-        sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
-        FILE *ofile0, *ofile1;
-        ofile0 = fopen(full_name, "wb");
-        fwrite((void*)this->state, sizeof(double), this->array_size, ofile0);
-        fclose(ofile0);
-        if (write_rhs)
+        if (dfile == NULL)
         {
-            sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
-            ofile1 = fopen(full_name, "wb");
-            for (int i=0; i<this->integration_steps; i++)
+            char full_name[512];
+            sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
+            FILE *ofile0, *ofile1;
+            ofile0 = fopen(full_name, "wb");
+            fwrite((void*)this->state, sizeof(double), this->array_size, ofile0);
+            fclose(ofile0);
+            if (write_rhs)
             {
-                fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
+                sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
+                ofile1 = fopen(full_name, "wb");
+                for (int i=0; i<this->integration_steps; i++)
+                {
+                    fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
+                }
+                fclose(ofile1);
             }
-            fclose(ofile1);
+        }
+        else
+        {
+            std::string temp_string = (std::string("/particles/") +
+                                       std::string(this->name) +
+                                       std::string("/state"));
+            H5::DataSet dset = dfile->openDataSet(temp_string);
+            H5::DataSpace memspace, writespace;
+            hsize_t count[4], offset[4], dims[4];
+            writespace = dset.getSpace();
+            writespace.getSimpleExtentDims(count);
+            count[0] = 1;
+            offset[0] = this->iteration / traj_skip;
+            offset[1] = 0;
+            offset[2] = 0;
+            memspace = H5::DataSpace(3, count);
+            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+            dset.write(this->state, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+            if (write_rhs)
+            {
+                temp_string = (std::string("/particles/") +
+                               std::string(this->name) +
+                               std::string("/rhs"));
+                dset = dfile->openDataSet(temp_string);
+                writespace = dset.getSpace();
+                writespace.getSimpleExtentDims(count);
+                //writing to last available position
+                offset[0] = count[0] - 1;
+                count[0] = 1;
+                count[1] = 1;
+                offset[3] = 0;
+                memspace = H5::DataSpace(4, count);
+                for (int i=0; i<this->integration_steps; i++)
+                {
+                    offset[1] = i;
+                    writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                    dset.write(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                }
+            }
         }
     }
 }

@@ -197,7 +197,7 @@ def NSlaunch(
             for species in range(c.particle_species):
                 c.generate_tracer_state(
                         species = species,
-                        write_to_file = True,
+                        write_to_file = False,
                         testing = True,
                         rseed = 3284)
         c.run(ncpu = opt.ncpu,
@@ -432,7 +432,7 @@ def plain(opt):
         for j in range(3):
             a = fig.add_subplot(131 + j)
             for t in range(c0.parameters['nparticles']):
-                a.plot(c0.trajectories['state'][i, :, t, j] - c1.trajectories['state'][i, :, t, j])
+                a.plot(c0.trajectories[i][:, t, j] - c1.trajectories[i][:, t, j])
         fig.savefig('traj_s{0}.pdf'.format(i, format = 'pdf'))
     return None
 

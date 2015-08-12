@@ -77,6 +77,7 @@ class slab_field_particles
         int interp_smoothness;
         int buffer_width;
         int integration_steps;
+        int traj_skip;
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
@@ -107,6 +108,7 @@ class slab_field_particles
                 const int NCOMPONENTS,
                 const int INTERP_NEIGHBOURS,
                 const int INTERP_SMOOTHNESS,
+                const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();
 

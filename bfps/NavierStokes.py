@@ -48,8 +48,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5::DataSpace kfunc_dspace;
                 H5::DataSpace value_dspace;
                 H5::DataSpace kcomp_dspace;
-                hsize_t dims[3];
-                hsize_t maxdims[3];
+                hsize_t dims[4];
+                hsize_t maxdims[4];
                 H5::DSetCreatPropList cparms;
                 double fill_val = 0;
                 cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
@@ -255,35 +255,31 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
-        self.particle_variables += 'FILE *traj_file{0};\n'.format(self.particle_species)
-        self.file_datasets_create += ('dims[0] = niter_todo/niter_part+1;\n' +
-                                      'dims[1] = nparticles;\n' +
+        self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
+                                      'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
+                                      'group = data_file.openGroup(temp_string);\n' +
+                                      'dims[0] = 1;\n' +
+                                      'dims[1] = integration_steps{0};\n' +
+                                      'dims[2] = nparticles;\n' +
+                                      'dims[3] = ps{0}->ncomponents;\n' +
                                       'maxdims[0] = H5S_UNLIMITED;\n' +
                                       'maxdims[1] = dims[1];\n' +
-                                      'tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
-                                      'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n'.format(self.particle_species) +
-                                      'group = data_file.createGroup(temp_string);\n' +
-                                      'chunk_dims[0] = 1;\n' +
-                                      'chunk_dims[1] = dims[1];\n' +
-                                      'cparms.setChunk(2, chunk_dims);\n' +
-                                      'group.createDataSet("state", double_dtype, tmp_dspace, cparms);\n' +
-                                      'dims[0] = 1;\n' +
-                                      'dims[1] = integration_steps{0};\n'.format(self.particle_species) +
-                                      'dims[2] = nparticles;\n' +
-                                      'maxdims[1] = dims[1];\n' +
                                       'maxdims[2] = dims[2];\n' +
-                                      'tmp_dspace = H5::DataSpace(3, dims, maxdims);\n' +
+                                      'maxdims[3] = dims[3];\n' +
+                                      'tmp_dspace = H5::DataSpace(4, dims, maxdims);\n' +
+                                      'chunk_dims[1] = 1;\n' +
                                       'chunk_dims[1] = 1;\n' +
                                       'chunk_dims[2] = dims[2];\n' +
-                                      'cparms.setChunk(3, chunk_dims);\n' +
-                                      'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n')
+                                      'chunk_dims[3] = dims[3];\n' +
+                                      'cparms.setChunk(4, chunk_dims);\n' +
+                                      'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n').format(self.particle_species)
         grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
                          'dset = data_file.openDataSet(temp_string);\n' +
                          'dspace = dset.getSpace();\n' +
                          'dspace.getSimpleExtentDims(dims);\n' +
                          'dims[0] += {2};\n' +
                          'dset.extend(dims);\n')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', 'niter_todo')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', '(niter_todo/niter_part)')
         self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '1')
         #self.particle_definitions
         update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
@@ -293,28 +289,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_start += ('sprintf(fname, "tracers{0}");\n' +
                                 'ps{0} = new tracers<float>(\n' +
                                     'fname, fs,\n' +
-                                    'nparticles, neighbours{0}, smoothness{0}, integration_steps{0},\n' +
+                                    'nparticles,\n' +
+                                    'neighbours{0}, smoothness{0}, integration_steps{0},\n' +
+                                    'niter_part,\n' +
                                     'fs->ru);\n' +
                                 'ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{0}->read(&data_file);\n' +
-                                'if (myrank == 0)\n' +
-                                '{{\n' +
-                                '    sprintf(fname, "%s_traj.bin", ps{0}->name);\n' +
-                                '    traj_file{0} = fopen(fname, "a");\n' +
-                                '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
-                                '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
-                                '}}\n').format(self.particle_species)
+                                'ps{0}->read(&data_file);\n').format(self.particle_species)
         self.particle_loop +=  (update_field +
                                'ps{0}->step();\n' +
-                                'if (myrank == 0 && (ps{0}->iteration % niter_part == 0))\n' +
-                                '{{\n' +
-                                '    fwrite((void*)(&ps{0}->iteration), sizeof(int), 1, traj_file{0});\n' +
-                                '    fwrite((void*)ps{0}->state, sizeof(double), ps{0}->array_size, traj_file{0});\n' +
-                                '}}\n').format(self.particle_species)
+                                'if (ps{0}->iteration % niter_part == 0)\n' +
+                                'ps{0}->write(&data_file, false);\n').format(self.particle_species)
         self.particle_end += ('ps{0}->write(&data_file);\n' +
-                              'if (myrank == 0) fclose(traj_file{0});\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
