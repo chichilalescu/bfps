@@ -125,7 +125,7 @@ class code(base):
 
         command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]
-        command_strings += ['-O2'] + bfps.install_info['extra_compile_args']
+        command_strings += bfps.install_info['extra_compile_args']
         command_strings += ['-I' + idir for idir in bfps.install_info['include_dirs']]
         command_strings.append('-I' + bfps.header_dir)
         command_strings += ['-L' + ldir for ldir in bfps.install_info['library_dirs']]
