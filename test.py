@@ -426,6 +426,30 @@ def plain(opt):
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
     fig.savefig('plain_stats.pdf', format = 'pdf')
 
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(221)
+    a.plot(c0.statistics['t'],
+           c0.statistics['energy(t)'] - c1.statistics['energy(t)'])
+    a.set_title('energy')
+    a.legend(loc = 'best')
+    a = fig.add_subplot(222)
+    a.plot(c0.statistics['t'],
+           c0.statistics['enstrophy(t)'] - c1.statistics['enstrophy(t)'])
+    a.set_title('enstrophy')
+    a = fig.add_subplot(223)
+    a.plot(c0.statistics['t'],
+           c0.statistics['kM']*c0.statistics['etaK(t)'] - c1.statistics['kM']*c1.statistics['etaK(t)'])
+    a.set_title('$k_M \\eta_K$')
+    a = fig.add_subplot(224)
+    data0 = c0.statistics['vel_max(t)'] * (c0.parameters['dt'] * c0.parameters['dkx'] /
+                                           (2*np.pi / c0.parameters['nx']))
+    data1 = c1.statistics['vel_max(t)'] * (c1.parameters['dt'] * c1.parameters['dkx'] /
+                                           (2*np.pi / c1.parameters['nx']))
+    a.plot(c0.statistics['t'],
+           data0 - data1)
+    a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    fig.savefig('plain_stat_diffs.pdf', format = 'pdf')
+
     # plot trajectory differences
     for i in range(c0.particle_species):
         fig = plt.figure(figsize=(12, 4))
