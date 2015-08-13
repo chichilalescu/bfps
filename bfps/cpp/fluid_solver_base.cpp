@@ -229,19 +229,6 @@ fluid_solver_base<R>::fluid_solver_base( \
     } \
     delete[] nshell_local; \
     delete[] kshell_local; \
-    /* output kshells for this simulation */ \
-    if (this->cd->myrank == 0) \
-    { \
-        char fname[512]; \
-        sprintf(fname, "%s_kshell", this->name); \
-        FILE *kshell_file; \
-        kshell_file = fopen(fname, "wb"); \
-        fwrite((void*)this->kshell, sizeof(double), this->nshells, kshell_file); \
-        fclose(kshell_file); \
-    } \
-    /*for (int i=0; i<this->Fourier_filter_size; i++) \
-        DEBUG_MSG("%d %.16e\n", i, this->Fourier_filter[i]); \
-    */ \
 } \
  \
 template<> \

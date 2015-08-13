@@ -7,8 +7,20 @@ the resulting fields.
 I'm trying to write it as general as possible, so that it can be
 expanded in the future; it remains to be seen how well this will work.
 
+The Navier-Stokes solver has been extensively tested (tests are included
+in the repository), and it is working as expected. Parameters and
+statistics are stored in HDF5 format, together with code information,
+so simulation data should be "future proof".
+
+Problems
+--------
+
+* particle integration may be broken somehow.
+
 TODO
 ----
+
+* use HDF5 io for fields
 
 * use FFTW wisdom with some host dependent cache
 
@@ -19,3 +31,4 @@ TODO
 
 * make templates work for `double` as well, and python wrappers
   should control precision
+

@@ -70,7 +70,7 @@ pickle.dump(
         {'include_dirs' : include_dirs,
          'library_dirs' : library_dirs,
          'extra_compile_args' : extra_compile_args,
-         'extra_libraries' : extra_libraries,
+         'libraries' : libraries,
          'install_date' : now,
          'git_revision' : git_revision},
         open('bfps/install_info.pickle', 'wb'),
@@ -89,7 +89,7 @@ libbfps = Extension(
 setup(
         name = 'bfps',
         packages = ['bfps'],
-        install_requires = ['numpy>=1.8', 'matplotlib>=1.3'],
+        install_requires = ['numpy>=1.8', 'matplotlib>=1.3', 'h5py>=2.2.1'],
         ext_modules = [libbfps],
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'install_info.pickle']},

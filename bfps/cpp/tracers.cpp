@@ -113,6 +113,7 @@ tracers<R>::tracers( \
                 const int NPARTICLES, \
                 const int NEIGHBOURS, \
                 const int SMOOTHNESS, \
+                const int TRAJ_SKIP, \
                 const int INTEGRATION_STEPS, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
                     NAME, \
@@ -121,6 +122,7 @@ tracers<R>::tracers( \
                     3, \
                     NEIGHBOURS, \
                     SMOOTHNESS, \
+                    TRAJ_SKIP, \
                     INTEGRATION_STEPS) \
 { \
     this->source_data = SOURCE_DATA; \

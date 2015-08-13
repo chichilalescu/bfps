@@ -42,6 +42,7 @@ class tracers:public slab_field_particles<rnumber>
                 const int NPARTICLES,
                 const int NEIGHBOURS,
                 const int SMOOTHNESS,
+                const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS,
                 rnumber *SOURCE_DATA);
         ~tracers();

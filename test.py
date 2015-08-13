@@ -20,17 +20,18 @@
 ########################################################################
 
 
-import numpy as np
+import os
 import subprocess
-import matplotlib
-from mpl_toolkits.mplot3d import axes3d
-import matplotlib.pyplot as plt
 import argparse
 import pickle
-import os
+
+import numpy as np
+from mpl_toolkits.mplot3d import axes3d
+import matplotlib.pyplot as plt
+import h5py
 
 import bfps
-from bfps.resize import vorticity_resize
+from bfps import fluid_resize
 
 def Kolmogorov_flow_test_broken(opt):
     c = convergence_test(name = 'Kflow_test')
@@ -51,10 +52,12 @@ def Kolmogorov_flow_test_broken(opt):
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
+        c.fill_up_fluid_code()
+        c.finalize_code()
         c.write_src()
-        c.write_par(simname = 'test')
+        c.write_par()
         Kdata0.tofile("test_cvorticity_i00000")
-        c.run(ncpu = opt.ncpu, simname = 'test')
+        c.run(ncpu = opt.ncpu)
         Rdata = np.fromfile(
                 'test_rvorticity_i00000',
                 dtype = np.float32).reshape(opt.n, opt.n, opt.n, 3)
@@ -71,23 +74,19 @@ def Kolmogorov_flow_test_broken(opt):
     fig = plt.figure(figsize=(12, 12))
     a = fig.add_subplot(221)
     c.plot_vel_cut(a,
-            simname = 'test',
             field = 'velocity',
             iteration = 0)
     a = fig.add_subplot(222)
     a.set_axis_off()
     c.plot_vel_cut(a,
-            simname = 'test',
             field = 'vorticity',
             iteration = 0)
     a = fig.add_subplot(223)
     ufin = c.plot_vel_cut(a,
-            simname = 'test',
             field = 'velocity',
             iteration = stats.shape[0]-1)
     a = fig.add_subplot(224)
     vfin = c.plot_vel_cut(a,
-            simname = 'test',
             field = 'vorticity',
             iteration = stats.shape[0]-1)
     fig.savefig('field_cut.pdf', format = 'pdf')
@@ -134,7 +133,9 @@ def Kolmogorov_flow_test_broken(opt):
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = vorticity_resize(work_dir = opt.work_dir + '/resize')
+    c = fluid_resize(
+            work_dir = opt.work_dir + '/resize',
+            simname = old_simname)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -143,28 +144,27 @@ def double(opt):
     c.parameters['dst_nz'] = 2*opt.n
     c.parameters['dst_simname'] = new_simname
     c.write_src()
+    c.set_host_info({'type' : 'pc'})
     if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
         os.mkdir(os.path.join(opt.work_dir, 'resize'))
-    c.write_par(simname = old_simname)
+    c.write_par()
     cp_command = ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
             opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
     subprocess.call([cp_command], shell = True)
     c.run(ncpu = opt.ncpu,
-          simname = old_simname,
-          iter0 = opt.iteration)
+          err_file = 'err_' + old_simname + '_' + new_simname,
+          out_file = 'out_' + old_simname + '_' + new_simname)
     if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
         os.mkdir(os.path.join(opt.work_dir, new_simname))
     cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
             opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
     subprocess.call([cp_command], shell = True)
-    np.array([0.0]).tofile(
-            os.path.join(
-                    opt.work_dir + '/' + new_simname, 'test_time_i00000'))
     return None
 
 def NSlaunch(
         opt,
-        nu = None):
+        nu = None,
+        tracer_state_file = None):
     c = bfps.NavierStokes(work_dir = opt.work_dir)
     assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
@@ -176,38 +176,39 @@ def NSlaunch(
         c.parameters['nu'] = nu
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_stat'] = 1
-    c.parameters['niter_spec'] = 4
-    c.parameters['niter_part'] = 2
+    c.parameters['niter_out'] = opt.nsteps
+    c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 32
-    if opt.particles:
-        c.add_particles(kcut = 'fs->kM/2')
-        c.add_particles(integration_steps = 1)
-        c.add_particles(integration_steps = 2)
-        c.add_particles(integration_steps = 3)
-        c.add_particles(integration_steps = 4)
-        c.add_particles(integration_steps = 5)
-        c.add_particles(integration_steps = 6)
+    c.parameters['nparticles'] = 8
+    c.add_particles(kcut = 'fs->kM/2')
+    c.add_particles(integration_steps = 1)
+    c.add_particles(integration_steps = 2)
+    c.add_particles(integration_steps = 3)
+    c.add_particles(integration_steps = 4)
+    c.add_particles(integration_steps = 5)
+    c.add_particles(integration_steps = 6)
+    c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
-    c.write_par(simname = c.simname)
+    c.write_par()
+    c.set_host_info({'type' : 'pc'})
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
-            np.array([0.0]).tofile(
-                    os.path.join(
-                            c.work_dir, c.simname + '_time_i00000'))
             c.generate_vector_field(write_to_file = True)
+        if opt.iteration == 0:
             for species in range(c.particle_species):
+                if type(tracer_state_file) == type(None):
+                    data = None
+                else:
+                    data = tracer_state_file['particles/tracers{0}/state'.format(species)][0]
                 c.generate_tracer_state(
                         species = species,
-                        write_to_file = True,
+                        write_to_file = False,
                         testing = True,
-                        rseed = 3284)
-        for nrun in range(opt.njobs):
-            c.run(ncpu = opt.ncpu,
-                  simname = 'test',
-                  iter0 = opt.iteration + nrun*opt.nsteps)
+                        rseed = 3284,
+                        data = data)
+        c.run(ncpu = opt.ncpu,
+              njobs = opt.njobs)
     return c
 
 def convergence_test(opt):
@@ -225,25 +226,24 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-    subprocess.call([cp_command], shell = True)
     c1 = NSlaunch(
             opt,
-            nu = c0.parameters['nu'])
+            nu = c0.parameters['nu'],
+            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     opt.work_dir = default_wd
     double(opt)
     opt.n *= 2
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    cp_command = ('cp {0}/test_tracers?_state_i00000 {1}/'.format(c0.work_dir, opt.work_dir))
-    subprocess.call([cp_command], shell = True)
     c2 = NSlaunch(
             opt,
-            nu = c0.parameters['nu'])
+            nu = c0.parameters['nu'],
+            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     # get real space fields
     converter = bfps.fluid_converter()
     converter.write_src()
+    converter.set_host_info({'type' : 'pc'})
     for c in [c0, c1, c2]:
         converter.work_dir = c.work_dir
         converter.simname = c.simname + '_converter'
@@ -251,12 +251,9 @@ def convergence_test(opt):
             if key in c.parameters.keys():
                 converter.parameters[key] = c.parameters[key]
         converter.parameters['fluid_name'] = c.simname
-        converter.parameters['niter_todo'] = 0
-        converter.write_par(simname = converter.simname)
+        converter.write_par()
         converter.run(
-                ncpu = 2,
-                iter0 = c.parameters['niter_todo'],
-                simname = converter.simname)
+                ncpu = 2)
         c.transpose_frame(iteration = c.parameters['niter_todo'])
     # read data
     c0.compute_statistics()
@@ -310,7 +307,7 @@ def convergence_test(opt):
     # plot spectra
     def plot_spec(a, c):
         for i in range(c.statistics['energy(t, k)'].shape[0]):
-            a.plot(c.statistics['k'],
+            a.plot(c.statistics['kshell'],
                    c.statistics['energy(t, k)'][i],
                    color = plt.get_cmap('coolwarm')(i*1.0/(c.statistics['energy(t, k)'].shape[0])))
         a.set_xscale('log')
@@ -350,12 +347,12 @@ def convergence_test(opt):
                                              (2*np.pi / c.parameters['nx'])),
                dashes = c.style['dashes'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    fig.savefig('stats.pdf', format = 'pdf')
+    fig.savefig('convergence_stats.pdf', format = 'pdf')
     ## particle test:
     # compute distance between final positions for species 1
     def get_traj_error(species):
-        e0 = np.abs(c0.trajectories['state'][species, -1, :, :3] - c1.trajectories['state'][species, -1, :, :3])
-        e1 = np.abs(c1.trajectories['state'][species, -1, :, :3] - c2.trajectories['state'][species, -1, :, :3])
+        e0 = np.abs(c0.trajectories[species][-1, :, :3] - c1.trajectories[species][-1, :, :3])
+        e1 = np.abs(c1.trajectories[species][-1, :, :3] - c2.trajectories[species][-1, :, :3])
         return np.array([np.average(np.sqrt(np.sum(e0**2, axis = 1))),
                          np.average(np.sqrt(np.sum(e1**2, axis = 1)))])
     err = [get_traj_error(i) for i in range(1, c0.particle_species)]
@@ -367,6 +364,11 @@ def convergence_test(opt):
                err[i-1],
                marker = '.',
                label = '${0}$'.format(i))
+    a.plot( [c0.parameters['dt'], c1.parameters['dt']],
+            [c0.parameters['dt'], c1.parameters['dt']],
+            label = '$\\Delta t$',
+            dashes = (1,1),
+            color = (0, 0, 0))
     a.set_xscale('log')
     a.set_yscale('log')
     a.legend(loc = 'best')
@@ -377,19 +379,105 @@ def convergence_test(opt):
         a = fig.add_subplot(111, projection = '3d')
         for t in range(c.parameters['nparticles']):
             for i in range(1, c.particle_species):
-                a.plot(c.trajectories['state'][i, :, t, 0],
-                       c.trajectories['state'][i, :, t, 1],
-                       c.trajectories['state'][i, :, t, 2])
+                a.plot(c.trajectories[i][:, t, 0],
+                       c.trajectories[i][:, t, 1],
+                       c.trajectories[i][:, t, 2])
         fig.savefig('traj_N{0:0>3x}.pdf'.format(c.parameters['nx'], format = 'pdf'))
+    return None
+
+def plain(opt):
+    wd = opt.work_dir
+    opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
+    c0 = NSlaunch(opt)
+    c0.compute_statistics()
+    opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
+    opt.njobs *= 2
+    opt.nsteps /= 2
+    c1 = NSlaunch(opt)
+    c1.compute_statistics()
+    # plot energy and enstrophy
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(221)
+    c0.set_plt_style({'label' : '1',
+                      'dashes' : (None, None),
+                      'color' : (1, 0, 0)})
+    c1.set_plt_style({'label' : '2',
+                      'dashes' : (2, 2),
+                      'color' : (0, 0, 1)})
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['energy(t)'],
+               label = c.style['label'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('energy')
+    a.legend(loc = 'best')
+    a = fig.add_subplot(222)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['enstrophy(t)'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('enstrophy')
+    a = fig.add_subplot(223)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['kM']*c.statistics['etaK(t)'],
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('$k_M \\eta_K$')
+    a = fig.add_subplot(224)
+    for c in [c0, c1]:
+        a.plot(c.statistics['t'],
+               c.statistics['vel_max(t)'] * (c.parameters['dt'] * c.parameters['dkx'] /
+                                             (2*np.pi / c.parameters['nx'])),
+               dashes = c.style['dashes'],
+               color = c.style['color'])
+    a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    fig.savefig('plain_stats.pdf', format = 'pdf')
+
+    fig = plt.figure(figsize = (12, 12))
+    a = fig.add_subplot(221)
+    a.plot(c0.statistics['t'],
+           c0.statistics['energy(t)'] - c1.statistics['energy(t)'])
+    a.set_title('energy')
+    a.legend(loc = 'best')
+    a = fig.add_subplot(222)
+    a.plot(c0.statistics['t'],
+           c0.statistics['enstrophy(t)'] - c1.statistics['enstrophy(t)'])
+    a.set_title('enstrophy')
+    a = fig.add_subplot(223)
+    a.plot(c0.statistics['t'],
+           c0.statistics['kM']*c0.statistics['etaK(t)'] - c1.statistics['kM']*c1.statistics['etaK(t)'])
+    a.set_title('$k_M \\eta_K$')
+    a = fig.add_subplot(224)
+    data0 = c0.statistics['vel_max(t)'] * (c0.parameters['dt'] * c0.parameters['dkx'] /
+                                           (2*np.pi / c0.parameters['nx']))
+    data1 = c1.statistics['vel_max(t)'] * (c1.parameters['dt'] * c1.parameters['dkx'] /
+                                           (2*np.pi / c1.parameters['nx']))
+    a.plot(c0.statistics['t'],
+           data0 - data1)
+    a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
+    fig.savefig('plain_stat_diffs.pdf', format = 'pdf')
+
+    # plot trajectory differences
+    for i in range(c0.particle_species):
+        fig = plt.figure(figsize=(12, 4))
+        for j in range(3):
+            a = fig.add_subplot(131 + j)
+            for t in range(c0.parameters['nparticles']):
+                a.plot(c0.trajectories[i][:, t, j] - c1.trajectories[i][:, t, j])
+        fig.savefig('traj_s{0}.pdf'.format(i, format = 'pdf'))
     return None
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--particles', dest = 'particles', action = 'store_true')
     parser.add_argument('--run', dest = 'run', action = 'store_true')
     parser.add_argument('--double', dest = 'double', action = 'store_true')
     parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     parser.add_argument('--convergence', dest = 'convergence', action = 'store_true')
+    parser.add_argument('--plain', dest = 'plain', action = 'store_true')
+    parser.add_argument('--io', dest = 'io', action = 'store_true')
     parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
     parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
     parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
@@ -399,9 +487,12 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     if opt.convergence:
         convergence_test(opt)
-    else:
-        opt.work_dir += '/N{0:0>3x}'.format(opt.n)
-        c0 = NSlaunch(opt)
-        c0.compute_statistics()
-        c0.basic_plots()
+    if opt.plain:
+        plain(opt)
+    if opt.io:
+        c = bfps.test_io(work_dir = opt.work_dir + '/test_io')
+        c.write_src()
+        c.write_par()
+        c.set_host_info({'type' : 'pc'})
+        c.run(ncpu = opt.ncpu)
 
