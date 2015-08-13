@@ -60,7 +60,6 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                 """
         self.fluid_start += """
                 //begincpp
-                char fname[512];
                 fs = new fluid_solver<float>(
                         fluid_name,
                         nx, ny, nz,
@@ -76,10 +75,6 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                     do_conversion(fs);
                 //endcpp
                 """
-        self.fluid_end += """
-                //begincpp
-                delete fs;
-                //endcpp
-                """
+        self.fluid_end += 'delete fs;\n'
         return None
 
