@@ -179,7 +179,7 @@ def NSlaunch(
     c.parameters['niter_out'] = opt.nsteps
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 32
+    c.parameters['nparticles'] = 8
     c.add_particles(kcut = 'fs->kM/2')
     c.add_particles(integration_steps = 1)
     c.add_particles(integration_steps = 2)
@@ -364,6 +364,11 @@ def convergence_test(opt):
                err[i-1],
                marker = '.',
                label = '${0}$'.format(i))
+    a.plot( [c0.parameters['dt'], c1.parameters['dt']],
+            [c0.parameters['dt'], c1.parameters['dt']],
+            label = '$\\Delta t$',
+            dashes = (1,1),
+            color = (0, 0, 0))
     a.set_xscale('log')
     a.set_yscale('log')
     a.legend(loc = 'best')
