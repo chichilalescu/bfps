@@ -120,8 +120,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5::DataSet dset;
                 H5::DataSpace dspace;
                 std::string temp_string;
-                hsize_t dims[3];
-                hsize_t old_dims[3];
+                hsize_t dims[4];
+                hsize_t old_dims[4];
                 dset = data_file.openDataSet("/statistics/maximum_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
