@@ -283,11 +283,11 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
-    if (this->integration_steps >= 1)
+    if (this->integration_steps >= 2)
     {
-        std::fill_n(tstate, this->array_size, 0.0);
-        for (int i=0; i<this->integration_steps; i++)
+        for (int i=1; i<this->integration_steps; i++)
         {
+            std::fill_n(tstate, this->array_size, 0.0);
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
                 std::copy(this->rhs[i] + p*this->ncomponents,
                           this->rhs[i] + (p+1)*this->ncomponents,
@@ -334,8 +334,7 @@ void slab_field_particles<rnumber>::synchronize()
 template <class rnumber>
 void slab_field_particles<rnumber>::roll_rhs()
 {
-    int steps = (this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps;
-    for (int i=steps-2; i>=0; i--)
+    for (int i=this->integration_steps-2; i>=0; i--)
         std::copy(this->rhs[i],
                   this->rhs[i] + this->array_size,
                   this->rhs[i+1]);
@@ -348,22 +347,26 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 {
     int ii;
     this->get_rhs(this->state, this->rhs[0]);
-    //if (myrank == 0)
-    //{
-    //    DEBUG_MSG(
-    //            "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
-    //            this->name,
-    //            this->integration_steps,
-    //            nsteps,
-    //            this->iteration);
-    //    for (int i=0; i<this->integration_steps; i++)
-    //    {
-    //        std::stringstream tstring;
-    //        for (int p=0; p<this->nparticles; p++)
-    //            tstring << " " << this->rhs[i][p*3];
-    //        DEBUG_MSG("%s\n", tstring.str().c_str());
-    //    }
-    //}
+    if (myrank == 0)
+    {
+        DEBUG_MSG(
+                "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
+                this->name,
+                this->integration_steps,
+                nsteps,
+                this->iteration);
+        std::stringstream tstring;
+        for (int p=0; p<this->nparticles; p++)
+            tstring << " " << this->computing[p];
+        DEBUG_MSG("%s\n", tstring.str().c_str());
+        for (int i=0; i<this->integration_steps; i++)
+        {
+            std::stringstream tstring;
+            for (int p=0; p<this->nparticles; p++)
+                tstring << " " << this->rhs[i][p*3];
+            DEBUG_MSG("%s\n", tstring.str().c_str());
+        }
+    }
     switch(nsteps)
     {
         case 1:
@@ -682,7 +685,6 @@ void slab_field_particles<rnumber>::read(H5::H5File *dfile)
 template <class rnumber>
 void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
 {
-    this->synchronize();
     if (this->fs->rd->myrank == 0)
     {
         if (dfile == NULL)
