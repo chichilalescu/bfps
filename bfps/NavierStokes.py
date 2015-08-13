@@ -179,7 +179,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
-                        hsize_t count[2], offset[2], dims[2];
+                        hsize_t count[2], offset[2];
                         dset = data_file.openDataSet("statistics/maximum_velocity");
                         writespace = dset.getSpace();
                         count[0] = 1;
