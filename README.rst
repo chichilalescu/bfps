@@ -20,6 +20,15 @@ Problems
 TODO
 ----
 
+* make templates work for `double` as well, and python wrappers
+  should control precision
+
+* test involving hydrodynamic similarity
+
+* test anisotropic grids
+
+* test non-cubic domains
+
 * use HDF5 io for fields
 
 * use FFTW wisdom with some host dependent cache
@@ -28,7 +37,4 @@ TODO
 
 * complex field IO should be space efficient (i.e. don't write modes
   that are 0 due to dealiasing scheme)
-
-* make templates work for `double` as well, and python wrappers
-  should control precision
 
