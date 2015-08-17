@@ -20,11 +20,13 @@ if hostname == 'chichi-G':
 if hostname in ['frontend01', 'frontend02']:
     include_dirs = ['/usr/nld/mvapich2-1.9a2-gcc/include',
                     '/usr/nld/gcc-4.7.2/include',
+                    '/usr/nld/hdf5-1.8.9/include',
                     '/usr/nld/fftw-3.3.3-mvapich2-1.9a2-gcc/include',
                     '/usr/nld/fftw-3.3.3-float-mvapich2-1.9a2-gcc/include']
 
     library_dirs = ['/usr/nld/mvapich2-1.9a2-gcc/lib',
                     '/usr/nld/gcc-4.7.2/lib64',
+                    '/usr/nld/hdf5-1.8.9/lib',
                     '/usr/nld/fftw-3.3.3-mvapich2-1.9a2-gcc/lib',
                     '/usr/nld/fftw-3.3.3-float-mvapich2-1.9a2-gcc/lib']
     extra_libraries += ['mpich']
