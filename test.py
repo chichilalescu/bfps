@@ -359,7 +359,7 @@ def convergence_test(opt):
     fig = plt.figure()
     a = fig.add_subplot(111)
     for i in range(1, c0.particle_species):
-        print i, err[i-1]
+        print('{0} {1}'.format(i, err[i-1]))
         a.plot([c0.parameters['dt'], c1.parameters['dt']],
                err[i-1],
                marker = '.',
