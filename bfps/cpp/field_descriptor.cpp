@@ -101,13 +101,6 @@ field_descriptor<rnumber>::field_descriptor(
         tsubsizes[ndims-1] *= 2;
         tstarts[ndims-1] *= 2;
     }
-    if (this->mpi_dtype == MPI_DOUBLE ||
-        this->mpi_dtype == MPI_C_DOUBLE_COMPLEX)
-    {
-        tsizes[ndims-1] *= 2;
-        tsubsizes[ndims-1] *= 2;
-        tstarts[ndims-1] *= 2;
-    }
     int local_zero_array[this->nprocs], zero_array[this->nprocs];
     for (int i=0; i<this->nprocs; i++)
         local_zero_array[i] = 0;

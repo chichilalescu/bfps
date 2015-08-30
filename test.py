@@ -304,7 +304,7 @@ def convergence_test(opt):
         vec = c2.read_rfield(iteration = c2.parameters['niter_todo'], field = field_name)
         plot_face_contours(a, .5*np.sum(vec**2, axis = 3), levels = levels)
         a.set_title(c2.style['label'])
-        fig.savefig(field_name + '_contour.pdf', format = 'pdf')
+        fig.savefig(field_name + '_contour_' + opt.precision + '.pdf', format = 'pdf')
     full_face_contours_fig()
     full_face_contours_fig(field_name = 'vorticity')
     # plot spectra
@@ -320,7 +320,7 @@ def convergence_test(opt):
     plot_spec(fig.add_subplot(131), c0)
     plot_spec(fig.add_subplot(132), c1)
     plot_spec(fig.add_subplot(133), c2)
-    fig.savefig('spectra.pdf', format = 'pdf')
+    fig.savefig('spectra_' + opt.precision + '.pdf', format = 'pdf')
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(221)
@@ -350,7 +350,7 @@ def convergence_test(opt):
                                              (2*np.pi / c.parameters['nx'])),
                dashes = c.style['dashes'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    fig.savefig('convergence_stats.pdf', format = 'pdf')
+    fig.savefig('convergence_stats_' + opt.precision + '.pdf', format = 'pdf')
     ## particle test:
     # compute distance between final positions for species 1
     def get_traj_error(species):
@@ -375,7 +375,7 @@ def convergence_test(opt):
     a.set_xscale('log')
     a.set_yscale('log')
     a.legend(loc = 'best')
-    fig.savefig('traj_evdt.pdf', format = 'pdf')
+    fig.savefig('traj_evdt_' + opt.precision + '.pdf', format = 'pdf')
     # plot all trajectories... just in case
     for c in [c0, c1, c2]:
         fig = plt.figure(figsize=(12,12))
@@ -385,7 +385,7 @@ def convergence_test(opt):
                 a.plot(c.trajectories[i][:, t, 0],
                        c.trajectories[i][:, t, 1],
                        c.trajectories[i][:, t, 2])
-        fig.savefig('traj_N{0:0>3x}.pdf'.format(c.parameters['nx'], format = 'pdf'))
+        fig.savefig('traj_N{0:0>3x}_{1}.pdf'.format(c.parameters['nx'], opt.precision), format = 'pdf')
     return None
 
 def plain(opt):
@@ -437,7 +437,7 @@ def plain(opt):
                dashes = c.style['dashes'],
                color = c.style['color'])
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    fig.savefig('plain_stats.pdf', format = 'pdf')
+    fig.savefig('plain_stats_{0}.pdf'.format(opt.precision), format = 'pdf')
 
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(221)
@@ -461,7 +461,7 @@ def plain(opt):
     a.plot(c0.statistics['t'],
            data0 - data1)
     a.set_title('$\\frac{\\Delta t \\| u \\|_\infty}{\\Delta x}$')
-    fig.savefig('plain_stat_diffs.pdf', format = 'pdf')
+    fig.savefig('plain_stat_diffs_{0}.pdf'.format(opt.precision), format = 'pdf')
 
     # plot trajectory differences
     for i in range(c0.particle_species):
@@ -470,7 +470,7 @@ def plain(opt):
             a = fig.add_subplot(131 + j)
             for t in range(c0.parameters['nparticles']):
                 a.plot(c0.trajectories[i][:, t, j] - c1.trajectories[i][:, t, j])
-        fig.savefig('traj_s{0}.pdf'.format(i, format = 'pdf'))
+        fig.savefig('traj_s{0}_{1}.pdf'.format(i, opt.precision), format = 'pdf')
     return None
 
 if __name__ == '__main__':

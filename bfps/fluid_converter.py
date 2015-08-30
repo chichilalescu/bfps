@@ -32,12 +32,12 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
             name = 'fluid_converter',
             work_dir = './',
             simname = 'test',
-            dtype = np.float32):
+            fluid_precision = 'single'):
         super(fluid_converter, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = dtype)
+                dtype = fluid_precision)
         self.parameters['write_rvelocity']  = 1
         self.parameters['write_rvorticity'] = 1
         self.parameters['fluid_name'] = 'test'
@@ -55,13 +55,13 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
         self.fluid_definitions += """
                 //begincpp
                 void do_conversion(fluid_solver<{0}> *bla)
-                {
+                {{
                     bla->read('v', 'c');
                     if (write_rvelocity)
                         bla->write('u', 'r');
                     if (write_rvorticity)
                         bla->write('v', 'r');
-                }
+                }}
                 //endcpp
                 """.format(C_dtype)
         self.fluid_start += """

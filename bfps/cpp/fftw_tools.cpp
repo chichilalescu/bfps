@@ -41,7 +41,7 @@ int copy_complex_array(
     min_fast_dim =
         (fi->sizes[2] > fo->sizes[2]) ?
          fo->sizes[2] : fi->sizes[2];
-    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX : MPI_COMPLEX16;
+    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX : MPI_C_DOUBLE_COMPLEX;
 
     // clean up destination, in case we're padding with zeros
     // (even if only for one dimension)
@@ -164,7 +164,7 @@ int get_descriptors_3D(
         field_descriptor<rnumber> **fc)
 {
     MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
-    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX : MPI_COMPLEX16;
+    MPI_Datatype MPI_CNUM = (sizeof(rnumber) == 4) ? MPI_COMPLEX : MPI_C_DOUBLE_COMPLEX;
     int ntmp[3];
     ntmp[0] = n0;
     ntmp[1] = n1;
