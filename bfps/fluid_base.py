@@ -45,6 +45,13 @@ class fluid_particle_base(bfps.code):
                 self.dtype = np.float32
             elif dtype == 'double':
                 self.dtype = np.float64
+        self.rtype = self.dtype
+        if self.rtype == np.float32:
+            self.ctype = np.complex64
+            self.C_dtype = 'float'
+        elif self.rtype == np.float64:
+            self.ctype = np.complex128
+            self.C_dtype = 'double'
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0

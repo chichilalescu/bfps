@@ -45,13 +45,9 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
         self.finalize_code()
         return None
     def fill_up_fluid_code(self):
-        if self.dtype == np.float32:
-            C_dtype = 'float'
-        else:
-            C_dtype = 'double'
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<{0}> *fs;\n').format(C_dtype)
+                                 'fluid_solver<{0}> *fs;\n').format(self.C_dtype)
         self.fluid_definitions += """
                 //begincpp
                 void do_conversion(fluid_solver<{0}> *bla)
@@ -63,7 +59,7 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                         bla->write('v', 'r');
                 }}
                 //endcpp
-                """.format(C_dtype)
+                """.format(self.C_dtype)
         self.fluid_start += """
                 //begincpp
                 fs = new fluid_solver<{0}>(
@@ -73,7 +69,7 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                 fs->iteration = iteration;
                 do_conversion(fs);
                 //endcpp
-                """.format(C_dtype)
+                """.format(self.C_dtype)
         self.fluid_loop += """
                 //begincpp
                 fs->iteration++;

@@ -73,9 +73,9 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 a = 0.5*fs0->correl_vec(fs0->cvelocity, fs0->cvelocity);
                 b = 0.5*fs0->correl_vec(fs0->cvorticity, fs0->cvorticity);
                 DEBUG_MSG("old field %d %g %g\\n", fs0->iteration, a, b);
-                copy_complex_array(fs0->cd, fs0->cvorticity,
-                                   fs1->cd, fs1->cvorticity,
-                                   3);
+                copy_complex_array<{0}>(fs0->cd, fs0->cvorticity,
+                                        fs1->cd, fs1->cvorticity,
+                                        3);
                 fs1->write('v', 'c');
                 a = 0.5*fs1->correl_vec(fs1->cvelocity, fs1->cvelocity);
                 b = 0.5*fs1->correl_vec(fs1->cvorticity, fs1->cvorticity);
