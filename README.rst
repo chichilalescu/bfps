@@ -20,9 +20,6 @@ Problems
 TODO
 ----
 
-* make templates work for `double` as well, and python wrappers
-  should control precision
-
 * test involving hydrodynamic similarity
 
 * test anisotropic grids
