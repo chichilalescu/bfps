@@ -244,7 +244,7 @@ def convergence_test(opt):
             nu = c0.parameters['nu'],
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     # get real space fields
-    converter = bfps.fluid_converter()
+    converter = bfps.fluid_converter(fluid_precision = opt.precision)
     converter.write_src()
     converter.set_host_info({'type' : 'pc'})
     for c in [c0, c1, c2]:
