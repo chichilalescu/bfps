@@ -820,4 +820,5 @@ void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class slab_field_particles<float>;
+template class slab_field_particles<double>;
 /*****************************************************************************/

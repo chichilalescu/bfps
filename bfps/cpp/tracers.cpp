@@ -39,7 +39,7 @@ void tracers<rnumber>::jump_estimate(double *jump)
     double *tjump = new double[this->nparticles];
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
-    float *vel = this->data + this->buffer_size;
+    rnumber *vel = this->data + this->buffer_size;
     double tmp[3];
     /* get grid coordinates */
     this->get_grid_coordinates(this->state, xg, xx);
@@ -75,7 +75,7 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     /* get grid coordinates */
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
-    float *vel = this->data + this->buffer_size;
+    rnumber *vel = this->data + this->buffer_size;
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
@@ -146,12 +146,19 @@ TRACERS_DEFINITIONS(
         fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
+TRACERS_DEFINITIONS(
+        FFTW_MANGLE_DOUBLE,
+        double,
+        fftw_complex,
+        MPI_DOUBLE,
+        MPI_C_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 
 
 /*****************************************************************************/
-/* finally, force generation of code for single precision                    */
+/* finally, force generation of code                                         */
 template class tracers<float>;
+template class tracers<double>;
 /*****************************************************************************/
 

@@ -21,16 +21,20 @@
 import bfps
 import bfps.fluid_base
 
+import numpy as np
+
 class fluid_resize(bfps.fluid_base.fluid_particle_base):
     def __init__(
             self,
             name = 'fluid_converter',
             work_dir = './',
-            simname = 'test'):
+            simname = 'test',
+            dtype = np.float32):
         super(fluid_resize, self).__init__(
                 name = name,
                 work_dir = work_dir,
-                simname = simname)
+                simname = simname,
+                dtype = dtype)
         self.parameters['dst_iter'] = 0
         self.parameters['dst_nx'] = 32
         self.parameters['dst_ny'] = 32
@@ -45,16 +49,20 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
+        if self.dtype == np.float32:
+            C_dtype = 'float'
+        else:
+            C_dtype = 'double'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs0, *fs1;\n')
+                                 'fluid_solver<' + C_dtype + '> *fs0, *fs1;\n')
         self.fluid_start += """
                 //begincpp
                 char fname[512];
-                fs0 = new fluid_solver<float>(
+                fs0 = new fluid_solver<{0}>(
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
-                fs1 = new fluid_solver<float>(
+                fs1 = new fluid_solver<{0}>(
                         dst_simname,
                         dst_nx, dst_ny, dst_nz,
                         dst_dkx, dst_dky, dst_dkz);
@@ -74,7 +82,7 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
                 niter_todo = 0;
                 //endcpp
-                """
+                """.format(C_dtype)
         self.fluid_end += """
                 //begincpp
                 delete fs0;

@@ -32,11 +32,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             name = 'NavierStokes',
             work_dir = './',
-            simname = 'test'):
+            simname = 'test',
+            fluid_precision = 'single'):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
-                simname = simname)
+                simname = simname,
+                dtype = fluid_precision)
         self.file_datasets_create = """
                 //begincpp
                 std::string temp_string;
@@ -209,13 +211,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 """
         return None
     def fill_up_fluid_code(self):
+        if self.dtype == np.float32:
+            C_dtype = 'float'
+        else:
+            C_dtype = 'double'
         self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += 'fluid_solver<float> *fs;\n'
+        self.fluid_variables += 'fluid_solver<{0}> *fs;\n'.format(C_dtype)
         self.write_fluid_stats()
         self.fluid_start += """
                 //begincpp
                 char fname[512];
-                fs = new fluid_solver<float>(
+                fs = new fluid_solver<{0}>(
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
@@ -228,7 +234,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->iteration = iteration;
                 fs->read('v', 'c');
                 //endcpp
-                """
+                """.format(C_dtype)
         self.fluid_loop += """
                 //begincpp
                 fs->step(dt);
@@ -250,11 +256,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             smoothness = 1,
             integration_steps = 2,
             kcut = 'fs->kM'):
+        if self.dtype == np.float32:
+            C_dtype = 'float'
+        else:
+            C_dtype = 'double'
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
-        self.particle_variables += 'tracers<float> *ps{0};'.format(self.particle_species)
+        self.particle_variables += 'tracers<{0}> *ps{1};'.format(C_dtype, self.particle_species)
         self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
                                       'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
                                       'group = data_file.openGroup(temp_string);\n' +
@@ -286,16 +296,16 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
                         'fs->ift_velocity();\n' +
                         'ps{0}->update_field();\n').format(self.particle_species)
-        self.particle_start += ('sprintf(fname, "tracers{0}");\n' +
-                                'ps{0} = new tracers<float>(\n' +
+        self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
+                                'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
                                     'nparticles,\n' +
-                                    'neighbours{0}, smoothness{0}, niter_part, integration_steps{0},\n' +
+                                    'neighbours{1}, smoothness{1}, niter_part, integration_steps{1},\n' +
                                     'fs->ru);\n' +
-                                'ps{0}->dt = dt;\n' +
-                                'ps{0}->iteration = iteration;\n' +
+                                'ps{1}->dt = dt;\n' +
+                                'ps{1}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{0}->read(&data_file);\n').format(self.particle_species)
+                                'ps{1}->read(&data_file);\n').format(C_dtype, self.particle_species)
         self.particle_loop +=  (update_field +
                                'ps{0}->step();\n' +
                                 'if (ps{0}->iteration % niter_part == 0)\n' +
@@ -347,16 +357,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
 
         # plot particles
         if particles_on and self.particle_species > 0:
-            traj = self.read_traj()
             fig = plt.figure(figsize = (12, 12))
             a = fig.add_subplot(111, projection = '3d')
             for t in range(self.parameters['nparticles']):
-                a.plot(traj['state'][0, :, t, 0],
-                       traj['state'][0, :, t, 1],
-                       traj['state'][0, :, t, 2], color = 'blue')
-                a.plot(traj['state'][1, :, t, 0],
-                       traj['state'][1, :, t, 1],
-                       traj['state'][1, :, t, 2], color = 'red', dashes = (1, 1))
+                a.plot(self.trajectories[0][:, t, 0],
+                       self.trajectories[0][:, t, 1],
+                       self.trajectories[0][:, t, 2], color = 'blue')
+                a.plot(self.trajectories[1][:, t, 0],
+                       self.trajectories[1][:, t, 1],
+                       self.trajectories[1][:, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
     def compute_statistics(self, iter0 = 0):
@@ -385,7 +394,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                         self.statistics['diss' + suffix])**.5
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
-            self.trajectories = self.read_traj()
+            self.trajectories = [data_file['particles/' + key + '/state'].value
+                                 for key in data_file['particles'].keys()]
         return None
     def plot_spectrum(
             self,

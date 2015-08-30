@@ -19,9 +19,9 @@
 ************************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <stdlib.h>
 #include <algorithm>
@@ -95,7 +95,14 @@ field_descriptor<rnumber>::field_descriptor(
     tsubsizes[ndims-1] *= sizeof(rnumber);
     tstarts[ndims-1] *= sizeof(rnumber);
     if (this->mpi_dtype == MPI_COMPLEX ||
-        this->mpi_dtype == MPI_COMPLEX16)
+        this->mpi_dtype == MPI_C_DOUBLE_COMPLEX)
+    {
+        tsizes[ndims-1] *= 2;
+        tsubsizes[ndims-1] *= 2;
+        tstarts[ndims-1] *= 2;
+    }
+    if (this->mpi_dtype == MPI_DOUBLE ||
+        this->mpi_dtype == MPI_C_DOUBLE_COMPLEX)
     {
         tsizes[ndims-1] *= 2;
         tsubsizes[ndims-1] *= 2;
@@ -236,8 +243,8 @@ int field_descriptor<rnumber>::read(
     if (sizeof(rnumber)==4)
         ttype = MPI_COMPLEX;
     else if (sizeof(rnumber)==8)
-        ttype = MPI_DOUBLE_COMPLEX;
-    DEBUG_MSG("aloha 00\n");
+        ttype = MPI_C_DOUBLE_COMPLEX;
+    DEBUG_MSG("aloha from field_descriptor read\n");
     char representation[] = "native";
     if (this->subsizes[0] > 0)
     {
@@ -245,11 +252,11 @@ int field_descriptor<rnumber>::read(
         MPI_Info_create(&info);
         MPI_File f;
         ptrdiff_t read_size = this->local_size*sizeof(rnumber);
-        DEBUG_MSG("aloha %ld\n", read_size);
+        DEBUG_MSG("read size is %ld\n", read_size);
         char ffname[200];
         if (this->mpi_dtype == ttype)
             read_size *= 2;
-        DEBUG_MSG("aloha %ld\n", read_size);
+        DEBUG_MSG("read size is %ld\n", read_size);
         sprintf(ffname, "%s", fname);
 
         MPI_File_open(
@@ -285,7 +292,7 @@ int field_descriptor<rnumber>::write(
     if (sizeof(rnumber)==4)
         ttype = MPI_COMPLEX;
     else if (sizeof(rnumber)==8)
-        ttype = MPI_DOUBLE_COMPLEX;
+        ttype = MPI_C_DOUBLE_COMPLEX;
     char representation[] = "native";
     if (this->subsizes[0] > 0)
     {

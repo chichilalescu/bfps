@@ -31,11 +31,13 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
             self,
             name = 'fluid_converter',
             work_dir = './',
-            simname = 'test'):
+            simname = 'test',
+            dtype = np.float32):
         super(fluid_converter, self).__init__(
                 name = name,
                 work_dir = work_dir,
-                simname = simname)
+                simname = simname,
+                dtype = dtype)
         self.parameters['write_rvelocity']  = 1
         self.parameters['write_rvorticity'] = 1
         self.parameters['fluid_name'] = 'test'
@@ -43,12 +45,16 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
         self.finalize_code()
         return None
     def fill_up_fluid_code(self):
+        if self.dtype == np.float32:
+            C_dtype = 'float'
+        else:
+            C_dtype = 'double'
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<float> *fs;\n')
+                                 'fluid_solver<{0}> *fs;\n').format(C_dtype)
         self.fluid_definitions += """
                 //begincpp
-                void do_conversion(fluid_solver<float> *bla)
+                void do_conversion(fluid_solver<{0}> *bla)
                 {
                     bla->read('v', 'c');
                     if (write_rvelocity)
@@ -57,17 +63,17 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                         bla->write('v', 'r');
                 }
                 //endcpp
-                """
+                """.format(C_dtype)
         self.fluid_start += """
                 //begincpp
-                fs = new fluid_solver<float>(
+                fs = new fluid_solver<{0}>(
                         fluid_name,
                         nx, ny, nz,
                         dkx, dky, dkz);
                 fs->iteration = iteration;
                 do_conversion(fs);
                 //endcpp
-                """
+                """.format(C_dtype)
         self.fluid_loop += """
                 //begincpp
                 fs->iteration++;

@@ -454,12 +454,12 @@ FLUID_SOLVER_DEFINITIONS(
         fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
-//FLUID_SOLVER_DEFINITIONS(
-//        FFTW_MANGLE_DOUBLE,
-//        double,
-//        fftw_complex,
-//        MPI_DOUBLE,
-//        MPI_C_DOUBLE_COMPLEX)
+FLUID_SOLVER_DEFINITIONS(
+        FFTW_MANGLE_DOUBLE,
+        double,
+        fftw_complex,
+        MPI_DOUBLE,
+        MPI_C_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 
@@ -467,5 +467,6 @@ FLUID_SOLVER_DEFINITIONS(
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class fluid_solver<float>;
+template class fluid_solver<double>;
 /*****************************************************************************/
 

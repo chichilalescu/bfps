@@ -135,7 +135,8 @@ def double(opt):
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
     c = fluid_resize(
             work_dir = opt.work_dir + '/resize',
-            simname = old_simname)
+            simname = old_simname,
+            dtype = opt.precision)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -165,7 +166,9 @@ def NSlaunch(
         opt,
         nu = None,
         tracer_state_file = None):
-    c = bfps.NavierStokes(work_dir = opt.work_dir)
+    c = bfps.NavierStokes(
+            work_dir = opt.work_dir,
+            fluid_precision = opt.precision)
     assert((opt.nsteps % 4) == 0)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -473,17 +476,24 @@ def plain(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--run', dest = 'run', action = 'store_true')
-    parser.add_argument('--double', dest = 'double', action = 'store_true')
     parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
     parser.add_argument('--convergence', dest = 'convergence', action = 'store_true')
     parser.add_argument('--plain', dest = 'plain', action = 'store_true')
     parser.add_argument('--io', dest = 'io', action = 'store_true')
-    parser.add_argument('--iteration', type = int, dest = 'iteration', default = 0)
-    parser.add_argument('--ncpu', type = int, dest = 'ncpu', default = 2)
-    parser.add_argument('--nsteps', type = int, dest = 'nsteps', default = 16)
-    parser.add_argument('--njobs', type = int, dest = 'njobs', default = 1)
-    parser.add_argument('-n', type = int, dest = 'n', default = 64)
-    parser.add_argument('--wd', type = str, dest = 'work_dir', default = 'data')
+    parser.add_argument('-n',
+            type = int, dest = 'n', default = 64)
+    parser.add_argument('--iteration',
+            type = int, dest = 'iteration', default = 0)
+    parser.add_argument('--ncpu',
+            type = int, dest = 'ncpu', default = 2)
+    parser.add_argument('--nsteps',
+            type = int, dest = 'nsteps', default = 16)
+    parser.add_argument('--njobs',
+            type = int, dest = 'njobs', default = 1)
+    parser.add_argument('--wd',
+            type = str, dest = 'work_dir', default = 'data')
+    parser.add_argument('--precision',
+            type = str, dest = 'precision', default = 'single')
     opt = parser.parse_args()
     if opt.convergence:
         convergence_test(opt)
