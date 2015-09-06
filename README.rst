@@ -32,6 +32,3 @@ TODO
 
 * try to make code more memory efficient
 
-* complex field IO should be space efficient (i.e. don't write modes
-  that are 0 due to dealiasing scheme)
-
