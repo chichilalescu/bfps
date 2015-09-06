@@ -80,8 +80,8 @@ class code(base):
                         data_file.close();
                 //endcpp
                 """
-        self.main_start += 'if (myrank == 0) std::cout << "{0}" << std::endl;'.format(self.version_message).replace('\n', '\\n') + '\n'
-        self.main_start += 'if (myrank == 0) std::cerr << "{0}" << std::endl;'.format(self.version_message).replace('\n', '\\n') + '\n'
+        for ostream in ['cout', 'cerr']:
+            self.main_start += 'if (myrank == 0) std::{1} << "{0}" << std::endl;'.format(self.version_message, ostream).replace('\n', '\\n') + '\n'
         self.main_end = """
                 //begincpp
                     // clean up
