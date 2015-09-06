@@ -25,6 +25,10 @@ import h5py
 import bfps
 
 class base(object):
+    """
+        This class contains simulation parameters, and handles parameter related
+        functionalities of both python objects and C++ codes.
+    """
     def __init__(
             self,
             work_dir = './',

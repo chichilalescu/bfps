@@ -26,6 +26,10 @@ import bfps
 from bfps.base import base
 
 class code(base):
+    """
+        This class is meant to stitch together the C++ code into a final source file,
+        compile it, and handle all job launching.
+    """
     def __init__(
             self,
             work_dir = './',
