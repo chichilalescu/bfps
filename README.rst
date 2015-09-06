@@ -26,6 +26,9 @@ TODO
 
 * test non-cubic domains
 
+* HDF5 datasets should be created from python. it would make for cleaner
+  code...
+
 * use HDF5 io for fields
 
 * use FFTW wisdom with some host dependent cache
