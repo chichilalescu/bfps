@@ -106,7 +106,7 @@ void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, c
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
 
-#define FLUID_SOLVER_BASE_DEFINITIONS(FFTW, R, C, MPI_RNUM, MPI_CNUM) \
+#define FLUID_SOLVER_BASE_DEFINITIONS(FFTW, R, MPI_RNUM, MPI_CNUM) \
  \
 template<> \
 fluid_solver_base<R>::fluid_solver_base( \
@@ -246,7 +246,7 @@ fluid_solver_base<R>::~fluid_solver_base() \
 } \
  \
 template<> \
-R fluid_solver_base<R>::correl_vec(C *a, C *b) \
+R fluid_solver_base<R>::correl_vec(FFTW(complex) *a, FFTW(complex) *b) \
 { \
     double val_process = 0.0, val; \
     double k2; \
@@ -275,7 +275,7 @@ R fluid_solver_base<R>::correl_vec(C *a, C *b) \
 } \
  \
 template<> \
-void fluid_solver_base<R>::low_pass_Fourier(C *a, const int howmany, const double kmax) \
+void fluid_solver_base<R>::low_pass_Fourier(FFTW(complex) *a, const int howmany, const double kmax) \
 { \
     double k2; \
     const double km2 = kmax*kmax; \
@@ -303,7 +303,7 @@ void fluid_solver_base<R>::low_pass_Fourier(C *a, const int howmany, const doubl
 } \
  \
 template<> \
-void fluid_solver_base<R>::dealias(C *a, const int howmany) \
+void fluid_solver_base<R>::dealias(FFTW(complex) *a, const int howmany) \
 { \
     if (this->dealias_type == 0) \
         { \
@@ -326,10 +326,10 @@ void fluid_solver_base<R>::dealias(C *a, const int howmany) \
 } \
  \
 template<> \
-void fluid_solver_base<R>::force_divfree(C *a) \
+void fluid_solver_base<R>::force_divfree(FFTW(complex) *a) \
 { \
     double k2; \
-    C tval; \
+    FFTW(complex) tval; \
     CLOOP( \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
@@ -354,7 +354,7 @@ void fluid_solver_base<R>::force_divfree(C *a) \
 } \
  \
 template<> \
-void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
+void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
 { \
     ptrdiff_t ii, cc; \
     MPI_Status *mpistatus = new MPI_Status[1]; \
@@ -370,7 +370,7 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
                 -(*(data + cc + howmany*(                     ii)*this->cd->sizes[2]))[1]; \
                 } \
     } \
-    C *buffer; \
+    FFTW(complex) *buffer; \
     buffer = FFTW(alloc_complex)(howmany*this->cd->sizes[1]); \
     ptrdiff_t yy; \
     /*ptrdiff_t tindex;*/ \
@@ -439,7 +439,7 @@ int fluid_solver_base<R>::read_base(const char *fname, R *data) \
 } \
  \
 template<> \
-int fluid_solver_base<R>::read_base(const char *fname, C *data) \
+int fluid_solver_base<R>::read_base(const char *fname, FFTW(complex) *data) \
 { \
     char full_name[512]; \
     sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
@@ -455,7 +455,7 @@ int fluid_solver_base<R>::write_base(const char *fname, R *data) \
 } \
  \
 template<> \
-int fluid_solver_base<R>::write_base(const char *fname, C *data) \
+int fluid_solver_base<R>::write_base(const char *fname, FFTW(complex) *data) \
 { \
     char full_name[512]; \
     sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
@@ -471,13 +471,11 @@ int fluid_solver_base<R>::write_base(const char *fname, C *data) \
 FLUID_SOLVER_BASE_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
-        fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
 FLUID_SOLVER_BASE_DEFINITIONS(
         FFTW_MANGLE_DOUBLE,
         double,
-        fftw_complex,
         MPI_DOUBLE,
         BFPS_MPICXX_DOUBLE_COMPLEX)
 /*****************************************************************************/

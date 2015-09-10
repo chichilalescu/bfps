@@ -104,7 +104,7 @@ void tracers<rnumber>::update_field(bool clip_on)
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
 
-#define TRACERS_DEFINITIONS(FFTW, R, C, MPI_RNUM, MPI_CNUM) \
+#define TRACERS_DEFINITIONS(FFTW, R, MPI_RNUM, MPI_CNUM) \
  \
 template <> \
 tracers<R>::tracers( \
@@ -143,13 +143,11 @@ tracers<R>::~tracers() \
 TRACERS_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
-        fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
 TRACERS_DEFINITIONS(
         FFTW_MANGLE_DOUBLE,
         double,
-        fftw_complex,
         MPI_DOUBLE,
         BFPS_MPICXX_DOUBLE_COMPLEX)
 /*****************************************************************************/
