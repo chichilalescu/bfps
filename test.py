@@ -444,7 +444,6 @@ def plain(opt):
     a.plot(c0.statistics['t'],
            c0.statistics['energy(t)'] - c1.statistics['energy(t)'])
     a.set_title('energy')
-    a.legend(loc = 'best')
     a = fig.add_subplot(222)
     a.plot(c0.statistics['t'],
            c0.statistics['enstrophy(t)'] - c1.statistics['enstrophy(t)'])
