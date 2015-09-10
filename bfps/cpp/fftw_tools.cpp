@@ -24,7 +24,9 @@
 #include "base.hpp"
 #include "fftw_tools.hpp"
 
-
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 template <class rnumber>
 int clip_zero_padding(
@@ -58,6 +60,7 @@ int copy_complex_array<R>( \
         R (*ao)[2], \
         int howmany) \
 { \
+    DEBUG_MSG("entered copy_complex_array\n"); \
     FFTW(complex) *buffer; \
     buffer = FFTW(alloc_complex)(fi->slice_size*howmany); \
  \
@@ -152,6 +155,7 @@ int copy_complex_array<R>( \
     fftw_free(buffer); \
     MPI_Barrier(fi->comm); \
  \
+    DEBUG_MSG("exiting copy_complex_array\n"); \
     return EXIT_SUCCESS; \
 } \
  \
@@ -192,5 +196,5 @@ TOOLS_IMPLEMENTATION(
         double,
         fftw_complex,
         MPI_DOUBLE,
-        MPI_C_DOUBLE_COMPLEX)
+        BFPS_MPICXX_DOUBLE_COMPLEX)
 

@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -386,6 +386,7 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
                         (*(data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[imag_comp]; \
         if (ranksrc != rankdst) \
         { \
+            DEBUG_MSG("inside fluid_solver_base::symmetrize, about to send/recv data\n"); \
             if (this->cd->myrank == ranksrc) \
                 MPI_Send((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, rankdst, yy, \
@@ -394,6 +395,7 @@ void fluid_solver_base<R>::symmetrize(C *data, const int howmany) \
                 MPI_Recv((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, ranksrc, yy, \
                          this->cd->comm, mpistatus); \
+            DEBUG_MSG("inside fluid_solver_base::symmetrize, after send/recv data\n"); \
         } \
         if (this->cd->myrank == rankdst) \
         { \
@@ -477,7 +479,7 @@ FLUID_SOLVER_BASE_DEFINITIONS(
         double,
         fftw_complex,
         MPI_DOUBLE,
-        MPI_C_DOUBLE_COMPLEX)
+        BFPS_MPICXX_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 

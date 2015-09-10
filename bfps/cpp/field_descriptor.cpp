@@ -19,9 +19,9 @@
 ************************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <stdlib.h>
 #include <algorithm>
@@ -95,7 +95,7 @@ field_descriptor<rnumber>::field_descriptor(
     tsubsizes[ndims-1] *= sizeof(rnumber);
     tstarts[ndims-1] *= sizeof(rnumber);
     if (this->mpi_dtype == MPI_COMPLEX ||
-        this->mpi_dtype == MPI_C_DOUBLE_COMPLEX)
+        this->mpi_dtype == BFPS_MPICXX_DOUBLE_COMPLEX)
     {
         tsizes[ndims-1] *= 2;
         tsubsizes[ndims-1] *= 2;
@@ -236,8 +236,8 @@ int field_descriptor<rnumber>::read(
     if (sizeof(rnumber)==4)
         ttype = MPI_COMPLEX;
     else if (sizeof(rnumber)==8)
-        ttype = MPI_C_DOUBLE_COMPLEX;
-    DEBUG_MSG("aloha from field_descriptor read\n");
+        ttype = BFPS_MPICXX_DOUBLE_COMPLEX;
+    DEBUG_MSG("entered field_descriptor::read\n");
     char representation[] = "native";
     if (this->subsizes[0] > 0)
     {
@@ -258,6 +258,7 @@ int field_descriptor<rnumber>::read(
                 MPI_MODE_RDONLY,
                 info,
                 &f);
+        DEBUG_MSG("opened file\n");
         MPI_File_set_view(
                 f,
                 0,
@@ -265,14 +266,17 @@ int field_descriptor<rnumber>::read(
                 this->mpi_array_dtype,
                 representation,
                 info);
+        DEBUG_MSG("view is set\n");
         MPI_File_read_all(
                 f,
                 buffer,
                 read_size,
                 MPI_UNSIGNED_CHAR,
                 MPI_STATUS_IGNORE);
+        DEBUG_MSG("info is read\n");
         MPI_File_close(&f);
     }
+    DEBUG_MSG("finished with field_descriptor::read\n");
     return EXIT_SUCCESS;
 }
 
@@ -285,7 +289,7 @@ int field_descriptor<rnumber>::write(
     if (sizeof(rnumber)==4)
         ttype = MPI_COMPLEX;
     else if (sizeof(rnumber)==8)
-        ttype = MPI_C_DOUBLE_COMPLEX;
+        ttype = BFPS_MPICXX_DOUBLE_COMPLEX;
     char representation[] = "native";
     if (this->subsizes[0] > 0)
     {

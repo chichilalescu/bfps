@@ -459,7 +459,7 @@ FLUID_SOLVER_DEFINITIONS(
         double,
         fftw_complex,
         MPI_DOUBLE,
-        MPI_C_DOUBLE_COMPLEX)
+        BFPS_MPICXX_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 
