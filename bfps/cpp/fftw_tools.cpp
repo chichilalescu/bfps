@@ -51,7 +51,7 @@ int clip_zero_padding(
 
 
 
-#define TOOLS_IMPLEMENTATION(FFTW, R, C, MPI_RNUM, MPI_CNUM) \
+#define TOOLS_IMPLEMENTATION(FFTW, R, MPI_RNUM, MPI_CNUM) \
 template <> \
 int copy_complex_array<R>( \
         field_descriptor<R> *fi, \
@@ -188,13 +188,11 @@ int clip_zero_padding<R>( \
 TOOLS_IMPLEMENTATION(
         FFTW_MANGLE_FLOAT,
         float,
-        fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
 TOOLS_IMPLEMENTATION(
         FFTW_MANGLE_DOUBLE,
         double,
-        fftw_complex,
         MPI_DOUBLE,
         BFPS_MPICXX_DOUBLE_COMPLEX)
 
