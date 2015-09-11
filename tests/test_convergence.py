@@ -21,13 +21,13 @@
 
 from test_base import *
 
-def convergence_test(opt):
+def convergence_test(opt, code_launch_routine):
     ### test Navier Stokes convergence
     # first, run code three times, doubling and quadrupling the resolution
     # initial condition and viscosity must be the same!
     default_wd = opt.work_dir
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    c0 = NSlaunch(opt)
+    c0 = code_launch_routine(opt)
     opt.initialize = False
     opt.work_dir = default_wd
     double(opt)
@@ -36,7 +36,7 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    c1 = NSlaunch(
+    c1 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
@@ -46,7 +46,7 @@ def convergence_test(opt):
     opt.nsteps *= 2
     opt.ncpu *= 2
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    c2 = NSlaunch(
+    c2 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
@@ -177,6 +177,11 @@ def convergence_test(opt):
     a.plot( [c0.parameters['dt'], c1.parameters['dt']],
             [c0.parameters['dt'], c1.parameters['dt']],
             label = '$\\Delta t$',
+            dashes = (3,3),
+            color = (0, 0, 0))
+    a.plot( [c0.parameters['dt'], c1.parameters['dt']],
+            [c0.parameters['dt']**2, c1.parameters['dt']**2],
+            label = '$\\Delta t^2$',
             dashes = (1,1),
             color = (0, 0, 0))
     a.set_xscale('log')
@@ -197,5 +202,5 @@ def convergence_test(opt):
 
 if __name__ == '__main__':
     opt = parser.parse_args()
-    convergence_test(opt)
+    convergence_test(opt, NSlaunch)
 

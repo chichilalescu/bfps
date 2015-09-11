@@ -19,81 +19,62 @@
 #
 ########################################################################
 
+from test_base import *
 
-import os
-import subprocess
-import argparse
-import pickle
+class FrozenFieldParticles(bfps.NavierStokes):
+    def __init__(
+            self,
+            name = 'FrozenFieldParticles',
+            work_dir = './',
+            simname = 'test',
+            fluid_precision = 'single'):
+        super(FrozenFieldParticles, self).__init__(
+                name = name,
+                work_dir = work_dir,
+                simname = simname,
+                fluid_precision = fluid_precision)
+    def fill_up_fluid_code(self):
+        self.fluid_includes += '#include <cstring>\n'
+        self.fluid_variables += 'fluid_solver<{0}> *fs;\n'.format(self.C_dtype)
+        self.write_fluid_stats()
+        self.fluid_start += """
+                //begincpp
+                char fname[512];
+                fs = new fluid_solver<{0}>(
+                        simname,
+                        nx, ny, nz,
+                        dkx, dky, dkz);
+                fs->nu = nu;
+                fs->fmode = fmode;
+                fs->famplitude = famplitude;
+                fs->fk0 = fk0;
+                fs->fk1 = fk1;
+                strncpy(fs->forcing_type, forcing_type, 128);
+                fs->iteration = iteration;
+                fs->read('v', 'c');
+                //endcpp
+                """.format(self.C_dtype)
+        self.fluid_loop += """
+                //begincpp
+                fs->iteration++;
+                if (fs->iteration % niter_out == 0)
+                    fs->write('v', 'c');
+                //endcpp
+                """
+        self.fluid_end += """
+                //begincpp
+                if (fs->iteration % niter_out != 0)
+                    fs->write('v', 'c');
+                delete fs;
+                //endcpp
+                """
+        return None
 
-import numpy as np
-from mpl_toolkits.mplot3d import axes3d
-import matplotlib.pyplot as plt
-import h5py
-
-import bfps
-from bfps import fluid_resize
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--run', dest = 'run', action = 'store_true')
-parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
-parser.add_argument('-n',
-        type = int, dest = 'n', default = 64)
-parser.add_argument('--iteration',
-        type = int, dest = 'iteration', default = 0)
-parser.add_argument('--ncpu',
-        type = int, dest = 'ncpu', default = 2)
-parser.add_argument('--nsteps',
-        type = int, dest = 'nsteps', default = 16)
-parser.add_argument('--njobs',
-        type = int, dest = 'njobs', default = 1)
-parser.add_argument('--nparticles',
-        type = int, dest = 'nparticles', default = 8)
-parser.add_argument('--neighbours',
-        type = int, dest = 'neighbours', default = 3)
-parser.add_argument('--smoothness',
-        type = int, dest = 'smoothness', default = 2)
-parser.add_argument('--wd',
-        type = str, dest = 'work_dir', default = 'data')
-parser.add_argument('--precision',
-        type = str, dest = 'precision', default = 'single')
-
-def double(opt):
-    old_simname = 'N{0:0>3x}'.format(opt.n)
-    new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = fluid_resize(
-            work_dir = opt.work_dir + '/resize',
-            simname = old_simname,
-            dtype = opt.precision)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    c.parameters['dst_nx'] = 2*opt.n
-    c.parameters['dst_ny'] = 2*opt.n
-    c.parameters['dst_nz'] = 2*opt.n
-    c.parameters['dst_simname'] = new_simname
-    c.write_src()
-    c.set_host_info({'type' : 'pc'})
-    if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
-        os.mkdir(os.path.join(opt.work_dir, 'resize'))
-    c.write_par()
-    cp_command = ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
-            opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
-    subprocess.call([cp_command], shell = True)
-    c.run(ncpu = opt.ncpu,
-          err_file = 'err_' + old_simname + '_' + new_simname,
-          out_file = 'out_' + old_simname + '_' + new_simname)
-    if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
-        os.mkdir(os.path.join(opt.work_dir, new_simname))
-    cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
-            opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
-    subprocess.call([cp_command], shell = True)
-    return None
-
-def NSlaunch(
+def FFPlaunch(
         opt,
         nu = None,
         tracer_state_file = None):
-    c = bfps.NavierStokes(
+    c = FrozenFieldParticles(
             work_dir = opt.work_dir,
             fluid_precision = opt.precision)
     assert((opt.nsteps % 4) == 0)
@@ -104,7 +85,7 @@ def NSlaunch(
         c.parameters['nu'] = 5.5*opt.n**(-4./3)
     else:
         c.parameters['nu'] = nu
-    c.parameters['dt'] = 5e-3 * (64. / opt.n)
+    c.parameters['dt'] = 1e-2 * (64. / opt.n)
     c.parameters['niter_todo'] = opt.nsteps
     c.parameters['niter_out'] = opt.nsteps
     c.parameters['niter_part'] = 1
@@ -141,6 +122,8 @@ def NSlaunch(
               njobs = opt.njobs)
     return c
 
+from test_convergence import convergence_test
+
 if __name__ == '__main__':
-    print('this file doesn\'t do anything')
+    convergence_test(parser.parse_args(), FFPlaunch)
 
