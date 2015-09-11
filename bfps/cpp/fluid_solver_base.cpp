@@ -357,7 +357,7 @@ template<> \
 void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
 { \
     ptrdiff_t ii, cc; \
-    MPI_Status *mpistatus = new MPI_Status[1]; \
+    MPI_Status *mpistatus = new MPI_Status; \
     if (this->cd->myrank == this->cd->rank[0]) \
     { \
         for (cc = 0; cc < howmany; cc++) \
