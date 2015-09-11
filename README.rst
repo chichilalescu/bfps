@@ -15,7 +15,10 @@ so simulation data should be "future proof".
 Problems
 --------
 
-* particle integration may be broken somehow.
+* particle integration may be broken somehow. current test shows that
+  most methods are second order (but they should be higher order). for
+  some reason tests with evolving fields yield 1st order for all
+  methods...
 
 TODO
 ----
