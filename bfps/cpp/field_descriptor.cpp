@@ -292,6 +292,167 @@ int field_descriptor<R>::write( \
  \
     return EXIT_SUCCESS; \
 } \
+ \
+template <> \
+int field_descriptor<R>::transpose( \
+        R *input, \
+        R *output) \
+{ \
+    /* IMPORTANT NOTE: \
+     for 3D transposition, the input data is messed up */ \
+    FFTW(plan) tplan; \
+    if (this->ndims == 3) \
+    { \
+        /* transpose the two local dimensions 1 and 2 */ \
+        R *atmp; \
+        atmp = FFTW(alloc_real)(this->slice_size); \
+        for (int k = 0; k < this->subsizes[0]; k++) \
+        { \
+            /* put transposed slice in atmp */ \
+            for (int j = 0; j < this->sizes[1]; j++) \
+                for (int i = 0; i < this->sizes[2]; i++) \
+                    atmp[i*this->sizes[1] + j] = \
+                        input[(k*this->sizes[1] + j)*this->sizes[2] + i]; \
+            /* copy back transposed slice */ \
+            std::copy( \
+                    atmp, \
+                    atmp + this->slice_size, \
+                    input + k*this->slice_size); \
+        } \
+        FFTW(free)(atmp); \
+    } \
+    tplan = FFTW(mpi_plan_transpose)( \
+            this->sizes[0], this->slice_size, \
+            input, output, \
+            this->comm, \
+            FFTW_ESTIMATE); \
+    FFTW(execute)(tplan); \
+    FFTW(destroy_plan)(tplan); \
+    return EXIT_SUCCESS; \
+} \
+ \
+template<> \
+int field_descriptor<R>::transpose( \
+        FFTW(complex) *input, \
+        FFTW(complex) *output) \
+{ \
+    switch (this->ndims) \
+    { \
+        case 2: \
+            /* do a global transpose over the 2 dimensions */ \
+            if (output == NULL) \
+            { \
+                std::cerr << "bad arguments for transpose.\n" << std::endl; \
+                return EXIT_FAILURE; \
+            } \
+            FFTW(plan) tplan; \
+            tplan = FFTW(mpi_plan_many_transpose)( \
+                    this->sizes[0], this->sizes[1], 2, \
+                    FFTW_MPI_DEFAULT_BLOCK, \
+                    FFTW_MPI_DEFAULT_BLOCK, \
+                    (R*)input, (R*)output, \
+                    this->comm, \
+                    FFTW_ESTIMATE); \
+            FFTW(execute)(tplan); \
+            FFTW(destroy_plan)(tplan); \
+            break; \
+        case 3: \
+            /* transpose the two local dimensions 1 and 2 */ \
+            FFTW(complex) *atmp; \
+            atmp = FFTW(alloc_complex)(this->slice_size); \
+            for (int k = 0; k < this->subsizes[0]; k++) \
+            { \
+                /* put transposed slice in atmp */ \
+                for (int j = 0; j < this->sizes[1]; j++) \
+                    for (int i = 0; i < this->sizes[2]; i++) \
+                    { \
+                        atmp[i*this->sizes[1] + j][0] = \
+                            input[(k*this->sizes[1] + j)*this->sizes[2] + i][0]; \
+                        atmp[i*this->sizes[1] + j][1] = \
+                            input[(k*this->sizes[1] + j)*this->sizes[2] + i][1]; \
+                    } \
+                /* copy back transposed slice */ \
+                std::copy( \
+                        (R*)(atmp), \
+                        (R*)(atmp + this->slice_size), \
+                        (R*)(input + k*this->slice_size)); \
+            } \
+            FFTW(free)(atmp); \
+            break; \
+        default: \
+            return EXIT_FAILURE; \
+            break; \
+    } \
+    return EXIT_SUCCESS; \
+} \
+ \
+template<> \
+int field_descriptor<R>::interleave( \
+        R *a, \
+        int dim) \
+{ \
+/* the following is copied from \
+ * http://agentzlerich.blogspot.com/2010/01/using-fftw-for-in-place-matrix.html \
+ * */ \
+    FFTW(iodim) howmany_dims[2]; \
+    howmany_dims[0].n  = dim; \
+    howmany_dims[0].is = this->local_size; \
+    howmany_dims[0].os = 1; \
+    howmany_dims[1].n  = this->local_size; \
+    howmany_dims[1].is = 1; \
+    howmany_dims[1].os = dim; \
+    const int howmany_rank = sizeof(howmany_dims)/sizeof(howmany_dims[0]); \
+ \
+    FFTW(plan) tmp = FFTW(plan_guru_r2r)( \
+            /*rank*/0, \
+            /*dims*/NULL, \
+            howmany_rank, \
+            howmany_dims, \
+            a, \
+            a, \
+            /*kind*/NULL, \
+            FFTW_ESTIMATE); \
+    FFTW(execute)(tmp); \
+    FFTW(destroy_plan)(tmp); \
+    return EXIT_SUCCESS; \
+} \
+ \
+template<> \
+int field_descriptor<R>::interleave( \
+        FFTW(complex) *a, \
+        int dim) \
+{ \
+    FFTW(iodim) howmany_dims[2]; \
+    howmany_dims[0].n  = dim; \
+    howmany_dims[0].is = this->local_size; \
+    howmany_dims[0].os = 1; \
+    howmany_dims[1].n  = this->local_size; \
+    howmany_dims[1].is = 1; \
+    howmany_dims[1].os = dim; \
+    const int howmany_rank = sizeof(howmany_dims)/sizeof(howmany_dims[0]); \
+ \
+    FFTW(plan) tmp = FFTW(plan_guru_dft)( \
+            /*rank*/0, \
+            /*dims*/NULL, \
+            howmany_rank, \
+            howmany_dims, \
+            a, \
+            a, \
+            +1, \
+            FFTW_ESTIMATE); \
+    FFTW(execute)(tmp); \
+    FFTW(destroy_plan)(tmp); \
+    return EXIT_SUCCESS; \
+} \
+ \
+template<> \
+field_descriptor<R>* field_descriptor<R>::get_transpose() \
+{ \
+    int n[this->ndims]; \
+    for (int i=0; i<this->ndims; i++) \
+        n[i] = this->sizes[this->ndims - i - 1]; \
+    return new field_descriptor<R>(this->ndims, n, this->mpi_dtype, this->comm); \
+} \
 
 /*****************************************************************************/
 
@@ -313,6 +474,8 @@ CLASS_IMPLEMENTATION(
 
 
 
+/*****************************************************************************/
+/* destructor looks the same for both float and double                       */
 template <class rnumber>
 field_descriptor<rnumber>::~field_descriptor()
 {
@@ -341,167 +504,8 @@ field_descriptor<rnumber>::~field_descriptor()
     delete[] this->starts;
     delete[] this->rank;
 }
+/*****************************************************************************/
 
-template<>
-int field_descriptor<float>::transpose(
-        float *input,
-        float *output)
-{
-    // IMPORTANT NOTE:
-    // for 3D transposition, the input data is messed up
-    fftwf_plan tplan;
-    if (this->ndims == 3)
-    {
-        // transpose the two local dimensions 1 and 2
-        float *atmp;
-        atmp = fftwf_alloc_real(this->slice_size);
-        for (int k = 0; k < this->subsizes[0]; k++)
-        {
-            // put transposed slice in atmp
-            for (int j = 0; j < this->sizes[1]; j++)
-                for (int i = 0; i < this->sizes[2]; i++)
-                    atmp[i*this->sizes[1] + j] =
-                        input[(k*this->sizes[1] + j)*this->sizes[2] + i];
-            // copy back transposed slice
-            std::copy(
-                    atmp,
-                    atmp + this->slice_size,
-                    input + k*this->slice_size);
-        }
-        fftwf_free(atmp);
-    }
-    tplan = fftwf_mpi_plan_transpose(
-            this->sizes[0], this->slice_size,
-            input, output,
-            this->comm,
-            FFTW_ESTIMATE);
-    fftwf_execute(tplan);
-    fftwf_destroy_plan(tplan);
-    return EXIT_SUCCESS;
-}
-
-template<>
-int field_descriptor<float>::transpose(
-        fftwf_complex *input,
-        fftwf_complex *output)
-{
-    switch (this->ndims)
-    {
-        case 2:
-            // do a global transpose over the 2 dimensions
-            if (output == NULL)
-            {
-                std::cerr << "bad arguments for transpose.\n" << std::endl;
-                return EXIT_FAILURE;
-            }
-            fftwf_plan tplan;
-            tplan = fftwf_mpi_plan_many_transpose(
-                    this->sizes[0], this->sizes[1], 2,
-                    FFTW_MPI_DEFAULT_BLOCK,
-                    FFTW_MPI_DEFAULT_BLOCK,
-                    (float*)input, (float*)output,
-                    this->comm,
-                    FFTW_ESTIMATE);
-            fftwf_execute(tplan);
-            fftwf_destroy_plan(tplan);
-            break;
-        case 3:
-            // transpose the two local dimensions 1 and 2
-            fftwf_complex *atmp;
-            atmp = fftwf_alloc_complex(this->slice_size);
-            for (int k = 0; k < this->subsizes[0]; k++)
-            {
-                // put transposed slice in atmp
-                for (int j = 0; j < this->sizes[1]; j++)
-                    for (int i = 0; i < this->sizes[2]; i++)
-                    {
-                        atmp[i*this->sizes[1] + j][0] =
-                            input[(k*this->sizes[1] + j)*this->sizes[2] + i][0];
-                        atmp[i*this->sizes[1] + j][1] =
-                            input[(k*this->sizes[1] + j)*this->sizes[2] + i][1];
-                    }
-                // copy back transposed slice
-                std::copy(
-                        (float*)(atmp),
-                        (float*)(atmp + this->slice_size),
-                        (float*)(input + k*this->slice_size));
-            }
-            fftwf_free(atmp);
-            break;
-        default:
-            return EXIT_FAILURE;
-            break;
-    }
-    return EXIT_SUCCESS;
-}
-
-template<>
-int field_descriptor<float>::interleave(
-        float *a,
-        int dim)
-{
-/* the following is copied from
- * http://agentzlerich.blogspot.com/2010/01/using-fftw-for-in-place-matrix.html
- * */
-    fftwf_iodim howmany_dims[2];
-    howmany_dims[0].n  = dim;
-    howmany_dims[0].is = this->local_size;
-    howmany_dims[0].os = 1;
-    howmany_dims[1].n  = this->local_size;
-    howmany_dims[1].is = 1;
-    howmany_dims[1].os = dim;
-    const int howmany_rank = sizeof(howmany_dims)/sizeof(howmany_dims[0]);
-
-    fftwf_plan tmp = fftwf_plan_guru_r2r(
-            /*rank*/0,
-            /*dims*/NULL,
-            howmany_rank,
-            howmany_dims,
-            a,
-            a,
-            /*kind*/NULL,
-            FFTW_ESTIMATE);
-    fftwf_execute(tmp);
-    fftwf_destroy_plan(tmp);
-    return EXIT_SUCCESS;
-}
-
-template<>
-int field_descriptor<float>::interleave(
-        fftwf_complex *a,
-        int dim)
-{
-    fftwf_iodim howmany_dims[2];
-    howmany_dims[0].n  = dim;
-    howmany_dims[0].is = this->local_size;
-    howmany_dims[0].os = 1;
-    howmany_dims[1].n  = this->local_size;
-    howmany_dims[1].is = 1;
-    howmany_dims[1].os = dim;
-    const int howmany_rank = sizeof(howmany_dims)/sizeof(howmany_dims[0]);
-
-    fftwf_plan tmp = fftwf_plan_guru_dft(
-            /*rank*/0,
-            /*dims*/NULL,
-            howmany_rank,
-            howmany_dims,
-            a,
-            a,
-            +1,
-            FFTW_ESTIMATE);
-    fftwf_execute(tmp);
-    fftwf_destroy_plan(tmp);
-    return EXIT_SUCCESS;
-}
-
-template<>
-field_descriptor<float>* field_descriptor<float>::get_transpose()
-{
-    int n[this->ndims];
-    for (int i=0; i<this->ndims; i++)
-        n[i] = this->sizes[this->ndims - i - 1];
-    return new field_descriptor<float>(this->ndims, n, this->mpi_dtype, this->comm);
-}
 
 
 /*****************************************************************************/
