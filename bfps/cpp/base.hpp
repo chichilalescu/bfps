@@ -36,10 +36,15 @@ inline int MOD(int a, int n)
 }
 
 #ifdef OMPI_MPI_H
+
 #define BFPS_MPICXX_DOUBLE_COMPLEX MPI_DOUBLE_COMPLEX
+
 #else
+
 #define BFPS_MPICXX_DOUBLE_COMPLEX MPI_C_DOUBLE_COMPLEX
-#endif
+
+#endif//OMPI_MPI_H
+
 
 #ifndef NDEBUG
 

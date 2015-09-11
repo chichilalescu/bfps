@@ -29,7 +29,7 @@
 extern int myrank, nprocs;
 
 template <class rnumber>
-class tracers:public slab_field_particles<rnumber>
+class tracers final:public slab_field_particles<rnumber>
 {
     public:
         rnumber *source_data;
