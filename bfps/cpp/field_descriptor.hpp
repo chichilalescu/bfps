@@ -86,11 +86,6 @@ class field_descriptor
         int interleave(
                 cnumber *input,
                 int dim);
-
-        int switch_endianness(
-                rnumber *a);
-        int switch_endianness(
-                cnumber *a);
 };
 
 

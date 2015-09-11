@@ -40,3 +40,4 @@ vector_field<rnumber>& vector_field<rnumber>::operator*(rnumber factor)
 }
 
 template class vector_field<float>;
+template class vector_field<double>;

@@ -40,7 +40,7 @@ void fluid_solver<rnumber>::impose_zero_modes()
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
 
-#define FLUID_SOLVER_DEFINITIONS(FFTW, R, C, MPI_RNUM, MPI_CNUM) \
+#define FLUID_SOLVER_DEFINITIONS(FFTW, R, MPI_RNUM, MPI_CNUM) \
  \
 template<> \
 fluid_solver<R>::fluid_solver( \
@@ -186,7 +186,7 @@ void fluid_solver<R>::compute_vorticity() \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_velocity(C *vorticity) \
+void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 { \
     double k2; \
     std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
@@ -239,7 +239,7 @@ void fluid_solver<R>::dft_vorticity() \
  \
 template<> \
 void fluid_solver<R>::add_forcing(\
-        C *field, R factor) \
+        FFTW(complex) *field, R factor) \
 { \
     if (strcmp(this->forcing_type, "none") == 0) \
         return; \
@@ -451,15 +451,13 @@ int fluid_solver<R>::write(char field, char representation) \
 FLUID_SOLVER_DEFINITIONS(
         FFTW_MANGLE_FLOAT,
         float,
-        fftwf_complex,
         MPI_FLOAT,
         MPI_COMPLEX)
-//FLUID_SOLVER_DEFINITIONS(
-//        FFTW_MANGLE_DOUBLE,
-//        double,
-//        fftw_complex,
-//        MPI_DOUBLE,
-//        MPI_C_DOUBLE_COMPLEX)
+FLUID_SOLVER_DEFINITIONS(
+        FFTW_MANGLE_DOUBLE,
+        double,
+        MPI_DOUBLE,
+        BFPS_MPICXX_DOUBLE_COMPLEX)
 /*****************************************************************************/
 
 
@@ -467,5 +465,6 @@ FLUID_SOLVER_DEFINITIONS(
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
 template class fluid_solver<float>;
+template class fluid_solver<double>;
 /*****************************************************************************/
 

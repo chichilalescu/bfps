@@ -26,6 +26,10 @@ import bfps
 from bfps.base import base
 
 class code(base):
+    """
+        This class is meant to stitch together the C++ code into a final source file,
+        compile it, and handle all job launching.
+    """
     def __init__(
             self,
             work_dir = './',
@@ -80,8 +84,8 @@ class code(base):
                         data_file.close();
                 //endcpp
                 """
-        self.main_start += 'if (myrank == 0) std::cout << "{0}" << std::endl;'.format(self.version_message).replace('\n', '\\n') + '\n'
-        self.main_start += 'if (myrank == 0) std::cerr << "{0}" << std::endl;'.format(self.version_message).replace('\n', '\\n') + '\n'
+        for ostream in ['cout', 'cerr']:
+            self.main_start += 'if (myrank == 0) std::{1} << "{0}" << std::endl;'.format(self.version_message, ostream).replace('\n', '\\n') + '\n'
         self.main_end = """
                 //begincpp
                     // clean up
@@ -186,8 +190,10 @@ class code(base):
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
+            print('added to LD_LIBRARY_PATH the location {0}'.format(bfps.lib_dir))
             for j in range(njobs):
                 suffix = self.simname + '_{0}'.format(iter0 + j*self.parameters['niter_todo'])
+                print('running code with command\n' + ' '.join(command_atoms))
                 subprocess.call(command_atoms,
                                 stdout = open(out_file + '_' + suffix, 'w'),
                                 stderr = open(err_file + '_' + suffix, 'w'))

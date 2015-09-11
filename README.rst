@@ -15,20 +15,28 @@ so simulation data should be "future proof".
 Problems
 --------
 
-* particle integration may be broken somehow.
+* particle integration may be broken somehow. current test shows that
+  most methods are second order (but they should be higher order). for
+  some reason tests with evolving fields yield 1st order for all
+  methods...
 
 TODO
 ----
+
+* add different numerical method, for testing purposes
+
+* test involving hydrodynamic similarity
+
+* test anisotropic grids
+
+* test non-cubic domains
+
+* HDF5 datasets should be created from python. it would make for cleaner
+  code...
 
 * use HDF5 io for fields
 
 * use FFTW wisdom with some host dependent cache
 
 * try to make code more memory efficient
-
-* complex field IO should be space efficient (i.e. don't write modes
-  that are 0 due to dealiasing scheme)
-
-* make templates work for `double` as well, and python wrappers
-  should control precision
 

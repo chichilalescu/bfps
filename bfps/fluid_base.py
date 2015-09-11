@@ -31,12 +31,27 @@ class fluid_particle_base(bfps.code):
             self,
             name = 'solver',
             work_dir = './',
-            simname = 'test'):
+            simname = 'test',
+            dtype = np.float32):
         super(fluid_particle_base, self).__init__(
                 work_dir = work_dir,
                 simname = simname)
         self.name = name
         self.particle_species = 0
+        if dtype in [np.float32, np.float64]:
+            self.dtype = dtype
+        elif dtype in ['single', 'double']:
+            if dtype == 'single':
+                self.dtype = np.float32
+            elif dtype == 'double':
+                self.dtype = np.float64
+        self.rtype = self.dtype
+        if self.rtype == np.float32:
+            self.ctype = np.complex64
+            self.C_dtype = 'float'
+        elif self.rtype == np.float64:
+            self.ctype = np.complex128
+            self.C_dtype = 'double'
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
         self.parameters['dkz'] = 1.0
@@ -128,7 +143,7 @@ class fluid_particle_base(bfps.code):
                     self.simname + '_r' + field + '_i{0:0>5x}'.format(iteration))
         return np.memmap(
                 filename,
-                dtype = np.float32,
+                dtype = self.dtype,
                 shape = (self.parameters['nz'],
                          self.parameters['ny'],
                          self.parameters['nx'], 3))
@@ -147,7 +162,7 @@ class fluid_particle_base(bfps.code):
                  self.parameters['nz'],
                  self.parameters['ny'],
                  self.parameters['nx']),
-                dtype = Rdata.dtype)
+                dtype = self.dtype)
         for i in range(3):
             new_data[i] = Rdata[..., i]
         if type(ofile) == type(None):
@@ -201,26 +216,22 @@ class fluid_particle_base(bfps.code):
             iteration = 0,
             field_name = 'vorticity',
             write_to_file = False):
-        if precision == 'single':
-            dtype = np.complex64
-        elif precision == 'double':
-            dtype = np.complex128
         np.random.seed(rseed)
         Kdata00 = bfps.tools.generate_data_3D(
                 self.parameters['nz']/2,
                 self.parameters['ny']/2,
                 self.parameters['nx']/2,
-                p = spectra_slope).astype(dtype)
+                p = spectra_slope).astype(self.ctype)
         Kdata01 = bfps.tools.generate_data_3D(
                 self.parameters['nz']/2,
                 self.parameters['ny']/2,
                 self.parameters['nx']/2,
-                p = spectra_slope).astype(dtype)
+                p = spectra_slope).astype(self.ctype)
         Kdata02 = bfps.tools.generate_data_3D(
                 self.parameters['nz']/2,
                 self.parameters['ny']/2,
                 self.parameters['nx']/2,
-                p = spectra_slope).astype(dtype)
+                p = spectra_slope).astype(self.ctype)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)
@@ -271,30 +282,6 @@ class fluid_particle_base(bfps.code):
                         self.work_dir,
                         "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
         return data
-    def read_spec(
-            self,
-            field = 'velocity'):
-        k = np.fromfile(
-                os.path.join(
-                    self.work_dir,
-                    self.simname + '_kshell'),
-                dtype = np.float64)
-        spec_dtype = np.dtype([('iteration', np.int32),
-                               ('val', np.float64, k.shape[0])])
-        spec = np.fromfile(
-                os.path.join(
-                    self.work_dir,
-                    self.simname + '_' + field + '_spec'),
-                dtype = spec_dtype)
-        return k, spec
-    def read_traj(self):
-        if self.particle_species == 0:
-            return None
-        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
-            traj_list = []
-            for t in range(self.particle_species):
-                traj_list.append(data_file['particles/tracers{0}/state'.format(t)].value)
-        return traj_list
     def generate_initial_condition(self):
         self.generate_vector_field(write_to_file = True)
         for species in range(self.particle_species):
