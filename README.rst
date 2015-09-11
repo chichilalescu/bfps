@@ -23,6 +23,8 @@ Problems
 TODO
 ----
 
+* add different numerical method, for testing purposes
+
 * test involving hydrodynamic similarity
 
 * test anisotropic grids
