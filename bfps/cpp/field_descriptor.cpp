@@ -495,33 +495,6 @@ int field_descriptor<float>::interleave(
 }
 
 template<>
-int field_descriptor<float>::switch_endianness(
-        float *a)
-{
-    for (int i = 0; i < this->local_size; i++)
-    {
-        *a = btle(*a);
-        a++;
-    }
-    return EXIT_SUCCESS;
-}
-
-template<>
-int field_descriptor<float>::switch_endianness(
-        fftwf_complex *b)
-{
-    float *a = (float*)b;
-    for (int i = 0; i < this->local_size; i++)
-    {
-        *a = btle(*a);
-        a++;
-        *a = btle(*a);
-        a++;
-    }
-    return EXIT_SUCCESS;
-}
-
-template<>
 field_descriptor<float>* field_descriptor<float>::get_transpose()
 {
     int n[this->ndims];
