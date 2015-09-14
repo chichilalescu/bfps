@@ -85,13 +85,13 @@ class base(object):
             else:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %le\\n", ' + key[i] + ');\n'
         return src_txt
-    def write_par(self):
+    def write_par(self, iter0 = 0):
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             ofile['parameters/' + k] = self.parameters[k]
-        ofile['iteration'] = int(0)
+        ofile['iteration'] = int(iter0)
         for k in bfps.install_info.keys():
             ofile['install_info/' + k] = str(bfps.install_info[k])
         ofile.close()
