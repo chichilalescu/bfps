@@ -386,8 +386,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                         self.statistics['diss' + suffix])**.5
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
-            self.trajectories = [data_file['particles/' + key + '/state'].value
-                                 for key in data_file['particles'].keys()]
+            if self.particle_species > 0:
+                self.trajectories = [data_file['particles/' + key + '/state'].value
+                                     for key in data_file['particles'].keys()]
         return None
     def plot_spectrum(
             self,
