@@ -55,10 +55,15 @@ def generate_ABC_flow(
 
 if __name__ == '__main__':
     opt = parser.parse_args()
+    if opt.precision == 'single':
+        dtype = np.complex64
+    elif opt.precision == 'double':
+        dtype = np.complex128
     Kdata = generate_ABC_flow(
             parameters = {'nx': opt.n,
                           'ny': opt.n,
-                          'nz': opt.n})
+                          'nz': opt.n},
+            dtype = dtype)
     convergence_test(
             opt,
             launch,
