@@ -209,7 +209,7 @@ def convergence_test(
                        c.trajectories[i][:, t, 1],
                        c.trajectories[i][:, t, 2])
         fig.savefig('traj_N{0:0>3x}_{1}.pdf'.format(c.parameters['nx'], opt.precision), format = 'pdf')
-    return None
+    return c0, c1, c2
 
 if __name__ == '__main__':
     opt = parser.parse_args()
