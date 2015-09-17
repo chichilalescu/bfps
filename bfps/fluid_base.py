@@ -240,8 +240,8 @@ class fluid_particle_base(bfps.code):
         Kdata0[..., 2] = Kdata02
         Kdata1 = bfps.tools.padd_with_zeros(
                 Kdata0,
-                self.parameters['nz'],
                 self.parameters['ny'],
+                self.parameters['nz'],
                 self.parameters['nx'])
         if write_to_file:
             Kdata1.tofile(

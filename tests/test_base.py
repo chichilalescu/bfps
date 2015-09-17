@@ -89,11 +89,13 @@ def double(opt):
     subprocess.call([cp_command], shell = True)
     return None
 
-def NSlaunch(
+def launch(
         opt,
         nu = None,
-        tracer_state_file = None):
-    c = bfps.NavierStokes(
+        tracer_state_file = None,
+        vorticity_field = None,
+        code_class = bfps.NavierStokes):
+    c = code_class(
             work_dir = opt.work_dir,
             fluid_precision = opt.precision)
     assert((opt.nsteps % 4) == 0)
@@ -124,7 +126,13 @@ def NSlaunch(
     c.set_host_info({'type' : 'pc'})
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
-            c.generate_vector_field(write_to_file = True)
+            if type(vorticity_field) == type(None):
+                c.generate_vector_field(write_to_file = True)
+            else:
+                vorticity_field.tofile(
+                        os.path.join(c.work_dir,
+                                     c.simname + "_c{0}_i{1:0>5x}".format('vorticity',
+                                                                          opt.iteration)))
         if opt.iteration == 0:
             for species in range(c.particle_species):
                 if type(tracer_state_file) == type(None):

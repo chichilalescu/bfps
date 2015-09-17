@@ -70,60 +70,11 @@ class FrozenFieldParticles(bfps.NavierStokes):
                 """
         return None
 
-def FFPlaunch(
-        opt,
-        nu = None,
-        tracer_state_file = None):
-    c = FrozenFieldParticles(
-            work_dir = opt.work_dir,
-            fluid_precision = opt.precision)
-    assert((opt.nsteps % 4) == 0)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    if type(nu) == type(None):
-        c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    else:
-        c.parameters['nu'] = nu
-    c.parameters['dt'] = 1e-2 * (64. / opt.n)
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_out'] = opt.nsteps
-    c.parameters['niter_part'] = 1
-    c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = opt.nparticles
-    c.add_particles(kcut = 'fs->kM/2')
-    c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.fill_up_fluid_code()
-    c.finalize_code()
-    c.write_src()
-    c.write_par()
-    c.set_host_info({'type' : 'pc'})
-    if opt.run:
-        if opt.iteration == 0 and opt.initialize:
-            c.generate_vector_field(write_to_file = True)
-        if opt.iteration == 0:
-            for species in range(c.particle_species):
-                if type(tracer_state_file) == type(None):
-                    data = None
-                else:
-                    data = tracer_state_file['particles/tracers{0}/state'.format(species)][0]
-                c.generate_tracer_state(
-                        species = species,
-                        write_to_file = False,
-                        testing = True,
-                        rseed = 3284,
-                        data = data)
-        c.run(ncpu = opt.ncpu,
-              njobs = opt.njobs)
-    return c
-
 from test_convergence import convergence_test
 
 if __name__ == '__main__':
-    convergence_test(parser.parse_args(), FFPlaunch)
+    convergence_test(
+            parser.parse_args(),
+            launch,
+            code_class = FrozenFieldParticles)
 

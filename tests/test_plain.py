@@ -24,12 +24,12 @@ from test_base import *
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = NSlaunch(opt)
+    c0 = launch(opt)
     c0.compute_statistics()
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
     opt.nsteps /= 2
-    c1 = NSlaunch(opt)
+    c1 = launch(opt)
     c1.compute_statistics()
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 12))
