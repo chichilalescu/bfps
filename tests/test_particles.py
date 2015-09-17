@@ -76,6 +76,67 @@ def cRK(x0, dt, nsteps, rhs):
         x[i+1] = x[i] + dt*(k1 + 2*(k2 + k3) + k4)/6.
     return x
 
+def AdamsBashforth(x0, dt, nsteps, rhs, nsubsteps = 1):
+    x = np.zeros((nsteps+1,) + x0.shape, x0.dtype)
+    x[0] = x0
+    R = np.zeros((nsubsteps,) + x0.shape, x0.dtype)
+    for i in range(nsteps):
+        R[0] = rhs(x[i])
+        if min(i, nsubsteps) == 2:
+            x[i+1] = x[i] + dt*(3*R[0] - R[1])/2
+        elif min(i, nsubsteps) == 3:
+            x[i+1] = x[i] + dt*(23*R[0] - 16*R[1] + 5*R[2])/12
+        elif min(i, nsubsteps) == 4:
+            x[i+1] = x[i] + dt*(55*R[0] - 59*R[1] + 37*R[2] - 9*R[3])/24
+        else:
+            x[i+1] = x[i] + dt*R[0]
+        # roll rhs:
+        for j in range(nsubsteps-2, -1, -1):
+            R[j+1] = R[j]
+    return x
+
+class err_finder:
+    def __init__(self, clist):
+        self.clist = clist
+        self.xcRK = []
+        for c in self.clist:
+            self.xcRK.append(cRK(
+                c.trajectories[1][0].T,
+                c.parameters['dt'],
+                c.parameters['niter_todo'],
+                ABC_flow))
+        self.dtlist = [c.parameters['dt']
+                       for c in self.clist]
+        self.ctraj = [None]
+        for i in range(1, self.clist[0].particle_species):
+            self.ctraj.append([self.clist[j].trajectories[i].transpose((0, 2, 1))
+                               for j in range(len(self.clist))])
+        return None
+    def get_AB_err(self, nsubsteps = 1):
+        self.xAB = []
+        for c in self.clist:
+            self.xAB.append(AdamsBashforth(
+                c.trajectories[1][0].T,
+                c.parameters['dt'],
+                c.parameters['niter_todo'],
+                ABC_flow,
+                nsubsteps = 3))
+        errlist = [np.average(np.abs(self.xAB[i][-1].T - self.xcRK[i][-1].T))
+                   for i in range(len(self.clist))]
+        return errlist
+    def get_spec_error(self, traj_list):
+        self.xx = []
+        errlist = []
+        for i in range(len(self.clist)):
+            self.xx.append(cRK(
+                traj_list[i][self.clist[i].parameters['niter_todo']//2],
+                self.clist[i].parameters['dt'],
+                self.clist[i].parameters['niter_todo']//2,
+                ABC_flow))
+        errlist = [np.average(np.abs(traj_list[i][-1].T - self.xx[i][-1].T))
+                   for i in range(len(self.clist))]
+        return errlist
+
 if __name__ == '__main__':
     opt = parser.parse_args()
     if opt.precision == 'single':
@@ -93,32 +154,44 @@ if __name__ == '__main__':
             code_class = FrozenFieldParticles,
             init_vorticity = Kdata)
 
-    xE = Euler(c0.trajectories[1][0].T,
-               c0.parameters['dt'],
-               c0.parameters['niter_todo'],
-               ABC_flow)
-    xcRK = cRK(c0.trajectories[1][0].T,
-               c0.parameters['dt'],
-               c0.parameters['niter_todo'],
-               ABC_flow)
+    ef = err_finder([c0, c1, c2])
     fig = plt.figure(figsize=(6,6))
     a = fig.add_subplot(111)
+    a.plot(ef.dtlist, ef.get_AB_err(4),
+           label = 'pyAB4',
+           marker = '.')
+    errlist = [np.average(np.abs(ef.clist[i].trajectories[4][-1, :, :3] - ef.xAB[i][-1].T))
+               for i in range(len(ef.clist))]
+    a.plot(ef.dtlist, errlist,
+           label = 'directAB4',
+           marker = '.',
+           dashes = (1, 1))
+    a.plot(ef.dtlist, ef.get_spec_error(ef.ctraj[4]),
+           label = 'specAB4',
+           marker = '.',
+           dashes = (2, 3))
+    a.plot(ef.dtlist, ef.get_spec_error(ef.ctraj[3]),
+           label = 'specAB3',
+           marker = '.',
+           dashes = (3, 4))
     for s in range(1, c0.particle_species):
-        errlist = [np.average(np.abs(c.trajectories[s][-1, :, :3] - xcRK[-1].T))
-                   for c in [c0, c1, c2]]
-        dtlist = [c.parameters['dt']
-                  for c in [c0, c1, c2]]
-        a.plot(dtlist,
-               errlist,
-               label = '{0}'.format(s),
-               marker = '.')
-        a.plot(dtlist,
-               np.array(dtlist)**s,
-               label = '$\\Delta t^{0}$'.format(s),
-               dashes = (2, s),
-               color = (0, 0, 0))
+        if s <= 4:
+            a.plot(ef.dtlist,
+                   np.array(ef.dtlist)**s,
+                   label = '$\\Delta t^{0}$'.format(s),
+                   dashes = (2, s),
+                   color = (0, 0, 0))
     a.set_xscale('log')
     a.set_yscale('log')
     a.legend(loc = 'best')
-    fig.savefig('test_particles_err_vs_cRK.pdf')
+    fig.savefig('test_particles_err_vs_cRK.pdf', format = 'pdf')
+    fig = plt.figure(figsize=(6,6))
+    a = fig.add_subplot(111)
+    for t in range(c0.parameters['nparticles']):
+        a.plot(ef.xcRK[0][:, 0, t],
+               ef.xcRK[0][:, 1, t])
+        a.plot(ef.xx[0][:, 0, t],
+               ef.xx[0][:, 1, t],
+               dashes = (1,1))
+    fig.savefig('test_particles_traj.pdf', format = 'pdf')
 
