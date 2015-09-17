@@ -157,34 +157,27 @@ if __name__ == '__main__':
     ef = err_finder([c0, c1, c2])
     fig = plt.figure(figsize=(6,6))
     a = fig.add_subplot(111)
-    a.plot(ef.dtlist, ef.get_AB_err(4),
-           label = 'pyAB4',
-           marker = '.')
-    errlist = [np.average(np.abs(ef.clist[i].trajectories[4][-1, :, :3] - ef.xAB[i][-1].T))
-               for i in range(len(ef.clist))]
-    a.plot(ef.dtlist, errlist,
-           label = 'directAB4',
-           marker = '.',
-           dashes = (1, 1))
-    a.plot(ef.dtlist, ef.get_spec_error(ef.ctraj[4]),
-           label = 'specAB4',
-           marker = '.',
-           dashes = (2, 3))
-    a.plot(ef.dtlist, ef.get_spec_error(ef.ctraj[3]),
-           label = 'specAB3',
-           marker = '.',
-           dashes = (3, 4))
-    for s in range(1, c0.particle_species):
-        if s <= 4:
-            a.plot(ef.dtlist,
-                   np.array(ef.dtlist)**s,
-                   label = '$\\Delta t^{0}$'.format(s),
-                   dashes = (2, s),
-                   color = (0, 0, 0))
+    for s in range(1, 5):
+        ef.get_AB_err(s)
+        errlist = [np.average(np.abs(ef.clist[i].trajectories[s][-1, :, :3] - ef.xAB[i][-1].T))
+                   for i in range(len(ef.clist))]
+        a.plot(ef.dtlist, errlist,
+               label = 'directAB{0}'.format(s),
+               marker = '.')
+        a.plot(ef.dtlist, ef.get_spec_error(ef.ctraj[s]),
+               label = 'specAB{0}'.format(s),
+               marker = '.',
+               dashes = (s, s))
+        a.plot(ef.dtlist,
+               np.array(ef.dtlist)**s,
+               label = '$\\Delta t^{0}$'.format(s),
+               dashes = (2, s),
+               color = (0, 0, 0))
     a.set_xscale('log')
     a.set_yscale('log')
-    a.legend(loc = 'best')
-    fig.savefig('test_particles_err_vs_cRK.pdf', format = 'pdf')
+    a.legend(loc = 'lower right')
+    a.set_xlim(.9*min(ef.dtlist), 2*max(ef.dtlist))
+    fig.savefig('test_particles_evdt.pdf', format = 'pdf')
     fig = plt.figure(figsize=(6,6))
     a = fig.add_subplot(111)
     for t in range(c0.parameters['nparticles']):
