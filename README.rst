@@ -12,13 +12,11 @@ in the repository), and it is working as expected. Parameters and
 statistics are stored in HDF5 format, together with code information,
 so simulation data should be "future proof".
 
-Problems
+Comments
 --------
 
-* particle integration may be broken somehow. current test shows that
-  most methods are second order (but they should be higher order). for
-  some reason tests with evolving fields yield 1st order for all
-  methods...
+* particles: initialization of multistep solvers is done with lower
+  order methods, so don't be surprised if naive convergence tests fail.
 
 TODO
 ----
@@ -30,9 +28,6 @@ TODO
 * test anisotropic grids
 
 * test non-cubic domains
-
-* HDF5 datasets should be created from python. it would make for cleaner
-  code...
 
 * use HDF5 io for fields
 
