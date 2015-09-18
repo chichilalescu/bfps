@@ -360,9 +360,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                        self.trajectories[1][:, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
+    def get_data_file(self):
+        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
     def compute_statistics(self, iter0 = 0):
         self.read_parameters()
-        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
+        with self.get_data_file() as data_file:
             iter0 = min(data_file['statistics/maximum_velocity'].shape[0]-1, iter0)
             iter1 = data_file['statistics/maximum_velocity'].shape[0]
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
