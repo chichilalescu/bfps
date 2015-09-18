@@ -363,15 +363,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def get_data_file(self):
         return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
     def compute_statistics(self, iter0 = 0):
+        if len(list(self.statistics.keys())) > 0:
+            return None
         self.read_parameters()
         with self.get_data_file() as data_file:
             iter0 = min(data_file['statistics/maximum_velocity'].shape[0]-1, iter0)
             iter1 = data_file['statistics/maximum_velocity'].shape[0]
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
-            self.statistics['energy(t, k)'] = data_file['statistics/spectrum_velocity'].value/2
-            self.statistics['enstrophy(t, k)'] = data_file['statistics/spectrum_vorticity'].value/2
-            self.statistics['vel_max(t)'] = data_file['statistics/maximum_velocity'].value
-            self.statistics['renegergy(t)'] = data_file['statistics/realspace_energy'].value
+            self.statistics['energy(t, k)'] = data_file['statistics/spectrum_velocity'][iter0:iter1]/2
+            self.statistics['enstrophy(t, k)'] = data_file['statistics/spectrum_vorticity'][iter0:iter1]/2
+            self.statistics['vel_max(t)'] = data_file['statistics/maximum_velocity'][iter0:iter1]
+            self.statistics['renegergy(t)'] = data_file['statistics/realspace_energy'][iter0:iter1]
             for key in ['energy', 'enstrophy']:
                 self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
             for key in ['energy', 'enstrophy', 'vel_max']:
