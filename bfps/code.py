@@ -153,12 +153,13 @@ class code(base):
         self.read_parameters()
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
             iter0 = data_file['iteration'].value
-        assert(self.compile_code() == 0)
-        current_dir = os.getcwd()
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
-        if self.work_dir != './':
-            shutil.copy(self.name, self.work_dir)
+        if not os.path.exists(os.path.join(self.work_dir, self.name)):
+            assert(self.compile_code() == 0)
+            if self.work_dir != './':
+                shutil.copy(self.name, self.work_dir)
+        current_dir = os.getcwd()
         os.chdir(self.work_dir)
         os.chdir(current_dir)
         command_atoms = ['mpirun',
