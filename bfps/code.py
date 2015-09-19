@@ -179,8 +179,8 @@ class code(base):
                     command_atoms = command_atoms[3:],
                     hours         = hours,
                     minutes       = minutes,
-                    out_file      = out_file,
-                    err_file      = err_file)
+                    out_file      = out_file + '_' + suffix,
+                    err_file      = err_file + '_' + suffix)
                 os.chdir(self.work_dir)
                 qsub_atoms = ['qsub']
                 if len(job_name_list) >= 1:
