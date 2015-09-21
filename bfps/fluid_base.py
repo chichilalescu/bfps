@@ -289,4 +289,10 @@ class fluid_particle_base(bfps.code):
                     species = species,
                     write_to_file = False)
         return None
+    def write_par(self, iter0 = 0):
+        super(fluid_particle_base, self).write_par(iter0 = iter0)
+        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+        ofile['field_dtype'] = np.dtype(self.dtype).str
+        ofile.close()
+        return None
 
