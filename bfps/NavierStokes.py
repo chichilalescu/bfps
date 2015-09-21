@@ -388,6 +388,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                        (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
                 self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                         self.statistics['diss' + suffix])**.5
+            self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
             if self.particle_species > 0:
