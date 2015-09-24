@@ -198,7 +198,7 @@ class fluid_particle_base(bfps.code):
                                               self.parameters['ny'],
                                               self.parameters['nx']),
                          '-numts', '1',
-                         '-varnames', '{0}x:{0}y:{0}z'.format(field),
+                         '-vars3d', '{0}x:{0}y:{0}z'.format(field),
                          filename + '.vdf'])
         for loop_data in [(0, 'x'), (1, 'y'), (2, 'z')]:
             Rdata0[..., loop_data[0]].tofile('tmprawfile')
