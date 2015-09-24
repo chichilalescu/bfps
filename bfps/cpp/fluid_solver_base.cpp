@@ -87,6 +87,56 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
+void fluid_solver_base<rnumber>::compute_rspace_stats(rnumber *a, double *moments)
+{
+    double *local_moments = fftw_alloc_real(10*4);
+    double val_tmp;
+    std::fill_n(local_moments, 10*4, 0);
+    RLOOP_FOR_OBJECT(
+        this,
+        val_tmp = sqrt(a[rindex*3+0]*a[rindex*3+0] +
+                       a[rindex*3+1]*a[rindex*3+1] +
+                       a[rindex*3+2]*a[rindex*3+2]);
+        if (val_tmp < local_moments[0*4+3])
+            local_moments[0*4+3] = val_tmp;
+        if (val_tmp > local_moments[9*4+3])
+            local_moments[9*4+3] = val_tmp;
+        for (int i=0; i<3; i++)
+        {
+            if (a[rindex*3+i] < local_moments[0*4+i])
+                local_moments[0*4+i] = a[rindex*3+i];
+            if (a[rindex*3+i] > local_moments[9*4+i])
+                local_moments[9*4+i] = a[rindex*3+i];
+        }
+        for (int n=1; n<9; n++)
+            {
+                for (int i=0; i<3; i++)
+                    local_moments[n*4 + i] += pow(a[rindex*3+i], n);
+                local_moments[n*4 + 3] += pow(val_tmp, n);
+            }
+        );
+    MPI_Allreduce(
+            (void*)local_moments,
+            (void*)moments,
+            4,
+            MPI_DOUBLE, MPI_MIN, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + 4),
+            (void*)(moments+4),
+            8*4,
+            MPI_DOUBLE, MPI_SUM, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + 9*4),
+            (void*)(moments+9*4),
+            4,
+            MPI_DOUBLE, MPI_MAX, this->cd->comm);
+    for (int n=1; n<9; n++)
+        for (int i=0; i<4; i++)
+            moments[n*4 + i] /= this->normalization_factor;
+    fftw_free(local_moments);
+}
+
+template <class rnumber>
 void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, const double k2exponent)
 {
     double *spec = fftw_alloc_real(this->nshells);

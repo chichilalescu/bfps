@@ -82,6 +82,7 @@ class fluid_solver_base
         void clean_up_real_space(rnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent = 0.0);
+        void compute_rspace_stats(rnumber *a, double *moments);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);
         int read_base(const char *fname, rnumber *data);
