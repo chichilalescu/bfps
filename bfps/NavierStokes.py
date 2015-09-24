@@ -44,7 +44,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 std::string temp_string;
                 H5::DataSet dset;
                 H5::Group group;
-                H5::DataSpace tkfunc_dspace;
+                H5::DataSpace tk33func_dspace;
                 H5::DataSpace tmp_dspace;
                 H5::DataSpace tfunc_dspace;
                 H5::DataSpace kfunc_dspace;
@@ -60,11 +60,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
 
                 // first, generate the various data spaces that are to be used
                 dims[0] = niter_todo+1;
-                dims[1] = fs->nshells;
                 maxdims[0] = H5S_UNLIMITED;
-                maxdims[1] = dims[1];
                 tfunc_dspace  = H5::DataSpace(1, dims, maxdims);
-                tkfunc_dspace = H5::DataSpace(2, dims, maxdims);
+                dims[1] = fs->nshells;
+                dims[2] = 3;
+                dims[3] = 3;
+                maxdims[1] = dims[1];
+                maxdims[2] = dims[2];
+                maxdims[3] = dims[3];
+                tk33func_dspace = H5::DataSpace(4, dims, maxdims);
                 dims[0] = fs->nshells;
                 kfunc_dspace  = H5::DataSpace(1, dims);
                 dims[0] = 1;
@@ -108,13 +112,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 group = data_file.openGroup("/statistics");
                 hsize_t chunk_dims[4];
                 chunk_dims[0] = 1;
-                chunk_dims[1] = dims[1];
                 cparms.setChunk(1, chunk_dims);
                 group.createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
                 group.createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
-                cparms.setChunk(2, chunk_dims);
-                group.createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
-                group.createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
+                chunk_dims[1] = dims[1];
+                chunk_dims[2] = 3;
+                chunk_dims[3] = 3;
+                cparms.setChunk(4, chunk_dims);
+                group = data_file.createGroup("/statistics/spectra");
+                group.createDataSet("velocity_velocity" , double_dtype, tk33func_dspace, cparms);
+                group.createDataSet("vorticity_vorticity", double_dtype, tk33func_dspace, cparms);
+                group = data_file.openGroup("/statistics");
                 //endcpp
                 """
         self.file_datasets_grow = """
@@ -131,13 +139,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.extend(dims);
                 dset = data_file.openDataSet("/statistics/realspace_energy");
                 dset.extend(dims);
-                dset = data_file.openDataSet("/statistics/spectrum_velocity");
+                dset = data_file.openDataSet("/statistics/spectra/velocity_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
                 dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
+                dims[3] = old_dims[3];
                 dset.extend(dims);
-                dset = data_file.openDataSet("/statistics/spectrum_vorticity");
+                dset = data_file.openDataSet("/statistics/spectra/vorticity_vorticity");
                 dset.extend(dims);
                 //endcpp
                 """
@@ -173,15 +183,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     rspace_energy = val_tmp;
                     MPI_Allreduce((void*)(&max_vel), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_MAX, fs->rd->comm);
                     max_vel = val_tmp;
-                    double *spec_velocity = fftw_alloc_real(fs->nshells);
-                    double *spec_vorticity = fftw_alloc_real(fs->nshells);
+                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
+                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     if (myrank == 0)
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
-                        hsize_t count[2], offset[2];
+                        hsize_t count[4], offset[4];
                         dset = data_file.openDataSet("statistics/maximum_velocity");
                         writespace = dset.getSpace();
                         count[0] = 1;
@@ -193,14 +203,18 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         writespace = dset.getSpace();
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                         dset.write(&rspace_energy, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/spectrum_velocity");
+                        dset = data_file.openDataSet("statistics/spectra/velocity_velocity");
                         writespace = dset.getSpace();
                         count[1] = fs->nshells;
-                        memspace = H5::DataSpace(2, count);
+                        count[2] = 3;
+                        count[3] = 3;
+                        memspace = H5::DataSpace(4, count);
                         offset[1] = 0;
+                        offset[2] = 0;
+                        offset[3] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                         dset.write(spec_velocity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/spectrum_vorticity");
+                        dset = data_file.openDataSet("statistics/spectra/vorticity_vorticity");
                         writespace = dset.getSpace();
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                         dset.write(spec_vorticity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
@@ -370,8 +384,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             iter0 = min(data_file['statistics/maximum_velocity'].shape[0]-1, iter0)
             iter1 = data_file['statistics/maximum_velocity'].shape[0]
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
-            self.statistics['energy(t, k)'] = data_file['statistics/spectrum_velocity'][iter0:iter1]/2
-            self.statistics['enstrophy(t, k)'] = data_file['statistics/spectrum_vorticity'][iter0:iter1]/2
+            self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 0, 0] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 1, 1] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 2, 2])/2
+            self.statistics['enstrophy(t, k)'] = (data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 0, 0] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 1, 1] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 2, 2])/2
             self.statistics['vel_max(t)'] = data_file['statistics/maximum_velocity'][iter0:iter1]
             self.statistics['renegergy(t)'] = data_file['statistics/realspace_energy'][iter0:iter1]
             for key in ['energy', 'enstrophy']:

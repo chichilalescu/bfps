@@ -49,32 +49,33 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
-    double *cospec_local = fftw_alloc_real(this->nshells);
-    std::fill_n(cospec_local, this->nshells, 0);
-    double k2, knorm;
-    int factor = 1;
+    double *cospec_local = fftw_alloc_real(this->nshells*9);
+    std::fill_n(cospec_local, this->nshells*9, 0);
+    double k2;
+    double factor = 1;
+    int tmp_int;
     CLOOP(
             k2 = (this->kx[xindex]*this->kx[xindex] +
                   this->ky[yindex]*this->ky[yindex] +
                   this->kz[zindex]*this->kz[zindex]);
             if (k2 <= this->kM2)
             {
-                factor = (xindex == 0) ? 1 : 2;
-                knorm = sqrt(k2);
-                cospec_local[int(knorm/this->dk)] += factor * pow(k2, k2exponent) * (
-                        (*(a + 3*cindex  ))[0] * (*(b + 3*cindex  ))[0] +
-                        (*(a + 3*cindex  ))[1] * (*(b + 3*cindex  ))[1] +
-                        (*(a + 3*cindex+1))[0] * (*(b + 3*cindex+1))[0] +
-                        (*(a + 3*cindex+1))[1] * (*(b + 3*cindex+1))[1] +
-                        (*(a + 3*cindex+2))[0] * (*(b + 3*cindex+2))[0] +
-                        (*(a + 3*cindex+2))[1] * (*(b + 3*cindex+2))[1]
-                                        );
+                factor = pow(k2, k2exponent);
+                factor = (xindex == 0) ? factor : 2*factor;
+                tmp_int = int(sqrt(k2)/this->dk)*9;
+                for (int i=0; i<3; i++)
+                    for (int j=0; j<3; j++)
+                    {
+                        cospec_local[tmp_int+i*3+j] += factor * (
+                        (*(a + 3*cindex+i))[0] * (*(b + 3*cindex+j))[0] +
+                        (*(a + 3*cindex+i))[1] * (*(b + 3*cindex+j))[1]);
+                    }
             }
             );
     MPI_Allreduce(
             (void*)cospec_local,
             (void*)spec,
-            this->nshells,
+            this->nshells*9,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
     //for (int n=0; n<this->nshells; n++)
     //{
