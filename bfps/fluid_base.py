@@ -304,10 +304,10 @@ class fluid_particle_base(bfps.code):
         kspace['kx'] = np.arange( 0,
                                   self.parameters['nx']//2 + 1).astype(np.float64)*self.parameters['dkx']
         kspace['ky'] = np.arange(-self.parameters['ny']//2 + 1,
-                                  self.parameters['ny']//2).astype(np.float64)*self.parameters['dky']
+                                  self.parameters['ny']//2 + 1).astype(np.float64)*self.parameters['dky']
         kspace['ky'] = np.roll(kspace['ky'], self.parameters['ny']//2+1)
         kspace['kz'] = np.arange(-self.parameters['nz']//2 + 1,
-                                  self.parameters['nz']//2).astype(np.float64)*self.parameters['dkz']
+                                  self.parameters['nz']//2 + 1).astype(np.float64)*self.parameters['dkz']
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
         return kspace
     def write_par(self, iter0 = 0):
