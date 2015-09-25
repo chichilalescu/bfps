@@ -87,12 +87,17 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
-void fluid_solver_base<rnumber>::compute_rspace_stats(rnumber *a, double *moments)
+void fluid_solver_base<rnumber>::compute_rspace_stats(
+        rnumber *a,
+        double *moments,
+        ptrdiff_t *hist,
+        double max_estimate,
+        int nbins)
 {
     double *local_moments = fftw_alloc_real(10*4);
     double val_tmp;
     std::fill_n(local_moments, 10*4, 0);
-    RLOOP_FOR_OBJECT(
+    RLOOP(
         this,
         val_tmp = sqrt(a[rindex*3+0]*a[rindex*3+0] +
                        a[rindex*3+1]*a[rindex*3+1] +

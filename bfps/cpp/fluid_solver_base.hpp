@@ -82,7 +82,11 @@ class fluid_solver_base
         void clean_up_real_space(rnumber *a, int howmany);
         rnumber correl_vec(cnumber *a, cnumber *b);
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent = 0.0);
-        void compute_rspace_stats(rnumber *a, double *moments);
+        void compute_rspace_stats(rnumber *a,
+                                  double *moments,
+                                  ptrdiff_t *hist = NULL,
+                                  double max_estimate = 1.0,
+                                  int nbins = 256);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);
         int read_base(const char *fname, rnumber *data);
@@ -114,24 +118,7 @@ class fluid_solver_base
 }
 
 /* real space loop */
-#define RLOOP(expression) \
- \
-{ \
-    ptrdiff_t rindex; \
-    for (int zindex = 0; zindex < this->rd->subsizes[0]; zindex++) \
-    for (int yindex = 0; yindex < this->rd->subsizes[1]; yindex++) \
-    { \
-        rindex = (zindex * this->rd->subsizes[1] + yindex)*(this->rd->subsizes[2]+2); \
-    for (int xindex = 0; xindex < this->rd->subsizes[2]; xindex++) \
-        { \
-            expression; \
-            rindex++; \
-        } \
-    } \
-}
-
-/* real space loop */
-#define RLOOP_FOR_OBJECT(obj, expression) \
+#define RLOOP(obj, expression) \
  \
 { \
     ptrdiff_t rindex; \
