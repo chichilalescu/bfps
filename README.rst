@@ -21,6 +21,8 @@ Comments
 TODO
 ----
 
+* use proper chunking for stats
+
 * store accelerations for particles
 
 * add different numerical method, for testing purposes
