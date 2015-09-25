@@ -74,11 +74,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.extend(dims);
                 dset = data_file.openDataSet("/statistics/moments/vorticity");
                 dset.extend(dims);
+                // histograms
+                dset = data_file.openDataSet("/statistics/histograms/velocity");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
+                dset.extend(dims);
+                dset = data_file.openDataSet("/statistics/histograms/vorticity");
+                dset.extend(dims);
                 // spectra
                 dset = data_file.openDataSet("/statistics/spectra/velocity_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dims[3] = old_dims[3];
@@ -121,6 +129,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
                         hsize_t count[4], offset[4];
+                        //moments
                         dset = data_file.openDataSet("statistics/moments/velocity");
                         writespace = dset.getSpace();
                         count[0] = 1;
@@ -134,6 +143,21 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                         dset = data_file.openDataSet("statistics/moments/vorticity");
                         dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        //histograms
+                        dset = data_file.openDataSet("statistics/histograms/velocity");
+                        writespace = dset.getSpace();
+                        count[0] = 1;
+                        count[1] = histogram_bins;
+                        count[2] = 4;
+                        memspace = H5::DataSpace(3, count);
+                        offset[0] = fs->iteration;
+                        offset[1] = 0;
+                        offset[2] = 0;
+                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dset.write(hist_velocity, H5::PredType::NATIVE_INT64, memspace, writespace);
+                        dset = data_file.openDataSet("statistics/histograms/vorticity");
+                        dset.write(hist_vorticity, H5::PredType::NATIVE_INT64, memspace, writespace);
+                        //spectra
                         dset = data_file.openDataSet("statistics/spectra/velocity_velocity");
                         writespace = dset.getSpace();
                         count[1] = fs->nshells;
@@ -203,24 +227,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
-        #self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
-        #                              'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
-        #                              'group = data_file.openGroup(temp_string);\n' +
-        #                              'dims[0] = 1;\n' +
-        #                              'dims[1] = integration_steps{0};\n' +
-        #                              'dims[2] = nparticles;\n' +
-        #                              'dims[3] = ps{0}->ncomponents;\n' +
-        #                              'maxdims[0] = H5S_UNLIMITED;\n' +
-        #                              'maxdims[1] = dims[1];\n' +
-        #                              'maxdims[2] = dims[2];\n' +
-        #                              'maxdims[3] = dims[3];\n' +
-        #                              'tmp_dspace = H5::DataSpace(4, dims, maxdims);\n' +
-        #                              'chunk_dims[1] = 1;\n' +
-        #                              'chunk_dims[1] = 1;\n' +
-        #                              'chunk_dims[2] = dims[2];\n' +
-        #                              'chunk_dims[3] = dims[3];\n' +
-        #                              'cparms.setChunk(4, chunk_dims);\n' +
-        #                              'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n').format(self.particle_species)
         grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
                          'dset = data_file.openDataSet(temp_string);\n' +
                          'dspace = dset.getSpace();\n' +

@@ -320,23 +320,25 @@ class fluid_particle_base(bfps.code):
             nshells = kspace['nshell'].shape[0]
             for k in ['velocity', 'vorticity']:
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
-                                     (1,
-                                      nshells,
-                                      3, 3),
+                                     (1, nshells, 3, 3),
                                      chunks = (1, nshells, 3, 3),
                                      maxshape = (None, nshells, 3, 3),
                                      dtype = np.float64)
                 ofile.create_dataset('statistics/moments/' + k,
-                                     (1,
-                                      10, 4),
+                                     (1, 10, 4),
                                      chunks = (1, 10, 4),
                                      maxshape = (None, 10, 4),
                                      dtype = np.float64)
                 ofile.create_dataset('statistics/histograms/' + k,
                                      (1,
-                                      self.parameters['histogram_bins'], 4),
-                                     chunks = (1, self.parameters['histogram_bins'], 4),
-                                     maxshape = (None, self.parameters['histogram_bins'], 4),
+                                      self.parameters['histogram_bins'],
+                                      4),
+                                     chunks = (1,
+                                               self.parameters['histogram_bins'],
+                                               4),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins'],
+                                                 4),
                                      dtype = np.int64)
             for s in range(self.particle_species):
                 ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
