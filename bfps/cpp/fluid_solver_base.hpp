@@ -72,7 +72,7 @@ class fluid_solver_base
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0,
-                int dealias_type = 0);
+                int DEALIAS_TYPE = 0);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *a, int howmany, double kmax);
@@ -84,7 +84,7 @@ class fluid_solver_base
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent = 0.0);
         void compute_rspace_stats(rnumber *a,
                                   double *moments,
-                                  ptrdiff_t *hist = NULL,
+                                  ptrdiff_t *hist,
                                   double max_estimate = 1.0,
                                   int nbins = 256);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);

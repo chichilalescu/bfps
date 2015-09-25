@@ -50,9 +50,11 @@ fluid_solver<R>::fluid_solver( \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) : fluid_solver_base<R>(NAME, \
-                                           nx , ny , nz, \
-                                           DKX, DKY, DKZ, 1) \
+        double DKZ, \
+        int DEALIAS_TYPE) : fluid_solver_base<R>(NAME, \
+                                                 nx , ny , nz, \
+                                                 DKX, DKY, DKZ, \
+                                                 DEALIAS_TYPE) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\

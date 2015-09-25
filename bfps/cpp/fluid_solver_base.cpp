@@ -95,7 +95,11 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         int nbins)
 {
     double *local_moments = fftw_alloc_real(10*4);
-    double val_tmp;
+    double val_tmp, binsize;
+    ptrdiff_t *local_hist = new ptrdiff_t[nbins*4];
+    int bin;
+    binsize = 2*max_estimate / nbins;
+    std::fill_n(local_hist, nbins*4, 0);
     std::fill_n(local_moments, 10*4, 0);
     RLOOP(
         this,
@@ -106,12 +110,18 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
             local_moments[0*4+3] = val_tmp;
         if (val_tmp > local_moments[9*4+3])
             local_moments[9*4+3] = val_tmp;
+        bin = int(val_tmp*2/binsize);
+        if (bin >= 0 && bin < nbins)
+            local_hist[bin*4+3]++;
         for (int i=0; i<3; i++)
         {
             if (a[rindex*3+i] < local_moments[0*4+i])
                 local_moments[0*4+i] = a[rindex*3+i];
             if (a[rindex*3+i] > local_moments[9*4+i])
                 local_moments[9*4+i] = a[rindex*3+i];
+            bin = int((a[rindex*3+i] - max_estimate) / binsize);
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*4+i]++;
         }
         for (int n=1; n<9; n++)
             {
@@ -135,10 +145,16 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
             (void*)(moments+9*4),
             4,
             MPI_DOUBLE, MPI_MAX, this->cd->comm);
+    MPI_Allreduce(
+            (void*)local_hist,
+            (void*)hist,
+            nbins*4,
+            MPI_INT64_T, MPI_SUM, this->cd->comm);
     for (int n=1; n<9; n++)
         for (int i=0; i<4; i++)
             moments[n*4 + i] /= this->normalization_factor;
     fftw_free(local_moments);
+    delete[] local_hist;
 }
 
 template <class rnumber>
@@ -173,7 +189,7 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int dealias_type) \
+        int DEALIAS_TYPE) \
 { \
     strncpy(this->name, NAME, 256); \
     this->name[255] = '\0'; \
@@ -200,7 +216,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->kx = new double[this->cd->sizes[2]]; \
     this->ky = new double[this->cd->subsizes[0]]; \
     this->kz = new double[this->cd->sizes[1]]; \
-    this->dealias_type = dealias_type; \
+    this->dealias_type = DEALIAS_TYPE; \
     switch(this->dealias_type) \
     { \
         /* HL07 smooth filter */ \

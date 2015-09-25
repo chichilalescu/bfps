@@ -66,6 +66,10 @@ class fluid_particle_base(bfps.code):
         self.parameters['fk0'] = 0.0
         self.parameters['fk1'] = 3.0
         self.parameters['forcing_type'] = 'linear'
+        self.parameters['histogram_bins'] = 256
+        self.parameters['max_velocity_estimate'] = 1.0
+        self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['dealias_type'] = 1
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
@@ -79,7 +83,6 @@ class fluid_particle_base(bfps.code):
         self.particle_loop = ''
         self.particle_end  = ''
         self.stat_src = ''
-        self.file_datasets_create = ''
         self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
@@ -88,41 +91,33 @@ class fluid_particle_base(bfps.code):
         self.includes   += self.fluid_includes
         self.variables  += self.fluid_variables
         self.definitions+= self.fluid_definitions
-        self.file_datasets_create = 'data_file.createGroup("/statistics");\n' + self.file_datasets_create
         if self.particle_species > 0:
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
-        self.definitions += ('void create_file_datasets()\n{\n' +
-                             self.file_datasets_create +
-                             '}\n')
-        self.definitions += ('void grow_file_datasets()\n{\n' +
+        self.definitions += ('int grow_file_datasets()\n{\n' +
+                             'int file_problems = 0;\n' +
                              self.file_datasets_grow +
+                             'return file_problems;\n'
                              '}\n')
-        self.definitions += """
-                //begincpp
-                void init_stats()
-                {
-                    try
-                    {
-                        //H5::Exception::dontPrint();
-                        data_file.openGroup("statistics");
-                        grow_file_datasets();
-                    }
-                    catch (H5::FileIException)
-                    {
-                        DEBUG_MSG("Please ignore above messages about no group in the file. I will create it now.\\n");
-                        create_file_datasets();
-                    }
-                }
-                //endcpp
-                """
         self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
-        self.main       += ('if (myrank == 0) init_stats();\n' +
-                            'do_stats();\n')
+        self.main       += """
+                           //begincpp
+                           int data_file_problem;
+                           if (myrank == 0) data_file_problem = grow_file_datasets();
+                           MPI_Bcast(&data_file_problem, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                           if (data_file_problem > 0)
+                           {
+                               std::cerr << data_file_problem << " problems growing file datasets.\\ntrying to exit now." << std::endl;
+                               MPI_Finalize();
+                               return EXIT_SUCCESS;
+                           }
+                           do_stats();
+                           //endcpp
+                           """
         self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
         self.main       += self.fluid_loop
         if self.particle_species > 0:
@@ -289,10 +284,74 @@ class fluid_particle_base(bfps.code):
                     species = species,
                     write_to_file = False)
         return None
+    def get_kspace(self):
+        kspace = {}
+        if self.parameters['dealias_type'] == 1:
+            kMx = self.parameters['dkx']*(self.parameters['nx']//2)
+            kMy = self.parameters['dky']*(self.parameters['ny']//2)
+            kMz = self.parameters['dkz']*(self.parameters['nz']//2)
+        else:
+            kMx = self.parameters['dkx']*(self.parameters['nx']//3 - 1)
+            kMy = self.parameters['dky']*(self.parameters['ny']//3 - 1)
+            kMz = self.parameters['dkz']*(self.parameters['nz']//3 - 1)
+        kspace['kM'] = max(kMx, kMy, kMz)
+        kspace['dk'] = min(self.parameters['dkx'],
+                           self.parameters['dky'],
+                           self.parameters['dkz'])
+        nshells = int(kspace['kM'] / kspace['dk']) + 2
+        kspace['nshell'] = np.zeros(nshells, dtype = np.int64)
+        kspace['kshell'] = np.zeros(nshells, dtype = np.float64)
+        kspace['kx'] = np.arange( 0,
+                                  self.parameters['nx']//2 + 1).astype(np.float64)*self.parameters['dkx']
+        kspace['ky'] = np.arange(-self.parameters['ny']//2 + 1,
+                                  self.parameters['ny']//2).astype(np.float64)*self.parameters['dky']
+        kspace['ky'] = np.roll(kspace['ky'], self.parameters['ny']//2+1)
+        kspace['kz'] = np.arange(-self.parameters['nz']//2 + 1,
+                                  self.parameters['nz']//2).astype(np.float64)*self.parameters['dkz']
+        kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
+        return kspace
     def write_par(self, iter0 = 0):
         super(fluid_particle_base, self).write_par(iter0 = iter0)
-        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
-        ofile['field_dtype'] = np.dtype(self.dtype).str
-        ofile.close()
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
+            ofile['field_dtype'] = np.dtype(self.dtype).str
+            kspace = self.get_kspace()
+            for k in kspace.keys():
+                ofile['kspace/' + k] = kspace[k]
+            nshells = kspace['nshell'].shape[0]
+            for k in ['velocity', 'vorticity']:
+                ofile.create_dataset('statistics/spectra/' + k + '_' + k,
+                                     (1,
+                                      nshells,
+                                      3, 3),
+                                     chunks = (1, nshells, 3, 3),
+                                     maxshape = (None, nshells, 3, 3),
+                                     dtype = np.float64)
+                ofile.create_dataset('statistics/moments/' + k,
+                                     (1,
+                                      10, 4),
+                                     chunks = (1, 10, 4),
+                                     maxshape = (None, 10, 4),
+                                     dtype = np.float64)
+                ofile.create_dataset('statistics/histograms/' + k,
+                                     (1,
+                                      self.parameters['histogram_bins'], 4),
+                                     chunks = (1, self.parameters['histogram_bins'], 4),
+                                     maxshape = (None, self.parameters['histogram_bins'], 4),
+                                     dtype = np.int64)
+            for s in range(self.particle_species):
+                ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
+                                     (1,
+                                      self.parameters['integration_steps{0}'.format(s)],
+                                      self.parameters['nparticles'],
+                                      3),
+                                     maxshape = (None,
+                                                 self.parameters['integration_steps{0}'.format(s)],
+                                                 self.parameters['nparticles'],
+                                                 3),
+                                     chunks =  (1,
+                                                1,
+                                                self.parameters['nparticles'],
+                                                3),
+                                     dtype = np.float64)
         return None
 

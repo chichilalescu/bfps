@@ -39,59 +39,24 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
-        self.file_datasets_create = """
+        self.file_datasets_grow = """
                 //begincpp
-                std::string temp_string;
-                H5::DataSet dset;
-                H5::Group group;
-                H5::DataSpace tk33func_dspace;
-                H5::DataSpace tmp_dspace;
-                H5::DataSpace tfunc_dspace;
-                H5::DataSpace kfunc_dspace;
-                H5::DataSpace value_dspace;
-                H5::DataSpace kcomp_dspace;
-                H5::DataSpace moment_dspace;
-                hsize_t dims[4];
-                hsize_t maxdims[4];
-                H5::DSetCreatPropList cparms;
-                double fill_val = 0;
-                cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
-                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
                 H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
-
-                // first, generate the various data spaces that are to be used
-                // function of time
-                dims[0] = niter_todo+1;
-                maxdims[0] = H5S_UNLIMITED;
-                tfunc_dspace  = H5::DataSpace(1, dims, maxdims);
-                // moments --- time x (1 min + 8 moments + 1 max) x 3 components + absolute value
-                dims[1] = 10;
-                dims[2] = 4;
-                maxdims[1] = dims[1];
-                maxdims[2] = dims[2];
-                moment_dspace = H5::DataSpace(3, dims, maxdims);
-                // 3x3 matrix that is a function of time and k
-                dims[1] = fs->nshells;
-                dims[2] = 3;
-                dims[3] = 3;
-                maxdims[1] = dims[1];
-                maxdims[2] = dims[2];
-                maxdims[3] = dims[3];
-                tk33func_dspace = H5::DataSpace(4, dims, maxdims);
-                // function of k
-                dims[0] = fs->nshells;
-                kfunc_dspace  = H5::DataSpace(1, dims);
-                // single value
-                dims[0] = 1;
-                value_dspace   = H5::DataSpace(1, dims);
-
-                // store the information about kspace
-                group = data_file.createGroup("/kspace");
-                group.createDataSet("kshell", double_dtype, kfunc_dspace);
-                group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
-                group.createDataSet("kM", double_dtype, value_dspace);
-                group.createDataSet("dk", double_dtype, value_dspace);
+                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
+                H5::DataSet dset;
+                H5::DataSpace dspace;
+                std::string temp_string;
+                hsize_t dims[4];
+                hsize_t old_dims[4];
+                // store kspace information
                 dset = data_file.openDataSet("/kspace/kshell");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(dims);
+                if (fs->nshells != dims[0])
+                {
+                    std::cerr << "ERROR: computed nshells not equal to data file nshells\\n" << std::endl;
+                    file_problems++;
+                }
                 dset.write(fs->kshell, double_dtype);
                 dset = data_file.openDataSet("/kspace/nshell");
                 dset.write(fs->nshell, ptrdiff_t_dtype);
@@ -99,53 +64,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.write(&fs->kM, double_dtype);
                 dset = data_file.openDataSet("/kspace/dk");
                 dset.write(&fs->dk, double_dtype);
-                dims[0] = fs->cd->sizes[2];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("kx", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/kx");
-                dset.write(fs->kx, double_dtype);
-                dims[0] = fs->cd->sizes[1];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("kz", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/kz");
-                dset.write(fs->kz, double_dtype);
-                dims[0] = fs->cd->sizes[0];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("ky", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/ky");
-                double *tmp_ky = new double[fs->cd->sizes[0]];
-                for (int i = 0; i<fs->cd->sizes[0]; i++)
-                    tmp_ky[i] = ((i + fs->cd->sizes[0]/2-1)%fs->cd->sizes[0] - fs->cd->sizes[0]/2+1)*fs->dky;
-                dset.write(tmp_ky, double_dtype);
-                delete[] tmp_ky;
-
-                // generate datasets for various statistics
-                group = data_file.openGroup("/statistics");
-                hsize_t chunk_dims[4];
-                chunk_dims[0] = 1;
-                chunk_dims[1] = dims[1];
-                chunk_dims[2] = 3;
-                chunk_dims[3] = 3;
-                cparms.setChunk(4, chunk_dims);
-                group = data_file.createGroup("/statistics/spectra");
-                group.createDataSet("velocity_velocity" , double_dtype, tk33func_dspace, cparms);
-                group.createDataSet("vorticity_vorticity", double_dtype, tk33func_dspace, cparms);
-                chunk_dims[1] = 10;
-                chunk_dims[2] = 4;
-                cparms.setChunk(3, chunk_dims);
-                group = data_file.createGroup("/statistics/moments");
-                group.createDataSet("velocity", double_dtype, moment_dspace, cparms);
-                group.createDataSet("vorticity", double_dtype, moment_dspace, cparms);
-                group = data_file.openGroup("/statistics");
-                //endcpp
-                """
-        self.file_datasets_grow = """
-                //begincpp
-                H5::DataSet dset;
-                H5::DataSpace dspace;
-                std::string temp_string;
-                hsize_t dims[4];
-                hsize_t old_dims[4];
                 // moments
                 dset = data_file.openDataSet("/statistics/moments/velocity");
                 dspace = dset.getSpace();
@@ -179,11 +97,21 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 //begincpp
                     double *velocity_moments = fftw_alloc_real(10*4);
                     double *vorticity_moments = fftw_alloc_real(10*4);
+                    ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
+                    ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
                     fs->compute_velocity(fs->cvorticity);
                     fs->ift_velocity();
-                    fs->compute_rspace_stats(fs->rvelocity, velocity_moments);
+                    fs->compute_rspace_stats(fs->rvelocity,
+                                             velocity_moments,
+                                             hist_velocity,
+                                             max_velocity_estimate,
+                                             histogram_bins);
                     fs->ift_vorticity();
-                    fs->compute_rspace_stats(fs->rvorticity, vorticity_moments);
+                    fs->compute_rspace_stats(fs->rvorticity,
+                                             vorticity_moments,
+                                             hist_vorticity,
+                                             max_vorticity_estimate,
+                                             histogram_bins);
                     double *spec_velocity = fftw_alloc_real(fs->nshells*9);
                     double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
@@ -222,6 +150,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     fftw_free(spec_vorticity);
                     fftw_free(velocity_moments);
                     fftw_free(vorticity_moments);
+                    delete[] hist_velocity;
+                    delete[] hist_vorticity;
                 //endcpp
                 """
         return None
@@ -235,7 +165,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs = new fluid_solver<{0}>(
                         simname,
                         nx, ny, nz,
-                        dkx, dky, dkz);
+                        dkx, dky, dkz,
+                        dealias_type);
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -271,25 +202,25 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
-        self.particle_variables += 'tracers<{0}> *ps{1};'.format(self.C_dtype, self.particle_species)
-        self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
-                                      'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
-                                      'group = data_file.openGroup(temp_string);\n' +
-                                      'dims[0] = 1;\n' +
-                                      'dims[1] = integration_steps{0};\n' +
-                                      'dims[2] = nparticles;\n' +
-                                      'dims[3] = ps{0}->ncomponents;\n' +
-                                      'maxdims[0] = H5S_UNLIMITED;\n' +
-                                      'maxdims[1] = dims[1];\n' +
-                                      'maxdims[2] = dims[2];\n' +
-                                      'maxdims[3] = dims[3];\n' +
-                                      'tmp_dspace = H5::DataSpace(4, dims, maxdims);\n' +
-                                      'chunk_dims[1] = 1;\n' +
-                                      'chunk_dims[1] = 1;\n' +
-                                      'chunk_dims[2] = dims[2];\n' +
-                                      'chunk_dims[3] = dims[3];\n' +
-                                      'cparms.setChunk(4, chunk_dims);\n' +
-                                      'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n').format(self.particle_species)
+        self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
+        #self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
+        #                              'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
+        #                              'group = data_file.openGroup(temp_string);\n' +
+        #                              'dims[0] = 1;\n' +
+        #                              'dims[1] = integration_steps{0};\n' +
+        #                              'dims[2] = nparticles;\n' +
+        #                              'dims[3] = ps{0}->ncomponents;\n' +
+        #                              'maxdims[0] = H5S_UNLIMITED;\n' +
+        #                              'maxdims[1] = dims[1];\n' +
+        #                              'maxdims[2] = dims[2];\n' +
+        #                              'maxdims[3] = dims[3];\n' +
+        #                              'tmp_dspace = H5::DataSpace(4, dims, maxdims);\n' +
+        #                              'chunk_dims[1] = 1;\n' +
+        #                              'chunk_dims[1] = 1;\n' +
+        #                              'chunk_dims[2] = dims[2];\n' +
+        #                              'chunk_dims[3] = dims[3];\n' +
+        #                              'cparms.setChunk(4, chunk_dims);\n' +
+        #                              'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n').format(self.particle_species)
         grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
                          'dset = data_file.openDataSet(temp_string);\n' +
                          'dspace = dset.getSpace();\n' +
