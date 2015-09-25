@@ -101,6 +101,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
     binsize = 2*max_estimate / nbins;
     std::fill_n(local_hist, nbins*4, 0);
     std::fill_n(local_moments, 10*4, 0);
+    local_moments[3] = max_estimate;
     RLOOP(
         this,
         val_tmp = sqrt(a[rindex*3+0]*a[rindex*3+0] +
