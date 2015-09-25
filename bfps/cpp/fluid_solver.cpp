@@ -50,9 +50,11 @@ fluid_solver<R>::fluid_solver( \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) : fluid_solver_base<R>(NAME, \
-                                           nx , ny , nz, \
-                                           DKX, DKY, DKZ, 1) \
+        double DKZ, \
+        int DEALIAS_TYPE) : fluid_solver_base<R>(NAME, \
+                                                 nx , ny , nz, \
+                                                 DKX, DKY, DKZ, \
+                                                 DEALIAS_TYPE) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
@@ -289,6 +291,7 @@ void fluid_solver<R>::omega_nonlin( \
     /* compute cross product $u \times \omega$, and normalize */ \
     R tmpx0, tmpy0, tmpz0; \
     RLOOP ( \
+             this, \
              tmpx0 = (this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+2] - this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+1]); \
              tmpy0 = (this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+0] - this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+2]); \
              tmpz0 = (this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+1] - this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+0]); \

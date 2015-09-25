@@ -49,32 +49,33 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
-    double *cospec_local = fftw_alloc_real(this->nshells);
-    std::fill_n(cospec_local, this->nshells, 0);
-    double k2, knorm;
-    int factor = 1;
+    double *cospec_local = fftw_alloc_real(this->nshells*9);
+    std::fill_n(cospec_local, this->nshells*9, 0);
+    double k2;
+    double factor = 1;
+    int tmp_int;
     CLOOP(
             k2 = (this->kx[xindex]*this->kx[xindex] +
                   this->ky[yindex]*this->ky[yindex] +
                   this->kz[zindex]*this->kz[zindex]);
             if (k2 <= this->kM2)
             {
-                factor = (xindex == 0) ? 1 : 2;
-                knorm = sqrt(k2);
-                cospec_local[int(knorm/this->dk)] += factor * pow(k2, k2exponent) * (
-                        (*(a + 3*cindex  ))[0] * (*(b + 3*cindex  ))[0] +
-                        (*(a + 3*cindex  ))[1] * (*(b + 3*cindex  ))[1] +
-                        (*(a + 3*cindex+1))[0] * (*(b + 3*cindex+1))[0] +
-                        (*(a + 3*cindex+1))[1] * (*(b + 3*cindex+1))[1] +
-                        (*(a + 3*cindex+2))[0] * (*(b + 3*cindex+2))[0] +
-                        (*(a + 3*cindex+2))[1] * (*(b + 3*cindex+2))[1]
-                                        );
+                factor = pow(k2, k2exponent);
+                factor = (xindex == 0) ? factor : 2*factor;
+                tmp_int = int(sqrt(k2)/this->dk)*9;
+                for (int i=0; i<3; i++)
+                    for (int j=0; j<3; j++)
+                    {
+                        cospec_local[tmp_int+i*3+j] += factor * (
+                        (*(a + 3*cindex+i))[0] * (*(b + 3*cindex+j))[0] +
+                        (*(a + 3*cindex+i))[1] * (*(b + 3*cindex+j))[1]);
+                    }
             }
             );
     MPI_Allreduce(
             (void*)cospec_local,
             (void*)spec,
-            this->nshells,
+            this->nshells*9,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
     //for (int n=0; n<this->nshells; n++)
     //{
@@ -83,6 +84,78 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     //     * spec[n] /= this->normalization_factor*/
     //}
     fftw_free(cospec_local);
+}
+
+template <class rnumber>
+void fluid_solver_base<rnumber>::compute_rspace_stats(
+        rnumber *a,
+        double *moments,
+        ptrdiff_t *hist,
+        double max_estimate,
+        int nbins)
+{
+    double *local_moments = fftw_alloc_real(10*4);
+    double val_tmp, binsize;
+    ptrdiff_t *local_hist = new ptrdiff_t[nbins*4];
+    int bin;
+    binsize = 2*max_estimate / nbins;
+    std::fill_n(local_hist, nbins*4, 0);
+    std::fill_n(local_moments, 10*4, 0);
+    local_moments[3] = max_estimate;
+    RLOOP(
+        this,
+        val_tmp = sqrt(a[rindex*3+0]*a[rindex*3+0] +
+                       a[rindex*3+1]*a[rindex*3+1] +
+                       a[rindex*3+2]*a[rindex*3+2]);
+        if (val_tmp < local_moments[0*4+3])
+            local_moments[0*4+3] = val_tmp;
+        if (val_tmp > local_moments[9*4+3])
+            local_moments[9*4+3] = val_tmp;
+        bin = int(val_tmp*2/binsize);
+        if (bin >= 0 && bin < nbins)
+            local_hist[bin*4+3]++;
+        for (int i=0; i<3; i++)
+        {
+            if (a[rindex*3+i] < local_moments[0*4+i])
+                local_moments[0*4+i] = a[rindex*3+i];
+            if (a[rindex*3+i] > local_moments[9*4+i])
+                local_moments[9*4+i] = a[rindex*3+i];
+            bin = int((a[rindex*3+i] - max_estimate) / binsize);
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*4+i]++;
+        }
+        for (int n=1; n<9; n++)
+            {
+                for (int i=0; i<3; i++)
+                    local_moments[n*4 + i] += pow(a[rindex*3+i], n);
+                local_moments[n*4 + 3] += pow(val_tmp, n);
+            }
+        );
+    MPI_Allreduce(
+            (void*)local_moments,
+            (void*)moments,
+            4,
+            MPI_DOUBLE, MPI_MIN, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + 4),
+            (void*)(moments+4),
+            8*4,
+            MPI_DOUBLE, MPI_SUM, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + 9*4),
+            (void*)(moments+9*4),
+            4,
+            MPI_DOUBLE, MPI_MAX, this->cd->comm);
+    MPI_Allreduce(
+            (void*)local_hist,
+            (void*)hist,
+            nbins*4,
+            MPI_INT64_T, MPI_SUM, this->cd->comm);
+    for (int n=1; n<9; n++)
+        for (int i=0; i<4; i++)
+            moments[n*4 + i] /= this->normalization_factor;
+    fftw_free(local_moments);
+    delete[] local_hist;
 }
 
 template <class rnumber>
@@ -117,7 +190,7 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int dealias_type) \
+        int DEALIAS_TYPE) \
 { \
     strncpy(this->name, NAME, 256); \
     this->name[255] = '\0'; \
@@ -144,7 +217,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     this->kx = new double[this->cd->sizes[2]]; \
     this->ky = new double[this->cd->subsizes[0]]; \
     this->kz = new double[this->cd->sizes[1]]; \
-    this->dealias_type = dealias_type; \
+    this->dealias_type = DEALIAS_TYPE; \
     switch(this->dealias_type) \
     { \
         /* HL07 smooth filter */ \
