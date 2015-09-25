@@ -265,7 +265,7 @@ class fluid_particle_base(bfps.code):
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
             dset = data_file.create_dataset(
                     '/particles/tracers{0}/state'.format(species),
-                    (self.parameters['niter_todo']//self.parameters['niter_part'] + 1,
+                    (1,
                      self.parameters['nparticles'],
                      ncomponents),
                     chunks = (1, self.parameters['nparticles'], ncomponents),
