@@ -75,7 +75,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 cparms.getChunk(3, chunk_dims);
                 tdim = (fs->iteration + niter_todo) - old_dims[0];
                 if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
                 else
                     tdim = 0;
                 dims[0] = tdim + old_dims[0];
@@ -90,10 +90,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dspace.getSimpleExtentDims(old_dims);
                 cparms = dset.getCreatePlist();
                 cparms.getChunk(3, chunk_dims);
-                dspace = dset.getSpace();
                 tdim = (fs->iteration + niter_todo) - old_dims[0];
                 if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
                 else
                     tdim = 0;
                 dims[0] = tdim + old_dims[0];
@@ -108,10 +107,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dspace.getSimpleExtentDims(old_dims);
                 cparms = dset.getCreatePlist();
                 cparms.getChunk(4, chunk_dims);
-                dspace = dset.getSpace();
                 tdim = (fs->iteration + niter_todo) - old_dims[0];
                 if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
                 else
                     tdim = 0;
                 dims[0] = tdim + old_dims[0];
@@ -157,20 +155,20 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
                         hsize_t count[4], offset[4];
-                        ////moments
-                        //dset = data_file.openDataSet("statistics/moments/velocity");
-                        //writespace = dset.getSpace();
-                        //count[0] = 1;
-                        //count[1] = 10;
-                        //count[2] = 4;
-                        //memspace = H5::DataSpace(3, count);
-                        //offset[0] = fs->iteration;
-                        //offset[1] = 0;
-                        //offset[2] = 0;
-                        //writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        //dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        //dset = data_file.openDataSet("statistics/moments/vorticity");
-                        //dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        //moments
+                        dset = data_file.openDataSet("statistics/moments/velocity");
+                        writespace = dset.getSpace();
+                        count[0] = 1;
+                        count[1] = 10;
+                        count[2] = 4;
+                        memspace = H5::DataSpace(3, count);
+                        offset[0] = fs->iteration;
+                        offset[1] = 0;
+                        offset[2] = 0;
+                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        dset = data_file.openDataSet("statistics/moments/vorticity");
+                        dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                         //histograms
                         dset = data_file.openDataSet("statistics/histograms/velocity");
                         writespace = dset.getSpace();
@@ -255,14 +253,27 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
-        grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
-                         'dset = data_file.openDataSet(temp_string);\n' +
-                         'dspace = dset.getSpace();\n' +
-                         'dspace.getSimpleExtentDims(dims);\n' +
-                         'dims[0] += {2};\n' +
-                         'dset.extend(dims);\n')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', '(niter_todo/niter_part)')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '1')
+        grow_template = """
+                        //begincpp
+                        temp_string = (std::string("/particles/") +
+                                       std::string(ps{0}->name) +
+                                       std::string("/{1}"));
+                        dset = data_file.openDataSet(temp_string);
+                        dspace = dset.getSpace();
+                        dspace.getSimpleExtentDims(dims);
+                        cparms = dset.getCreatePlist();
+                        cparms.getChunk({2}, chunk_dims);
+                        tdim = (ps{0}->iteration + {3}) - dims[0];
+                        if (tdim > 0)
+                            tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
+                        else
+                            tdim = 0;
+                        dims[0] = tdim + dims[0];
+                        dset.extend(dims);
+                        //endcpp
+                        """
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', '3', '(niter_todo/niter_part)')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '4', '1')
         #self.particle_definitions
         update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
@@ -376,7 +387,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
             if self.particle_species > 0:
-                self.trajectories = [data_file['particles/' + key + '/state'].value
+                self.trajectories = [
+                        data_file['particles/' + key + '/state'][
+                            iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']]
                                      for key in data_file['particles'].keys()]
         return None
     def plot_spectrum(
