@@ -348,9 +348,9 @@ class fluid_particle_base(bfps.code):
                                      dtype = np.int64)
             for s in range(self.particle_species):
                 time_chunk = 2**20 // (8*3*
-                                       self.parameters['nparticles'])
-                if time_chunk == 0:
-                    time_chunk = 1
+                                       self.parameters['nparticles']*
+                                       self.parameters['integration_steps{0}'.format(s)])
+                time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
                                      (time_chunk,
                                       self.parameters['integration_steps{0}'.format(s)],
@@ -361,7 +361,7 @@ class fluid_particle_base(bfps.code):
                                                  self.parameters['nparticles'],
                                                  3),
                                      chunks =  (time_chunk,
-                                                1,
+                                                self.parameters['integration_steps{0}'.format(s)],
                                                 self.parameters['nparticles'],
                                                 3),
                                      dtype = np.float64)
