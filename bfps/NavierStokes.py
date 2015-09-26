@@ -45,9 +45,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
                 H5::DataSet dset;
                 H5::DataSpace dspace;
+                H5::DSetCreatPropList cparms;
                 std::string temp_string;
                 hsize_t dims[4];
                 hsize_t old_dims[4];
+                hsize_t chunk_dims[4];
+                hsize_t tdim;
                 // store kspace information
                 dset = data_file.openDataSet("/kspace/kshell");
                 dspace = dset.getSpace();
@@ -68,7 +71,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/moments/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
+                cparms = dset.getCreatePlist();
+                cparms.getChunk(3, chunk_dims);
+                tdim = (fs->iteration + niter_todo) - old_dims[0];
+                if (tdim > 0)
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                else
+                    tdim = 0;
+                dims[0] = tdim + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -78,6 +88,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/histograms/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
+                cparms = dset.getCreatePlist();
+                cparms.getChunk(3, chunk_dims);
+                dspace = dset.getSpace();
+                tdim = (fs->iteration + niter_todo) - old_dims[0];
+                if (tdim > 0)
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                else
+                    tdim = 0;
+                dims[0] = tdim + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -87,6 +106,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/spectra/velocity_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
+                cparms = dset.getCreatePlist();
+                cparms.getChunk(4, chunk_dims);
+                dspace = dset.getSpace();
+                tdim = (fs->iteration + niter_todo) - old_dims[0];
+                if (tdim > 0)
+                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]);
+                else
+                    tdim = 0;
+                dims[0] = tdim + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dims[3] = old_dims[3];
@@ -129,20 +157,20 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
                         hsize_t count[4], offset[4];
-                        //moments
-                        dset = data_file.openDataSet("statistics/moments/velocity");
-                        writespace = dset.getSpace();
-                        count[0] = 1;
-                        count[1] = 10;
-                        count[2] = 4;
-                        memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration;
-                        offset[1] = 0;
-                        offset[2] = 0;
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/moments/vorticity");
-                        dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        ////moments
+                        //dset = data_file.openDataSet("statistics/moments/velocity");
+                        //writespace = dset.getSpace();
+                        //count[0] = 1;
+                        //count[1] = 10;
+                        //count[2] = 4;
+                        //memspace = H5::DataSpace(3, count);
+                        //offset[0] = fs->iteration;
+                        //offset[1] = 0;
+                        //offset[2] = 0;
+                        //writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        //dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        //dset = data_file.openDataSet("statistics/moments/vorticity");
+                        //dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
                         //histograms
                         dset = data_file.openDataSet("statistics/histograms/velocity");
                         writespace = dset.getSpace();
@@ -320,7 +348,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.read_parameters()
         with self.get_data_file() as data_file:
             iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
-            iter1 = data_file['statistics/moments/velocity'].shape[0]
+            iter1 = data_file['iteration'].value
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
             self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 0, 0] +
                                                data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 1, 1] +
