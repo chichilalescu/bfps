@@ -273,7 +273,8 @@ class fluid_particle_base(bfps.code):
                      self.parameters['nparticles'],
                      ncomponents),
                     chunks = (time_chunk, self.parameters['nparticles'], ncomponents),
-                    maxshape = (None, self.parameters['nparticles'], ncomponents))
+                    maxshape = (None, self.parameters['nparticles'], ncomponents),
+                    dtype = np.float64)
             dset[0] = data
         if write_to_file:
             data.tofile(
