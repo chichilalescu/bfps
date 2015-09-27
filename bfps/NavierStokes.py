@@ -389,7 +389,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             if self.particle_species > 0:
                 self.trajectories = [
                         data_file['particles/' + key + '/state'][
-                            iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']]
+                            iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']+1]
                                      for key in data_file['particles'].keys()]
         return None
     def plot_spectrum(
