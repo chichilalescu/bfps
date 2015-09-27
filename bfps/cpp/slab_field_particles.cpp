@@ -283,9 +283,9 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
-    if (this->integration_steps >= 2)
+    if (this->integration_steps >= 1)
     {
-        for (int i=1; i<this->integration_steps; i++)
+        for (int i=0; i<this->integration_steps; i++)
         {
             std::fill_n(tstate, this->array_size, 0.0);
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
@@ -345,7 +345,7 @@ void slab_field_particles<rnumber>::roll_rhs()
 template <class rnumber>
 void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 {
-    int ii;
+    ptrdiff_t ii;
     this->get_rhs(this->state, this->rhs[0]);
     if (myrank == 0)
     {
