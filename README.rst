@@ -21,7 +21,7 @@ Comments
 TODO
 ----
 
-* store accelerations for particles
+* store nonlinear term for particles
 
 * add different numerical method, for testing purposes
 
