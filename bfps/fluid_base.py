@@ -370,6 +370,24 @@ class fluid_particle_base(bfps.code):
                                                 self.parameters['nparticles'],
                                                 3),
                                      dtype = np.float64)
+                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset(
+                    '/particles/tracers{0}/velocity'.format(s),
+                    (time_chunk,
+                     self.parameters['nparticles'],
+                     3),
+                    chunks = (time_chunk, self.parameters['nparticles'], 3),
+                    maxshape = (None, self.parameters['nparticles'], 3),
+                    dtype = np.float64)
+                ofile.create_dataset(
+                    '/particles/tracers{0}/acceleration'.format(s),
+                    (time_chunk,
+                     self.parameters['nparticles'],
+                     3),
+                    chunks = (time_chunk, self.parameters['nparticles'], 3),
+                    maxshape = (None, self.parameters['nparticles'], 3),
+                    dtype = np.float64)
             ofile.close()
         return None
 

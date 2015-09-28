@@ -717,7 +717,7 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
             writespace = dset.getSpace();
             writespace.getSimpleExtentDims(count);
             count[0] = 1;
-            offset[0] = this->iteration / traj_skip;
+            offset[0] = this->iteration / this->traj_skip;
             offset[1] = 0;
             offset[2] = 0;
             memspace = H5::DataSpace(3, count);

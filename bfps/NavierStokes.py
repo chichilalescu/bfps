@@ -279,6 +279,50 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
                         'fs->ift_velocity();\n' +
                         'ps{0}->update_field();\n').format(self.particle_species)
+        if self.dtype == np.float32:
+            FFTW = 'fftwf'
+        elif self.dtype == np.float64:
+            FFTW = 'fftw'
+        compute_acc = ('{0} *acc_field =  {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
+                       'fs->compute_acceleration(acc_field + ps{2}->buffer_size);\n' +
+                       'ps{2}->sample_vec_field(acc_field, acceleration);\n' +
+                       '{1}_free(acc_field);\n').format(self.C_dtype, FFTW, self.particle_species)
+        output_vel_acc =  """
+                          //begincpp
+                          {{
+                              double *acceleration = fftw_alloc_real(ps{0}->array_size);
+                              {1}
+                              if (ps{0}->fs->rd->myrank == 0)
+                              {{
+                                  //VELOCITY begin
+                                  std::string temp_string = (std::string("/particles/") +
+                                                             std::string(ps{0}->name) +
+                                                             std::string("/velocity"));
+                                  H5::DataSet dset = data_file.openDataSet(temp_string);
+                                  H5::DataSpace memspace, writespace;
+                                  hsize_t count[3], offset[3];
+                                  writespace = dset.getSpace();
+                                  writespace.getSimpleExtentDims(count);
+                                  count[0] = 1;
+                                  offset[0] = ps{0}->iteration / ps{0}->traj_skip;
+                                  offset[1] = 0;
+                                  offset[2] = 0;
+                                  memspace = H5::DataSpace(3, count);
+                                  writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                                  dset.write(ps{0}->rhs[0], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                                  //VELOCITY end
+                                  //ACCELERATION begin
+                                  temp_string = (std::string("/particles/") +
+                                                 std::string(ps{0}->name) +
+                                                 std::string("/acceleration"));
+                                  dset = data_file.openDataSet(temp_string);
+                                  dset.write(acceleration, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                                  //ACCELERATION end
+                              }}
+                              fftw_free(acceleration);
+                          }}
+                          //endcpp
+                          """.format(self.particle_species, compute_acc)
         self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
                                 'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
@@ -289,10 +333,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
                                 'ps{1}->read(&data_file);\n').format(self.C_dtype, self.particle_species)
-        self.particle_loop +=  (update_field +
+        self.particle_loop += ((update_field +
                                'ps{0}->step();\n' +
                                 'if (ps{0}->iteration % niter_part == 0)\n' +
-                                'ps{0}->write(&data_file, false);\n').format(self.particle_species)
+                                'ps{0}->write(&data_file, false);\n').format(self.particle_species) +
+                               output_vel_acc)
         self.particle_end += ('ps{0}->write(&data_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
