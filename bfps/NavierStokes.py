@@ -358,9 +358,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             return None
         self.read_parameters()
         with self.get_data_file() as data_file:
+            if 'moments' not in data_file['statistics'].keys():
+                return None
             iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
             iter1 = data_file['iteration'].value
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
+            self.statistics['kshell'] = data_file['kspace/kshell'].value
+            self.statistics['kM'] = data_file['kspace/kM'].value
             self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 0, 0] +
                                                data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 1, 1] +
                                                data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 2, 2])/2
@@ -369,28 +373,29 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                   data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 2, 2])/2
             self.statistics['vel_max(t)'] = data_file['statistics/moments/velocity'][iter0:iter1, 9, 3]
             self.statistics['renegergy(t)'] = data_file['statistics/moments/velocity'][iter0:iter1, 2, 3]/2
-            for key in ['energy', 'enstrophy']:
-                self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
-            for key in ['energy', 'enstrophy', 'vel_max']:
-                self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
-            for suffix in ['', '(t)']:
-                self.statistics['diss'    + suffix] = (self.parameters['nu'] *
-                                                       self.statistics['enstrophy' + suffix]*2)
-                self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
-                                                       self.statistics['diss' + suffix])**.25
-                self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
-                                                       (self.statistics['energy' + suffix] /
-                                                       (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
-                self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
-                                                        self.statistics['diss' + suffix])**.5
-            self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
-            self.statistics['kshell'] = data_file['kspace/kshell'].value
-            self.statistics['kM'] = data_file['kspace/kM'].value
             if self.particle_species > 0:
                 self.trajectories = [
                         data_file['particles/' + key + '/state'][
                             iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']+1]
                                      for key in data_file['particles'].keys()]
+            self.compute_time_averages()
+        return None
+    def compute_time_averages(self):
+        for key in ['energy', 'enstrophy']:
+            self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
+        for key in ['energy', 'enstrophy', 'vel_max']:
+            self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
+        for suffix in ['', '(t)']:
+            self.statistics['diss'    + suffix] = (self.parameters['nu'] *
+                                                   self.statistics['enstrophy' + suffix]*2)
+            self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
+                                                   self.statistics['diss' + suffix])**.25
+            self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
+                                                   (self.statistics['energy' + suffix] /
+                                                   (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
+            self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
+                                                    self.statistics['diss' + suffix])**.5
+        self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
         return None
     def plot_spectrum(
             self,
