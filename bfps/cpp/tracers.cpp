@@ -97,7 +97,7 @@ template<class rnumber>
 void tracers<rnumber>::update_field(bool clip_on)
 {
     if (clip_on)
-        clip_zero_padding(this->fs->rd, this->source_data, 3);
+        clip_zero_padding<rnumber>(this->fs->rd, this->source_data, 3);
     this->rFFTW_to_buffered(this->source_data, this->data);
 }
 
