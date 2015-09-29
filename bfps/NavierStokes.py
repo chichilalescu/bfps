@@ -284,10 +284,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         elif self.dtype == np.float64:
             FFTW = 'fftw'
         compute_acc = ('{0} *acc_field =  {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
-                       'fs->compute_acceleration(acc_field + ps{2}->buffer_size);\n' +
-                       'ps{2}->rFFTW_to_buffered(acc_field, acc_field);\n' +
-                       'ps{2}->sample_vec_field(acc_field, acceleration);\n' +
-                       '{1}_free(acc_field);\n').format(self.C_dtype, FFTW, self.particle_species)
+                       '{0} *acc_field_tmp =  {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
+                       'fs->compute_acceleration(acc_field_tmp);\n' +
+                       'ps{2}->rFFTW_to_buffered(acc_field_tmp, acc_field);\n' +
+                       'ps{2}->sample_vec_field(acc_field+ps{2}->buffer_size, acceleration);\n' +
+                       '{1}_free(acc_field);\n' +
+                       '{1}_free(acc_field_tmp);\n').format(self.C_dtype, FFTW, self.particle_species)
         output_vel_acc =  """
                           //begincpp
                           {{

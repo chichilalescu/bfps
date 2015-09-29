@@ -484,7 +484,7 @@ void fluid_solver<R>::compute_acceleration(R *acceleration) \
     if (this->cd->myrank == this->cd->rank[0]) \
         std::fill_n((R*)(this->cv[2]), 6, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[2])); \
-    clip_zero_padding(this->rd, this->rv[2], 3); \
+    clip_zero_padding<R>(this->rd, this->rv[2], 3); \
     std::copy( \
             this->rv[2], \
             this->rv[2] + this->rd->local_size, \
