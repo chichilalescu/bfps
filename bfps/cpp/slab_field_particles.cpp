@@ -748,74 +748,80 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
     }
 }
 
-template <class rnumber>
-void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst)
-{
-    const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
-    MPI_Request *mpirequest = new MPI_Request;
-    /* do big copy of middle stuff */
-    std::copy(src,
-              src + this->fs->rd->local_size,
-              dst + this->buffer_size);
-    /* take care of buffer regions.
-     * I could make the code use blocking sends and receives, but it seems cleaner this way.
-     * (alternative is to have a couple of loops).
-     * */
-    // 1. send lower slices
-    //DEBUG_MSG(
-    //        "destination rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]));
-    MPI_Isend(
-            (void*)(src),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    // 2. receive higher slices
-    //DEBUG_MSG(
-    //        "source rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]));
-    MPI_Irecv(
-            (void*)(dst + this->buffer_size + this->fs->rd->local_size),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    //DEBUG_MSG("successful transfer\n");
-    // 3. send higher slices
-    //DEBUG_MSG(
-    //        "destination rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]));
-    MPI_Isend(
-            (void*)(src + this->fs->rd->local_size - this->buffer_size),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    // 4. receive lower slices
-    //DEBUG_MSG(
-    //        "source rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-    //        this->fs->rd->starts[0]);
-    MPI_Irecv(
-            (void*)(dst),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-            this->fs->rd->starts[0],
-            this->fs->rd->comm,
-            mpirequest);
-    delete mpirequest;
-}
+
+
+/*****************************************************************************/
+/* macro for specializations to numeric types compatible with FFTW           */
+#define SLAB_FIELD_PARTICLES_DEFINITIONS(FFTW, R, MPI_RNUM) \
+ \
+template <> \
+void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
+{ \
+    MPI_Request *mpirequest = new MPI_Request; \
+    /* do big copy of middle stuff */ \
+    std::copy(src, \
+              src + this->fs->rd->local_size, \
+              dst + this->buffer_size); \
+    /* take care of buffer regions. \
+     * I could make the code use blocking sends and receives, but it seems cleaner this way. \
+     * (alternative is to have a couple of loops). \
+     * */ \
+    /* 1. send lower slices */ \
+    MPI_Isend( \
+            (void*)(src), \
+            this->buffer_size, \
+            MPI_RNUM, \
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])], \
+            MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]), \
+            this->fs->rd->comm, \
+            mpirequest); \
+    /* 2. receive higher slices */ \
+    MPI_Irecv( \
+            (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
+            this->buffer_size, \
+            MPI_RNUM, \
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])], \
+            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]), \
+            this->fs->rd->comm, \
+            mpirequest); \
+    /* 3. send higher slices */ \
+    MPI_Isend( \
+            (void*)(src + this->fs->rd->local_size - this->buffer_size), \
+            this->buffer_size, \
+            MPI_RNUM, \
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])], \
+            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]), \
+            this->fs->rd->comm, \
+            mpirequest); \
+    /* 4. receive lower slices */ \
+    MPI_Irecv( \
+            (void*)(dst), \
+            this->buffer_size, \
+            MPI_RNUM, \
+            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])], \
+            this->fs->rd->starts[0], \
+            this->fs->rd->comm, \
+            mpirequest); \
+    MPI_Wait(mpirequest, MPI_STATUS_IGNORE); \
+    delete mpirequest; \
+} \
+/*****************************************************************************/
+
+
+
+/*****************************************************************************/
+/* now actually use the macro defined above                                  */
+SLAB_FIELD_PARTICLES_DEFINITIONS(
+        FFTW_MANGLE_FLOAT,
+        float,
+        MPI_FLOAT)
+SLAB_FIELD_PARTICLES_DEFINITIONS(
+        FFTW_MANGLE_DOUBLE,
+        double,
+        MPI_DOUBLE)
+/*****************************************************************************/
+
+
 
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */
