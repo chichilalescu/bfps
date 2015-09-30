@@ -268,7 +268,7 @@ class fluid_particle_base(bfps.code):
             time_chunk = max(time_chunk, 1)
             dset = data_file.create_dataset(
                     '/particles/tracers{0}/state'.format(species),
-                    (time_chunk,
+                    (1,
                      self.parameters['nparticles'],
                      ncomponents),
                     chunks = (time_chunk, self.parameters['nparticles'], ncomponents),
@@ -326,21 +326,21 @@ class fluid_particle_base(bfps.code):
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
-                                     (time_chunk, nshells, 3, 3),
+                                     (1, nshells, 3, 3),
                                      chunks = (time_chunk, nshells, 3, 3),
                                      maxshape = (None, nshells, 3, 3),
                                      dtype = np.float64)
                 time_chunk = 2**20//(8*4*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/' + k,
-                                     (time_chunk, 10, 4),
+                                     (1, 10, 4),
                                      chunks = (time_chunk, 10, 4),
                                      maxshape = (None, 10, 4),
                                      dtype = np.float64)
                 time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/' + k,
-                                     (time_chunk,
+                                     (1,
                                       self.parameters['histogram_bins'],
                                       4),
                                      chunks = (time_chunk,
@@ -356,7 +356,7 @@ class fluid_particle_base(bfps.code):
                                        self.parameters['integration_steps{0}'.format(s)])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
-                                     (time_chunk,
+                                     (1,
                                       self.parameters['integration_steps{0}'.format(s)],
                                       self.parameters['nparticles'],
                                       3),
@@ -373,7 +373,7 @@ class fluid_particle_base(bfps.code):
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset(
                     '/particles/tracers{0}/velocity'.format(s),
-                    (time_chunk,
+                    (1,
                      self.parameters['nparticles'],
                      3),
                     chunks = (time_chunk, self.parameters['nparticles'], 3),
@@ -381,7 +381,7 @@ class fluid_particle_base(bfps.code):
                     dtype = np.float64)
                 ofile.create_dataset(
                     '/particles/tracers{0}/acceleration'.format(s),
-                    (time_chunk,
+                    (1,
                      self.parameters['nparticles'],
                      3),
                     chunks = (time_chunk, self.parameters['nparticles'], 3),

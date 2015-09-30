@@ -49,8 +49,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 std::string temp_string;
                 hsize_t dims[4];
                 hsize_t old_dims[4];
-                hsize_t chunk_dims[4];
-                hsize_t tdim;
                 // store kspace information
                 dset = data_file.openDataSet("/kspace/kshell");
                 dspace = dset.getSpace();
@@ -71,14 +69,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/moments/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                cparms = dset.getCreatePlist();
-                cparms.getChunk(3, chunk_dims);
-                tdim = (fs->iteration + niter_todo) - old_dims[0];
-                if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
-                else
-                    tdim = 0;
-                dims[0] = tdim + old_dims[0];
+                dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -88,14 +79,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/histograms/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                cparms = dset.getCreatePlist();
-                cparms.getChunk(3, chunk_dims);
-                tdim = (fs->iteration + niter_todo) - old_dims[0];
-                if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
-                else
-                    tdim = 0;
-                dims[0] = tdim + old_dims[0];
+                dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -105,14 +89,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file.openDataSet("/statistics/spectra/velocity_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                cparms = dset.getCreatePlist();
-                cparms.getChunk(4, chunk_dims);
-                tdim = (fs->iteration + niter_todo) - old_dims[0];
-                if (tdim > 0)
-                    tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
-                else
-                    tdim = 0;
-                dims[0] = tdim + old_dims[0];
+                dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dims[3] = old_dims[3];
@@ -154,10 +131,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
-                        hsize_t count[4], offset[4];
+                        hsize_t count[4], offset[4], old_dims[4];
                         //moments
                         dset = data_file.openDataSet("statistics/moments/velocity");
                         writespace = dset.getSpace();
+                        writespace.getSimpleExtentDims(old_dims);
                         count[0] = 1;
                         count[1] = 10;
                         count[2] = 4;
@@ -261,19 +239,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         dset = data_file.openDataSet(temp_string);
                         dspace = dset.getSpace();
                         dspace.getSimpleExtentDims(dims);
-                        cparms = dset.getCreatePlist();
-                        cparms.getChunk({2}, chunk_dims);
-                        tdim = (ps{0}->iteration + {3}) - dims[0];
-                        if (tdim > 0)
-                            tdim = tdim + (chunk_dims[0] - tdim % chunk_dims[0]) % chunk_dims[0];
-                        else
-                            tdim = 0;
-                        dims[0] = tdim + dims[0];
+                        dims[0] = niter_todo/niter_part + dims[0];
                         dset.extend(dims);
                         //endcpp
                         """
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', '3', '(niter_todo/niter_part)')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '4', '1')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'state')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'velocity')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
         #self.particle_definitions
         update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
