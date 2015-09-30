@@ -762,6 +762,7 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
               src + this->fs->rd->local_size, \
               dst + this->buffer_size); \
     int rsrc; \
+    /* get upper slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
         rsrc = MOD(rdst+1, this->fs->rd->nprocs); \
@@ -783,6 +784,7 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
                     this->fs->rd->comm, \
                     MPI_STATUS_IGNORE); \
     } \
+    /* get lower slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
         rsrc = MOD(rdst-1, this->fs->rd->nprocs); \
@@ -804,52 +806,6 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
                     this->fs->rd->comm, \
                     MPI_STATUS_IGNORE); \
     } \
-    /* take care of buffer regions. \
-     * I could make the code use blocking sends and receives, but it seems cleaner this way. \
-     * (alternative is to have a couple of loops). \
-     * */ \
-    /* 1. send lower slices */ \
-    /*MPI_Request *mpirequest = new MPI_Request; \
-    MPI_Isend( \
-            (void*)(src), \
-            this->buffer_size, \
-            MPI_RNUM, \
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])], \
-            MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]), \
-            this->fs->rd->comm, \
-            mpirequest); \
-    MPI_Wait(mpirequest, MPI_STATUS_IGNORE);*/ \
-    /* 2. receive higher slices */ \
-    /* MPI_Irecv( \
-            (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
-            this->buffer_size, \
-            MPI_RNUM, \
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])], \
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]), \
-            this->fs->rd->comm, \
-            mpirequest); \
-    MPI_Wait(mpirequest, MPI_STATUS_IGNORE); */\
-    /* 3. send higher slices */ \
-    /* MPI_Isend( \
-            (void*)(src + this->fs->rd->local_size - this->buffer_size), \
-            this->buffer_size, \
-            MPI_RNUM, \
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])], \
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]), \
-            this->fs->rd->comm, \
-            mpirequest); \
-    MPI_Wait(mpirequest, MPI_STATUS_IGNORE); */ \
-    /* 4. receive lower slices */ \
-    /* MPI_Irecv( \
-            (void*)(dst), \
-            this->buffer_size, \
-            MPI_RNUM, \
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])], \
-            this->fs->rd->starts[0], \
-            this->fs->rd->comm, \
-            mpirequest); \
-    MPI_Wait(mpirequest, MPI_STATUS_IGNORE); \
-    delete mpirequest;  */\
 } \
 /*****************************************************************************/
 
