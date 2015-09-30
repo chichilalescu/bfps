@@ -63,7 +63,7 @@ class base(object):
                  + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
                  + 'std::string tempstr;')
         for i in range(len(key)):
-            src_txt += 'dset = data_file.openDataSet("parameters/{0}");\n'.format(key[i])
+            src_txt += 'dset = data_file->openDataSet("parameters/{0}");\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
                 src_txt += 'dset.read(&{0}, H5::PredType::NATIVE_INT);\n'.format(key[i])
             elif type(self.parameters[key[i]]) == str:

@@ -52,7 +52,7 @@ class code(base):
         self.variables = 'int myrank, nprocs;\n'
         self.variables += 'int iteration;\n'
         self.variables += 'char simname[256];\n'
-        self.variables += ('H5::H5File data_file;\n' +
+        self.variables += ('H5::H5File *data_file;\n' +
                            'H5::DataSet H5dset;\n')
         self.definitions = ''
         self.main_start = """
@@ -71,17 +71,17 @@ class code(base):
                     else
                     {
                         strcpy(simname, argv[1]);
-                        if (myrank == 0)
-                            data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        if (myrank != 0)
+                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDONLY);
                         else
-                            data_file.openFile(std::string(simname) + std::string(".h5"), H5F_ACC_RDONLY);
-                        H5dset = data_file.openDataSet("iteration");
+                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        H5dset = data_file->openDataSet("iteration");
                         H5dset.read(&iteration, H5::PredType::NATIVE_INT);
                         DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
                     }
                     read_parameters();
                     if (myrank != 0)
-                        data_file.close();
+                        delete data_file;
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
@@ -91,9 +91,8 @@ class code(base):
                     // clean up
                     if (myrank == 0)
                     {
-                        H5dset = data_file.openDataSet("iteration");
+                        H5dset = data_file->openDataSet("iteration");
                         H5dset.write(&iteration, H5::PredType::NATIVE_INT);
-                        data_file.close();
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
