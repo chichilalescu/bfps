@@ -284,9 +284,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         elif self.dtype == np.float64:
             FFTW = 'fftw'
         compute_acc = ('{0} *acc_field = {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
-                       'fs->compute_acceleration(acc_field+ps{2}->buffer_size);\n' +
-                       'ps{2}->rFFTW_to_buffered(acc_field+ps{2}->buffer_size, acc_field);\n' +
+                       '{0} *acc_field_tmp = {1}_alloc_real(fs->cd->local_size*2);\n' +
+                       'fs->compute_acceleration(acc_field_tmp);\n' +
+                       'ps{2}->rFFTW_to_buffered(acc_field_tmp, acc_field);\n' +
                        'ps{2}->sample_vec_field(acc_field+ps{2}->buffer_size, acceleration);\n' +
+                       '{1}_free(acc_field_tmp);\n' +
                        '{1}_free(acc_field);\n').format(self.C_dtype, FFTW, self.particle_species)
         output_vel_acc =  """
                           //begincpp
@@ -408,17 +410,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 return None
             iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
             iter1 = data_file['iteration'].value
-            self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
+            self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1+1).astype(np.float)
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
-            self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 0, 0] +
-                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 1, 1] +
-                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1, :, 2, 2])/2
-            self.statistics['enstrophy(t, k)'] = (data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 0, 0] +
-                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 1, 1] +
-                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1, :, 2, 2])/2
-            self.statistics['vel_max(t)'] = data_file['statistics/moments/velocity'][iter0:iter1, 9, 3]
-            self.statistics['renegergy(t)'] = data_file['statistics/moments/velocity'][iter0:iter1, 2, 3]/2
+            self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 0, 0] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 1, 1] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 2, 2])/2
+            self.statistics['enstrophy(t, k)'] = (data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 0, 0] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 1, 1] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 2, 2])/2
+            self.statistics['vel_max(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 9, 3]
+            self.statistics['renegergy(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 2, 3]/2
             if self.particle_species > 0:
                 self.trajectories = [
                         data_file['particles/' + key + '/state'][

@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 
 #include <cmath>
@@ -757,16 +757,55 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
 template <> \
 void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
 { \
-    MPI_Request *mpirequest = new MPI_Request; \
     /* do big copy of middle stuff */ \
     std::copy(src, \
               src + this->fs->rd->local_size, \
               dst + this->buffer_size); \
+    int rsrc; \
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
+    { \
+        rsrc = MOD(rdst+1, this->fs->rd->nprocs); \
+        if (this->fs->rd->myrank == rdst || \
+            this->fs->rd->myrank == rsrc) \
+            MPI_Sendrecv( \
+                    (void*)(src), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rdst, \
+                    rsrc*this->fs->rd->nprocs + rdst, \
+                    (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rsrc, \
+                    rsrc*this->fs->rd->nprocs + rdst, \
+                    this->fs->rd->comm, \
+                    MPI_STATUS_IGNORE); \
+    } \
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
+    { \
+        rsrc = MOD(rdst-1, this->fs->rd->nprocs); \
+        if (this->fs->rd->myrank == rdst || \
+            this->fs->rd->myrank == rsrc) \
+            MPI_Sendrecv( \
+                    (void*)(src + this->fs->rd->local_size - this->buffer_size), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rdst, \
+                    rsrc*this->fs->rd->nprocs + rdst, \
+                    (void*)(dst), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rsrc, \
+                    rsrc*this->fs->rd->nprocs + rdst, \
+                    this->fs->rd->comm, \
+                    MPI_STATUS_IGNORE); \
+    } \
     /* take care of buffer regions. \
      * I could make the code use blocking sends and receives, but it seems cleaner this way. \
      * (alternative is to have a couple of loops). \
      * */ \
     /* 1. send lower slices */ \
+    /*MPI_Request *mpirequest = new MPI_Request; \
     MPI_Isend( \
             (void*)(src), \
             this->buffer_size, \
@@ -774,9 +813,9 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])], \
             MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]), \
             this->fs->rd->comm, \
-            mpirequest); \
+            mpirequest); */ \
     /* 2. receive higher slices */ \
-    MPI_Irecv( \
+    /*MPI_Irecv( \
             (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
             this->buffer_size, \
             MPI_RNUM, \
@@ -784,17 +823,18 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
             MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]), \
             this->fs->rd->comm, \
             mpirequest); \
+    MPI_Wait(mpirequest, MPI_STATUS_IGNORE); */ \
     /* 3. send higher slices */ \
-    MPI_Isend( \
+    /* MPI_Isend( \
             (void*)(src + this->fs->rd->local_size - this->buffer_size), \
             this->buffer_size, \
             MPI_RNUM, \
             this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])], \
             MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]), \
             this->fs->rd->comm, \
-            mpirequest); \
+            mpirequest); */ \
     /* 4. receive lower slices */ \
-    MPI_Irecv( \
+    /* MPI_Irecv( \
             (void*)(dst), \
             this->buffer_size, \
             MPI_RNUM, \
@@ -803,7 +843,7 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
             this->fs->rd->comm, \
             mpirequest); \
     MPI_Wait(mpirequest, MPI_STATUS_IGNORE); \
-    delete mpirequest; \
+    delete mpirequest; */ \
 } \
 /*****************************************************************************/
 
