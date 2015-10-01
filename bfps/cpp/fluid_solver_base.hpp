@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unordered_map>
+#include <vector>
 #include "base.hpp"
 #include "field_descriptor.hpp"
 
@@ -80,8 +81,8 @@ class fluid_solver_base
         void force_divfree(cnumber *a);
         void symmetrize(cnumber *a, int howmany);
         void clean_up_real_space(rnumber *a, int howmany);
-        rnumber correl_vec(cnumber *a, cnumber *b);
-        void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent = 0.0);
+        void cospectrum(cnumber *a, cnumber *b, double *spec);
+        void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent);
         void compute_rspace_stats(rnumber *a,
                                   double *moments,
                                   ptrdiff_t *hist,
@@ -104,13 +105,74 @@ class fluid_solver_base
 #define CLOOP(expression) \
  \
 { \
-    ptrdiff_t cindex; \
-    for (int yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (int zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
-    { \
-        cindex = (yindex * this->cd->subsizes[1] + zindex)*this->cd->subsizes[2]; \
-    for (int xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+    ptrdiff_t cindex = 0; \
+    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
         { \
+            expression; \
+            cindex++; \
+        } \
+}
+
+#define CLOOP_NXMODES(expression) \
+ \
+{ \
+    ptrdiff_t cindex = 0; \
+    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    { \
+        int nxmodes = 1; \
+        ptrdiff_t xindex = 0; \
+        expression; \
+        cindex++; \
+        nxmodes = 2; \
+    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+        { \
+            expression; \
+            cindex++; \
+        } \
+    } \
+}
+
+#define CLOOP_K2(expression) \
+ \
+{ \
+    double k2; \
+    ptrdiff_t cindex = 0; \
+    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+        { \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
+            expression; \
+            cindex++; \
+        } \
+}
+
+#define CLOOP_K2_NXMODES(expression) \
+ \
+{ \
+    double k2; \
+    ptrdiff_t cindex = 0; \
+    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    { \
+        int nxmodes = 1; \
+        ptrdiff_t xindex = 0; \
+        k2 = (this->kx[xindex]*this->kx[xindex] + \
+              this->ky[yindex]*this->ky[yindex] + \
+              this->kz[zindex]*this->kz[zindex]); \
+        expression; \
+        cindex++; \
+        nxmodes = 2; \
+    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+        { \
+            k2 = (this->kx[xindex]*this->kx[xindex] + \
+                  this->ky[yindex]*this->ky[yindex] + \
+                  this->kz[zindex]*this->kz[zindex]); \
             expression; \
             cindex++; \
         } \
@@ -121,11 +183,10 @@ class fluid_solver_base
 #define RLOOP(obj, expression) \
  \
 { \
-    ptrdiff_t rindex; \
     for (int zindex = 0; zindex < obj->rd->subsizes[0]; zindex++) \
     for (int yindex = 0; yindex < obj->rd->subsizes[1]; yindex++) \
     { \
-        rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2); \
+        ptrdiff_t rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2); \
     for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++) \
         { \
             expression; \
