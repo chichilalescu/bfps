@@ -47,6 +47,26 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 }
 
 template <class rnumber>
+rnumber fluid_solver_base<rnumber>::autocorrel(cnumber *a)
+{
+    double *spec = fftw_alloc_real(this->nshells*9);
+    double sum_local, sum;
+    this->cospectrum(a, a, spec);
+    sum_local = 0.0;
+    for (int n = 0; n < this->nshells; n++)
+        sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
+    fftw_free(spec);
+    MPI_Allreduce(
+            &sum_local,
+            &sum,
+            1,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->cd->comm);
+    return sum;
+}
+
+template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec)
 {
     double *cospec_local = fftw_alloc_real(this->nshells*9);
