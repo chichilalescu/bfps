@@ -22,6 +22,7 @@ import h5py
 import subprocess
 import os
 import shutil
+from datetime import datetime
 import bfps
 from bfps.base import base
 
@@ -155,6 +156,11 @@ class code(base):
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
         if not os.path.exists(os.path.join(self.work_dir, self.name)):
+            need_to_compile = True
+        else:
+            need_to_compile = (datetime.fromtimestamp(os.path.getctime(os.path.join(self.work_dir, self.name))) <
+                               bfps.install_info['install_date'])
+        if need_to_compile:
             assert(self.compile_code() == 0)
             if self.work_dir != './':
                 shutil.copy(self.name, self.work_dir)
