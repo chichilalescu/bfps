@@ -56,6 +56,8 @@ parser.add_argument('--wd',
         type = str, dest = 'work_dir', default = 'data')
 parser.add_argument('--precision',
         type = str, dest = 'precision', default = 'single')
+parser.add_argument('--multiplejob',
+        dest = 'multiplejob', action = 'store_true')
 
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)

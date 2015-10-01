@@ -26,6 +26,8 @@ def plain(opt):
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt)
     c0.compute_statistics()
+    if not opt.multiplejob:
+        return None
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
     opt.nsteps /= 2
