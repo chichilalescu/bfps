@@ -89,6 +89,7 @@ class fluid_particle_base(bfps.code):
         self.variables  += self.cdef_pars()
         self.definitions+= self.cread_pars()
         self.includes   += self.fluid_includes
+        self.includes   += '#include <ctime>\n'
         self.variables  += self.fluid_variables
         self.definitions+= self.fluid_definitions
         if self.particle_species > 0:
@@ -107,6 +108,8 @@ class fluid_particle_base(bfps.code):
         self.main       += """
                            //begincpp
                            int data_file_problem;
+                           clock_t time0, time1;
+                           time0 = clock();
                            if (myrank == 0) data_file_problem = grow_file_datasets();
                            MPI_Bcast(&data_file_problem, 1, MPI_INT, 0, MPI_COMM_WORLD);
                            if (data_file_problem > 0)
@@ -119,10 +122,16 @@ class fluid_particle_base(bfps.code):
                            //endcpp
                            """
         self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
+        self.main       += ('time1 = clock();\n' +
+                            'DEBUG_MSG("iteration %d time difference is %g\\n", iteration, (unsigned int)(time1 - time0)*1./CLOCKS_PER_SEC);\n' +
+                            'time0 = time1;\n')
         self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
         self.main       += 'do_stats();\n}\n'
+        self.main       += ('time1 = clock();\n' +
+                            'DEBUG_MSG("iteration %d time difference is %g\\n", iteration, (unsigned int)(time1 - time0)*1./CLOCKS_PER_SEC);\n' +
+                            'time0 = time1;\n')
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
