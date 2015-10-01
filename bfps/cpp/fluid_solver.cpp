@@ -194,8 +194,12 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
     CLOOP_K2( \
             if (k2 <= this->kM2) for (int cc = 0; cc < 3; cc++) \
             { \
-                this->cu[3*cindex+cc][0] = -(this->ky[yindex]*vorticity[3*cindex+(cc+2)%3][1] - this->kz[zindex]*vorticity[3*cindex+(cc+1)%3][1]) / k2; \
-                this->cu[3*cindex+cc][1] =  (this->ky[yindex]*vorticity[3*cindex+(cc+2)%3][0] - this->kz[zindex]*vorticity[3*cindex+(cc+1)%3][0]) / k2; \
+                this->cu[3*cindex+0][0] = -(this->ky[yindex]*vorticity[3*cindex+2][1] - this->kz[zindex]*vorticity[3*cindex+1][1]) / k2; \
+                this->cu[3*cindex+1][0] = -(this->kz[zindex]*vorticity[3*cindex+0][1] - this->kx[xindex]*vorticity[3*cindex+2][1]) / k2; \
+                this->cu[3*cindex+2][0] = -(this->kx[xindex]*vorticity[3*cindex+1][1] - this->ky[yindex]*vorticity[3*cindex+0][1]) / k2; \
+                this->cu[3*cindex+0][1] =  (this->ky[yindex]*vorticity[3*cindex+2][0] - this->kz[zindex]*vorticity[3*cindex+1][0]) / k2; \
+                this->cu[3*cindex+1][1] =  (this->kz[zindex]*vorticity[3*cindex+0][0] - this->kx[xindex]*vorticity[3*cindex+2][0]) / k2; \
+                this->cu[3*cindex+2][1] =  (this->kx[xindex]*vorticity[3*cindex+1][0] - this->ky[yindex]*vorticity[3*cindex+0][0]) / k2; \
             } \
             ); \
     if (this->cd->myrank == this->cd->rank[0]) \
