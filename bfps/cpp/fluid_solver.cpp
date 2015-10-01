@@ -196,14 +196,10 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
             k2 = (this->kx[xindex]*this->kx[xindex] + \
                   this->ky[yindex]*this->ky[yindex] + \
                   this->kz[zindex]*this->kz[zindex]); \
-            if (k2 <= this->kM2) \
+            if (k2 <= this->kM2) for (int cc = 0; cc < 3; cc++) \
             { \
-                this->cu[3*cindex+0][0] = -(this->ky[yindex]*vorticity[3*cindex+2][1] - this->kz[zindex]*vorticity[3*cindex+1][1]) / k2; \
-                this->cu[3*cindex+1][0] = -(this->kz[zindex]*vorticity[3*cindex+0][1] - this->kx[xindex]*vorticity[3*cindex+2][1]) / k2; \
-                this->cu[3*cindex+2][0] = -(this->kx[xindex]*vorticity[3*cindex+1][1] - this->ky[yindex]*vorticity[3*cindex+0][1]) / k2; \
-                this->cu[3*cindex+0][1] =  (this->ky[yindex]*vorticity[3*cindex+2][0] - this->kz[zindex]*vorticity[3*cindex+1][0]) / k2; \
-                this->cu[3*cindex+1][1] =  (this->kz[zindex]*vorticity[3*cindex+0][0] - this->kx[xindex]*vorticity[3*cindex+2][0]) / k2; \
-                this->cu[3*cindex+2][1] =  (this->kx[xindex]*vorticity[3*cindex+1][0] - this->ky[yindex]*vorticity[3*cindex+0][0]) / k2; \
+                this->cu[3*cindex+cc][0] = -(this->ky[yindex]*vorticity[3*cindex+(cc+2)%3][1] - this->kz[zindex]*vorticity[3*cindex+(cc+1)%3][1]) / k2; \
+                this->cu[3*cindex+cc][1] =  (this->ky[yindex]*vorticity[3*cindex+(cc+2)%3][0] - this->kz[zindex]*vorticity[3*cindex+(cc+1)%3][0]) / k2; \
             } \
             ); \
     if (this->cd->myrank == this->cd->rank[0]) \
@@ -214,28 +210,24 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 template<> \
 void fluid_solver<R>::ift_velocity() \
 { \
-    std::fill_n(this->ru, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::ift_vorticity() \
 { \
-    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::dft_velocity() \
 { \
-    std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::dft_vorticity() \
 { \
-    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
 } \
  \
