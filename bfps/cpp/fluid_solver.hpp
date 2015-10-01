@@ -80,10 +80,10 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
         void compute_acceleration(rnumber *dst);
-        inline void ift_velocity();
-        inline void dft_velocity();
-        inline void ift_vorticity();
-        inline void dft_vorticity();
+        void ift_velocity();
+        void dft_velocity();
+        void ift_vorticity();
+        void dft_vorticity();
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
