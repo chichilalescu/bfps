@@ -347,26 +347,26 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
     this->get_rhs(this->state, this->rhs[0]);
-    if (myrank == 0)
-    {
-        DEBUG_MSG(
-                "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
-                this->name,
-                this->integration_steps,
-                nsteps,
-                this->iteration);
-        std::stringstream tstring;
-        for (int p=0; p<this->nparticles; p++)
-            tstring << " " << this->computing[p];
-        DEBUG_MSG("%s\n", tstring.str().c_str());
-        for (int i=0; i<this->integration_steps; i++)
-        {
-            std::stringstream tstring;
-            for (int p=0; p<this->nparticles; p++)
-                tstring << " " << this->rhs[i][p*3];
-            DEBUG_MSG("%s\n", tstring.str().c_str());
-        }
-    }
+    //if (myrank == 0)
+    //{
+    //    DEBUG_MSG(
+    //            "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
+    //            this->name,
+    //            this->integration_steps,
+    //            nsteps,
+    //            this->iteration);
+    //    std::stringstream tstring;
+    //    for (int p=0; p<this->nparticles; p++)
+    //        tstring << " " << this->computing[p];
+    //    DEBUG_MSG("%s\n", tstring.str().c_str());
+    //    for (int i=0; i<this->integration_steps; i++)
+    //    {
+    //        std::stringstream tstring;
+    //        for (int p=0; p<this->nparticles; p++)
+    //            tstring << " " << this->rhs[i][p*3];
+    //        DEBUG_MSG("%s\n", tstring.str().c_str());
+    //    }
+    //}
     switch(nsteps)
     {
         case 1:
@@ -481,12 +481,12 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        //DEBUG_MSG(
-        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-        //        p,
-        //         x[p*3],  x[p*3+1],  x[p*3+2],
-        //        xx[p*3], xx[p*3+1], xx[p*3+2],
-        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
+        DEBUG_MSG(
+                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+                p,
+                 x[p*3],  x[p*3+1],  x[p*3+2],
+                xx[p*3], xx[p*3+1], xx[p*3+2],
+                xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -506,8 +506,8 @@ void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, doub
         for (int c=0; c<3; c++)
         {
             //DEBUG_MSG(
-            //        "%d %d %d %d %ld %ld\n",
-            //        iz, iy, ix, c,
+            //        "%d %d %d %d %d %d %d %ld %ld\n",
+            //        xg[2], xg[1], xg[0], iz, iy, ix, c,
             //        ((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
             //          ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
             //          ptrdiff_t(xg[0]+ix))*3+c,
