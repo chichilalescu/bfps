@@ -67,6 +67,10 @@ fluid_solver<R>::fluid_solver( \
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
     this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
     this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
+    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
  \
     this->ru = this->rvelocity;\
     this->cu = this->cvelocity;\
@@ -80,6 +84,10 @@ fluid_solver<R>::fluid_solver( \
     this->cv[2] = FFTW(alloc_complex)(this->cd->local_size);\
     this->rv[1] = FFTW(alloc_real)(this->cd->local_size*2);\
     this->rv[2] = FFTW(alloc_real)(this->cd->local_size*2);\
+    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[2], this->cd->local_size*2, 0.0); \
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
@@ -174,34 +182,30 @@ fluid_solver<R>::~fluid_solver() \
     DEBUG_MSG("deleted plans\n"); \
  \
     FFTW(free)(this->cv[1]);\
-    DEBUG_MSG("FFTW(free)(this->cv[1]);\n"); \
     FFTW(free)(this->cv[2]);\
-    DEBUG_MSG("FFTW(free)(this->cv[2]);\n"); \
     FFTW(free)(this->rv[1]);\
-    DEBUG_MSG("FFTW(free)(this->rv[1]);\n"); \
     FFTW(free)(this->rv[2]);\
-    DEBUG_MSG("FFTW(free)(this->rv[2]);\n"); \
     FFTW(free)(this->cvorticity);\
-    DEBUG_MSG("FFTW(free)(this->cvorticity);\n"); \
     FFTW(free)(this->rvorticity);\
-    DEBUG_MSG("FFTW(free)(this->rvorticity);\n"); \
     FFTW(free)(this->cvelocity);\
-    DEBUG_MSG("FFTW(free)(this->cvelocity);\n"); \
     FFTW(free)(this->rvelocity);\
-    DEBUG_MSG("FFTW(free)(this->rvelocity);\n"); \
+    DEBUG_MSG("freed arrays\n"); \
     DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
  \
 template<> \
 void fluid_solver<R>::compute_vorticity() \
 { \
-    CLOOP( \
-            this->cvorticity[3*cindex+0][0] = -(this->ky[yindex]*this->cu[3*cindex+2][1] - this->kz[zindex]*this->cu[3*cindex+1][1]); \
-            this->cvorticity[3*cindex+1][0] = -(this->kz[zindex]*this->cu[3*cindex+0][1] - this->kx[xindex]*this->cu[3*cindex+2][1]); \
-            this->cvorticity[3*cindex+2][0] = -(this->kx[xindex]*this->cu[3*cindex+1][1] - this->ky[yindex]*this->cu[3*cindex+0][1]); \
-            this->cvorticity[3*cindex+0][1] =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
-            this->cvorticity[3*cindex+1][1] =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
-            this->cvorticity[3*cindex+2][1] =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                this->cvorticity[3*cindex+0][0] = -(this->ky[yindex]*this->cu[3*cindex+2][1] - this->kz[zindex]*this->cu[3*cindex+1][1]); \
+                this->cvorticity[3*cindex+1][0] = -(this->kz[zindex]*this->cu[3*cindex+0][1] - this->kx[xindex]*this->cu[3*cindex+2][1]); \
+                this->cvorticity[3*cindex+2][0] = -(this->kx[xindex]*this->cu[3*cindex+1][1] - this->ky[yindex]*this->cu[3*cindex+0][1]); \
+                this->cvorticity[3*cindex+0][1] =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
+                this->cvorticity[3*cindex+1][1] =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
+                this->cvorticity[3*cindex+2][1] =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
+            } \
             ); \
     this->symmetrize(this->cvorticity, 3); \
 } \
@@ -324,10 +328,8 @@ void fluid_solver<R>::omega_nonlin( \
                 tmp[1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]); \
                 tmp[2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]); \
             } \
-            std::copy( \
-                (R*)(tmp), \
-                (R*)(tmp + 6), \
-                (R*)(this->cu + tindex)); \
+            for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
+                this->cu[tindex+cc][i] = tmp[cc][i]; \
             ); \
     this->add_forcing(this->cu, 1.0); \
     this->force_divfree(this->cu); \
@@ -371,7 +373,7 @@ void fluid_solver<R>::step(double dt) \
                                                    2*(this->cv[2][3*cindex+cc][i] + \
                                                       dt*this->cu[3*cindex+cc][i]))*factor0/3; \
             } \
-            );  \
+            ); \
  \
     this->force_divfree(this->cvorticity); \
     this->iteration++; \
