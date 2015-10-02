@@ -19,11 +19,18 @@
 ************************************************************************/
 
 
+
+// code is generally compiled via setuptools, therefore NDEBUG is present
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
+
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include "fluid_solver.hpp"
 #include "fftw_tools.hpp"
+
 
 
 template <class rnumber>
@@ -145,6 +152,7 @@ fluid_solver<R>::fluid_solver( \
 template<> \
 fluid_solver<R>::~fluid_solver() \
 { \
+    DEBUG_MSG("entered ~fluid_solver\n"); \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->r2c_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_velocity );\
@@ -153,6 +161,7 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[1]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vc2r[2]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[2]);\
+    DEBUG_MSG("destroyed plans\n"); \
  \
     delete (FFTW(plan)*)this->c2r_vorticity;\
     delete (FFTW(plan)*)this->r2c_vorticity;\
@@ -162,15 +171,25 @@ fluid_solver<R>::~fluid_solver() \
     delete (FFTW(plan)*)this->vr2c[1];\
     delete (FFTW(plan)*)this->vc2r[2];\
     delete (FFTW(plan)*)this->vr2c[2];\
+    DEBUG_MSG("deleted plans\n"); \
  \
     FFTW(free)(this->cv[1]);\
+    DEBUG_MSG("FFTW(free)(this->cv[1]);\n"); \
     FFTW(free)(this->cv[2]);\
+    DEBUG_MSG("FFTW(free)(this->cv[2]);\n"); \
     FFTW(free)(this->rv[1]);\
+    DEBUG_MSG("FFTW(free)(this->rv[1]);\n"); \
     FFTW(free)(this->rv[2]);\
+    DEBUG_MSG("FFTW(free)(this->rv[2]);\n"); \
     FFTW(free)(this->cvorticity);\
+    DEBUG_MSG("FFTW(free)(this->cvorticity);\n"); \
     FFTW(free)(this->rvorticity);\
+    DEBUG_MSG("FFTW(free)(this->rvorticity);\n"); \
     FFTW(free)(this->cvelocity);\
+    DEBUG_MSG("FFTW(free)(this->cvelocity);\n"); \
     FFTW(free)(this->rvelocity);\
+    DEBUG_MSG("FFTW(free)(this->rvelocity);\n"); \
+    DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
  \
 template<> \

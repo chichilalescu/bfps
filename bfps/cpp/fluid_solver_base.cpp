@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -346,6 +346,7 @@ fluid_solver_base<R>::fluid_solver_base( \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
+    DEBUG_MSG("entered ~fluid_solver_base\n"); \
     delete[] this->kshell; \
     delete[] this->nshell; \
  \
@@ -355,6 +356,7 @@ fluid_solver_base<R>::~fluid_solver_base() \
  \
     delete this->cd; \
     delete this->rd; \
+    DEBUG_MSG("exiting ~fluid_solver_base\n"); \
 } \
  \
 template<> \
