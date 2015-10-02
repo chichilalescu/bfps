@@ -114,14 +114,14 @@ def launch(
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     c.parameters['nparticles'] = opt.nparticles
-    #c.add_particles(kcut = 'fs->kM/2',
-    #                integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    #c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(kcut = 'fs->kM/2',
+                    integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
