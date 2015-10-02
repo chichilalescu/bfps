@@ -179,7 +179,8 @@ class fluid_particle_base(bfps.code):
             ofile = os.path.join(
                     self.work_dir,
                     self.simname + '_r' + field + '_i{0:0>5x}_3xNZxNYxNX'.format(iteration))
-        new_data.tofile(ofile)
+        else:
+            new_data.tofile(ofile)
         return new_data
     def plot_vel_cut(
             self,

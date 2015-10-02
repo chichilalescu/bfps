@@ -21,9 +21,9 @@
 
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -199,12 +199,13 @@ void fluid_solver<R>::compute_vorticity() \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
             { \
-                this->cvorticity[3*cindex+0][0] = -(this->ky[yindex]*this->cu[3*cindex+2][1] - this->kz[zindex]*this->cu[3*cindex+1][1]); \
-                this->cvorticity[3*cindex+1][0] = -(this->kz[zindex]*this->cu[3*cindex+0][1] - this->kx[xindex]*this->cu[3*cindex+2][1]); \
-                this->cvorticity[3*cindex+2][0] = -(this->kx[xindex]*this->cu[3*cindex+1][1] - this->ky[yindex]*this->cu[3*cindex+0][1]); \
-                this->cvorticity[3*cindex+0][1] =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
-                this->cvorticity[3*cindex+1][1] =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
-                this->cvorticity[3*cindex+2][1] =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
+                ptrdiff_t tindex = 3*cindex; \
+                this->cvorticity[tindex+0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]); \
+                this->cvorticity[tindex+1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]); \
+                this->cvorticity[tindex+2][0] = -(this->kx[xindex]*this->cu[tindex+1][1] - this->ky[yindex]*this->cu[tindex+0][1]); \
+                this->cvorticity[tindex+0][1] =  (this->ky[yindex]*this->cu[tindex+2][0] - this->kz[zindex]*this->cu[tindex+1][0]); \
+                this->cvorticity[tindex+1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]); \
+                this->cvorticity[tindex+2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]); \
             } \
             ); \
     this->symmetrize(this->cvorticity, 3); \
@@ -217,12 +218,13 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
             { \
-                this->cu[3*cindex+0][0] = -(this->ky[yindex]*vorticity[3*cindex+2][1] - this->kz[zindex]*vorticity[3*cindex+1][1]) / k2; \
-                this->cu[3*cindex+1][0] = -(this->kz[zindex]*vorticity[3*cindex+0][1] - this->kx[xindex]*vorticity[3*cindex+2][1]) / k2; \
-                this->cu[3*cindex+2][0] = -(this->kx[xindex]*vorticity[3*cindex+1][1] - this->ky[yindex]*vorticity[3*cindex+0][1]) / k2; \
-                this->cu[3*cindex+0][1] =  (this->ky[yindex]*vorticity[3*cindex+2][0] - this->kz[zindex]*vorticity[3*cindex+1][0]) / k2; \
-                this->cu[3*cindex+1][1] =  (this->kz[zindex]*vorticity[3*cindex+0][0] - this->kx[xindex]*vorticity[3*cindex+2][0]) / k2; \
-                this->cu[3*cindex+2][1] =  (this->kx[xindex]*vorticity[3*cindex+1][0] - this->ky[yindex]*vorticity[3*cindex+0][0]) / k2; \
+                ptrdiff_t tindex = 3*cindex; \
+                this->cu[tindex+0][0] = -(this->ky[yindex]*vorticity[tindex+2][1] - this->kz[zindex]*vorticity[tindex+1][1]) / k2; \
+                this->cu[tindex+1][0] = -(this->kz[zindex]*vorticity[tindex+0][1] - this->kx[xindex]*vorticity[tindex+2][1]) / k2; \
+                this->cu[tindex+2][0] = -(this->kx[xindex]*vorticity[tindex+1][1] - this->ky[yindex]*vorticity[tindex+0][1]) / k2; \
+                this->cu[tindex+0][1] =  (this->ky[yindex]*vorticity[tindex+2][0] - this->kz[zindex]*vorticity[tindex+1][0]) / k2; \
+                this->cu[tindex+1][1] =  (this->kz[zindex]*vorticity[tindex+0][0] - this->kx[xindex]*vorticity[tindex+2][0]) / k2; \
+                this->cu[tindex+2][1] =  (this->kx[xindex]*vorticity[tindex+1][0] - this->ky[yindex]*vorticity[tindex+0][0]) / k2; \
             } \
             ); \
     if (this->cd->myrank == this->cd->rank[0]) \
@@ -233,12 +235,14 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 template<> \
 void fluid_solver<R>::ift_velocity() \
 { \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::ift_vorticity() \
 { \
+    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_vorticity )); \
 } \
  \
