@@ -22,42 +22,19 @@
 
 import os
 import subprocess
-import argparse
 import pickle
-
-import numpy as np
-from mpl_toolkits.mplot3d import axes3d
-import matplotlib.pyplot as plt
-import h5py
 
 import bfps
 from bfps import fluid_resize
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--run', dest = 'run', action = 'store_true')
+parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
-parser.add_argument('-n',
-        type = int, dest = 'n', default = 64)
 parser.add_argument('--iteration',
         type = int, dest = 'iteration', default = 0)
-parser.add_argument('--ncpu',
-        type = int, dest = 'ncpu', default = 2)
-parser.add_argument('--nsteps',
-        type = int, dest = 'nsteps', default = 16)
-parser.add_argument('--njobs',
-        type = int, dest = 'njobs', default = 1)
-parser.add_argument('--nparticles',
-        type = int, dest = 'nparticles', default = 8)
 parser.add_argument('--neighbours',
         type = int, dest = 'neighbours', default = 3)
 parser.add_argument('--smoothness',
         type = int, dest = 'smoothness', default = 2)
-parser.add_argument('--wd',
-        type = str, dest = 'work_dir', default = 'data')
-parser.add_argument('--precision',
-        type = str, dest = 'precision', default = 'single')
-parser.add_argument('--multiplejob',
-        dest = 'multiplejob', action = 'store_true')
 
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
@@ -100,7 +77,7 @@ def launch(
     c = code_class(
             work_dir = opt.work_dir,
             fluid_precision = opt.precision)
-    assert((opt.nsteps % 4) == 0)
+    c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
@@ -109,19 +86,17 @@ def launch(
     else:
         c.parameters['nu'] = nu
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_out'] = opt.nsteps
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = opt.nparticles
-    c.add_particles(kcut = 'fs->kM/2',
-                    integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-    c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+    if c.parameters['nparticles'] > 0:
+        c.add_particles(kcut = 'fs->kM/2',
+                        integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
