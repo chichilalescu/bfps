@@ -40,8 +40,8 @@ def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
     c = fluid_resize(
-            work_dir = opt.work_dir + '/resize',
-            simname = old_simname,
+            work_dir = opt.work_dir,
+            simname = old_simname + '_double',
             dtype = opt.precision)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -50,22 +50,13 @@ def double(opt):
     c.parameters['dst_ny'] = 2*opt.n
     c.parameters['dst_nz'] = 2*opt.n
     c.parameters['dst_simname'] = new_simname
+    c.parameters['src_simname'] = old_simname
     c.write_src()
     c.set_host_info({'type' : 'pc'})
-    if not os.path.isdir(os.path.join(opt.work_dir, 'resize')):
-        os.mkdir(os.path.join(opt.work_dir, 'resize'))
     c.write_par()
-    cp_command = ('cp {0}/test_cvorticity_i{1:0>5x} {2}/{3}_cvorticity_i{1:0>5x}'.format(
-            opt.work_dir + '/' + old_simname, opt.iteration, opt.work_dir + '/resize', old_simname))
-    subprocess.call([cp_command], shell = True)
     c.run(ncpu = opt.ncpu,
-          err_file = 'err_' + old_simname + '_' + new_simname,
-          out_file = 'out_' + old_simname + '_' + new_simname)
-    if not os.path.isdir(os.path.join(opt.work_dir, new_simname)):
-        os.mkdir(os.path.join(opt.work_dir, new_simname))
-    cp_command = ('cp {2}/{3}_cvorticity_i{1:0>5x} {0}/test_cvorticity_i{1:0>5x}'.format(
-            opt.work_dir + '/' + new_simname, 0, opt.work_dir + '/resize', new_simname))
-    subprocess.call([cp_command], shell = True)
+          err_file = 'err_',
+          out_file = 'out_')
     return None
 
 def launch(
@@ -86,6 +77,7 @@ def launch(
     else:
         c.parameters['nu'] = nu
     c.parameters['dt'] = 5e-3 * (64. / opt.n)
+    c.parameters['niter_out'] = c.parameters['niter_todo']
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     if c.parameters['nparticles'] > 0:

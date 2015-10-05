@@ -103,6 +103,8 @@ class base(object):
         return None
     def pars_from_namespace(self, opt):
         new_pars = vars(opt)
+        self.simname = opt.simname
+        self.work_dir = opt.work_dir
         for k in self.parameters.keys():
             self.parameters[k] = new_pars[k]
         return None
