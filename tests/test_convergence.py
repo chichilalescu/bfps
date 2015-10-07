@@ -21,13 +21,20 @@
 
 from test_base import *
 
-def convergence_test(opt, code_launch_routine):
+def convergence_test(
+        opt,
+        code_launch_routine,
+        init_vorticity = None,
+        code_class = bfps.NavierStokes):
     ### test Navier Stokes convergence
     # first, run code three times, doubling and quadrupling the resolution
     # initial condition and viscosity must be the same!
     default_wd = opt.work_dir
     opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
-    c0 = code_launch_routine(opt)
+    c0 = code_launch_routine(
+            opt,
+            vorticity_field = init_vorticity,
+            code_class = code_class)
     opt.initialize = False
     opt.work_dir = default_wd
     double(opt)
@@ -39,6 +46,8 @@ def convergence_test(opt, code_launch_routine):
     c1 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
+            vorticity_field = init_vorticity,
+            code_class = code_class,
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     opt.work_dir = default_wd
     double(opt)
@@ -49,6 +58,8 @@ def convergence_test(opt, code_launch_routine):
     c2 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
+            vorticity_field = init_vorticity,
+            code_class = code_class,
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     # get real space fields
     converter = bfps.fluid_converter(fluid_precision = opt.precision)
@@ -198,9 +209,9 @@ def convergence_test(opt, code_launch_routine):
                        c.trajectories[i][:, t, 1],
                        c.trajectories[i][:, t, 2])
         fig.savefig('traj_N{0:0>3x}_{1}.pdf'.format(c.parameters['nx'], opt.precision), format = 'pdf')
-    return None
+    return c0, c1, c2
 
 if __name__ == '__main__':
     opt = parser.parse_args()
-    convergence_test(opt, NSlaunch)
+    convergence_test(opt, launch)
 

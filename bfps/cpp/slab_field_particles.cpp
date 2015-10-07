@@ -283,9 +283,9 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_DOUBLE,
             MPI_SUM,
             this->fs->rd->comm);
-    if (this->integration_steps >= 2)
+    if (this->integration_steps >= 1)
     {
-        for (int i=1; i<this->integration_steps; i++)
+        for (int i=0; i<this->integration_steps; i++)
         {
             std::fill_n(tstate, this->array_size, 0.0);
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
@@ -345,28 +345,28 @@ void slab_field_particles<rnumber>::roll_rhs()
 template <class rnumber>
 void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 {
-    int ii;
+    ptrdiff_t ii;
     this->get_rhs(this->state, this->rhs[0]);
-    if (myrank == 0)
-    {
-        DEBUG_MSG(
-                "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
-                this->name,
-                this->integration_steps,
-                nsteps,
-                this->iteration);
-        std::stringstream tstring;
-        for (int p=0; p<this->nparticles; p++)
-            tstring << " " << this->computing[p];
-        DEBUG_MSG("%s\n", tstring.str().c_str());
-        for (int i=0; i<this->integration_steps; i++)
-        {
-            std::stringstream tstring;
-            for (int p=0; p<this->nparticles; p++)
-                tstring << " " << this->rhs[i][p*3];
-            DEBUG_MSG("%s\n", tstring.str().c_str());
-        }
-    }
+    //if (myrank == 0)
+    //{
+    //    DEBUG_MSG(
+    //            "in AdamsBashforth for particles %s, integration_steps = %d, nsteps = %d, iteration = %d\n",
+    //            this->name,
+    //            this->integration_steps,
+    //            nsteps,
+    //            this->iteration);
+    //    std::stringstream tstring;
+    //    for (int p=0; p<this->nparticles; p++)
+    //        tstring << " " << this->computing[p];
+    //    DEBUG_MSG("%s\n", tstring.str().c_str());
+    //    for (int i=0; i<this->integration_steps; i++)
+    //    {
+    //        std::stringstream tstring;
+    //        for (int p=0; p<this->nparticles; p++)
+    //            tstring << " " << this->rhs[i][p*3];
+    //        DEBUG_MSG("%s\n", tstring.str().c_str());
+    //    }
+    //}
     switch(nsteps)
     {
         case 1:
@@ -481,12 +481,12 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        //DEBUG_MSG(
-        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-        //        p,
-        //         x[p*3],  x[p*3+1],  x[p*3+2],
-        //        xx[p*3], xx[p*3+1], xx[p*3+2],
-        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
+        DEBUG_MSG(
+                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+                p,
+                 x[p*3],  x[p*3+1],  x[p*3+2],
+                xx[p*3], xx[p*3+1], xx[p*3+2],
+                xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -506,8 +506,8 @@ void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, doub
         for (int c=0; c<3; c++)
         {
             //DEBUG_MSG(
-            //        "%d %d %d %d %ld %ld\n",
-            //        iz, iy, ix, c,
+            //        "%d %d %d %d %d %d %d %ld %ld\n",
+            //        xg[2], xg[1], xg[0], iz, iy, ix, c,
             //        ((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
             //          ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
             //          ptrdiff_t(xg[0]+ix))*3+c,
@@ -717,7 +717,7 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
             writespace = dset.getSpace();
             writespace.getSimpleExtentDims(count);
             count[0] = 1;
-            offset[0] = this->iteration / traj_skip;
+            offset[0] = this->iteration / this->traj_skip;
             offset[1] = 0;
             offset[2] = 0;
             memspace = H5::DataSpace(3, count);
@@ -748,74 +748,82 @@ void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
     }
 }
 
-template <class rnumber>
-void slab_field_particles<rnumber>::rFFTW_to_buffered(rnumber *src, rnumber *dst)
-{
-    const MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
-    MPI_Request *mpirequest = new MPI_Request;
-    /* do big copy of middle stuff */
-    std::copy(src,
-              src + this->fs->rd->local_size,
-              dst + this->buffer_size);
-    /* take care of buffer regions.
-     * I could make the code use blocking sends and receives, but it seems cleaner this way.
-     * (alternative is to have a couple of loops).
-     * */
-    // 1. send lower slices
-    //DEBUG_MSG(
-    //        "destination rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]));
-    MPI_Isend(
-            (void*)(src),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    // 2. receive higher slices
-    //DEBUG_MSG(
-    //        "source rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]));
-    MPI_Irecv(
-            (void*)(dst + this->buffer_size + this->fs->rd->local_size),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0]-1, this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    //DEBUG_MSG("successful transfer\n");
-    // 3. send higher slices
-    //DEBUG_MSG(
-    //        "destination rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-    //        MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]));
-    MPI_Isend(
-            (void*)(src + this->fs->rd->local_size - this->buffer_size),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0])],
-            MOD(this->fs->rd->starts[0]+this->fs->rd->subsizes[0], this->fs->rd->sizes[0]),
-            this->fs->rd->comm,
-            mpirequest);
-    // 4. receive lower slices
-    //DEBUG_MSG(
-    //        "source rank is %d, message is %d\n",
-    //        this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-    //        this->fs->rd->starts[0]);
-    MPI_Irecv(
-            (void*)(dst),
-            this->buffer_size,
-            MPI_RNUM,
-            this->fs->rd->rank[MOD(this->fs->rd->starts[0]-1, this->fs->rd->sizes[0])],
-            this->fs->rd->starts[0],
-            this->fs->rd->comm,
-            mpirequest);
-    delete mpirequest;
-}
+
+
+/*****************************************************************************/
+/* macro for specializations to numeric types compatible with FFTW           */
+#define SLAB_FIELD_PARTICLES_DEFINITIONS(FFTW, R, MPI_RNUM) \
+ \
+template <> \
+void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
+{ \
+    /* do big copy of middle stuff */ \
+    std::copy(src, \
+              src + this->fs->rd->local_size, \
+              dst + this->buffer_size); \
+    int rsrc; \
+    /* get upper slices */ \
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
+    { \
+        rsrc = MOD(rdst+1, this->fs->rd->nprocs); \
+        if (this->fs->rd->myrank == rsrc) \
+            MPI_Send( \
+                    (void*)(src), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rdst, \
+                    2*(rsrc*this->fs->rd->nprocs + rdst), \
+                    this->fs->rd->comm); \
+        if (this->fs->rd->myrank == rdst) \
+            MPI_Recv( \
+                    (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rsrc, \
+                    2*(rsrc*this->fs->rd->nprocs + rdst), \
+                    this->fs->rd->comm, \
+                    MPI_STATUS_IGNORE); \
+    } \
+    /* get lower slices */ \
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
+    { \
+        rsrc = MOD(rdst-1, this->fs->rd->nprocs); \
+        if (this->fs->rd->myrank == rsrc) \
+            MPI_Send( \
+                    (void*)(src + this->fs->rd->local_size - this->buffer_size), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rdst, \
+                    2*(rsrc*this->fs->rd->nprocs + rdst)+1, \
+                    this->fs->rd->comm); \
+        if (this->fs->rd->myrank == rdst) \
+            MPI_Recv( \
+                    (void*)(dst), \
+                    this->buffer_size, \
+                    MPI_RNUM, \
+                    rsrc, \
+                    2*(rsrc*this->fs->rd->nprocs + rdst)+1, \
+                    this->fs->rd->comm, \
+                    MPI_STATUS_IGNORE); \
+    } \
+} \
+/*****************************************************************************/
+
+
+
+/*****************************************************************************/
+/* now actually use the macro defined above                                  */
+SLAB_FIELD_PARTICLES_DEFINITIONS(
+        FFTW_MANGLE_FLOAT,
+        float,
+        MPI_FLOAT)
+SLAB_FIELD_PARTICLES_DEFINITIONS(
+        FFTW_MANGLE_DOUBLE,
+        double,
+        MPI_DOUBLE)
+/*****************************************************************************/
+
+
 
 /*****************************************************************************/
 /* finally, force generation of code for single precision                    */

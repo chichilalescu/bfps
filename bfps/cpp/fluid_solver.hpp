@@ -73,11 +73,13 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 int nz,
                 double DKX = 1.0,
                 double DKY = 1.0,
-                double DKZ = 1.0);
+                double DKZ = 1.0,
+                int DEALIAS_TYPE = 1);
         ~fluid_solver(void);
 
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
+        void compute_acceleration(rnumber *dst);
         void ift_velocity();
         void dft_velocity();
         void ift_vorticity();

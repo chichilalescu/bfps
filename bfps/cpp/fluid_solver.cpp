@@ -19,11 +19,18 @@
 ************************************************************************/
 
 
+
+// code is generally compiled via setuptools, therefore NDEBUG is present
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
+
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include "fluid_solver.hpp"
 #include "fftw_tools.hpp"
+
 
 
 template <class rnumber>
@@ -50,14 +57,20 @@ fluid_solver<R>::fluid_solver( \
         int nz, \
         double DKX, \
         double DKY, \
-        double DKZ) : fluid_solver_base<R>(NAME, \
-                                           nx , ny , nz, \
-                                           DKX, DKY, DKZ, 1) \
+        double DKZ, \
+        int DEALIAS_TYPE) : fluid_solver_base<R>(NAME, \
+                                                 nx , ny , nz, \
+                                                 DKX, DKY, DKZ, \
+                                                 DEALIAS_TYPE) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
     this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
     this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
+    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
  \
     this->ru = this->rvelocity;\
     this->cu = this->cvelocity;\
@@ -71,6 +84,10 @@ fluid_solver<R>::fluid_solver( \
     this->cv[2] = FFTW(alloc_complex)(this->cd->local_size);\
     this->rv[1] = FFTW(alloc_real)(this->cd->local_size*2);\
     this->rv[2] = FFTW(alloc_real)(this->cd->local_size*2);\
+    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[2], this->cd->local_size*2, 0.0); \
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
@@ -143,6 +160,7 @@ fluid_solver<R>::fluid_solver( \
 template<> \
 fluid_solver<R>::~fluid_solver() \
 { \
+    DEBUG_MSG("entered ~fluid_solver\n"); \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->r2c_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_velocity );\
@@ -151,6 +169,7 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[1]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vc2r[2]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[2]);\
+    DEBUG_MSG("destroyed plans\n"); \
  \
     delete (FFTW(plan)*)this->c2r_vorticity;\
     delete (FFTW(plan)*)this->r2c_vorticity;\
@@ -160,6 +179,7 @@ fluid_solver<R>::~fluid_solver() \
     delete (FFTW(plan)*)this->vr2c[1];\
     delete (FFTW(plan)*)this->vc2r[2];\
     delete (FFTW(plan)*)this->vr2c[2];\
+    DEBUG_MSG("deleted plans\n"); \
  \
     FFTW(free)(this->cv[1]);\
     FFTW(free)(this->cv[2]);\
@@ -169,18 +189,24 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
     FFTW(free)(this->rvelocity);\
+    DEBUG_MSG("freed arrays\n"); \
+    DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
  \
 template<> \
 void fluid_solver<R>::compute_vorticity() \
 { \
-    CLOOP( \
-            this->cvorticity[3*cindex+0][0] = -(this->ky[yindex]*this->cu[3*cindex+2][1] - this->kz[zindex]*this->cu[3*cindex+1][1]); \
-            this->cvorticity[3*cindex+1][0] = -(this->kz[zindex]*this->cu[3*cindex+0][1] - this->kx[xindex]*this->cu[3*cindex+2][1]); \
-            this->cvorticity[3*cindex+2][0] = -(this->kx[xindex]*this->cu[3*cindex+1][1] - this->ky[yindex]*this->cu[3*cindex+0][1]); \
-            this->cvorticity[3*cindex+0][1] =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
-            this->cvorticity[3*cindex+1][1] =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
-            this->cvorticity[3*cindex+2][1] =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                ptrdiff_t tindex = 3*cindex; \
+                this->cvorticity[tindex+0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]); \
+                this->cvorticity[tindex+1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]); \
+                this->cvorticity[tindex+2][0] = -(this->kx[xindex]*this->cu[tindex+1][1] - this->ky[yindex]*this->cu[tindex+0][1]); \
+                this->cvorticity[tindex+0][1] =  (this->ky[yindex]*this->cu[tindex+2][0] - this->kz[zindex]*this->cu[tindex+1][0]); \
+                this->cvorticity[tindex+1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]); \
+                this->cvorticity[tindex+2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]); \
+            } \
             ); \
     this->symmetrize(this->cvorticity, 3); \
 } \
@@ -188,20 +214,17 @@ void fluid_solver<R>::compute_vorticity() \
 template<> \
 void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 { \
-    double k2; \
     std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
-    CLOOP( \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
+    CLOOP_K2( \
             if (k2 <= this->kM2) \
             { \
-                this->cu[3*cindex+0][0] = -(this->ky[yindex]*vorticity[3*cindex+2][1] - this->kz[zindex]*vorticity[3*cindex+1][1]) / k2; \
-                this->cu[3*cindex+1][0] = -(this->kz[zindex]*vorticity[3*cindex+0][1] - this->kx[xindex]*vorticity[3*cindex+2][1]) / k2; \
-                this->cu[3*cindex+2][0] = -(this->kx[xindex]*vorticity[3*cindex+1][1] - this->ky[yindex]*vorticity[3*cindex+0][1]) / k2; \
-                this->cu[3*cindex+0][1] =  (this->ky[yindex]*vorticity[3*cindex+2][0] - this->kz[zindex]*vorticity[3*cindex+1][0]) / k2; \
-                this->cu[3*cindex+1][1] =  (this->kz[zindex]*vorticity[3*cindex+0][0] - this->kx[xindex]*vorticity[3*cindex+2][0]) / k2; \
-                this->cu[3*cindex+2][1] =  (this->kx[xindex]*vorticity[3*cindex+1][0] - this->ky[yindex]*vorticity[3*cindex+0][0]) / k2; \
+                ptrdiff_t tindex = 3*cindex; \
+                this->cu[tindex+0][0] = -(this->ky[yindex]*vorticity[tindex+2][1] - this->kz[zindex]*vorticity[tindex+1][1]) / k2; \
+                this->cu[tindex+1][0] = -(this->kz[zindex]*vorticity[tindex+0][1] - this->kx[xindex]*vorticity[tindex+2][1]) / k2; \
+                this->cu[tindex+2][0] = -(this->kx[xindex]*vorticity[tindex+1][1] - this->ky[yindex]*vorticity[tindex+0][1]) / k2; \
+                this->cu[tindex+0][1] =  (this->ky[yindex]*vorticity[tindex+2][0] - this->kz[zindex]*vorticity[tindex+1][0]) / k2; \
+                this->cu[tindex+1][1] =  (this->kz[zindex]*vorticity[tindex+0][0] - this->kx[xindex]*vorticity[tindex+2][0]) / k2; \
+                this->cu[tindex+2][1] =  (this->kx[xindex]*vorticity[tindex+1][0] - this->ky[yindex]*vorticity[tindex+0][0]) / k2; \
             } \
             ); \
     if (this->cd->myrank == this->cd->rank[0]) \
@@ -212,7 +235,7 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 template<> \
 void fluid_solver<R>::ift_velocity() \
 { \
-    std::fill_n(this->ru, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
 } \
  \
@@ -226,14 +249,12 @@ void fluid_solver<R>::ift_vorticity() \
 template<> \
 void fluid_solver<R>::dft_velocity() \
 { \
-    std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
 } \
  \
 template<> \
 void fluid_solver<R>::dft_vorticity() \
 { \
-    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
 } \
  \
@@ -268,10 +289,8 @@ void fluid_solver<R>::add_forcing(\
                 if ((this->fk0 <= knorm) && \
                     (this->fk1 >= knorm)) \
                     for (int c=0; c<3; c++) \
-                    { \
-                        field[cindex*3+c][0] += this->famplitude*this->cvorticity[cindex*3+c][0]*factor; \
-                        field[cindex*3+c][1] += this->famplitude*this->cvorticity[cindex*3+c][1]*factor; \
-                    } \
+                    for (int i=0; i<2; i++) \
+                        field[cindex*3+c][i] += this->famplitude*this->cvorticity[cindex*3+c][i]*factor; \
              ); \
         return; \
     } \
@@ -287,34 +306,34 @@ void fluid_solver<R>::omega_nonlin( \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity ));  \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[src]));      \
     /* compute cross product $u \times \omega$, and normalize */ \
-    R tmpx0, tmpy0, tmpz0; \
+    R tmp[3][2]; \
+    ptrdiff_t tindex; \
     RLOOP ( \
-             tmpx0 = (this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+2] - this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+1]); \
-             tmpy0 = (this->ru[(3*rindex)+2]*this->rv[src][(3*rindex)+0] - this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+2]); \
-             tmpz0 = (this->ru[(3*rindex)+0]*this->rv[src][(3*rindex)+1] - this->ru[(3*rindex)+1]*this->rv[src][(3*rindex)+0]); \
-             this->ru[(3*rindex)+0] = tmpx0 / this->normalization_factor; \
-             this->ru[(3*rindex)+1] = tmpy0 / this->normalization_factor; \
-             this->ru[(3*rindex)+2] = tmpz0 / this->normalization_factor; \
+            this, \
+            tindex = 3*rindex; \
+            for (int cc=0; cc<3; cc++) \
+                tmp[cc][0] = (this->ru[tindex+(cc+1)%3]*this->rv[src][tindex+(cc+2)%3] - \
+                              this->ru[tindex+(cc+2)%3]*this->rv[src][tindex+(cc+1)%3]); \
+            for (int cc=0; cc<3; cc++) \
+                this->ru[(3*rindex)+cc] = tmp[cc][0] / this->normalization_factor; \
             ); \
     /* go back to Fourier space */ \
     this->clean_up_real_space(this->ru, 3); \
     FFTW(execute)(*((FFTW(plan)*)this->r2c_velocity )); \
     this->dealias(this->cu, 3); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
-    R tmpx1, tmpy1, tmpz1; \
     CLOOP( \
-            tmpx0 = -(this->ky[yindex]*this->cu[3*cindex+2][1] - this->kz[zindex]*this->cu[3*cindex+1][1]); \
-            tmpy0 = -(this->kz[zindex]*this->cu[3*cindex+0][1] - this->kx[xindex]*this->cu[3*cindex+2][1]); \
-            tmpz0 = -(this->kx[xindex]*this->cu[3*cindex+1][1] - this->ky[yindex]*this->cu[3*cindex+0][1]); \
-            tmpx1 =  (this->ky[yindex]*this->cu[3*cindex+2][0] - this->kz[zindex]*this->cu[3*cindex+1][0]); \
-            tmpy1 =  (this->kz[zindex]*this->cu[3*cindex+0][0] - this->kx[xindex]*this->cu[3*cindex+2][0]); \
-            tmpz1 =  (this->kx[xindex]*this->cu[3*cindex+1][0] - this->ky[yindex]*this->cu[3*cindex+0][0]); \
-            this->cu[3*cindex+0][0] = tmpx0; \
-            this->cu[3*cindex+1][0] = tmpy0; \
-            this->cu[3*cindex+2][0] = tmpz0; \
-            this->cu[3*cindex+0][1] = tmpx1; \
-            this->cu[3*cindex+1][1] = tmpy1; \
-            this->cu[3*cindex+2][1] = tmpz1; \
+            tindex = 3*cindex; \
+            { \
+                tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]); \
+                tmp[1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]); \
+                tmp[2][0] = -(this->kx[xindex]*this->cu[tindex+1][1] - this->ky[yindex]*this->cu[tindex+0][1]); \
+                tmp[0][1] =  (this->ky[yindex]*this->cu[tindex+2][0] - this->kz[zindex]*this->cu[tindex+1][0]); \
+                tmp[1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]); \
+                tmp[2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]); \
+            } \
+            for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
+                this->cu[tindex+cc][i] = tmp[cc][i]; \
             ); \
     this->add_forcing(this->cu, 1.0); \
     this->force_divfree(this->cu); \
@@ -323,56 +342,42 @@ void fluid_solver<R>::omega_nonlin( \
 template<> \
 void fluid_solver<R>::step(double dt) \
 { \
-    double k2, factor0, factor1; \
-    std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->ru, this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->rv[0], this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->rv[1], this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->rv[2], this->cd->local_size*2, 0.0); \
+    double factor0, factor1; \
     this->omega_nonlin(0); \
-    CLOOP( \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
-            factor0 = exp(-this->nu * k2 * dt); \
-            this->cv[1][3*cindex+0][0] = (this->cv[0][3*cindex+0][0] + dt*this->cu[3*cindex+0][0])*factor0; \
-            this->cv[1][3*cindex+1][0] = (this->cv[0][3*cindex+1][0] + dt*this->cu[3*cindex+1][0])*factor0; \
-            this->cv[1][3*cindex+2][0] = (this->cv[0][3*cindex+2][0] + dt*this->cu[3*cindex+2][0])*factor0; \
-            this->cv[1][3*cindex+0][1] = (this->cv[0][3*cindex+0][1] + dt*this->cu[3*cindex+0][1])*factor0; \
-            this->cv[1][3*cindex+1][1] = (this->cv[0][3*cindex+1][1] + dt*this->cu[3*cindex+1][1])*factor0; \
-            this->cv[1][3*cindex+2][1] = (this->cv[0][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor0; \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                factor0 = exp(-this->nu * k2 * dt); \
+                for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
+                    this->cv[1][3*cindex+cc][i] = (this->cv[0][3*cindex+cc][i] + \
+                                                   dt*this->cu[3*cindex+cc][i])*factor0; \
+            } \
             ); \
  \
     this->omega_nonlin(1); \
-    CLOOP( \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
-            factor0 = exp(-this->nu * k2 * dt/2); \
-            factor1 = exp( this->nu * k2 * dt/2); \
-            this->cv[2][3*cindex+0][0] = (3*this->cv[0][3*cindex+0][0]*factor0 + (this->cv[1][3*cindex+0][0] + dt*this->cu[3*cindex+0][0])*factor1)*0.25; \
-            this->cv[2][3*cindex+1][0] = (3*this->cv[0][3*cindex+1][0]*factor0 + (this->cv[1][3*cindex+1][0] + dt*this->cu[3*cindex+1][0])*factor1)*0.25; \
-            this->cv[2][3*cindex+2][0] = (3*this->cv[0][3*cindex+2][0]*factor0 + (this->cv[1][3*cindex+2][0] + dt*this->cu[3*cindex+2][0])*factor1)*0.25; \
-            this->cv[2][3*cindex+0][1] = (3*this->cv[0][3*cindex+0][1]*factor0 + (this->cv[1][3*cindex+0][1] + dt*this->cu[3*cindex+0][1])*factor1)*0.25; \
-            this->cv[2][3*cindex+1][1] = (3*this->cv[0][3*cindex+1][1]*factor0 + (this->cv[1][3*cindex+1][1] + dt*this->cu[3*cindex+1][1])*factor1)*0.25; \
-            this->cv[2][3*cindex+2][1] = (3*this->cv[0][3*cindex+2][1]*factor0 + (this->cv[1][3*cindex+2][1] + dt*this->cu[3*cindex+2][1])*factor1)*0.25; \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                factor0 = exp(-this->nu * k2 * dt/2); \
+                factor1 = exp( this->nu * k2 * dt/2); \
+                for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
+                    this->cv[2][3*cindex+cc][i] = (3*this->cv[0][3*cindex+cc][i]*factor0 + \
+                                                   (this->cv[1][3*cindex+cc][i] + \
+                                                    dt*this->cu[3*cindex+cc][i])*factor1)*0.25; \
+            } \
             ); \
  \
     this->omega_nonlin(2); \
-    CLOOP( \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
-            factor0 = exp(-this->nu * k2 * dt * 0.5); \
-            this->cv[3][3*cindex+0][0] = (this->cv[0][3*cindex+0][0]*factor0 + 2*(this->cv[2][3*cindex+0][0] + dt*this->cu[3*cindex+0][0]))*factor0/3; \
-            this->cv[3][3*cindex+1][0] = (this->cv[0][3*cindex+1][0]*factor0 + 2*(this->cv[2][3*cindex+1][0] + dt*this->cu[3*cindex+1][0]))*factor0/3; \
-            this->cv[3][3*cindex+2][0] = (this->cv[0][3*cindex+2][0]*factor0 + 2*(this->cv[2][3*cindex+2][0] + dt*this->cu[3*cindex+2][0]))*factor0/3; \
-            this->cv[3][3*cindex+0][1] = (this->cv[0][3*cindex+0][1]*factor0 + 2*(this->cv[2][3*cindex+0][1] + dt*this->cu[3*cindex+0][1]))*factor0/3; \
-            this->cv[3][3*cindex+1][1] = (this->cv[0][3*cindex+1][1]*factor0 + 2*(this->cv[2][3*cindex+1][1] + dt*this->cu[3*cindex+1][1]))*factor0/3; \
-            this->cv[3][3*cindex+2][1] = (this->cv[0][3*cindex+2][1]*factor0 + 2*(this->cv[2][3*cindex+2][1] + dt*this->cu[3*cindex+2][1]))*factor0/3; \
-            );  \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                factor0 = exp(-this->nu * k2 * dt * 0.5); \
+                for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
+                    this->cv[3][3*cindex+cc][i] = (this->cv[0][3*cindex+cc][i]*factor0 + \
+                                                   2*(this->cv[2][3*cindex+cc][i] + \
+                                                      dt*this->cu[3*cindex+cc][i]))*factor0/3; \
+            } \
+            ); \
  \
     this->force_divfree(this->cvorticity); \
     this->iteration++; \
@@ -441,7 +446,39 @@ int fluid_solver<R>::write(char field, char representation) \
         return this->rd->write(fname, this->rvelocity); \
     } \
     return EXIT_FAILURE; \
-}
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_acceleration(R *acceleration) \
+{ \
+    this->omega_nonlin(0); \
+    CLOOP_K2( \
+            for (int cc=0; cc<3; cc++) \
+                for (int i=0; i<2; i++) \
+                    this->cv[1][3*cindex+cc][i] = this->cu[3*cindex+cc][i] - this->nu*k2*this->cv[0][3*cindex+cc][i]; \
+            ); \
+    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                this->cv[2][3*cindex+0][0] = -(this->ky[yindex]*this->cv[1][3*cindex+2][1] - this->kz[zindex]*this->cv[1][3*cindex+1][1]) / k2; \
+                this->cv[2][3*cindex+1][0] = -(this->kz[zindex]*this->cv[1][3*cindex+0][1] - this->kx[xindex]*this->cv[1][3*cindex+2][1]) / k2; \
+                this->cv[2][3*cindex+2][0] = -(this->kx[xindex]*this->cv[1][3*cindex+1][1] - this->ky[yindex]*this->cv[1][3*cindex+0][1]) / k2; \
+                this->cv[2][3*cindex+0][1] =  (this->ky[yindex]*this->cv[1][3*cindex+2][0] - this->kz[zindex]*this->cv[1][3*cindex+1][0]) / k2; \
+                this->cv[2][3*cindex+1][1] =  (this->kz[zindex]*this->cv[1][3*cindex+0][0] - this->kx[xindex]*this->cv[1][3*cindex+2][0]) / k2; \
+                this->cv[2][3*cindex+2][1] =  (this->kx[xindex]*this->cv[1][3*cindex+1][0] - this->ky[yindex]*this->cv[1][3*cindex+0][0]) / k2; \
+            } \
+            ); \
+    if (this->cd->myrank == this->cd->rank[0]) \
+        std::fill_n((R*)(this->cv[2]), 6, 0.0); \
+    FFTW(execute)(*((FFTW(plan)*)this->vc2r[2])); \
+    clip_zero_padding<R>(this->rd, this->rv[2], 3); \
+    std::copy( \
+            this->rv[2], \
+            this->rv[2] + this->rd->local_size, \
+            acceleration); \
+} \
+
 /*****************************************************************************/
 
 

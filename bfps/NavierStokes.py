@@ -39,106 +39,64 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
-        self.file_datasets_create = """
-                //begincpp
-                std::string temp_string;
-                H5::DataSet dset;
-                H5::Group group;
-                H5::DataSpace tkfunc_dspace;
-                H5::DataSpace tmp_dspace;
-                H5::DataSpace tfunc_dspace;
-                H5::DataSpace kfunc_dspace;
-                H5::DataSpace value_dspace;
-                H5::DataSpace kcomp_dspace;
-                hsize_t dims[4];
-                hsize_t maxdims[4];
-                H5::DSetCreatPropList cparms;
-                double fill_val = 0;
-                cparms.setFillValue(H5::PredType::NATIVE_DOUBLE, &fill_val);
-                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
-                H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
-
-                // first, generate the various data spaces that are to be used
-                dims[0] = niter_todo+1;
-                dims[1] = fs->nshells;
-                maxdims[0] = H5S_UNLIMITED;
-                maxdims[1] = dims[1];
-                tfunc_dspace  = H5::DataSpace(1, dims, maxdims);
-                tkfunc_dspace = H5::DataSpace(2, dims, maxdims);
-                dims[0] = fs->nshells;
-                kfunc_dspace  = H5::DataSpace(1, dims);
-                dims[0] = 1;
-                value_dspace   = H5::DataSpace(1, dims);
-
-                // store the information about kspace
-                group = data_file.createGroup("/kspace");
-                group.createDataSet("kshell", double_dtype, kfunc_dspace);
-                group.createDataSet("nshell", ptrdiff_t_dtype, kfunc_dspace);
-                group.createDataSet("kM", double_dtype, value_dspace);
-                group.createDataSet("dk", double_dtype, value_dspace);
-                dset = data_file.openDataSet("/kspace/kshell");
-                dset.write(fs->kshell, double_dtype);
-                dset = data_file.openDataSet("/kspace/nshell");
-                dset.write(fs->nshell, ptrdiff_t_dtype);
-                dset = data_file.openDataSet("/kspace/kM");
-                dset.write(&fs->kM, double_dtype);
-                dset = data_file.openDataSet("/kspace/dk");
-                dset.write(&fs->dk, double_dtype);
-                dims[0] = fs->cd->sizes[2];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("kx", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/kx");
-                dset.write(fs->kx, double_dtype);
-                dims[0] = fs->cd->sizes[1];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("kz", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/kz");
-                dset.write(fs->kz, double_dtype);
-                dims[0] = fs->cd->sizes[0];
-                kcomp_dspace = H5::DataSpace(1, dims);
-                group.createDataSet("ky", double_dtype, kcomp_dspace);
-                dset = data_file.openDataSet("/kspace/ky");
-                double *tmp_ky = new double[fs->cd->sizes[0]];
-                for (int i = 0; i<fs->cd->sizes[0]; i++)
-                    tmp_ky[i] = ((i + fs->cd->sizes[0]/2-1)%fs->cd->sizes[0] - fs->cd->sizes[0]/2+1)*fs->dky;
-                dset.write(tmp_ky, double_dtype);
-                delete[] tmp_ky;
-
-                // generate datasets for various statistics
-                group = data_file.openGroup("/statistics");
-                hsize_t chunk_dims[4];
-                chunk_dims[0] = 1;
-                chunk_dims[1] = dims[1];
-                cparms.setChunk(1, chunk_dims);
-                group.createDataSet("maximum_velocity"  , double_dtype, tfunc_dspace , cparms);
-                group.createDataSet("realspace_energy"  , double_dtype, tfunc_dspace , cparms);
-                cparms.setChunk(2, chunk_dims);
-                group.createDataSet("spectrum_velocity" , double_dtype, tkfunc_dspace, cparms);
-                group.createDataSet("spectrum_vorticity", double_dtype, tkfunc_dspace, cparms);
-                //endcpp
-                """
         self.file_datasets_grow = """
                 //begincpp
+                H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
+                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
                 H5::DataSet dset;
                 H5::DataSpace dspace;
+                H5::DSetCreatPropList cparms;
                 std::string temp_string;
                 hsize_t dims[4];
                 hsize_t old_dims[4];
-                dset = data_file.openDataSet("/statistics/maximum_velocity");
+                // store kspace information
+                dset = data_file->openDataSet("/kspace/kshell");
                 dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
-                dset.extend(dims);
-                dset = data_file.openDataSet("/statistics/realspace_energy");
-                dset.extend(dims);
-                dset = data_file.openDataSet("/statistics/spectrum_velocity");
+                dspace.getSimpleExtentDims(dims);
+                if (fs->nshells != dims[0])
+                {
+                    std::cerr << "ERROR: computed nshells not equal to data file nshells\\n" << std::endl;
+                    file_problems++;
+                }
+                dset.write(fs->kshell, double_dtype);
+                dset = data_file->openDataSet("/kspace/nshell");
+                dset.write(fs->nshell, ptrdiff_t_dtype);
+                dset = data_file->openDataSet("/kspace/kM");
+                dset.write(&fs->kM, double_dtype);
+                dset = data_file->openDataSet("/kspace/dk");
+                dset.write(&fs->dk, double_dtype);
+                // moments
+                dset = data_file->openDataSet("/statistics/moments/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
                 dims[0] = niter_todo + old_dims[0];
                 dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
                 dset.extend(dims);
-                dset = data_file.openDataSet("/statistics/spectrum_vorticity");
+                dset = data_file->openDataSet("/statistics/moments/vorticity");
                 dset.extend(dims);
+                // histograms
+                dset = data_file->openDataSet("/statistics/histograms/velocity");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[0] = niter_todo + old_dims[0];
+                dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
+                dset.extend(dims);
+                dset = data_file->openDataSet("/statistics/histograms/vorticity");
+                dset.extend(dims);
+                // spectra
+                dset = data_file->openDataSet("/statistics/spectra/velocity_velocity");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[0] = niter_todo + old_dims[0];
+                dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
+                dims[3] = old_dims[3];
+                dset.extend(dims);
+                dset = data_file->openDataSet("/statistics/spectra/vorticity_vorticity");
+                dset.extend(dims);
+                dset.close();
                 //endcpp
                 """
         self.style = {}
@@ -149,64 +107,83 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
-                    double vel_tmp, val_tmp;
-                    double max_vel, rspace_energy;
+                    double *velocity_moments = fftw_alloc_real(10*4);
+                    double *vorticity_moments = fftw_alloc_real(10*4);
+                    ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
+                    ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
                     fs->compute_velocity(fs->cvorticity);
                     fs->ift_velocity();
-                    val_tmp = (fs->ru[0]*fs->ru[0] +
-                               fs->ru[1]*fs->ru[1] +
-                               fs->ru[2]*fs->ru[2]);
-                    max_vel = sqrt(val_tmp);
-                    rspace_energy = 0.0;
-                    RLOOP_FOR_OBJECT(
-                        fs,
-                        val_tmp = (fs->ru[rindex*3+0]*fs->ru[rindex*3+0] +
-                                   fs->ru[rindex*3+1]*fs->ru[rindex*3+1] +
-                                   fs->ru[rindex*3+2]*fs->ru[rindex*3+2]);
-                        rspace_energy += val_tmp*.5;
-                        vel_tmp = sqrt(val_tmp);
-                        if (vel_tmp > max_vel)
-                            max_vel = vel_tmp;
-                        );
-                    rspace_energy /= fs->normalization_factor;
-                    MPI_Allreduce((void*)(&rspace_energy), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_SUM, fs->rd->comm);
-                    rspace_energy = val_tmp;
-                    MPI_Allreduce((void*)(&max_vel), (void*)(&val_tmp), 1, MPI_DOUBLE, MPI_MAX, fs->rd->comm);
-                    max_vel = val_tmp;
-                    double *spec_velocity = fftw_alloc_real(fs->nshells);
-                    double *spec_vorticity = fftw_alloc_real(fs->nshells);
+                    fs->compute_rspace_stats(fs->rvelocity,
+                                             velocity_moments,
+                                             hist_velocity,
+                                             max_velocity_estimate,
+                                             histogram_bins);
+                    fs->ift_vorticity();
+                    fs->compute_rspace_stats(fs->rvorticity,
+                                             vorticity_moments,
+                                             hist_vorticity,
+                                             max_vorticity_estimate,
+                                             histogram_bins);
+                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
+                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     if (myrank == 0)
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
-                        hsize_t count[2], offset[2];
-                        dset = data_file.openDataSet("statistics/maximum_velocity");
+                        hsize_t count[4], offset[4], old_dims[4];
+                        //moments
+                        dset = data_file->openDataSet("statistics/moments/velocity");
+                        writespace = dset.getSpace();
+                        writespace.getSimpleExtentDims(old_dims);
+                        count[0] = 1;
+                        count[1] = 10;
+                        count[2] = 4;
+                        memspace = H5::DataSpace(3, count);
+                        offset[0] = fs->iteration;
+                        offset[1] = 0;
+                        offset[2] = 0;
+                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        dset = data_file->openDataSet("statistics/moments/vorticity");
+                        dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        //histograms
+                        dset = data_file->openDataSet("statistics/histograms/velocity");
                         writespace = dset.getSpace();
                         count[0] = 1;
+                        count[1] = histogram_bins;
+                        count[2] = 4;
+                        memspace = H5::DataSpace(3, count);
                         offset[0] = fs->iteration;
-                        memspace = H5::DataSpace(1, count);
+                        offset[1] = 0;
+                        offset[2] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(&max_vel, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/realspace_energy");
-                        writespace = dset.getSpace();
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(&rspace_energy, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/spectrum_velocity");
+                        dset.write(hist_velocity, H5::PredType::NATIVE_INT64, memspace, writespace);
+                        dset = data_file->openDataSet("statistics/histograms/vorticity");
+                        dset.write(hist_vorticity, H5::PredType::NATIVE_INT64, memspace, writespace);
+                        //spectra
+                        dset = data_file->openDataSet("statistics/spectra/velocity_velocity");
                         writespace = dset.getSpace();
                         count[1] = fs->nshells;
-                        memspace = H5::DataSpace(2, count);
-                        offset[1] = 0;
+                        count[2] = 3;
+                        count[3] = 3;
+                        memspace = H5::DataSpace(4, count);
+                        offset[3] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
                         dset.write(spec_velocity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file.openDataSet("statistics/spectrum_vorticity");
-                        writespace = dset.getSpace();
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dset = data_file->openDataSet("statistics/spectra/vorticity_vorticity");
                         dset.write(spec_vorticity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                        dset = data_file->openDataSet("iteration");
+                        dset.write(&fs->iteration, H5::PredType::NATIVE_INT);
+                        dset.close();
                     }
                     fftw_free(spec_velocity);
                     fftw_free(spec_vorticity);
+                    fftw_free(velocity_moments);
+                    fftw_free(vorticity_moments);
+                    delete[] hist_velocity;
+                    delete[] hist_vorticity;
                 //endcpp
                 """
         return None
@@ -220,7 +197,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs = new fluid_solver<{0}>(
                         simname,
                         nx, ny, nz,
-                        dkx, dky, dkz);
+                        dkx, dky, dkz,
+                        dealias_type);
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -256,38 +234,77 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
-        self.particle_variables += 'tracers<{0}> *ps{1};'.format(self.C_dtype, self.particle_species)
-        self.file_datasets_create += ('tmp_dspace = H5::DataSpace(2, dims, maxdims);\n' +
-                                      'temp_string = std::string("/particles/") + std::string(ps{0}->name);\n' +
-                                      'group = data_file.openGroup(temp_string);\n' +
-                                      'dims[0] = 1;\n' +
-                                      'dims[1] = integration_steps{0};\n' +
-                                      'dims[2] = nparticles;\n' +
-                                      'dims[3] = ps{0}->ncomponents;\n' +
-                                      'maxdims[0] = H5S_UNLIMITED;\n' +
-                                      'maxdims[1] = dims[1];\n' +
-                                      'maxdims[2] = dims[2];\n' +
-                                      'maxdims[3] = dims[3];\n' +
-                                      'tmp_dspace = H5::DataSpace(4, dims, maxdims);\n' +
-                                      'chunk_dims[1] = 1;\n' +
-                                      'chunk_dims[1] = 1;\n' +
-                                      'chunk_dims[2] = dims[2];\n' +
-                                      'chunk_dims[3] = dims[3];\n' +
-                                      'cparms.setChunk(4, chunk_dims);\n' +
-                                      'group.createDataSet("rhs", double_dtype, tmp_dspace, cparms);\n').format(self.particle_species)
-        grow_template = ('temp_string = std::string("/particles/") + std::string(ps{0}->name) + std::string("/{1}");\n' +
-                         'dset = data_file.openDataSet(temp_string);\n' +
-                         'dspace = dset.getSpace();\n' +
-                         'dspace.getSimpleExtentDims(dims);\n' +
-                         'dims[0] += {2};\n' +
-                         'dset.extend(dims);\n')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'state', '(niter_todo/niter_part)')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs', '1')
+        self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
+        grow_template = """
+                        //begincpp
+                        temp_string = (std::string("/particles/") +
+                                       std::string(ps{0}->name) +
+                                       std::string("/{1}"));
+                        dset = data_file->openDataSet(temp_string);
+                        dspace = dset.getSpace();
+                        dspace.getSimpleExtentDims(dims);
+                        dims[0] = niter_todo/niter_part + dims[0];
+                        dset.extend(dims);
+                        //endcpp
+                        """
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'state')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'velocity')
+        self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
         #self.particle_definitions
         update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
                         'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
                         'fs->ift_velocity();\n' +
                         'ps{0}->update_field();\n').format(self.particle_species)
+        if self.dtype == np.float32:
+            FFTW = 'fftwf'
+        elif self.dtype == np.float64:
+            FFTW = 'fftw'
+        compute_acc = ('{0} *acc_field = {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
+                       '{0} *acc_field_tmp = {1}_alloc_real(fs->cd->local_size*2);\n' +
+                       'fs->compute_acceleration(acc_field_tmp);\n' +
+                       'ps{2}->rFFTW_to_buffered(acc_field_tmp, acc_field);\n' +
+                       'ps{2}->sample_vec_field(acc_field+ps{2}->buffer_size, acceleration);\n' +
+                       '{1}_free(acc_field_tmp);\n' +
+                       '{1}_free(acc_field);\n').format(self.C_dtype, FFTW, self.particle_species)
+        output_vel_acc =  """
+                          //begincpp
+                          {{
+                              double *acceleration = fftw_alloc_real(ps{0}->array_size);
+                              {1}
+                              if (ps{0}->fs->rd->myrank == 0)
+                              {{
+                                  //VELOCITY begin
+                                  std::string temp_string = (std::string("/particles/") +
+                                                             std::string(ps{0}->name) +
+                                                             std::string("/velocity"));
+                                  H5::DataSet dset = data_file->openDataSet(temp_string);
+                                  H5::DataSpace memspace, writespace;
+                                  hsize_t count[3], offset[3];
+                                  writespace = dset.getSpace();
+                                  writespace.getSimpleExtentDims(count);
+                                  count[0] = 1;
+                                  offset[0] = ps{0}->iteration / ps{0}->traj_skip;
+                                  offset[1] = 0;
+                                  offset[2] = 0;
+                                  memspace = H5::DataSpace(3, count);
+                                  writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                                  dset.write(ps{0}->rhs[0], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                                  dset.close();
+                                  //VELOCITY end
+                                  //ACCELERATION begin
+                                  temp_string = (std::string("/particles/") +
+                                                 std::string(ps{0}->name) +
+                                                 std::string("/acceleration"));
+                                  dset = data_file->openDataSet(temp_string);
+                                  dset.write(acceleration, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
+                                  dset.close();
+                                  //ACCELERATION end
+                              }}
+                              fftw_free(acceleration);
+                          }}
+                          //endcpp
+                          """.format(self.particle_species, compute_acc)
         self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
                                 'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
@@ -297,12 +314,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{1}->dt = dt;\n' +
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{1}->read(&data_file);\n').format(self.C_dtype, self.particle_species)
-        self.particle_loop +=  (update_field +
+                                'ps{1}->read(data_file);\n').format(self.C_dtype, self.particle_species)
+        self.particle_loop += ((update_field +
                                'ps{0}->step();\n' +
                                 'if (ps{0}->iteration % niter_part == 0)\n' +
-                                'ps{0}->write(&data_file, false);\n').format(self.particle_species)
-        self.particle_end += ('ps{0}->write(&data_file);\n' +
+                                'ps{0}->write(data_file, false);\n').format(self.particle_species) +
+                               output_vel_acc)
+        self.particle_end += ('ps{0}->write(data_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
@@ -360,34 +378,51 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                        self.trajectories[1][:, t, 2], color = 'red', dashes = (1, 1))
             fig.savefig('traj.pdf', format = 'pdf')
         return None
+    def get_data_file(self):
+        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
     def compute_statistics(self, iter0 = 0):
+        if len(list(self.statistics.keys())) > 0:
+            return None
         self.read_parameters()
-        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
-            iter0 = min(data_file['statistics/maximum_velocity'].shape[0]-1, iter0)
-            iter1 = data_file['statistics/maximum_velocity'].shape[0]
-            self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1).astype(np.float)
-            self.statistics['energy(t, k)'] = data_file['statistics/spectrum_velocity'].value/2
-            self.statistics['enstrophy(t, k)'] = data_file['statistics/spectrum_vorticity'].value/2
-            self.statistics['vel_max(t)'] = data_file['statistics/maximum_velocity'].value
-            self.statistics['renegergy(t)'] = data_file['statistics/realspace_energy'].value
-            for key in ['energy', 'enstrophy']:
-                self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
-            for key in ['energy', 'enstrophy', 'vel_max']:
-                self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
-            for suffix in ['', '(t)']:
-                self.statistics['diss'    + suffix] = (self.parameters['nu'] *
-                                                       self.statistics['enstrophy' + suffix]*2)
-                self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
-                                                       self.statistics['diss' + suffix])**.25
-                self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
-                                                       (self.statistics['energy' + suffix] /
-                                                       (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
-                self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
-                                                        self.statistics['diss' + suffix])**.5
+        with self.get_data_file() as data_file:
+            if 'moments' not in data_file['statistics'].keys():
+                return None
+            iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
+            iter1 = data_file['iteration'].value
+            self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1+1).astype(np.float)
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
-            self.trajectories = [data_file['particles/' + key + '/state'].value
-                                 for key in data_file['particles'].keys()]
+            self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 0, 0] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 1, 1] +
+                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 2, 2])/2
+            self.statistics['enstrophy(t, k)'] = (data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 0, 0] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 1, 1] +
+                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 2, 2])/2
+            self.statistics['vel_max(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 9, 3]
+            self.statistics['renegergy(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 2, 3]/2
+            if self.particle_species > 0:
+                self.trajectories = [
+                        data_file['particles/' + key + '/state'][
+                            iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']+1]
+                                     for key in data_file['particles'].keys()]
+            self.compute_time_averages()
+        return None
+    def compute_time_averages(self):
+        for key in ['energy', 'enstrophy']:
+            self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
+        for key in ['energy', 'enstrophy', 'vel_max']:
+            self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
+        for suffix in ['', '(t)']:
+            self.statistics['diss'    + suffix] = (self.parameters['nu'] *
+                                                   self.statistics['enstrophy' + suffix]*2)
+            self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
+                                                   self.statistics['diss' + suffix])**.25
+            self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
+                                                   (self.statistics['energy' + suffix] /
+                                                   (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
+            self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
+                                                    self.statistics['diss' + suffix])**.5
+        self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
         return None
     def plot_spectrum(
             self,

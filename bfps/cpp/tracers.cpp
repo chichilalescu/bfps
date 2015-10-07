@@ -97,7 +97,7 @@ template<class rnumber>
 void tracers<rnumber>::update_field(bool clip_on)
 {
     if (clip_on)
-        clip_zero_padding(this->fs->rd, this->source_data, 3);
+        clip_zero_padding<rnumber>(this->fs->rd, this->source_data, 3);
     this->rFFTW_to_buffered(this->source_data, this->data);
 }
 
@@ -133,7 +133,41 @@ template<> \
 tracers<R>::~tracers() \
 { \
     FFTW(free)(this->data); \
-}
+} \
+ \
+template <> \
+void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
+{ \
+    /* first compute acceleration field */ \
+    double *vec_local =  new double[this->array_size]; \
+    std::fill_n(vec_local, this->array_size, 0.0); \
+    int deriv[] = {0, 0, 0}; \
+    /* get grid coordinates */ \
+    int *xg = new int[this->array_size]; \
+    double *xx = new double[this->array_size]; \
+    this->get_grid_coordinates(this->state, xg, xx); \
+    /* perform interpolation */ \
+    for (int p=0; p<this->nparticles; p++) \
+        if (this->fs->rd->myrank == this->computing[p]) \
+        { \
+            this->spline_formula(vec_field + this->buffer_size, \
+                                 xg + p*3, \
+                                 xx + p*3, \
+                                 vec_local + p*3, \
+                                 deriv); \
+        } \
+    MPI_Allreduce( \
+            vec_local, \
+            vec_values, \
+            this->array_size, \
+            MPI_DOUBLE, \
+            MPI_SUM, \
+            this->fs->rd->comm); \
+    delete[] xg; \
+    delete[] xx; \
+    delete[] vec_local; \
+} \
+
 /*****************************************************************************/
 
 
