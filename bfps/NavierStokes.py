@@ -423,6 +423,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                     self.statistics['diss' + suffix])**.5
         self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
+        self.statistics['Lint'] = (2*self.statistics['energy'])**1.5 / self.statistics['diss']
+        self.statistics['Taylor_microscale'] = (10 * self.parameters['nu'] * self.statistics['energy'] / self.statistics['diss'])**.5
         return None
     def plot_spectrum(
             self,
