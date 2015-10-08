@@ -31,7 +31,7 @@ if hostname in ['frontend01', 'frontend02']:
                     '/usr/nld/fftw-3.3.3-float-mvapich2-1.9a2-gcc/lib']
     extra_libraries += ['mpich']
 
-if hostname == 'tolima':
+if hostname in ['tolima', 'misti']:
     local_install_dir = '/scratch.local/chichi/installs'
 
     include_dirs = ['/usr/lib64/mpi/gcc/openmpi/include',
