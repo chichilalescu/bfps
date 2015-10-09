@@ -19,6 +19,9 @@
 #
 ########################################################################
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 from test_base import *
 
 from test_frozen_field import FrozenFieldParticles
