@@ -23,7 +23,7 @@ from test_base import *
 
 if __name__ == '__main__':
     opt = parser.parse_args()
-    c = bfps.test_io(work_dir = opt.work_dir + '/test_io')
+    c = bfps.test_io(work_dir = opt.work_dir + '/io')
     c.write_src()
     c.write_par()
     c.set_host_info({'type' : 'pc'})

@@ -40,6 +40,8 @@ class field_descriptor
         int *starts;
         int ndims;
         int *rank;
+        int *all_start0;
+        int *all_size0;
         ptrdiff_t slice_size, local_size, full_size;
         MPI_Datatype mpi_array_dtype, mpi_dtype;
         int myrank, nprocs, io_myrank, io_nprocs;

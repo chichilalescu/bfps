@@ -19,6 +19,11 @@
 #
 ########################################################################
 
+import numpy as np
+import h5py
+from mpl_toolkits.mplot3d import axes3d
+import matplotlib.pyplot as plt
+
 from test_base import *
 
 def convergence_test(
@@ -29,32 +34,28 @@ def convergence_test(
     ### test Navier Stokes convergence
     # first, run code three times, doubling and quadrupling the resolution
     # initial condition and viscosity must be the same!
-    default_wd = opt.work_dir
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c0 = code_launch_routine(
             opt,
             vorticity_field = init_vorticity,
             code_class = code_class)
     opt.initialize = False
-    opt.work_dir = default_wd
     double(opt)
-    opt.iteration = 0
     opt.n *= 2
-    opt.nsteps *= 2
+    opt.niter_todo *= 2
     opt.ncpu *= 2
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c1 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
             vorticity_field = init_vorticity,
             code_class = code_class,
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
-    opt.work_dir = default_wd
     double(opt)
     opt.n *= 2
-    opt.nsteps *= 2
+    opt.niter_todo *= 2
     opt.ncpu *= 2
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c2 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],

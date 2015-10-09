@@ -21,6 +21,12 @@
 
 from test_base import *
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+parser.add_argument('--multiplejob',
+        dest = 'multiplejob', action = 'store_true')
+
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
@@ -30,7 +36,7 @@ def plain(opt):
         return None
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
-    opt.nsteps /= 2
+    opt.niter_todo /= 2
     c1 = launch(opt)
     c1.compute_statistics()
     # plot energy and enstrophy

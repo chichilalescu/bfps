@@ -765,7 +765,9 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
     /* get upper slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
-        rsrc = MOD(rdst+1, this->fs->rd->nprocs); \
+        rsrc = this->fs->rd->rank[(this->fs->rd->all_start0[rdst] + \
+                                   this->fs->rd->all_size0[rdst]) % \
+                                   this->fs->rd->sizes[0]]; \
         if (this->fs->rd->myrank == rsrc) \
             MPI_Send( \
                     (void*)(src), \
@@ -787,7 +789,8 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
     /* get lower slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
-        rsrc = MOD(rdst-1, this->fs->rd->nprocs); \
+        rsrc = this->fs->rd->rank[MOD(this->fs->rd->all_start0[rdst] - 1, \
+                                      this->fs->rd->sizes[0])]; \
         if (this->fs->rd->myrank == rsrc) \
             MPI_Send( \
                     (void*)(src + this->fs->rd->local_size - this->buffer_size), \

@@ -101,6 +101,13 @@ class base(object):
             for k in data_file['parameters'].keys():
                 self.parameters[k] = data_file['parameters/' + k].value
         return None
+    def pars_from_namespace(self, opt):
+        new_pars = vars(opt)
+        self.simname = opt.simname
+        self.work_dir = opt.work_dir
+        for k in self.parameters.keys():
+            self.parameters[k] = new_pars[k]
+        return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')
         return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]

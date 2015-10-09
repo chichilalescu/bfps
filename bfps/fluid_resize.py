@@ -26,7 +26,7 @@ import numpy as np
 class fluid_resize(bfps.fluid_base.fluid_particle_base):
     def __init__(
             self,
-            name = 'fluid_converter',
+            name = 'fluid_resize',
             work_dir = './',
             simname = 'test',
             dtype = np.float32):
@@ -35,6 +35,7 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 work_dir = work_dir,
                 simname = simname,
                 dtype = dtype)
+        self.parameters['src_simname'] = 'test'
         self.parameters['dst_iter'] = 0
         self.parameters['dst_nx'] = 32
         self.parameters['dst_ny'] = 32
@@ -59,7 +60,7 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 //begincpp
                 char fname[512];
                 fs0 = new fluid_solver<{0}>(
-                        simname,
+                        src_simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
                 fs1 = new fluid_solver<{0}>(
