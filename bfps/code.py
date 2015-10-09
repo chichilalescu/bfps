@@ -136,6 +136,7 @@ class code(base):
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
+        self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
         return subprocess.call(command_strings)
     def set_host_info(
