@@ -200,6 +200,34 @@ field_descriptor<R>::field_descriptor( \
             MPI_SUM, \
             this->comm); \
     delete[] local_rank; \
+    this->all_start0 = new int[this->nprocs]; \
+    int *local_start0 = new int[this->nprocs]; \
+    std::fill_n(local_start0, this->nprocs, 0); \
+    for (int i = 0; i < this->nprocs; i++) \
+        if (this->myrank == i) \
+            local_start0[i] = this->starts[0]; \
+    MPI_Allreduce( \
+            local_start0, \
+            this->all_start0, \
+            this->nprocs, \
+            MPI_INT, \
+            MPI_SUM, \
+            this->comm); \
+    delete[] local_start0; \
+    this->all_size0  = new int[this->nprocs]; \
+    int *local_size0 = new int[this->nprocs]; \
+    std::fill_n(local_size0, this->nprocs, 0); \
+    for (int i = 0; i < this->nprocs; i++) \
+        if (this->myrank == i) \
+            local_size0[i] = this->subsizes[0]; \
+    MPI_Allreduce( \
+            local_size0, \
+            this->all_size0, \
+            this->nprocs, \
+            MPI_INT, \
+            MPI_SUM, \
+            this->comm); \
+    delete[] local_size0; \
     DEBUG_MSG("exiting field_descriptor constructor\n"); \
 } \
  \
@@ -503,6 +531,8 @@ field_descriptor<rnumber>::~field_descriptor()
     delete[] this->subsizes;
     delete[] this->starts;
     delete[] this->rank;
+    delete[] this->all_start0;
+    delete[] this->all_size0;
 }
 /*****************************************************************************/
 
