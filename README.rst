@@ -37,3 +37,5 @@ TODO
 
 * try to make code more memory efficient
 
+* make code py3 compatible
+
