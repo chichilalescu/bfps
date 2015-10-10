@@ -105,5 +105,5 @@ setup(
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
         version = VERSION,
-        license = 'Apache Version 2.0')
+        license = 'GPL version 3.0')
 
