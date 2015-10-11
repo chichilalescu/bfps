@@ -107,6 +107,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 """
         self.style = {}
         self.statistics = {}
+        self.fluid_output = 'fs->write(\'v\', \'c\');\n'
         return None
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
@@ -215,20 +216,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->read('v', 'c');
                 //endcpp
                 """.format(self.C_dtype)
-        self.fluid_loop += """
-                //begincpp
-                fs->step(dt);
-                if (fs->iteration % niter_out == 0)
-                    fs->write('v', 'c');
-                //endcpp
-                """
-        self.fluid_end += """
-                //begincpp
-                if (fs->iteration % niter_out != 0)
-                    fs->write('v', 'c');
-                delete fs;
-                //endcpp
-                """
+        self.fluid_loop += ('fs->step(dt);\n' +
+                            'if (fs->iteration % niter_out == 0)\n{\n' +
+                            self.fluid_output + '\n}\n')
+        self.fluid_end += ('if (fs->iteration % niter_out != 0)\n{\n' +
+                            self.fluid_output + '\n}\n' +
+                           'delete fs;\n')
         return None
     def add_particles(
             self,
