@@ -204,28 +204,6 @@ class fluid_particle_base(bfps.code):
                                                Rdata0[..., 1]**2 +
                                                Rdata0[..., 2]**2)*.5))
         return Rdata0
-    def generate_vdf(
-            self,
-            field = 'velocity',
-            iteration = 0,
-            filename = None):
-        Rdata0 = self.read_rfield(field = field, iteration = iteration, filename = filename)
-        subprocess.call(['vdfcreate',
-                         '-dimension',
-                         '{0}x{1}x{2}'.format(self.parameters['nz'],
-                                              self.parameters['ny'],
-                                              self.parameters['nx']),
-                         '-numts', '1',
-                         '-vars3d', '{0}x:{0}y:{0}z'.format(field),
-                         filename + '.vdf'])
-        for loop_data in [(0, 'x'), (1, 'y'), (2, 'z')]:
-            Rdata0[..., loop_data[0]].tofile('tmprawfile')
-            subprocess.call(['raw2vdf',
-                             '-ts', '0',
-                             '-varname', '{0}{1}'.format(field, loop_data[1]),
-                             filename + '.vdf',
-                             'tmprawfile'])
-        return Rdata0
     def generate_vector_field(
             self,
             rseed = 7547,
