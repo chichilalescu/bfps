@@ -30,7 +30,6 @@ import bfps.tools
 import numpy as np
 import pickle
 import os
-import matplotlib.pyplot as plt
 
 class fluid_converter(bfps.fluid_base.fluid_particle_base):
     def __init__(
