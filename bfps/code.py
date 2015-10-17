@@ -1,5 +1,3 @@
-
-
 ########################################################################
 #
 #  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
@@ -19,6 +17,8 @@
 # Contact: Cristian.Lalescu@ds.mpg.de
 #
 ########################################################################
+
+
 
 import h5py
 import subprocess
