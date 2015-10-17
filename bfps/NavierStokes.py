@@ -379,7 +379,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         return None
     def get_data_file(self):
         return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
-    def compute_statistics(self, iter0 = 0):
+    def compute_statistics(self, iter0 = 0, iter1 = None):
         if len(list(self.statistics.keys())) > 0:
             return None
         self.read_parameters()
@@ -387,7 +387,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             if 'moments' not in data_file['statistics'].keys():
                 return None
             iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
-            iter1 = data_file['iteration'].value
+            if type(iter1) == type(None):
+                iter1 = data_file['iteration'].value
+            else:
+                iter1 = min(data_file['iteration'].value, iter1)
             self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1+1).astype(np.float)
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
