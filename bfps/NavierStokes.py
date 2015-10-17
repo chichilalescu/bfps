@@ -473,8 +473,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.style.update(style)
         return None
 
-import subprocess
-
 def launch(
         opt,
         nu = None):
