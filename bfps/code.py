@@ -69,6 +69,8 @@ class code(base):
                     MPI_Init(&argc, &argv);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                    fftw_mpi_init();
+                    fftwf_mpi_init();
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
