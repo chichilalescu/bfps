@@ -186,7 +186,7 @@ if __name__ == '__main__':
     a.set_yscale('log')
     a.legend(loc = 'lower right')
     a.set_xlim(.9*min(ef.dtlist), 2*max(ef.dtlist))
-    fig.savefig('test_particles_evdt.pdf', format = 'pdf')
+    fig.savefig('test_particles_evdt_' + opt.precision + '.pdf')
     fig = plt.figure(figsize=(6,6))
     a = fig.add_subplot(111)
     for t in range(c0.parameters['nparticles']):
@@ -195,5 +195,5 @@ if __name__ == '__main__':
         a.plot(ef.xx[0][:, 0, t],
                ef.xx[0][:, 1, t],
                dashes = (1,1))
-    fig.savefig('test_particles_traj.pdf', format = 'pdf')
+    fig.savefig('test_particles_traj_' + opt.precision + '.pdf')
 
