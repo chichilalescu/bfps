@@ -16,10 +16,13 @@ Comments
 --------
 
 * particles: initialization of multistep solvers is done with lower
-  order methods, so don't be surprised if naive convergence tests fail.
+  order methods, so don't be surprised if direct convergence tests fail.
 
 TODO
 ----
+
+* store velocity field along a line in statistics (for structure
+  functions etc)
 
 * store time averaged stats in .h5 file
 
