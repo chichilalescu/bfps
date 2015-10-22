@@ -60,10 +60,13 @@ fluid_solver<R>::fluid_solver( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int DEALIAS_TYPE) : fluid_solver_base<R>(NAME, \
-                                                 nx , ny , nz, \
-                                                 DKX, DKY, DKZ, \
-                                                 DEALIAS_TYPE) \
+        int DEALIAS_TYPE, \
+        unsigned FFTW_PLAN_RIGOR) : fluid_solver_base<R>( \
+                NAME, \
+                nx , ny , nz, \
+                DKX, DKY, DKZ, \
+                DEALIAS_TYPE, \
+                FFTW_PLAN_RIGOR) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
@@ -103,22 +106,22 @@ fluid_solver<R>::fluid_solver( \
     *(FFTW(plan)*)this->c2r_vorticity = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cvorticity, this->rvorticity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->r2c_vorticity = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rvorticity, this->cvorticity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     *(FFTW(plan)*)this->c2r_velocity = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cvelocity, this->rvelocity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->r2c_velocity = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rvelocity, this->cvelocity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     this->uc2r = this->c2r_velocity;\
     this->ur2c = this->r2c_velocity;\
@@ -133,22 +136,22 @@ fluid_solver<R>::fluid_solver( \
     *(FFTW(plan)*)(this->vc2r[1]) = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cv[1], this->rv[1], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->vc2r[2] = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cv[2], this->rv[2], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->vr2c[1] = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rv[1], this->cv[1], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     *(FFTW(plan)*)this->vr2c[2] = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rv[2], this->cv[2], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     /* ``physical'' parameters etc, initialized here just in case */ \
  \
