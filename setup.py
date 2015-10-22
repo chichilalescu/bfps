@@ -47,7 +47,6 @@ VERSION = date_name
 
 src_file_list = ['field_descriptor',
                  'fftw_tools',
-                 'vector_field',
                  'fluid_solver_base',
                  'fluid_solver',
                  'slab_field_particles',

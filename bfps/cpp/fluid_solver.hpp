@@ -78,7 +78,8 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0,
-                int DEALIAS_TYPE = 1);
+                int DEALIAS_TYPE = 1,
+                unsigned FFTW_PLAN_RIGOR = FFTW_MEASURE);
         ~fluid_solver(void);
 
         void compute_vorticity(void);

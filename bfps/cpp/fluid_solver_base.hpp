@@ -50,6 +50,7 @@ class fluid_solver_base
     public:
         field_descriptor<rnumber> *cd, *rd;
         ptrdiff_t normalization_factor;
+        unsigned fftw_plan_rigor;
 
         /* simulation parameters */
         char name[256];
@@ -77,7 +78,8 @@ class fluid_solver_base
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0,
-                int DEALIAS_TYPE = 0);
+                int DEALIAS_TYPE = 0,
+                unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *a, int howmany, double kmax);

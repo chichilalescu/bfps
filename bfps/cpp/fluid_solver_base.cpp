@@ -236,11 +236,13 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int DEALIAS_TYPE) \
+        int DEALIAS_TYPE, \
+        unsigned FFTW_PLAN_RIGOR) \
 { \
     strncpy(this->name, NAME, 256); \
     this->name[255] = '\0'; \
     this->iteration = 0; \
+    this->fftw_plan_rigor = FFTW_PLAN_RIGOR; \
  \
     int ntmp[4]; \
     ntmp[0] = nz; \

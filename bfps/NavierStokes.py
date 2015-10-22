@@ -39,12 +39,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             name = 'NavierStokes',
             work_dir = './',
             simname = 'test',
-            fluid_precision = 'single'):
+            fluid_precision = 'single',
+            fftw_plan_rigor = 'FFTW_MEASURE'):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
+        self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
                 H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
@@ -205,7 +207,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz,
-                        dealias_type);
+                        dealias_type,
+                        {1});
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -215,7 +218,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->iteration = iteration;
                 fs->read('v', 'c');
                 //endcpp
-                """.format(self.C_dtype)
+                """.format(self.C_dtype, self.fftw_plan_rigor)
         self.fluid_loop = ('fs->step(dt);\n' +
                            'if (fs->iteration % niter_out == 0)\n{\n' +
                            self.fluid_output + '\n}\n')

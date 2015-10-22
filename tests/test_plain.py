@@ -40,11 +40,17 @@ def plain(opt):
     c0.compute_statistics()
     if not opt.multiplejob:
         return None
+    assert(opt.niter_todo % 3 == 0)
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
     opt.niter_todo /= 2
     c1 = launch(opt)
     c1.compute_statistics()
+    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
+    opt.njobs = 3*opt.njobs/2
+    opt.niter_todo = 2*opt.niter_todo/3
+    c2 = launch(opt)
+    c2.compute_statistics()
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(221)
@@ -54,7 +60,10 @@ def plain(opt):
     c1.set_plt_style({'label' : '2',
                       'dashes' : (2, 2),
                       'color' : (0, 0, 1)})
-    for c in [c0, c1]:
+    c2.set_plt_style({'label' : '3',
+                      'dashes' : (3, 3),
+                      'color' : (0, 1, 0)})
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['energy(t)'],
                label = c.style['label'],
@@ -63,21 +72,21 @@ def plain(opt):
     a.set_title('energy')
     a.legend(loc = 'best')
     a = fig.add_subplot(222)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['enstrophy(t)'],
                dashes = c.style['dashes'],
                color = c.style['color'])
     a.set_title('enstrophy')
     a = fig.add_subplot(223)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['kM']*c.statistics['etaK(t)'],
                dashes = c.style['dashes'],
                color = c.style['color'])
     a.set_title('$k_M \\eta_K$')
     a = fig.add_subplot(224)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['vel_max(t)'] * (c.parameters['dt'] * c.parameters['dkx'] /
                                              (2*np.pi / c.parameters['nx'])),
