@@ -121,6 +121,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
                     ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
                     fs->compute_velocity(fs->cvorticity);
+                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
+                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
+                    fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
+                    fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     fs->ift_velocity();
                     fs->compute_rspace_stats(fs->rvelocity,
                                              velocity_moments,
@@ -133,10 +137,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                              hist_vorticity,
                                              max_vorticity_estimate,
                                              histogram_bins);
-                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
-                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
-                    fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
-                    fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     if (myrank == 0)
                     {
                         H5::DataSet dset;
