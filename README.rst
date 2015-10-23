@@ -21,9 +21,6 @@ Comments
 TODO
 ----
 
-* store velocity field along a line in statistics (for structure
-  functions etc)
-
 * store time averaged stats in .h5 file
 
 * store nonlinear term for particles
