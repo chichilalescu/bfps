@@ -351,6 +351,14 @@ class fluid_particle_base(bfps.code):
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
             for k in ['velocity', 'vorticity']:
+                time_chunk = 2**20//(8*3*self.parameters['nx'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/xlines/' + k,
+                                     (1, self.parameters['nx'], 3),
+                                     chunks = (time_chunk, self.parameters['nx'], 3),
+                                     maxshape = (None, self.parameters['nx'], 3),
+                                     dtype = self.dtype,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
@@ -365,7 +373,8 @@ class fluid_particle_base(bfps.code):
                                      (1, 10, 4),
                                      chunks = (time_chunk, 10, 4),
                                      maxshape = (None, 10, 4),
-                                     dtype = np.float64)
+                                     dtype = np.float64,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/' + k,
