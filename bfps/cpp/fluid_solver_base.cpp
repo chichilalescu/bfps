@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -49,23 +49,18 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 }
 
 template <class rnumber>
-rnumber fluid_solver_base<rnumber>::autocorrel(cnumber *a)
+double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
 {
     double *spec = fftw_alloc_real(this->nshells*9);
-    double sum_local, sum;
+    double sum_local;
     this->cospectrum(a, a, spec);
     sum_local = 0.0;
-    for (int n = 0; n < this->nshells; n++)
+    for (int n = 0; n < this->nshells - 2; n++)
+    {
         sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
+    }
     fftw_free(spec);
-    MPI_Allreduce(
-            &sum_local,
-            &sum,
-            1,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->cd->comm);
-    return sum;
+    return sum_local;
 }
 
 template <class rnumber>

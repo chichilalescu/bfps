@@ -89,7 +89,7 @@ class fluid_solver_base
         void clean_up_real_space(rnumber *a, int howmany);
         void cospectrum(cnumber *a, cnumber *b, double *spec);
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent);
-        rnumber autocorrel(cnumber *a);
+        double autocorrel(cnumber *a);
         void compute_rspace_stats(rnumber *a,
                                   double *moments,
                                   ptrdiff_t *hist,
