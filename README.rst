@@ -38,8 +38,6 @@ TODO
 
 * use HDF5 io for fields
 
-* use FFTW wisdom with some host dependent cache
-
 * try to make code more memory efficient
 
 * make code py3 compatible
