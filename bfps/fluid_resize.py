@@ -93,7 +93,6 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 a = 0.5*fs1->autocorrel(fs1->cvelocity);
                 b = 0.5*fs1->autocorrel(fs1->cvorticity);
                 DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
-                niter_todo = 0;
                 //endcpp
                 """.format(C_dtype)
         self.fluid_end += """

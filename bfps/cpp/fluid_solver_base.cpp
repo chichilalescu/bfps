@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -55,7 +55,7 @@ double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
     double sum_local;
     this->cospectrum(a, a, spec);
     sum_local = 0.0;
-    for (int n = 0; n < this->nshells - 2; n++)
+    for (int n = 0; n < this->nshells; n++)
     {
         sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
     }
