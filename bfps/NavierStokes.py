@@ -27,7 +27,6 @@
 import os
 import numpy as np
 import h5py
-import matplotlib.pyplot as plt
 
 import bfps
 import bfps.fluid_base
@@ -405,45 +404,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
         self.statistics['Lint'] = (2*self.statistics['energy'])**1.5 / self.statistics['diss']
         self.statistics['Taylor_microscale'] = (10 * self.parameters['nu'] * self.statistics['energy'] / self.statistics['diss'])**.5
-        return None
-    def plot_spectrum(
-            self,
-            axis,
-            quantity = 'energy',
-            average = True,
-            color = (1, 0, 0),
-            cmap = 'coolwarm',
-            add_Kspec = True,
-            normalize_k = True,
-            normalization = 'energy',
-            label = None):
-        self.compute_statistics()
-        norm_factor = 1.0
-        if normalization == 'energy':
-            norm_factor = (self.parameters['nu']**5 * self.statistics['diss'])**(-.25)
-        k = self.statistics['kshell'].copy()
-        if normalize_k:
-            k *= self.statistics['etaK']
-        if average:
-            axis.plot(
-                    k,
-                    self.statistics[quantity + '(k)']*norm_factor,
-                    color = color,
-                    label = label)
-        else:
-            for i in range(self.statistics[quantity + '(t, k)'].shape[0]):
-                axis.plot(k,
-                          self.statistics[quantity + '(t, k)'][i]*norm_factor,
-                          color = plt.get_cmap(cmap)(i*1.0/self.statistics[quantity + '(t, k)'].shape[0]))
-        if add_Kspec:
-            axis.plot(
-                    k,
-                    2*k**(-5./3),
-                    color = 'black',
-                    dashes = (1, 1),
-                    label = '$2(k \\eta_K)^{-5/3}$')
-        axis.set_xscale('log')
-        axis.set_yscale('log')
         return None
     def set_plt_style(
             self,
