@@ -21,8 +21,6 @@ Comments
 TODO
 ----
 
-* store time averaged stats in .h5 file
-
 * store nonlinear term for particles
 
 * add different numerical method, for testing purposes
