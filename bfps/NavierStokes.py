@@ -534,8 +534,3 @@ def launch(
         c.run(ncpu = opt.ncpu, njobs = opt.njobs)
     return c
 
-def test(opt):
-    c = launch(opt)
-    c.basic_plots()
-    return None
-
