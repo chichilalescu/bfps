@@ -75,15 +75,21 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                         dst_dkx, dst_dky, dst_dkz);
                 fs0->iteration = iteration;
                 fs1->iteration = 0;
+                DEBUG_MSG("about to read field\\n");
                 fs0->read('v', 'c');
+                DEBUG_MSG("field read, about to copy data\\n");
                 double a, b;
+                fs0->compute_velocity(fs0->cvorticity);
                 a = 0.5*fs0->autocorrel(fs0->cvelocity);
                 b = 0.5*fs0->autocorrel(fs0->cvorticity);
                 DEBUG_MSG("old field %d %g %g\\n", fs0->iteration, a, b);
                 copy_complex_array<{0}>(fs0->cd, fs0->cvorticity,
                                         fs1->cd, fs1->cvorticity,
                                         3);
+                DEBUG_MSG("data copied, about to write new field\\n");
                 fs1->write('v', 'c');
+                DEBUG_MSG("finished writing\\n");
+                fs1->compute_velocity(fs1->cvorticity);
                 a = 0.5*fs1->autocorrel(fs1->cvelocity);
                 b = 0.5*fs1->autocorrel(fs1->cvorticity);
                 DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
