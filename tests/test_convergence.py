@@ -49,6 +49,7 @@ def convergence_test(
     double(opt)
     opt.n *= 2
     opt.niter_todo *= 2
+    opt.niter_stat *= 2
     opt.ncpu *= 2
     opt.simname = 'N{0:0>3x}'.format(opt.n)
     c1 = code_launch_routine(
@@ -60,6 +61,7 @@ def convergence_test(
     double(opt)
     opt.n *= 2
     opt.niter_todo *= 2
+    opt.niter_stat *= 2
     opt.ncpu *= 2
     opt.simname = 'N{0:0>3x}'.format(opt.n)
     c2 = code_launch_routine(

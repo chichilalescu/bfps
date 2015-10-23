@@ -55,6 +55,7 @@ def double(opt):
     c.parameters['dst_nz'] = 2*opt.n
     c.parameters['dst_simname'] = new_simname
     c.parameters['src_simname'] = old_simname
+    c.parameters['niter_todo'] = 0
     c.write_src()
     c.set_host_info({'type' : 'pc'})
     c.write_par()

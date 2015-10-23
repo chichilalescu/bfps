@@ -63,6 +63,7 @@ class fluid_particle_base(bfps.code):
         self.parameters['dkz'] = 1.0
         self.parameters['niter_todo'] = 8
         self.parameters['niter_part'] = 1
+        self.parameters['niter_stat'] = 1
         self.parameters['niter_out'] = 1024
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
@@ -170,10 +171,11 @@ class fluid_particle_base(bfps.code):
         self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
-        self.main       += 'do_stats();\n}\n'
+        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n}\n'
         self.main       += output_time_difference
         if self.particle_species > 0:
             self.main   += self.particle_end
+        self.main       += 'do_stats();\n'
         self.main       += self.fluid_end
         return None
     def read_rfield(
@@ -343,6 +345,11 @@ class fluid_particle_base(bfps.code):
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
         return kspace
     def write_par(self, iter0 = 0):
+        assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
+        assert (self.parameters['niter_todo'] % self.parameters['niter_out']  == 0)
+        assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
+        assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
+        assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
         super(fluid_particle_base, self).write_par(iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             ofile['field_dtype'] = np.dtype(self.dtype).str
