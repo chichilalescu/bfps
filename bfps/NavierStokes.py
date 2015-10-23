@@ -355,60 +355,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
-    def basic_plots(
-            self,
-            spectra_on = True,
-            particles_on = True):
-        self.compute_statistics()
-
-        # plot energy and enstrophy
-        fig = plt.figure(figsize = (12, 6))
-        a = fig.add_subplot(121)
-        a.plot(self.statistics['t'], self.statistics['kM']*self.statistics['etaK(t)'], label = '$k_M \eta_K$')
-        a.plot(self.statistics['t'],
-               (self.parameters['dt']*self.statistics['vel_max(t)'] /
-                (2*np.pi/self.parameters['nx'])),
-               label = '$\\frac{\\Delta t}{\\Delta x} \\| u \\|_\infty$')
-        a.legend(loc = 'best')
-        a = fig.add_subplot(122)
-        a.plot(self.statistics['t'], self.statistics['energy(t)'], label = 'energy', color = (0, 0, 1))
-        a.plot(self.statistics['t'], self.statistics['renergy(t)'], label = 'energy', color = (0, 0, 1))
-        a.set_ylabel('energy', color = (0, 0, 1))
-        a.set_xlabel('$t$')
-        for tt in a.get_yticklabels():
-            tt.set_color((0, 0, 1))
-        b = a.twinx()
-        b.plot(self.statistics['t'], self.statistics['enstrophy(t)'], label = 'enstrophy', color = (1, 0, 0))
-        b.set_ylabel('enstrophy', color = (1, 0, 0))
-        for tt in b.get_yticklabels():
-            tt.set_color((1, 0, 0))
-        fig.savefig('stats.pdf', format = 'pdf')
-
-        # plot spectra
-        if spectra_on:
-            fig = plt.figure(figsize=(12, 6))
-            a = fig.add_subplot(121)
-            self.plot_spectrum(a, average = False)
-            a.set_title('velocity')
-            a = fig.add_subplot(122)
-            self.plot_spectrum(a, average = False, field = 'vorticity')
-            a.set_title('vorticity')
-            fig.savefig('spectrum.pdf', format = 'pdf')
-
-
-        # plot particles
-        if particles_on and self.particle_species > 0:
-            fig = plt.figure(figsize = (12, 12))
-            a = fig.add_subplot(111, projection = '3d')
-            for t in range(self.parameters['nparticles']):
-                a.plot(self.trajectories[0][:, t, 0],
-                       self.trajectories[0][:, t, 1],
-                       self.trajectories[0][:, t, 2], color = 'blue')
-                a.plot(self.trajectories[1][:, t, 0],
-                       self.trajectories[1][:, t, 1],
-                       self.trajectories[1][:, t, 2], color = 'red', dashes = (1, 1))
-            fig.savefig('traj.pdf', format = 'pdf')
-        return None
     def get_data_file(self):
         return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
