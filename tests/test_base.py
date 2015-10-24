@@ -67,6 +67,7 @@ def double(opt):
 def launch(
         opt,
         nu = None,
+        dt = None,
         tracer_state_file = None,
         vorticity_field = None,
         code_class = bfps.NavierStokes):
@@ -81,7 +82,10 @@ def launch(
         c.parameters['nu'] = 5.5*opt.n**(-4./3)
     else:
         c.parameters['nu'] = nu
-    c.parameters['dt'] = 5e-3 * (64. / opt.n)
+    if type(dt) == type(None):
+        c.parameters['dt'] = 5e-3 * (64. / opt.n)
+    else:
+        c.parameters['dt'] = dt
     c.parameters['niter_out'] = c.parameters['niter_todo']
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
