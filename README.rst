@@ -16,7 +16,7 @@ Comments
 --------
 
 * particles: initialization of multistep solvers is done with lower
-  order methods, so don't be surprised if naive convergence tests fail.
+  order methods, so don't be surprised if direct convergence tests fail.
 
 TODO
 ----
@@ -33,7 +33,7 @@ TODO
 
 * use HDF5 io for fields
 
-* use FFTW wisdom with some host dependent cache
-
 * try to make code more memory efficient
+
+* make code py3 compatible
 

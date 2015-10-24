@@ -1,29 +1,31 @@
-/***********************************************************************
-*
-*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Contact: Cristian.Lalescu@ds.mpg.de
-*
-************************************************************************/
-
-
+/**********************************************************************
+*                                                                     *
+*  Copyright 2015 Max Planck Institute                                *
+*                 for Dynamics and Self-Organization                  *
+*                                                                     *
+*  This file is part of bfps.                                         *
+*                                                                     *
+*  bfps is free software: you can redistribute it and/or modify       *
+*  it under the terms of the GNU General Public License as published  *
+*  by the Free Software Foundation, either version 3 of the License,  *
+*  or (at your option) any later version.                             *
+*                                                                     *
+*  bfps is distributed in the hope that it will be useful,            *
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
+*  GNU General Public License for more details.                       *
+*                                                                     *
+*  You should have received a copy of the GNU General Public License  *
+*  along with bfps.  If not, see <http://www.gnu.org/licenses/>       *
+*                                                                     *
+* Contact: Cristian.Lalescu@ds.mpg.de                                 *
+*                                                                     *
+**********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -47,23 +49,18 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 }
 
 template <class rnumber>
-rnumber fluid_solver_base<rnumber>::autocorrel(cnumber *a)
+double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
 {
     double *spec = fftw_alloc_real(this->nshells*9);
-    double sum_local, sum;
+    double sum_local;
     this->cospectrum(a, a, spec);
     sum_local = 0.0;
     for (int n = 0; n < this->nshells; n++)
+    {
         sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
+    }
     fftw_free(spec);
-    MPI_Allreduce(
-            &sum_local,
-            &sum,
-            1,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->cd->comm);
-    return sum;
+    return sum_local;
 }
 
 template <class rnumber>
@@ -234,11 +231,13 @@ fluid_solver_base<R>::fluid_solver_base( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int DEALIAS_TYPE) \
+        int DEALIAS_TYPE, \
+        unsigned FFTW_PLAN_RIGOR) \
 { \
     strncpy(this->name, NAME, 256); \
     this->name[255] = '\0'; \
     this->iteration = 0; \
+    this->fftw_plan_rigor = FFTW_PLAN_RIGOR; \
  \
     int ntmp[4]; \
     ntmp[0] = nz; \

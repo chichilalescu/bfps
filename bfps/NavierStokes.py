@@ -1,27 +1,32 @@
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
+
+
 
 import os
 import numpy as np
 import h5py
-import matplotlib.pyplot as plt
 
 import bfps
 import bfps.fluid_base
@@ -33,12 +38,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             name = 'NavierStokes',
             work_dir = './',
             simname = 'test',
-            fluid_precision = 'single'):
+            fluid_precision = 'single',
+            fftw_plan_rigor = 'FFTW_MEASURE'):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
+        self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
                 H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
@@ -65,11 +72,21 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.write(&fs->kM, double_dtype);
                 dset = data_file->openDataSet("/kspace/dk");
                 dset.write(&fs->dk, double_dtype);
+                // xlines
+                dset = data_file->openDataSet("/statistics/xlines/velocity");
+                dspace = dset.getSpace();
+                dspace.getSimpleExtentDims(old_dims);
+                dims[0] = niter_todo/niter_stat + old_dims[0];
+                dims[1] = old_dims[1];
+                dims[2] = old_dims[2];
+                dset.extend(dims);
+                dset = data_file->openDataSet("/statistics/xlines/vorticity");
+                dset.extend(dims);
                 // moments
                 dset = data_file->openDataSet("/statistics/moments/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
+                dims[0] = niter_todo/niter_stat + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -79,7 +96,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file->openDataSet("/statistics/histograms/velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
+                dims[0] = niter_todo/niter_stat + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dset.extend(dims);
@@ -89,7 +106,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset = data_file->openDataSet("/statistics/spectra/velocity_velocity");
                 dspace = dset.getSpace();
                 dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo + old_dims[0];
+                dims[0] = niter_todo/niter_stat + old_dims[0];
                 dims[1] = old_dims[1];
                 dims[2] = old_dims[2];
                 dims[3] = old_dims[3];
@@ -101,10 +118,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 """
         self.style = {}
         self.statistics = {}
+        self.fluid_output = 'fs->write(\'v\', \'c\');\n'
         return None
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
+        if self.dtype == np.float32:
+            self.stat_src += 'H5::FloatType field_dtype(H5::PredType::NATIVE_FLOAT);\n'
+        elif self.dtype == np.float64:
+            self.stat_src += 'H5::FloatType field_dtype(H5::PredType::NATIVE_DOUBLE);\n'
         self.stat_src += """
                 //begincpp
                     double *velocity_moments = fftw_alloc_real(10*4);
@@ -112,6 +134,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
                     ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
                     fs->compute_velocity(fs->cvorticity);
+                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
+                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
+                    fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
+                    fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     fs->ift_velocity();
                     fs->compute_rspace_stats(fs->rvelocity,
                                              velocity_moments,
@@ -124,15 +150,26 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                              hist_vorticity,
                                              max_vorticity_estimate,
                                              histogram_bins);
-                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
-                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
-                    fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
-                    fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     if (myrank == 0)
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
                         hsize_t count[4], offset[4], old_dims[4];
+                        //xlines
+                        dset = data_file->openDataSet("statistics/xlines/velocity");
+                        writespace = dset.getSpace();
+                        writespace.getSimpleExtentDims(old_dims);
+                        count[0] = 1;
+                        count[1] = nx;
+                        count[2] = 3;
+                        memspace = H5::DataSpace(3, count);
+                        offset[0] = fs->iteration/niter_stat;
+                        offset[1] = 0;
+                        offset[2] = 0;
+                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
+                        dset.write(fs->rvelocity, field_dtype, memspace, writespace);
+                        dset = data_file->openDataSet("statistics/xlines/vorticity");
+                        dset.write(fs->rvorticity, field_dtype, memspace, writespace);
                         //moments
                         dset = data_file->openDataSet("statistics/moments/velocity");
                         writespace = dset.getSpace();
@@ -141,7 +178,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         count[1] = 10;
                         count[2] = 4;
                         memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration;
+                        offset[0] = fs->iteration/niter_stat;
                         offset[1] = 0;
                         offset[2] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
@@ -155,7 +192,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         count[1] = histogram_bins;
                         count[2] = 4;
                         memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration;
+                        offset[0] = fs->iteration/niter_stat;
                         offset[1] = 0;
                         offset[2] = 0;
                         writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
@@ -198,7 +235,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz,
-                        dealias_type);
+                        dealias_type,
+                        {1});
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -208,21 +246,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->iteration = iteration;
                 fs->read('v', 'c');
                 //endcpp
-                """.format(self.C_dtype)
-        self.fluid_loop += """
-                //begincpp
-                fs->step(dt);
-                if (fs->iteration % niter_out == 0)
-                    fs->write('v', 'c');
-                //endcpp
-                """
-        self.fluid_end += """
-                //begincpp
-                if (fs->iteration % niter_out != 0)
-                    fs->write('v', 'c');
-                delete fs;
-                //endcpp
-                """
+                """.format(self.C_dtype, self.fftw_plan_rigor)
+        self.fluid_loop = ('fs->step(dt);\n' +
+                           'if (fs->iteration % niter_out == 0)\n{\n' +
+                           self.fluid_output + '\n}\n')
+        self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
+                          self.fluid_output + '\n}\n' +
+                          'delete fs;\n')
         return None
     def add_particles(
             self,
@@ -264,7 +294,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                        '{0} *acc_field_tmp = {1}_alloc_real(fs->cd->local_size*2);\n' +
                        'fs->compute_acceleration(acc_field_tmp);\n' +
                        'ps{2}->rFFTW_to_buffered(acc_field_tmp, acc_field);\n' +
-                       'ps{2}->sample_vec_field(acc_field+ps{2}->buffer_size, acceleration);\n' +
+                       'ps{2}->sample_vec_field(acc_field, acceleration);\n' +
                        '{1}_free(acc_field_tmp);\n' +
                        '{1}_free(acc_field);\n').format(self.C_dtype, FFTW, self.particle_species)
         output_vel_acc =  """
@@ -324,87 +354,66 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
-    def basic_plots(
-            self,
-            spectra_on = True,
-            particles_on = True):
-        self.compute_statistics()
-
-        # plot energy and enstrophy
-        fig = plt.figure(figsize = (12, 6))
-        a = fig.add_subplot(121)
-        a.plot(self.statistics['t'], self.statistics['kM']*self.statistics['etaK(t)'], label = '$k_M \eta_K$')
-        a.plot(self.statistics['t'],
-               (self.parameters['dt']*self.statistics['vel_max(t)'] /
-                (2*np.pi/self.parameters['nx'])),
-               label = '$\\frac{\\Delta t}{\\Delta x} \\| u \\|_\infty$')
-        a.legend(loc = 'best')
-        a = fig.add_subplot(122)
-        a.plot(self.statistics['t'], self.statistics['energy(t)'], label = 'energy', color = (0, 0, 1))
-        a.plot(self.statistics['t'], self.statistics['renergy(t)'], label = 'energy', color = (0, 0, 1))
-        a.set_ylabel('energy', color = (0, 0, 1))
-        a.set_xlabel('$t$')
-        for tt in a.get_yticklabels():
-            tt.set_color((0, 0, 1))
-        b = a.twinx()
-        b.plot(self.statistics['t'], self.statistics['enstrophy(t)'], label = 'enstrophy', color = (1, 0, 0))
-        b.set_ylabel('enstrophy', color = (1, 0, 0))
-        for tt in b.get_yticklabels():
-            tt.set_color((1, 0, 0))
-        fig.savefig('stats.pdf', format = 'pdf')
-
-        # plot spectra
-        if spectra_on:
-            fig = plt.figure(figsize=(12, 6))
-            a = fig.add_subplot(121)
-            self.plot_spectrum(a, average = False)
-            a.set_title('velocity')
-            a = fig.add_subplot(122)
-            self.plot_spectrum(a, average = False, field = 'vorticity')
-            a.set_title('vorticity')
-            fig.savefig('spectrum.pdf', format = 'pdf')
-
-
-        # plot particles
-        if particles_on and self.particle_species > 0:
-            fig = plt.figure(figsize = (12, 12))
-            a = fig.add_subplot(111, projection = '3d')
-            for t in range(self.parameters['nparticles']):
-                a.plot(self.trajectories[0][:, t, 0],
-                       self.trajectories[0][:, t, 1],
-                       self.trajectories[0][:, t, 2], color = 'blue')
-                a.plot(self.trajectories[1][:, t, 0],
-                       self.trajectories[1][:, t, 1],
-                       self.trajectories[1][:, t, 2], color = 'red', dashes = (1, 1))
-            fig.savefig('traj.pdf', format = 'pdf')
-        return None
     def get_data_file(self):
-        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
-    def compute_statistics(self, iter0 = 0):
+        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+    def compute_statistics(self, iter0 = 0, iter1 = None):
         if len(list(self.statistics.keys())) > 0:
             return None
         self.read_parameters()
         with self.get_data_file() as data_file:
             if 'moments' not in data_file['statistics'].keys():
                 return None
-            iter0 = min(data_file['statistics/moments/velocity'].shape[0]-1, iter0)
-            iter1 = data_file['iteration'].value
-            self.statistics['t'] = self.parameters['dt']*np.arange(iter0, iter1+1).astype(np.float)
+            iter0 = min(data_file['statistics/moments/velocity'].shape[0]*self.parameters['niter_stat']-1,
+                        iter0)
+            if type(iter1) == type(None):
+                iter1 = data_file['iteration'].value
+            else:
+                iter1 = min(data_file['iteration'].value, iter1)
+            ii0 = iter0 // self.parameters['niter_stat']
+            ii1 = iter1 // self.parameters['niter_stat']
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
-            self.statistics['energy(t, k)'] = (data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 0, 0] +
-                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 1, 1] +
-                                               data_file['statistics/spectra/velocity_velocity'][iter0:iter1+1, :, 2, 2])/2
-            self.statistics['enstrophy(t, k)'] = (data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 0, 0] +
-                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 1, 1] +
-                                                  data_file['statistics/spectra/vorticity_vorticity'][iter0:iter1+1, :, 2, 2])/2
-            self.statistics['vel_max(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 9, 3]
-            self.statistics['renegergy(t)'] = data_file['statistics/moments/velocity'][iter0:iter1+1, 2, 3]/2
             if self.particle_species > 0:
                 self.trajectories = [
                         data_file['particles/' + key + '/state'][
                             iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']+1]
                                      for key in data_file['particles'].keys()]
+            computation_needed = True
+            if 'postprocess' in data_file.keys():
+                computation_needed =  not (ii0 == data_file['postprocess/ii0'].value and
+                                           ii1 == data_file['postprocess/ii1'].value)
+                if computation_needed:
+                    for k in ['t',
+                              'energy(t, k)',
+                              'enstrophy(t, k)',
+                              'vel_max(t)',
+                              'renergy(t)']:
+                        del data_file['postprocess/' + k]
+            else:
+                data_file['postprocess/iter0'] = iter0
+                data_file['postprocess/iter1'] = iter1
+                data_file['postprocess/ii0'] = ii0
+                data_file['postprocess/ii1'] = ii1
+                if computation_needed:
+                    data_file['postprocess/t'] = (self.parameters['dt']*
+                                                  self.parameters['niter_stat']*
+                                                  (np.arange(ii0, ii1+1).astype(np.float)))
+                    data_file['postprocess/energy(t, k)'] = (
+                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 0, 0] +
+                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 1, 1] +
+                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 2, 2])/2
+                    data_file['postprocess/enstrophy(t, k)'] = (
+                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 0, 0] +
+                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 1, 1] +
+                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
+                    data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
+                    data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
+            for k in ['t',
+                      'energy(t, k)',
+                      'enstrophy(t, k)',
+                      'vel_max(t)',
+                      'renergy(t)']:
+                self.statistics[k] = data_file['postprocess/' + k].value
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
@@ -423,53 +432,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                     self.statistics['diss' + suffix])**.5
         self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
-        return None
-    def plot_spectrum(
-            self,
-            axis,
-            quantity = 'energy',
-            average = True,
-            color = (1, 0, 0),
-            cmap = 'coolwarm',
-            add_Kspec = True,
-            normalize_k = True,
-            normalization = 'energy',
-            label = None):
-        self.compute_statistics()
-        norm_factor = 1.0
-        if normalization == 'energy':
-            norm_factor = (self.parameters['nu']**5 * self.statistics['diss'])**(-.25)
-        k = self.statistics['kshell'].copy()
-        if normalize_k:
-            k *= self.statistics['etaK']
-        if average:
-            axis.plot(
-                    k,
-                    self.statistics[quantity + '(k)']*norm_factor,
-                    color = color,
-                    label = label)
-        else:
-            for i in range(self.statistics[quantity + '(t, k)'].shape[0]):
-                axis.plot(k,
-                          self.statistics[quantity + '(t, k)'][i]*norm_factor,
-                          color = plt.get_cmap(cmap)(i*1.0/self.statistics[quantity + '(t, k)'].shape[0]))
-        if add_Kspec:
-            axis.plot(
-                    k,
-                    2*k**(-5./3),
-                    color = 'black',
-                    dashes = (1, 1),
-                    label = '$2(k \\eta_K)^{-5/3}$')
-        axis.set_xscale('log')
-        axis.set_yscale('log')
+        self.statistics['Lint'] = (2*self.statistics['energy'])**1.5 / self.statistics['diss']
+        self.statistics['Taylor_microscale'] = (10 * self.parameters['nu'] * self.statistics['energy'] / self.statistics['diss'])**.5
         return None
     def set_plt_style(
             self,
             style = {'dashes' : (None, None)}):
         self.style.update(style)
         return None
-
-import subprocess
 
 def launch(
         opt,
@@ -499,9 +469,4 @@ def launch(
             c.generate_initial_condition()
         c.run(ncpu = opt.ncpu, njobs = opt.njobs)
     return c
-
-def test(opt):
-    c = launch(opt)
-    c.basic_plots()
-    return None
 

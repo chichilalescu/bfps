@@ -1,28 +1,35 @@
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
+
+
 
 import h5py
 import subprocess
 import os
 import shutil
 from datetime import datetime
+import math
 import bfps
 from bfps.base import base
 
@@ -63,6 +70,8 @@ class code(base):
                     MPI_Init(&argc, &argv);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                    fftw_mpi_init();
+                    fftwf_mpi_init();
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
@@ -136,6 +145,7 @@ class code(base):
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
+        self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
         return subprocess.call(command_strings)
     def set_host_info(
@@ -230,7 +240,7 @@ class code(base):
         if not type(out_file) == type(None):
             script_file.write('#$ -o ' + out_file + '\n')
         if not type(self.host_info['environment']) == type(None):
-            envprocs = (nprocesses / self.host_info['deltanprocs'] + 1) * self.host_info['deltanprocs']
+            envprocs = self.host_info['deltanprocs'] * int(math.ceil((nprocesses *1.0/ self.host_info['deltanprocs'])))
             script_file.write('#$ -pe {0} {1}\n'.format(
                     self.host_info['environment'],
                     envprocs))

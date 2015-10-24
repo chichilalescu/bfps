@@ -1,24 +1,26 @@
-/***********************************************************************
-*
-*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Contact: Cristian.Lalescu@ds.mpg.de
-*
-************************************************************************/
-
-
+/**********************************************************************
+*                                                                     *
+*  Copyright 2015 Max Planck Institute                                *
+*                 for Dynamics and Self-Organization                  *
+*                                                                     *
+*  This file is part of bfps.                                         *
+*                                                                     *
+*  bfps is free software: you can redistribute it and/or modify       *
+*  it under the terms of the GNU General Public License as published  *
+*  by the Free Software Foundation, either version 3 of the License,  *
+*  or (at your option) any later version.                             *
+*                                                                     *
+*  bfps is distributed in the hope that it will be useful,            *
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
+*  GNU General Public License for more details.                       *
+*                                                                     *
+*  You should have received a copy of the GNU General Public License  *
+*  along with bfps.  If not, see <http://www.gnu.org/licenses/>       *
+*                                                                     *
+* Contact: Cristian.Lalescu@ds.mpg.de                                 *
+*                                                                     *
+**********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
 //#ifdef NDEBUG
@@ -765,7 +767,9 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
     /* get upper slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
-        rsrc = MOD(rdst+1, this->fs->rd->nprocs); \
+        rsrc = this->fs->rd->rank[(this->fs->rd->all_start0[rdst] + \
+                                   this->fs->rd->all_size0[rdst]) % \
+                                   this->fs->rd->sizes[0]]; \
         if (this->fs->rd->myrank == rsrc) \
             MPI_Send( \
                     (void*)(src), \
@@ -787,7 +791,8 @@ void slab_field_particles<R>::rFFTW_to_buffered(R *src, R *dst) \
     /* get lower slices */ \
     for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
     { \
-        rsrc = MOD(rdst-1, this->fs->rd->nprocs); \
+        rsrc = this->fs->rd->rank[MOD(this->fs->rd->all_start0[rdst] - 1, \
+                                      this->fs->rd->sizes[0])]; \
         if (this->fs->rd->myrank == rsrc) \
             MPI_Send( \
                     (void*)(src + this->fs->rd->local_size - this->buffer_size), \

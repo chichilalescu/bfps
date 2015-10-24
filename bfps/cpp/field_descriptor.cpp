@@ -1,22 +1,26 @@
-/***********************************************************************
-*
-*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Contact: Cristian.Lalescu@ds.mpg.de
-*
-************************************************************************/
+/**********************************************************************
+*                                                                     *
+*  Copyright 2015 Max Planck Institute                                *
+*                 for Dynamics and Self-Organization                  *
+*                                                                     *
+*  This file is part of bfps.                                         *
+*                                                                     *
+*  bfps is free software: you can redistribute it and/or modify       *
+*  it under the terms of the GNU General Public License as published  *
+*  by the Free Software Foundation, either version 3 of the License,  *
+*  or (at your option) any later version.                             *
+*                                                                     *
+*  bfps is distributed in the hope that it will be useful,            *
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
+*  GNU General Public License for more details.                       *
+*                                                                     *
+*  You should have received a copy of the GNU General Public License  *
+*  along with bfps.  If not, see <http://www.gnu.org/licenses/>       *
+*                                                                     *
+* Contact: Cristian.Lalescu@ds.mpg.de                                 *
+*                                                                     *
+**********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
 //#ifdef NDEBUG
@@ -200,6 +204,34 @@ field_descriptor<R>::field_descriptor( \
             MPI_SUM, \
             this->comm); \
     delete[] local_rank; \
+    this->all_start0 = new int[this->nprocs]; \
+    int *local_start0 = new int[this->nprocs]; \
+    std::fill_n(local_start0, this->nprocs, 0); \
+    for (int i = 0; i < this->nprocs; i++) \
+        if (this->myrank == i) \
+            local_start0[i] = this->starts[0]; \
+    MPI_Allreduce( \
+            local_start0, \
+            this->all_start0, \
+            this->nprocs, \
+            MPI_INT, \
+            MPI_SUM, \
+            this->comm); \
+    delete[] local_start0; \
+    this->all_size0  = new int[this->nprocs]; \
+    int *local_size0 = new int[this->nprocs]; \
+    std::fill_n(local_size0, this->nprocs, 0); \
+    for (int i = 0; i < this->nprocs; i++) \
+        if (this->myrank == i) \
+            local_size0[i] = this->subsizes[0]; \
+    MPI_Allreduce( \
+            local_size0, \
+            this->all_size0, \
+            this->nprocs, \
+            MPI_INT, \
+            MPI_SUM, \
+            this->comm); \
+    delete[] local_size0; \
     DEBUG_MSG("exiting field_descriptor constructor\n"); \
 } \
  \
@@ -503,6 +535,8 @@ field_descriptor<rnumber>::~field_descriptor()
     delete[] this->subsizes;
     delete[] this->starts;
     delete[] this->rank;
+    delete[] this->all_start0;
+    delete[] this->all_size0;
 }
 /*****************************************************************************/
 

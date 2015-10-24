@@ -1,25 +1,37 @@
 #! /usr/bin/env python2
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
+
+
 
 from test_base import *
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+parser.add_argument('--multiplejob',
+        dest = 'multiplejob', action = 'store_true')
 
 def plain(opt):
     wd = opt.work_dir
@@ -28,11 +40,17 @@ def plain(opt):
     c0.compute_statistics()
     if not opt.multiplejob:
         return None
+    assert(opt.niter_todo % 3 == 0)
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
-    opt.nsteps /= 2
+    opt.niter_todo /= 2
     c1 = launch(opt)
     c1.compute_statistics()
+    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
+    opt.njobs = 3*opt.njobs/2
+    opt.niter_todo = 2*opt.niter_todo/3
+    c2 = launch(opt)
+    c2.compute_statistics()
     # plot energy and enstrophy
     fig = plt.figure(figsize = (12, 12))
     a = fig.add_subplot(221)
@@ -42,7 +60,10 @@ def plain(opt):
     c1.set_plt_style({'label' : '2',
                       'dashes' : (2, 2),
                       'color' : (0, 0, 1)})
-    for c in [c0, c1]:
+    c2.set_plt_style({'label' : '3',
+                      'dashes' : (3, 3),
+                      'color' : (0, 1, 0)})
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['energy(t)'],
                label = c.style['label'],
@@ -51,21 +72,21 @@ def plain(opt):
     a.set_title('energy')
     a.legend(loc = 'best')
     a = fig.add_subplot(222)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['enstrophy(t)'],
                dashes = c.style['dashes'],
                color = c.style['color'])
     a.set_title('enstrophy')
     a = fig.add_subplot(223)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['kM']*c.statistics['etaK(t)'],
                dashes = c.style['dashes'],
                color = c.style['color'])
     a.set_title('$k_M \\eta_K$')
     a = fig.add_subplot(224)
-    for c in [c0, c1]:
+    for c in [c0, c1, c2]:
         a.plot(c.statistics['t'],
                c.statistics['vel_max(t)'] * (c.parameters['dt'] * c.parameters['dkx'] /
                                              (2*np.pi / c.parameters['nx'])),

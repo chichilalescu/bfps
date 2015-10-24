@@ -1,22 +1,26 @@
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
 
 
 
@@ -43,7 +47,6 @@ VERSION = date_name
 
 src_file_list = ['field_descriptor',
                  'fftw_tools',
-                 'vector_field',
                  'fluid_solver_base',
                  'fluid_solver',
                  'slab_field_particles',
@@ -89,7 +92,7 @@ libbfps = Extension(
 setup(
         name = 'bfps',
         packages = ['bfps'],
-        install_requires = ['numpy>=1.8', 'matplotlib>=1.3', 'h5py>=2.2.1'],
+        install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
         ext_modules = [libbfps],
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'install_info.pickle']},
@@ -101,5 +104,5 @@ setup(
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
         version = VERSION,
-        license = 'Apache Version 2.0')
+        license = 'GPL version 3.0')
 

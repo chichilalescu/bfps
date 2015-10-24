@@ -1,22 +1,26 @@
-/***********************************************************************
-*
-*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Contact: Cristian.Lalescu@ds.mpg.de
-*
-************************************************************************/
+/**********************************************************************
+*                                                                     *
+*  Copyright 2015 Max Planck Institute                                *
+*                 for Dynamics and Self-Organization                  *
+*                                                                     *
+*  This file is part of bfps.                                         *
+*                                                                     *
+*  bfps is free software: you can redistribute it and/or modify       *
+*  it under the terms of the GNU General Public License as published  *
+*  by the Free Software Foundation, either version 3 of the License,  *
+*  or (at your option) any later version.                             *
+*                                                                     *
+*  bfps is distributed in the hope that it will be useful,            *
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
+*  GNU General Public License for more details.                       *
+*                                                                     *
+*  You should have received a copy of the GNU General Public License  *
+*  along with bfps.  If not, see <http://www.gnu.org/licenses/>       *
+*                                                                     *
+* Contact: Cristian.Lalescu@ds.mpg.de                                 *
+*                                                                     *
+**********************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +50,7 @@ class fluid_solver_base
     public:
         field_descriptor<rnumber> *cd, *rd;
         ptrdiff_t normalization_factor;
+        unsigned fftw_plan_rigor;
 
         /* simulation parameters */
         char name[256];
@@ -73,7 +78,8 @@ class fluid_solver_base
                 double DKX = 1.0,
                 double DKY = 1.0,
                 double DKZ = 1.0,
-                int DEALIAS_TYPE = 0);
+                int DEALIAS_TYPE = 0,
+                unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *a, int howmany, double kmax);
@@ -83,7 +89,7 @@ class fluid_solver_base
         void clean_up_real_space(rnumber *a, int howmany);
         void cospectrum(cnumber *a, cnumber *b, double *spec);
         void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent);
-        rnumber autocorrel(cnumber *a);
+        double autocorrel(cnumber *a);
         void compute_rspace_stats(rnumber *a,
                                   double *moments,
                                   ptrdiff_t *hist,

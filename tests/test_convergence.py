@@ -1,23 +1,34 @@
 #! /usr/bin/env python2
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
+
+
+
+import numpy as np
+import h5py
+from mpl_toolkits.mplot3d import axes3d
+import matplotlib.pyplot as plt
 
 from test_base import *
 
@@ -29,32 +40,30 @@ def convergence_test(
     ### test Navier Stokes convergence
     # first, run code three times, doubling and quadrupling the resolution
     # initial condition and viscosity must be the same!
-    default_wd = opt.work_dir
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c0 = code_launch_routine(
             opt,
             vorticity_field = init_vorticity,
             code_class = code_class)
     opt.initialize = False
-    opt.work_dir = default_wd
     double(opt)
-    opt.iteration = 0
     opt.n *= 2
-    opt.nsteps *= 2
+    opt.niter_todo *= 2
+    opt.niter_stat *= 2
     opt.ncpu *= 2
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c1 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],
             vorticity_field = init_vorticity,
             code_class = code_class,
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
-    opt.work_dir = default_wd
     double(opt)
     opt.n *= 2
-    opt.nsteps *= 2
+    opt.niter_todo *= 2
+    opt.niter_stat *= 2
     opt.ncpu *= 2
-    opt.work_dir = default_wd + '/N{0:0>3x}'.format(opt.n)
+    opt.simname = 'N{0:0>3x}'.format(opt.n)
     c2 = code_launch_routine(
             opt,
             nu = c0.parameters['nu'],

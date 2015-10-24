@@ -1,24 +1,26 @@
-/***********************************************************************
-*
-*  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-* Contact: Cristian.Lalescu@ds.mpg.de
-*
-************************************************************************/
-
-
+/**********************************************************************
+*                                                                     *
+*  Copyright 2015 Max Planck Institute                                *
+*                 for Dynamics and Self-Organization                  *
+*                                                                     *
+*  This file is part of bfps.                                         *
+*                                                                     *
+*  bfps is free software: you can redistribute it and/or modify       *
+*  it under the terms of the GNU General Public License as published  *
+*  by the Free Software Foundation, either version 3 of the License,  *
+*  or (at your option) any later version.                             *
+*                                                                     *
+*  bfps is distributed in the hope that it will be useful,            *
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
+*  GNU General Public License for more details.                       *
+*                                                                     *
+*  You should have received a copy of the GNU General Public License  *
+*  along with bfps.  If not, see <http://www.gnu.org/licenses/>       *
+*                                                                     *
+* Contact: Cristian.Lalescu@ds.mpg.de                                 *
+*                                                                     *
+**********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
 //#ifdef NDEBUG
@@ -58,19 +60,19 @@ fluid_solver<R>::fluid_solver( \
         double DKX, \
         double DKY, \
         double DKZ, \
-        int DEALIAS_TYPE) : fluid_solver_base<R>(NAME, \
-                                                 nx , ny , nz, \
-                                                 DKX, DKY, DKZ, \
-                                                 DEALIAS_TYPE) \
+        int DEALIAS_TYPE, \
+        unsigned FFTW_PLAN_RIGOR) : fluid_solver_base<R>( \
+                NAME, \
+                nx , ny , nz, \
+                DKX, DKY, DKZ, \
+                DEALIAS_TYPE, \
+                FFTW_PLAN_RIGOR) \
 { \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
     this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
-    this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
-    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
-    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
-    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
+    this->rvelocity  = (R*)(this->cvelocity);\
+    /*this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);*/\
  \
     this->ru = this->rvelocity;\
     this->cu = this->cvelocity;\
@@ -84,10 +86,6 @@ fluid_solver<R>::fluid_solver( \
     this->cv[2] = FFTW(alloc_complex)(this->cd->local_size);\
     this->rv[1] = FFTW(alloc_real)(this->cd->local_size*2);\
     this->rv[2] = FFTW(alloc_real)(this->cd->local_size*2);\
-    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
-    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
-    std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
-    std::fill_n(this->rv[2], this->cd->local_size*2, 0.0); \
  \
     this->c2r_vorticity = new FFTW(plan);\
     this->r2c_vorticity = new FFTW(plan);\
@@ -101,22 +99,22 @@ fluid_solver<R>::fluid_solver( \
     *(FFTW(plan)*)this->c2r_vorticity = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cvorticity, this->rvorticity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->r2c_vorticity = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rvorticity, this->cvorticity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     *(FFTW(plan)*)this->c2r_velocity = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cvelocity, this->rvelocity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->r2c_velocity = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rvelocity, this->cvelocity, \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     this->uc2r = this->c2r_velocity;\
     this->ur2c = this->r2c_velocity;\
@@ -131,22 +129,22 @@ fluid_solver<R>::fluid_solver( \
     *(FFTW(plan)*)(this->vc2r[1]) = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cv[1], this->rv[1], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->vc2r[2] = FFTW(mpi_plan_many_dft_c2r)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->cv[2], this->rv[2], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
  \
     *(FFTW(plan)*)this->vr2c[1] = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rv[1], this->cv[1], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     *(FFTW(plan)*)this->vr2c[2] = FFTW(mpi_plan_many_dft_r2c)( \
             3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, \
             this->rv[2], this->cv[2], \
-            MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT); \
+            MPI_COMM_WORLD, this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT); \
  \
     /* ``physical'' parameters etc, initialized here just in case */ \
  \
@@ -155,6 +153,15 @@ fluid_solver<R>::fluid_solver( \
     this->famplitude = 1.0; \
     this->fk0  = 0; \
     this->fk1 = 3.0; \
+    /* initialization of fields must be done AFTER planning */ \
+    std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
+    /*std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0);*/ \
+    std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rv[2], this->cd->local_size*2, 0.0); \
 } \
  \
 template<> \
@@ -188,7 +195,7 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->cvorticity);\
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
-    FFTW(free)(this->rvelocity);\
+    /*FFTW(free)(this->rvelocity);*/\
     DEBUG_MSG("freed arrays\n"); \
     DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
@@ -235,7 +242,7 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 template<> \
 void fluid_solver<R>::ift_velocity() \
 { \
-    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
+    /*std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0);*/ \
     FFTW(execute)(*((FFTW(plan)*)this->c2r_velocity )); \
 } \
  \

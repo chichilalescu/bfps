@@ -1,22 +1,28 @@
-########################################################################
-#
-#  Copyright 2015 Max Planck Institute for Dynamics and SelfOrganization
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Contact: Cristian.Lalescu@ds.mpg.de
-#
-########################################################################
+#######################################################################
+#                                                                     #
+#  Copyright 2015 Max Planck Institute                                #
+#                 for Dynamics and Self-Organization                  #
+#                                                                     #
+#  This file is part of bfps.                                         #
+#                                                                     #
+#  bfps is free software: you can redistribute it and/or modify       #
+#  it under the terms of the GNU General Public License as published  #
+#  by the Free Software Foundation, either version 3 of the License,  #
+#  or (at your option) any later version.                             #
+#                                                                     #
+#  bfps is distributed in the hope that it will be useful,            #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      #
+#  GNU General Public License for more details.                       #
+#                                                                     #
+#  You should have received a copy of the GNU General Public License  #
+#  along with bfps.  If not, see <http://www.gnu.org/licenses/>       #
+#                                                                     #
+# Contact: Cristian.Lalescu@ds.mpg.de                                 #
+#                                                                     #
+#######################################################################
+
+
 
 import bfps
 import bfps.code
@@ -57,6 +63,7 @@ class fluid_particle_base(bfps.code):
         self.parameters['dkz'] = 1.0
         self.parameters['niter_todo'] = 8
         self.parameters['niter_part'] = 1
+        self.parameters['niter_stat'] = 1
         self.parameters['niter_out'] = 1024
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
@@ -76,6 +83,7 @@ class fluid_particle_base(bfps.code):
         self.fluid_start = ''
         self.fluid_loop = ''
         self.fluid_end  = ''
+        self.fluid_output = ''
         self.particle_includes = '#include "tracers.hpp"\n'
         self.particle_variables = ''
         self.particle_definitions = ''
@@ -102,6 +110,33 @@ class fluid_particle_base(bfps.code):
                              'return file_problems;\n'
                              '}\n')
         self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
+        # take care of wisdom
+        if self.dtype == np.float32:
+            fftw_prefix = 'fftwf_'
+        elif self.dtype == np.float64:
+            fftw_prefix = 'fftw_'
+        self.main_start += """
+                    //begincpp
+                    if (myrank == 0)
+                    {{
+                        char fname[256];
+                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                        {0}import_wisdom_from_filename(fname);
+                    }}
+                    {0}mpi_broadcast_wisdom(MPI_COMM_WORLD);
+                    //endcpp
+                    """.format(fftw_prefix)
+        self.main_end = """
+                    //begincpp
+                    {0}mpi_gather_wisdom(MPI_COMM_WORLD);
+                    if (myrank == 0)
+                    {{
+                        char fname[256];
+                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                        {0}export_wisdom_to_filename(fname);
+                    }}
+                    //endcpp
+                    """.format(fftw_prefix) + self.main_end
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
@@ -136,10 +171,11 @@ class fluid_particle_base(bfps.code):
         self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
-        self.main       += 'do_stats();\n}\n'
+        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n}\n'
         self.main       += output_time_difference
         if self.particle_species > 0:
             self.main   += self.particle_end
+        self.main       += 'do_stats();\n'
         self.main       += self.fluid_end
         return None
     def read_rfield(
@@ -196,28 +232,6 @@ class fluid_particle_base(bfps.code):
         axis.set_title('{0}'.format(np.average(Rdata0[..., 0]**2 +
                                                Rdata0[..., 1]**2 +
                                                Rdata0[..., 2]**2)*.5))
-        return Rdata0
-    def generate_vdf(
-            self,
-            field = 'velocity',
-            iteration = 0,
-            filename = None):
-        Rdata0 = self.read_rfield(field = field, iteration = iteration, filename = filename)
-        subprocess.call(['vdfcreate',
-                         '-dimension',
-                         '{0}x{1}x{2}'.format(self.parameters['nz'],
-                                              self.parameters['ny'],
-                                              self.parameters['nx']),
-                         '-numts', '1',
-                         '-vars3d', '{0}x:{0}y:{0}z'.format(field),
-                         filename + '.vdf'])
-        for loop_data in [(0, 'x'), (1, 'y'), (2, 'z')]:
-            Rdata0[..., loop_data[0]].tofile('tmprawfile')
-            subprocess.call(['raw2vdf',
-                             '-ts', '0',
-                             '-varname', '{0}{1}'.format(field, loop_data[1]),
-                             filename + '.vdf',
-                             'tmprawfile'])
         return Rdata0
     def generate_vector_field(
             self,
@@ -331,6 +345,11 @@ class fluid_particle_base(bfps.code):
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
         return kspace
     def write_par(self, iter0 = 0):
+        assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
+        assert (self.parameters['niter_todo'] % self.parameters['niter_out']  == 0)
+        assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
+        assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
+        assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
         super(fluid_particle_base, self).write_par(iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             ofile['field_dtype'] = np.dtype(self.dtype).str
@@ -339,20 +358,30 @@ class fluid_particle_base(bfps.code):
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
             for k in ['velocity', 'vorticity']:
+                time_chunk = 2**20//(8*3*self.parameters['nx'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/xlines/' + k,
+                                     (1, self.parameters['nx'], 3),
+                                     chunks = (time_chunk, self.parameters['nx'], 3),
+                                     maxshape = (None, self.parameters['nx'], 3),
+                                     dtype = self.dtype,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
                                      (1, nshells, 3, 3),
                                      chunks = (time_chunk, nshells, 3, 3),
                                      maxshape = (None, nshells, 3, 3),
-                                     dtype = np.float64)
+                                     dtype = np.float64,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*4*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/' + k,
                                      (1, 10, 4),
                                      chunks = (time_chunk, 10, 4),
                                      maxshape = (None, 10, 4),
-                                     dtype = np.float64)
+                                     dtype = np.float64,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/' + k,
@@ -365,7 +394,8 @@ class fluid_particle_base(bfps.code):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  4),
-                                     dtype = np.int64)
+                                     dtype = np.int64,
+                                     compression = 'gzip')
             for s in range(self.particle_species):
                 time_chunk = 2**20 // (8*3*
                                        self.parameters['nparticles']*
