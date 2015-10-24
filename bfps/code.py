@@ -29,6 +29,7 @@ import subprocess
 import os
 import shutil
 from datetime import datetime
+import math
 import bfps
 from bfps.base import base
 
@@ -239,8 +240,7 @@ class code(base):
         if not type(out_file) == type(None):
             script_file.write('#$ -o ' + out_file + '\n')
         if not type(self.host_info['environment']) == type(None):
-            envprocs = self.host_info['deltanprocs'] * (nprocesses // self.host_info['deltanprocs'])
-            envprocs = max(envprocs, self.host_info['deltanprocs'])
+            envprocs = self.host_info['deltanprocs'] * int(math.ceil((nprocesses *1.0/ self.host_info['deltanprocs'])))
             script_file.write('#$ -pe {0} {1}\n'.format(
                     self.host_info['environment'],
                     envprocs))
