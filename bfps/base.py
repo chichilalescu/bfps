@@ -65,7 +65,8 @@ class base(object):
                  + 'H5::DataSet dset;\n'
                  + 'H5::StrType strdtype(0, H5T_VARIABLE);\n'
                  + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
-                 + 'std::string tempstr;')
+                 + 'hid_t data_file_id;\n'
+                 + 'std::string tempstr;\n')
         for i in range(len(key)):
             src_txt += 'dset = data_file->openDataSet("parameters/{0}");\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
@@ -103,7 +104,7 @@ class base(object):
     def read_parameters(self):
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
             for k in data_file['parameters'].keys():
-                self.parameters[k] = data_file['parameters/' + k].value
+                self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
         return None
     def pars_from_namespace(self, opt):
         new_pars = vars(opt)

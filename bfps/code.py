@@ -54,6 +54,7 @@ class code(base):
                 #include <iostream>
                 #include <H5Cpp.h>
                 #include <string>
+                #include <cstring>
                 #include <fftw3-mpi.h>
                 //endcpp
                 """
@@ -117,12 +118,15 @@ class code(base):
                           'queue'       : '',
                           'mail_address': '',
                           'mail_events' : None}
+        self.main = ''
         return None
     def write_src(self):
         with open(self.name + '.cpp', 'w') as outfile:
             outfile.write(self.version_message)
             outfile.write(self.includes)
+            outfile.write(self.cdef_pars())
             outfile.write(self.variables)
+            outfile.write(self.cread_pars())
             outfile.write(self.definitions)
             outfile.write(self.main_start)
             outfile.write(self.main)

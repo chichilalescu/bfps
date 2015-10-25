@@ -94,7 +94,6 @@ class fluid_particle_base(bfps.code):
         self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
-        self.variables  += self.cdef_pars()
         self.definitions+= self.cread_pars()
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
