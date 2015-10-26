@@ -38,8 +38,10 @@ class test_io(bfps.code):
             simname = 'test'):
         super(test_io, self).__init__(work_dir = work_dir, simname = simname)
         self.name = name
-        self.parameters['string_parameter'] = 'test'
+        self.parameters['string_parameter'] = 'test string'
+        self.parameters['other_string_parameter'] = 'another test string'
         self.parameters['niter_todo'] = 0
+        self.parameters['real_number'] = 1.21
         self.main_start += self.cprint_pars()
         return None
 

@@ -32,7 +32,6 @@ if __name__ == '__main__':
     c = bfps.test_io(work_dir = opt.work_dir + '/io')
     c.write_src()
     c.write_par()
-    print sorted(list(c.parameters.keys()))
     c.set_host_info({'type' : 'pc'})
     c.run(ncpu = opt.ncpu)
 
