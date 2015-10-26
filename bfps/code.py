@@ -52,6 +52,7 @@ class code(base):
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include <iostream>
+                #include <hdf5.h>
                 #include <H5Cpp.h>
                 #include <string>
                 #include <cstring>
@@ -90,7 +91,7 @@ class code(base):
                         H5dset.read(&iteration, H5::PredType::NATIVE_INT);
                         DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
                     }
-                    read_parameters();
+                    read_parameters(data_file->getId());
                     if (myrank != 0)
                         delete data_file;
                 //endcpp

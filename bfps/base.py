@@ -61,8 +61,7 @@ class base(object):
     def cread_pars(self):
         key = self.parameters.keys()
         key.sort()
-        src_txt = ('int read_parameters()\n{\n'
-                 + 'hid_t data_file_id = data_file->getId();\n'
+        src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
                  + 'hid_t dset, memtype, space;\n'
                  + 'hsize_t dims[1];\n'
                  + 'char **string_data;\n'
