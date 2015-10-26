@@ -64,7 +64,7 @@ class base(object):
         src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
                  + 'hid_t dset, memtype, space;\n'
                  + 'hsize_t dims[1];\n'
-                 + 'char **string_data;\n'
+                 + 'char *string_data;\n'
                  + 'std::string tempstr;\n')
         for i in range(len(key)):
             src_txt += 'dset = H5Dopen(data_file_id, "parameters/{0}", H5P_DEFAULT);\n'.format(key[i])
@@ -75,9 +75,9 @@ class base(object):
                             'memtype = H5Tcopy(H5T_C_S1);\n' +
                             'H5Tset_size(memtype, H5T_VARIABLE);\n' +
                             'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
-                            'string_data = (char**)malloc(dims[0]*sizeof(char));\n' +
-                            'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, string_data);\n' +
-                            'sprintf({0}, "%s", string_data[0]);\n'.format(key[i]) +
+                            'string_data = (char*)malloc(dims[0]*sizeof(char));\n' +
+                            'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
+                            'sprintf({0}, "%s", string_data);\n'.format(key[i]) +
                             'free(string_data);\n' +
                             'H5Sclose(space);\n' +
                             'H5Tclose(memtype);\n')
