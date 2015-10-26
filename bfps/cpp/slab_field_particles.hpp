@@ -139,7 +139,7 @@ class slab_field_particles
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
 
         /* generic methods, should work for all children of this class */
-        void read(H5::H5File *dfile = NULL);
+        void read(hid_t data_file_id);
         void write(H5::H5File *dfile = NULL, bool write_rhs = true);
 
         /* solver stuff */

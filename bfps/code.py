@@ -92,7 +92,11 @@ class code(base):
                     }
                     read_parameters(parameter_file);
                     H5Fclose(parameter_file);
-                    if (myrank == 0) data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                    if (myrank == 0)
+                    {
+                        data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
+                        parameter_file = data_file->getId();
+                    }
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:

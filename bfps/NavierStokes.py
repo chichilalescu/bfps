@@ -327,7 +327,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{1}->dt = dt;\n' +
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{1}->read(data_file);\n').format(self.C_dtype, self.particle_species)
+                                'ps{1}->read(parameter_file);\n').format(self.C_dtype, self.particle_species)
         self.particle_loop += ((update_field +
                                'ps{0}->step();\n' +
                                 'if (ps{0}->iteration % niter_part == 0)\n' +
