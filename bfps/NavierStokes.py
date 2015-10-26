@@ -72,50 +72,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 dset.write(&fs->kM, double_dtype);
                 dset = data_file->openDataSet("/kspace/dk");
                 dset.write(&fs->dk, double_dtype);
-                // xlines
-                dset = data_file->openDataSet("/statistics/xlines/velocity");
-                dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo/niter_stat + old_dims[0];
-                dims[1] = old_dims[1];
-                dims[2] = old_dims[2];
-                dset.extend(dims);
-                dset = data_file->openDataSet("/statistics/xlines/vorticity");
-                dset.extend(dims);
-                // moments
-                dset = data_file->openDataSet("/statistics/moments/velocity");
-                dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo/niter_stat + old_dims[0];
-                dims[1] = old_dims[1];
-                dims[2] = old_dims[2];
-                dset.extend(dims);
-                dset = data_file->openDataSet("/statistics/moments/vorticity");
-                dset.extend(dims);
-                // histograms
-                dset = data_file->openDataSet("/statistics/histograms/velocity");
-                dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo/niter_stat + old_dims[0];
-                dims[1] = old_dims[1];
-                dims[2] = old_dims[2];
-                dset.extend(dims);
-                dset = data_file->openDataSet("/statistics/histograms/vorticity");
-                dset.extend(dims);
-                // spectra
-                dset = data_file->openDataSet("/statistics/spectra/velocity_velocity");
-                dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(old_dims);
-                dims[0] = niter_todo/niter_stat + old_dims[0];
-                dims[1] = old_dims[1];
-                dims[2] = old_dims[2];
-                dims[3] = old_dims[3];
-                dset.extend(dims);
-                dset = data_file->openDataSet("/statistics/spectra/vorticity_vorticity");
-                dset.extend(dims);
-                dset.close();
                 //endcpp
                 """
+        for field in ['velocity', 'vorticity']:
+            for key in ['/statistics/xlines/{0}'.format(field),
+                        '/statistics/moments/{0}'.format(field),
+                        '/statistics/histograms/{0}'.format(field),
+                        '/statistics/spectra/{0}_{0}'.format(field)]:
+                self.file_datasets_grow += ('dset = data_file->openDataSet("{0}");\n'.format(key) +
+                                            'dspace = dset.getSpace();\n' +
+                                            'dspace.getSimpleExtentDims(dims);\n' +
+                                            'dims[0] += niter_todo/niter_stat;\n' +
+                                            'dset.extend(dims);\n' +
+                                            'dset.close();\n')
         self.style = {}
         self.statistics = {}
         self.fluid_output = 'fs->write(\'v\', \'c\');\n'

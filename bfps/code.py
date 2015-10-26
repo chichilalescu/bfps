@@ -63,7 +63,6 @@ class code(base):
         self.variables += 'int iteration;\n'
         self.variables += 'char simname[256], fname[256];\n'
         self.variables += ('H5::H5File *data_file;\n' +
-                           'H5::DataSet H5dset;\n' +
                            'hid_t parameter_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
@@ -106,8 +105,6 @@ class code(base):
                         Cdset = H5Dopen(data_file->getId(), "iteration", H5P_DEFAULT);
                         H5Dwrite(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
                         H5Dclose(Cdset);
-                        //H5dset = data_file->openDataSet("iteration");
-                        //H5dset.write(&iteration, H5::PredType::NATIVE_INT);
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
