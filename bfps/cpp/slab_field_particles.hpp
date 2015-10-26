@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <H5Cpp.h>
+#include <hdf5.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
 
@@ -140,7 +140,7 @@ class slab_field_particles
 
         /* generic methods, should work for all children of this class */
         void read(hid_t data_file_id);
-        void write(H5::H5File *dfile = NULL, bool write_rhs = true);
+        void write(hid_t data_file_id, bool write_rhs = true);
 
         /* solver stuff */
         void step();

@@ -608,9 +608,7 @@ void slab_field_particles<rnumber>::read(hid_t data_file_id)
         std::string temp_string = (std::string("/particles/") +
                                    std::string(this->name) +
                                    std::string("/state"));
-        DEBUG_MSG("about to open dataset\n");
         hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-        DEBUG_MSG("opened dataset\n");
         hid_t mspace, rspace;
         hsize_t count[4], offset[4];
         rspace = H5Dget_space(Cdset);
@@ -673,67 +671,51 @@ void slab_field_particles<rnumber>::read(hid_t data_file_id)
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
+void slab_field_particles<rnumber>::write(hid_t data_file_id, bool write_rhs)
 {
     if (this->fs->rd->myrank == 0)
     {
-        if (dfile == NULL)
+        std::string temp_string = (std::string("/particles/") +
+                                   std::string(this->name) +
+                                   std::string("/state"));
+        hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+        hid_t mspace, wspace;
+        hsize_t count[4], offset[4];
+        wspace = H5Dget_space(Cdset);
+        H5Sget_simple_extent_dims(wspace, count, NULL);
+        count[0] = 1;
+        offset[0] = this->iteration / this->traj_skip;
+        offset[1] = 0;
+        offset[2] = 0;
+        mspace = H5Screate_simple(3, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->state);
+        H5Sclose(mspace);
+        H5Sclose(wspace);
+        H5Dclose(Cdset);
+        if (write_rhs)
         {
-            char full_name[512];
-            sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
-            FILE *ofile0, *ofile1;
-            ofile0 = fopen(full_name, "wb");
-            fwrite((void*)this->state, sizeof(double), this->array_size, ofile0);
-            fclose(ofile0);
-            if (write_rhs)
-            {
-                sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
-                ofile1 = fopen(full_name, "wb");
-                for (int i=0; i<this->integration_steps; i++)
-                {
-                    fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
-                }
-                fclose(ofile1);
-            }
-        }
-        else
-        {
-            std::string temp_string = (std::string("/particles/") +
-                                       std::string(this->name) +
-                                       std::string("/state"));
-            H5::DataSet dset = dfile->openDataSet(temp_string);
-            H5::DataSpace memspace, writespace;
-            hsize_t count[4], offset[4];
-            writespace = dset.getSpace();
-            writespace.getSimpleExtentDims(count);
+            temp_string = (std::string("/particles/") +
+                           std::string(this->name) +
+                           std::string("/rhs"));
+            Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+            wspace = H5Dget_space(Cdset);
+            H5Sget_simple_extent_dims(wspace, count, NULL);
+            //writing to last available position
+            offset[0] = count[0] - 1;
             count[0] = 1;
-            offset[0] = this->iteration / this->traj_skip;
-            offset[1] = 0;
-            offset[2] = 0;
-            memspace = H5::DataSpace(3, count);
-            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-            dset.write(this->state, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-            if (write_rhs)
+            count[1] = 1;
+            offset[3] = 0;
+            mspace = H5Screate_simple(4, count, NULL);
+            for (int i=0; i<this->integration_steps; i++)
             {
-                temp_string = (std::string("/particles/") +
-                               std::string(this->name) +
-                               std::string("/rhs"));
-                dset = dfile->openDataSet(temp_string);
-                writespace = dset.getSpace();
-                writespace.getSimpleExtentDims(count);
-                //writing to last available position
-                offset[0] = count[0] - 1;
-                count[0] = 1;
-                count[1] = 1;
-                offset[3] = 0;
-                memspace = H5::DataSpace(4, count);
-                for (int i=0; i<this->integration_steps; i++)
-                {
-                    offset[1] = i;
-                    writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                    dset.write(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                }
+                offset[1] = i;
+                H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->rhs[i]);
             }
+            H5Sclose(mspace);
+            H5Sclose(wspace);
+            H5Dclose(Cdset);
         }
     }
 }

@@ -331,9 +331,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_loop += ((update_field +
                                'ps{0}->step();\n' +
                                 'if (ps{0}->iteration % niter_part == 0)\n' +
-                                'ps{0}->write(data_file, false);\n').format(self.particle_species) +
+                                'ps{0}->write(parameter_file, false);\n').format(self.particle_species) +
                                output_vel_acc)
-        self.particle_end += ('ps{0}->write(data_file);\n' +
+        self.particle_end += ('ps{0}->write(parameter_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
         self.particle_species += 1
         return None
