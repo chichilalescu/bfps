@@ -48,11 +48,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
-                H5::IntType ptrdiff_t_dtype(H5::PredType::NATIVE_INT64); //is this ok?
-                H5::FloatType double_dtype(H5::PredType::NATIVE_DOUBLE);
-                H5::DataSet dset;
-                H5::DataSpace dspace;
-                H5::DSetCreatPropList cparms;
                 std::string temp_string;
                 hsize_t dims[4];
                 hid_t Cdset, Cspace;
@@ -84,8 +79,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         '/statistics/moments/{0}'.format(field),
                         '/statistics/histograms/{0}'.format(field),
                         '/statistics/spectra/{0}_{0}'.format(field)]:
-                self.file_datasets_grow += ('dset = data_file->openDataSet("{0}");\n'.format(key) +
-                                            'Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);\n'.format(key) +
+                self.file_datasets_grow += ('Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);\n'.format(key) +
                                             'Cspace = H5Dget_space(Cdset);\n' +
                                             'ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);\n' +
                                             'dims[0] += niter_todo/niter_stat;\n' +
@@ -100,9 +94,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         if self.dtype == np.float32:
-            self.stat_src += 'H5::FloatType field_dtype(H5::PredType::NATIVE_FLOAT);\n'
+            field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
-            self.stat_src += 'H5::FloatType field_dtype(H5::PredType::NATIVE_DOUBLE);\n'
+            field_H5T = 'H5T_NATIVE_DOUBLE'
         self.stat_src += """
                 //begincpp
                     double *velocity_moments = fftw_alloc_real(10*4);
@@ -130,66 +124,72 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     {
                         H5::DataSet dset;
                         H5::DataSpace memspace, writespace;
-                        hsize_t count[4], offset[4], old_dims[4];
-                        //xlines
-                        dset = data_file->openDataSet("statistics/xlines/velocity");
-                        writespace = dset.getSpace();
-                        writespace.getSimpleExtentDims(old_dims);
+                        hid_t Cdset, wspace, mspace;
+                        int ndims;
+                        hsize_t count[4], offset[4], old_dims[4], dims[4];
+                        offset[0] = fs->iteration/niter_stat;
+                        offset[1] = 0;
+                        offset[2] = 0;
+                        offset[3] = 0;
+                //endcpp
+                """
+        size_setups = ["""
                         count[0] = 1;
                         count[1] = nx;
                         count[2] = 3;
-                        memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration/niter_stat;
-                        offset[1] = 0;
-                        offset[2] = 0;
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(fs->rvelocity, field_dtype, memspace, writespace);
-                        dset = data_file->openDataSet("statistics/xlines/vorticity");
-                        dset.write(fs->rvorticity, field_dtype, memspace, writespace);
-                        //moments
-                        dset = data_file->openDataSet("statistics/moments/velocity");
-                        writespace = dset.getSpace();
-                        writespace.getSimpleExtentDims(old_dims);
+                       """,
+                       """
                         count[0] = 1;
                         count[1] = 10;
                         count[2] = 4;
-                        memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration/niter_stat;
-                        offset[1] = 0;
-                        offset[2] = 0;
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(velocity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file->openDataSet("statistics/moments/vorticity");
-                        dset.write(vorticity_moments, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        //histograms
-                        dset = data_file->openDataSet("statistics/histograms/velocity");
-                        writespace = dset.getSpace();
+                       """,
+                       """
                         count[0] = 1;
                         count[1] = histogram_bins;
                         count[2] = 4;
-                        memspace = H5::DataSpace(3, count);
-                        offset[0] = fs->iteration/niter_stat;
-                        offset[1] = 0;
-                        offset[2] = 0;
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(hist_velocity, H5::PredType::NATIVE_INT64, memspace, writespace);
-                        dset = data_file->openDataSet("statistics/histograms/vorticity");
-                        dset.write(hist_vorticity, H5::PredType::NATIVE_INT64, memspace, writespace);
-                        //spectra
-                        dset = data_file->openDataSet("statistics/spectra/velocity_velocity");
-                        writespace = dset.getSpace();
+                       """,
+                       """
+                        count[0] = 1;
                         count[1] = fs->nshells;
                         count[2] = 3;
                         count[3] = 3;
-                        memspace = H5::DataSpace(4, count);
-                        offset[3] = 0;
-                        writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                        dset.write(spec_velocity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file->openDataSet("statistics/spectra/vorticity_vorticity");
-                        dset.write(spec_vorticity, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                        dset = data_file->openDataSet("iteration");
-                        dset.write(&fs->iteration, H5::PredType::NATIVE_INT);
-                        dset.close();
+                       """]
+        stat_template = """
+                //begincpp
+                        Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);
+                        wspace = H5Dget_space(Cdset);
+                        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+                        mspace = H5Screate_simple(ndims, count, NULL);
+                        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                        H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {2});
+                        Cdset = H5Dopen(data_file->getId(), "{3}", H5P_DEFAULT);
+                        H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {4});
+                //endcpp
+                """
+        stat_outputs = [stat_template.format('/statistics/xlines/velocity',
+                                              field_H5T,
+                                              'fs->rvelocity',
+                                              '/statistics/xlines/vorticity',
+                                              'fs->rvorticity'),
+                        stat_template.format('/statistics/moments/velocity',
+                                             'H5T_NATIVE_DOUBLE',
+                                             'velocity_moments',
+                                             '/statistics/moments/vorticity',
+                                             'vorticity_moments'),
+                        stat_template.format('/statistics/histograms/velocity',
+                                             'H5T_NATIVE_DOUBLE',
+                                             'hist_velocity',
+                                             '/statistics/histograms/vorticity',
+                                             'hist_vorticity'),
+                        stat_template.format('/statistics/spectra/velocity_velocity',
+                                             'H5T_NATIVE_DOUBLE',
+                                             'spec_velocity',
+                                             '/statistics/spectra/vorticity_vorticity',
+                                             'spec_vorticity')]
+        for i in range(len(size_setups)):
+            self.stat_src += size_setups[i] + stat_outputs[i]
+        self.stat_src += """
+                //begincpp
                     }
                     fftw_free(spec_velocity);
                     fftw_free(spec_vorticity);
