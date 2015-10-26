@@ -61,9 +61,10 @@ class code(base):
                 """
         self.variables = 'int myrank, nprocs;\n'
         self.variables += 'int iteration;\n'
-        self.variables += 'char simname[256];\n'
+        self.variables += 'char simname[256], fname[256];\n'
         self.variables += ('H5::H5File *data_file;\n' +
-                           'H5::DataSet H5dset;\n')
+                           'H5::DataSet H5dset;\n' +
+                           'hid_t parameter_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
                 //begincpp
@@ -83,17 +84,16 @@ class code(base):
                     else
                     {
                         strcpy(simname, argv[1]);
-                        if (myrank != 0)
-                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDONLY);
-                        else
-                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
-                        H5dset = data_file->openDataSet("iteration");
-                        H5dset.read(&iteration, H5::PredType::NATIVE_INT);
+                        sprintf(fname, "%s.h5", simname);
+                        parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
+                        Cdset = H5Dopen(parameter_file, "iteration", H5P_DEFAULT);
+                        H5Dread(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
                         DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
+                        H5Dclose(Cdset);
                     }
-                    read_parameters(data_file->getId());
-                    if (myrank != 0)
-                        delete data_file;
+                    read_parameters(parameter_file);
+                    H5Fclose(parameter_file);
+                    if (myrank == 0) data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
