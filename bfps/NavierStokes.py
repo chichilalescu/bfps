@@ -53,7 +53,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 hid_t Cdset, Cspace;
                 int ndims;
                 // store kspace information
-                Cdset = H5Dopen(data_file->getId(), "/kspace/kshell", H5P_DEFAULT);
+                Cdset = H5Dopen(parameter_file, "/kspace/kshell", H5P_DEFAULT);
                 Cspace = H5Dget_space(Cdset);
                 H5Sget_simple_extent_dims(Cspace, dims, NULL);
                 if (fs->nshells != dims[0])
@@ -63,13 +63,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 }
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);
                 H5Dclose(Cdset);
-                Cdset = H5Dopen(data_file->getId(), "/kspace/nshell", H5P_DEFAULT);
+                Cdset = H5Dopen(parameter_file, "/kspace/nshell", H5P_DEFAULT);
                 H5Dwrite(Cdset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->nshell);
                 H5Dclose(Cdset);
-                Cdset = H5Dopen(data_file->getId(), "/kspace/kM", H5P_DEFAULT);
+                Cdset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kM);
                 H5Dclose(Cdset);
-                Cdset = H5Dopen(data_file->getId(), "/kspace/dk", H5P_DEFAULT);
+                Cdset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
                 H5Dclose(Cdset);
                 //endcpp
@@ -79,7 +79,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         '/statistics/moments/{0}'.format(field),
                         '/statistics/histograms/{0}'.format(field),
                         '/statistics/spectra/{0}_{0}'.format(field)]:
-                self.file_datasets_grow += ('Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);\n'.format(key) +
+                self.file_datasets_grow += ('Cdset = H5Dopen(parameter_file, "{0}", H5P_DEFAULT);\n'.format(key) +
                                             'Cspace = H5Dget_space(Cdset);\n' +
                                             'ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);\n' +
                                             'dims[0] += niter_todo/niter_stat;\n' +
@@ -154,14 +154,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                        """]
         stat_template = """
                 //begincpp
-                        Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);
+                        Cdset = H5Dopen(parameter_file, "{0}", H5P_DEFAULT);
                         wspace = H5Dget_space(Cdset);
                         ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
                         mspace = H5Screate_simple(ndims, count, NULL);
                         H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
                         H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {2});
                         H5Dclose(Cdset);
-                        Cdset = H5Dopen(data_file->getId(), "{3}", H5P_DEFAULT);
+                        Cdset = H5Dopen(parameter_file, "{3}", H5P_DEFAULT);
                         H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {4});
                         H5Sclose(mspace);
                         H5Sclose(wspace);
@@ -248,7 +248,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         temp_string = (std::string("/particles/") +
                                        std::string(ps{0}->name) +
                                        std::string("/{1}"));
-                        Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                        Cdset = H5Dopen(parameter_file, temp_string.c_str(), H5P_DEFAULT);
                         Cspace = H5Dget_space(Cdset);
                         ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);
                         dims[0] += niter_todo/niter_part;
@@ -288,7 +288,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   std::string temp_string = (std::string("/particles/") +
                                                              std::string(ps{0}->name) +
                                                              std::string("/velocity"));
-                                  hid_t Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                                  hid_t Cdset = H5Dopen(parameter_file, temp_string.c_str(), H5P_DEFAULT);
                                   hid_t mspace, wspace;
                                   int ndims;
                                   hsize_t count[3], offset[3], dims[3];
@@ -307,7 +307,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   temp_string = (std::string("/particles/") +
                                                  std::string(ps{0}->name) +
                                                  std::string("/acceleration"));
-                                  Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                                  Cdset = H5Dopen(parameter_file, temp_string.c_str(), H5P_DEFAULT);
                                   H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, acceleration);
                                   H5Sclose(mspace);
                                   H5Sclose(wspace);
