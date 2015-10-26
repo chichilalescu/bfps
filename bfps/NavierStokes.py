@@ -122,8 +122,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                              histogram_bins);
                     if (myrank == 0)
                     {
-                        H5::DataSet dset;
-                        H5::DataSpace memspace, writespace;
                         hid_t Cdset, wspace, mspace;
                         int ndims;
                         hsize_t count[4], offset[4], old_dims[4], dims[4];
@@ -162,8 +160,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         mspace = H5Screate_simple(ndims, count, NULL);
                         H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
                         H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {2});
+                        H5Dclose(Cdset);
                         Cdset = H5Dopen(data_file->getId(), "{3}", H5P_DEFAULT);
                         H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {4});
+                        H5Sclose(mspace);
+                        H5Sclose(wspace);
+                        H5Dclose(Cdset);
                 //endcpp
                 """
         stat_outputs = [stat_template.format('/statistics/xlines/velocity',
@@ -286,27 +288,30 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   std::string temp_string = (std::string("/particles/") +
                                                              std::string(ps{0}->name) +
                                                              std::string("/velocity"));
-                                  H5::DataSet dset = data_file->openDataSet(temp_string);
-                                  H5::DataSpace memspace, writespace;
-                                  hsize_t count[3], offset[3];
-                                  writespace = dset.getSpace();
-                                  writespace.getSimpleExtentDims(count);
+                                  hid_t Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                                  hid_t mspace, wspace;
+                                  int ndims;
+                                  hsize_t count[3], offset[3], dims[3];
                                   count[0] = 1;
                                   offset[0] = ps{0}->iteration / ps{0}->traj_skip;
                                   offset[1] = 0;
                                   offset[2] = 0;
-                                  memspace = H5::DataSpace(3, count);
-                                  writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                                  dset.write(ps{0}->rhs[0], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                                  dset.close();
+                                  wspace = H5Dget_space(Cdset);
+                                  ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+                                  mspace = H5Screate_simple(ndims, count, NULL);
+                                  H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, ps{0}->rhs[0]);
+                                  H5Dclose(Cdset);
                                   //VELOCITY end
                                   //ACCELERATION begin
                                   temp_string = (std::string("/particles/") +
                                                  std::string(ps{0}->name) +
                                                  std::string("/acceleration"));
-                                  dset = data_file->openDataSet(temp_string);
-                                  dset.write(acceleration, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                                  dset.close();
+                                  Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, acceleration);
+                                  H5Sclose(mspace);
+                                  H5Sclose(wspace);
+                                  H5Dclose(Cdset);
                                   //ACCELERATION end
                               }}
                               fftw_free(acceleration);
