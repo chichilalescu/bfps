@@ -55,23 +55,27 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5::DSetCreatPropList cparms;
                 std::string temp_string;
                 hsize_t dims[4];
-                hsize_t old_dims[4];
+                hid_t Cdset, Cspace;
                 // store kspace information
-                dset = data_file->openDataSet("/kspace/kshell");
-                dspace = dset.getSpace();
-                dspace.getSimpleExtentDims(dims);
+                Cdset = H5Dopen(data_file->getId(), "/kspace/kshell", H5P_DEFAULT);
+                Cspace = H5Dget_space(Cdset);
+                H5Sget_simple_extent_dims(Cspace, dims, NULL);
                 if (fs->nshells != dims[0])
                 {
                     std::cerr << "ERROR: computed nshells not equal to data file nshells\\n" << std::endl;
                     file_problems++;
                 }
-                dset.write(fs->kshell, double_dtype);
-                dset = data_file->openDataSet("/kspace/nshell");
-                dset.write(fs->nshell, ptrdiff_t_dtype);
-                dset = data_file->openDataSet("/kspace/kM");
-                dset.write(&fs->kM, double_dtype);
-                dset = data_file->openDataSet("/kspace/dk");
-                dset.write(&fs->dk, double_dtype);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);
+                H5Dclose(Cdset);
+                Cdset = H5Dopen(data_file->getId(), "/kspace/nshell", H5P_DEFAULT);
+                H5Dwrite(Cdset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->nshell);
+                H5Dclose(Cdset);
+                Cdset = H5Dopen(data_file->getId(), "/kspace/kM", H5P_DEFAULT);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kM);
+                H5Dclose(Cdset);
+                Cdset = H5Dopen(data_file->getId(), "/kspace/dk", H5P_DEFAULT);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
+                H5Dclose(Cdset);
                 //endcpp
                 """
         for field in ['velocity', 'vorticity']:
