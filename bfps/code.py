@@ -61,7 +61,7 @@ class code(base):
         self.variables = 'int myrank, nprocs;\n'
         self.variables += 'int iteration;\n'
         self.variables += 'char simname[256], fname[256];\n'
-        self.variables += ('hid_t parameter_file, Cdset;\n')
+        self.variables += ('hid_t parameter_file, stat_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
                 //begincpp
@@ -91,7 +91,7 @@ class code(base):
                     read_parameters(parameter_file);
                     H5Fclose(parameter_file);
                     if (myrank == 0)
-                        parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
+                        stat_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
@@ -101,10 +101,10 @@ class code(base):
                     // clean up
                     if (myrank == 0)
                     {
-                        Cdset = H5Dopen(parameter_file, "iteration", H5P_DEFAULT);
+                        Cdset = H5Dopen(stat_file, "iteration", H5P_DEFAULT);
                         H5Dwrite(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
                         H5Dclose(Cdset);
-                        H5Fclose(parameter_file);
+                        H5Fclose(stat_file);
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
