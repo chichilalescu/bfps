@@ -56,6 +56,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 std::string temp_string;
                 hsize_t dims[4];
                 hid_t Cdset, Cspace;
+                int ndims;
                 // store kspace information
                 Cdset = H5Dopen(data_file->getId(), "/kspace/kshell", H5P_DEFAULT);
                 Cspace = H5Dget_space(Cdset);
@@ -84,11 +85,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         '/statistics/histograms/{0}'.format(field),
                         '/statistics/spectra/{0}_{0}'.format(field)]:
                 self.file_datasets_grow += ('dset = data_file->openDataSet("{0}");\n'.format(key) +
-                                            'dspace = dset.getSpace();\n' +
-                                            'dspace.getSimpleExtentDims(dims);\n' +
+                                            'Cdset = H5Dopen(data_file->getId(), "{0}", H5P_DEFAULT);\n'.format(key) +
+                                            'Cspace = H5Dget_space(Cdset);\n' +
+                                            'ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);\n' +
                                             'dims[0] += niter_todo/niter_stat;\n' +
-                                            'dset.extend(dims);\n' +
-                                            'dset.close();\n')
+                                            'H5Dset_extent(Cdset, dims);\n' +
+                                            'H5Sclose(Cspace);\n' +
+                                            'H5Dclose(Cdset);\n')
         self.style = {}
         self.statistics = {}
         self.fluid_output = 'fs->write(\'v\', \'c\');\n'
@@ -243,11 +246,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         temp_string = (std::string("/particles/") +
                                        std::string(ps{0}->name) +
                                        std::string("/{1}"));
-                        dset = data_file->openDataSet(temp_string);
-                        dspace = dset.getSpace();
-                        dspace.getSimpleExtentDims(dims);
-                        dims[0] = niter_todo/niter_part + dims[0];
-                        dset.extend(dims);
+                        Cdset = H5Dopen(data_file->getId(), temp_string.c_str(), H5P_DEFAULT);
+                        Cspace = H5Dget_space(Cdset);
+                        ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);
+                        dims[0] += niter_todo/niter_part;
+                        H5Dset_extent(Cdset, dims);
+                        H5Sclose(Cspace);
+                        H5Dclose(Cdset);
                         //endcpp
                         """
         self.file_datasets_grow += grow_template.format(self.particle_species, 'state')
