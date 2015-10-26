@@ -103,8 +103,11 @@ class code(base):
                     // clean up
                     if (myrank == 0)
                     {
-                        H5dset = data_file->openDataSet("iteration");
-                        H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                        Cdset = H5Dopen(data_file->getId(), "iteration", H5P_DEFAULT);
+                        H5Dwrite(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
+                        H5Dclose(Cdset);
+                        //H5dset = data_file->openDataSet("iteration");
+                        //H5dset.write(&iteration, H5::PredType::NATIVE_INT);
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
