@@ -52,16 +52,16 @@ class code(base):
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include <iostream>
-                #include <H5Cpp.h>
+                #include <hdf5.h>
                 #include <string>
+                #include <cstring>
                 #include <fftw3-mpi.h>
                 //endcpp
                 """
         self.variables = 'int myrank, nprocs;\n'
         self.variables += 'int iteration;\n'
-        self.variables += 'char simname[256];\n'
-        self.variables += ('H5::H5File *data_file;\n' +
-                           'H5::DataSet H5dset;\n')
+        self.variables += 'char simname[256], fname[256];\n'
+        self.variables += ('hid_t parameter_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
                 //begincpp
@@ -81,17 +81,17 @@ class code(base):
                     else
                     {
                         strcpy(simname, argv[1]);
-                        if (myrank != 0)
-                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDONLY);
-                        else
-                            data_file = new H5::H5File(std::string(simname) + std::string(".h5"), H5F_ACC_RDWR);
-                        H5dset = data_file->openDataSet("iteration");
-                        H5dset.read(&iteration, H5::PredType::NATIVE_INT);
+                        sprintf(fname, "%s.h5", simname);
+                        parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
+                        Cdset = H5Dopen(parameter_file, "iteration", H5P_DEFAULT);
+                        H5Dread(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
                         DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
+                        H5Dclose(Cdset);
                     }
-                    read_parameters();
-                    if (myrank != 0)
-                        delete data_file;
+                    read_parameters(parameter_file);
+                    H5Fclose(parameter_file);
+                    if (myrank == 0)
+                        parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
@@ -101,8 +101,10 @@ class code(base):
                     // clean up
                     if (myrank == 0)
                     {
-                        H5dset = data_file->openDataSet("iteration");
-                        H5dset.write(&iteration, H5::PredType::NATIVE_INT);
+                        Cdset = H5Dopen(parameter_file, "iteration", H5P_DEFAULT);
+                        H5Dwrite(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
+                        H5Dclose(Cdset);
+                        H5Fclose(parameter_file);
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
@@ -117,12 +119,15 @@ class code(base):
                           'queue'       : '',
                           'mail_address': '',
                           'mail_events' : None}
+        self.main = ''
         return None
     def write_src(self):
         with open(self.name + '.cpp', 'w') as outfile:
             outfile.write(self.version_message)
             outfile.write(self.includes)
+            outfile.write(self.cdef_pars())
             outfile.write(self.variables)
+            outfile.write(self.cread_pars())
             outfile.write(self.definitions)
             outfile.write(self.main_start)
             outfile.write(self.main)

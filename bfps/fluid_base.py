@@ -94,8 +94,6 @@ class fluid_particle_base(bfps.code):
         self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
-        self.variables  += self.cdef_pars()
-        self.definitions+= self.cread_pars()
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
         self.variables  += self.fluid_variables
@@ -129,6 +127,7 @@ class fluid_particle_base(bfps.code):
         self.main_end = """
                     //begincpp
                     {0}mpi_gather_wisdom(MPI_COMM_WORLD);
+                    MPI_Barrier(MPI_COMM_WORLD);
                     if (myrank == 0)
                     {{
                         char fname[256];

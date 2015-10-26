@@ -25,27 +25,23 @@
 
 
 import bfps
-import bfps.fluid_base
 import bfps.tools
 import numpy as np
 import pickle
 import os
 
-class test_io(bfps.fluid_base.fluid_particle_base):
+class test_io(bfps.code):
     def __init__(
             self,
             name = 'test_io',
             work_dir = './',
             simname = 'test'):
-        super(test_io, self).__init__(name = name, work_dir = work_dir, simname = simname)
-        self.parameters['string_parameter'] = 'test'
-        self.fill_up_fluid_code()
-        self.finalize_code()
-        return None
-    def fill_up_fluid_code(self):
-        self.fluid_includes += '#include <string>\n'
-        self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('double t;\n')
-        self.fluid_start += self.cprint_pars()
+        super(test_io, self).__init__(work_dir = work_dir, simname = simname)
+        self.name = name
+        self.parameters['string_parameter'] = 'test string'
+        self.parameters['other_string_parameter'] = 'another test string'
+        self.parameters['niter_todo'] = 0
+        self.parameters['real_number'] = 1.21
+        self.main_start += self.cprint_pars()
         return None
 

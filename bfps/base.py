@@ -61,20 +61,29 @@ class base(object):
     def cread_pars(self):
         key = self.parameters.keys()
         key.sort()
-        src_txt = ('int read_parameters()\n{\n'
-                 + 'H5::DataSet dset;\n'
-                 + 'H5::StrType strdtype(0, H5T_VARIABLE);\n'
-                 + 'H5::DataSpace strdspace(H5S_SCALAR);\n'
-                 + 'std::string tempstr;')
+        src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
+                 + 'hid_t dset, memtype, space;\n'
+                 + 'hsize_t dims[1];\n'
+                 + 'char **string_data;\n'
+                 + 'std::string tempstr;\n')
         for i in range(len(key)):
-            src_txt += 'dset = data_file->openDataSet("parameters/{0}");\n'.format(key[i])
+            src_txt += 'dset = H5Dopen(data_file_id, "parameters/{0}", H5P_DEFAULT);\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
-                src_txt += 'dset.read(&{0}, H5::PredType::NATIVE_INT);\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
             elif type(self.parameters[key[i]]) == str:
-                src_txt += ('dset.read(tempstr, strdtype, strdspace);\n' +
-                            'sprintf({0}, "%s", tempstr.c_str());\n').format(key[i])
+                src_txt += ('space = H5Dget_space(dset);\n' +
+                            'memtype = H5Tcopy(H5T_C_S1);\n' +
+                            'H5Tset_size(memtype, H5T_VARIABLE);\n' +
+                            'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
+                            'string_data = (char**)malloc(dims[0]*sizeof(char));\n' +
+                            'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, string_data);\n' +
+                            'sprintf({0}, "%s", string_data[0]);\n'.format(key[i]) +
+                            'free(string_data);\n' +
+                            'H5Sclose(space);\n' +
+                            'H5Tclose(memtype);\n')
             else:
-                src_txt += 'dset.read(&{0}, H5::PredType::NATIVE_DOUBLE);\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+            src_txt += 'H5Dclose(dset);\n'
         src_txt += 'return 0;\n}\n' # finishing read_parameters
         return src_txt
     def cprint_pars(self):
@@ -87,7 +96,7 @@ class base(object):
             elif type(self.parameters[key[i]]) == str:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %s\\n", ' + key[i] + ');\n'
             else:
-                src_txt += 'DEBUG_MSG("'+ key[i] + ' = %le\\n", ' + key[i] + ');\n'
+                src_txt += 'DEBUG_MSG("'+ key[i] + ' = %g\\n", ' + key[i] + ');\n'
         return src_txt
     def write_par(self, iter0 = 0):
         if not os.path.isdir(self.work_dir):
@@ -103,7 +112,7 @@ class base(object):
     def read_parameters(self):
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
             for k in data_file['parameters'].keys():
-                self.parameters[k] = data_file['parameters/' + k].value
+                self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
         return None
     def pars_from_namespace(self, opt):
         new_pars = vars(opt)
