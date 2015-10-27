@@ -49,7 +49,7 @@ def convergence_test(
     dtlist = []
     errlist = []
     for i in range(1, 5):
-        dtlist.append(clist[-1].parameters['dt'])
+        dtlist.append(clist[-1].parameters['dt']*clist[-1].statistics['vel_max'] / (2*np.pi / clist[-1].parameters['nx']))
         opt.simname = 'N{0:0>4}_{1}'.format(opt.n, i)
         init_vorticity = np.fromfile(
                 os.path.join(clist[0].work_dir, clist[0].simname + '_cvorticity_i00000'),
@@ -63,8 +63,13 @@ def convergence_test(
                 code_class = code_class,
                 tracer_state_file = h5py.File(os.path.join(clist[0].work_dir, clist[0].simname + '.h5'), 'r')))
         clist[-1].compute_statistics()
-        errlist.append(np.average(np.abs(clist[-1].statistics['energy(t, k)'][-1] -
-                                         clist[-2].statistics['energy(t, k)'][-1])))
+        f1 = np.fromfile(os.path.join(clist[-1].work_dir,
+                                      clist[-1].simname + '_cvorticity_i{0:0>5x}'.format(clist[-1].parameters['niter_todo'])),
+                         dtype = clist[-1].dtype)
+        f2 = np.fromfile(os.path.join(clist[-2].work_dir,
+                                      clist[-2].simname + '_cvorticity_i{0:0>5x}'.format(clist[-2].parameters['niter_todo'])),
+                         dtype = clist[-2].dtype)
+        errlist.append(np.max(np.abs(f1 - f2)) / np.max(f1))
     fig = plt.figure()
     a = fig.add_subplot(111)
     a.plot(dtlist, errlist, marker = '.')
@@ -72,6 +77,7 @@ def convergence_test(
     a.plot(dtlist, np.array(dtlist)**2, dashes = (2, 2))
     a.set_xscale('log')
     a.set_yscale('log')
+    a.set_xlabel('$\\|u\\|_\\infty \\frac{\\Delta t}{\\Delta x}$')
     fig.savefig('spec_err_vs_dt_{0}.pdf'.format(opt.precision))
     return None
 
