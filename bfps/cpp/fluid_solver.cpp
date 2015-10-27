@@ -219,7 +219,7 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 { \
     std::fill_n((R*)this->cu, this->cd->local_size*2, 0.0); \
     CLOOP_K2( \
-            if (k2 <= this->kM2) \
+            if (k2 <= this->kM2 && k2 > 0) \
             { \
                 ptrdiff_t tindex = 3*cindex; \
                 this->cu[tindex+0][0] = -(this->ky[yindex]*vorticity[tindex+2][1] - this->kz[zindex]*vorticity[tindex+1][1]) / k2; \
@@ -452,7 +452,7 @@ int fluid_solver<R>::write(char field, char representation) \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_acceleration(R *acceleration) \
+void fluid_solver<R>::compute_Eulerian_acceleration(R *acceleration) \
 { \
     this->omega_nonlin(0); \
     CLOOP_K2( \
@@ -460,9 +460,8 @@ void fluid_solver<R>::compute_acceleration(R *acceleration) \
                 for (int i=0; i<2; i++) \
                     this->cv[1][3*cindex+cc][i] = this->cu[3*cindex+cc][i] - this->nu*k2*this->cv[0][3*cindex+cc][i]; \
             ); \
-    std::fill_n((R*)this->cv[2], this->cd->local_size*2, 0.0); \
     CLOOP_K2( \
-            if (k2 <= this->kM2) \
+            if (k2 <= this->kM2 && k2 > 0) \
             { \
                 this->cv[2][3*cindex+0][0] = -(this->ky[yindex]*this->cv[1][3*cindex+2][1] - this->kz[zindex]*this->cv[1][3*cindex+1][1]) / k2; \
                 this->cv[2][3*cindex+1][0] = -(this->kz[zindex]*this->cv[1][3*cindex+0][1] - this->kx[xindex]*this->cv[1][3*cindex+2][1]) / k2; \
@@ -480,6 +479,101 @@ void fluid_solver<R>::compute_acceleration(R *acceleration) \
             this->rv[2], \
             this->rv[2] + this->rd->local_size, \
             acceleration); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
+{ \
+    /* assume velocity is already in real space representation */ \
+    ptrdiff_t tindex; \
+    std::fill_n((R*)pressure, 2*this->cd->local_size/3, 0.0); \
+    \
+    /* diagonal terms 11 22 33 */\
+    RLOOP ( \
+            this, \
+            tindex = 3*rindex; \
+            for (int cc=0; cc<3; cc++) \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor; \
+            ); \
+    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2 && k2 > 0) \
+            { \
+                tindex = 3*cindex; \
+                for (int i=0; i<2; i++) \
+                { \
+                    pressure[cindex][i] -= this->kx[xindex]*this->kx[xindex]*this->cv[1][tindex+0][i]; \
+                    pressure[cindex][i] -= this->ky[yindex]*this->ky[yindex]*this->cv[1][tindex+1][i]; \
+                    pressure[cindex][i] -= this->kz[zindex]*this->kz[zindex]*this->cv[1][tindex+2][i]; \
+                } \
+            } \
+            ); \
+    /* off-diagonal terms 12 23 31 */\
+    RLOOP ( \
+            this, \
+            tindex = 3*rindex; \
+            for (int cc=0; cc<3; cc++) \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor; \
+            ); \
+    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2 && k2 > 0) \
+            { \
+                tindex = 3*cindex; \
+                for (int i=0; i<2; i++) \
+                { \
+                    pressure[cindex][i] -= this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i]; \
+                    pressure[cindex][i] -= this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i]; \
+                    pressure[cindex][i] -= this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]; \
+                    pressure[cindex][i] /= k2; \
+                } \
+            } \
+            ); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
+{ \
+    /* assume velocity is already in real space representation */ \
+    ptrdiff_t tindex; \
+    FFTW(complex) *pressure; \
+    pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
+    this->compute_pressure(pressure); \
+    std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
+    this->dft_velocity(); \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                tindex = 3*cindex; \
+                for (int cc=0; cc<3; cc++) \
+                    for (int i=0; i<2; i++) \
+                        this->cv[1][tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i]; \
+                if (strcmp(this->forcing_type, "linear") == 0) \
+                { \
+                    double knorm = sqrt(k2); \
+                    if ((this->fk0 <= knorm) && \
+                        (this->fk1 >= knorm)) \
+                        for (int c=0; c<3; c++) \
+                            for (int i=0; i<2; i++) \
+                                this->cv[1][tindex+c][i] += this->famplitude*this->cu[tindex+c][i]; \
+                } \
+                for (int cc=0; cc<3; cc++) \
+                    for (int i=0; i<2; i++) \
+                        this->cv[1][tindex+cc][i] /= sqrt(this->normalization_factor); \
+                this->cv[1][tindex+0][0] +=  this->kx[xindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+0][1] += -this->kx[xindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+1][0] +=  this->ky[yindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+1][1] += -this->ky[yindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+2][0] +=  this->kz[zindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+2][1] += -this->kz[zindex]*pressure[cindex][0]; \
+            } \
+            ); \
+    FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
+    std::copy( \
+            this->rv[1], \
+            this->rv[1] + this->rd->local_size, \
+            acceleration); \
+    FFTW(free)(pressure); \
 } \
 
 /*****************************************************************************/

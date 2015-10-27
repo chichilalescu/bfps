@@ -140,7 +140,6 @@ tracers<R>::~tracers() \
 template <> \
 void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
 { \
-    /* first compute acceleration field */ \
     double *vec_local =  new double[this->array_size]; \
     std::fill_n(vec_local, this->array_size, 0.0); \
     int deriv[] = {0, 0, 0}; \
