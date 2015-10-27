@@ -64,7 +64,7 @@ def convergence_test(
                 tracer_state_file = h5py.File(os.path.join(clist[0].work_dir, clist[0].simname + '.h5'), 'r')))
         clist[-1].compute_statistics()
         errlist.append(np.average(np.abs(clist[-1].statistics['energy(t, k)'][-1] -
-                                     clist[-2].statistics['energy(t, k)'][-1])))
+                                         clist[-2].statistics['energy(t, k)'][-1])))
     fig = plt.figure()
     a = fig.add_subplot(111)
     a.plot(dtlist, errlist, marker = '.')
