@@ -63,13 +63,28 @@ def convergence_test(
                 code_class = code_class,
                 tracer_state_file = h5py.File(os.path.join(clist[0].work_dir, clist[0].simname + '.h5'), 'r')))
         clist[-1].compute_statistics()
-        f1 = np.fromfile(os.path.join(clist[-1].work_dir,
-                                      clist[-1].simname + '_cvorticity_i{0:0>5x}'.format(clist[-1].parameters['niter_todo'])),
-                         dtype = clist[-1].dtype)
-        f2 = np.fromfile(os.path.join(clist[-2].work_dir,
-                                      clist[-2].simname + '_cvorticity_i{0:0>5x}'.format(clist[-2].parameters['niter_todo'])),
-                         dtype = clist[-2].dtype)
+    converter = bfps.fluid_converter(fluid_precision = opt.precision)
+    converter.write_src()
+    converter.set_host_info({'type' : 'pc'})
+    for c in clist:
+        converter.work_dir = c.work_dir
+        converter.simname = c.simname + '_converter'
+        for key in converter.parameters.keys():
+            if key in c.parameters.keys():
+                converter.parameters[key] = c.parameters[key]
+        converter.parameters['fluid_name'] = c.simname
+        converter.write_par()
+        converter.run(
+                ncpu = 2)
+    f1 = np.fromfile(os.path.join(clist[0].work_dir,
+                                  clist[0].simname + '_rvelocity_i{0:0>5x}'.format(clist[0].parameters['niter_todo'])),
+                     dtype = clist[0].dtype)
+    for i in range(1, len(clist)):
+        f2 = np.fromfile(os.path.join(clist[i].work_dir,
+                                      clist[i].simname + '_rvelocity_i{0:0>5x}'.format(clist[i].parameters['niter_todo'])),
+                         dtype = clist[i].dtype)
         errlist.append(np.max(np.abs(f1 - f2)) / np.max(f1))
+        f1 = f2
     fig = plt.figure()
     a = fig.add_subplot(111)
     a.plot(dtlist, errlist, marker = '.')
