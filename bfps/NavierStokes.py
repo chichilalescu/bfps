@@ -368,12 +368,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                            ii1 == data_file['postprocess/ii1'].value)
                 if computation_needed:
                     del data_file['postprocess']
-            else:
+            if computation_needed:
                 data_file['postprocess/iter0'] = iter0
                 data_file['postprocess/iter1'] = iter1
                 data_file['postprocess/ii0'] = ii0
                 data_file['postprocess/ii1'] = ii1
-            if computation_needed:
                 data_file['postprocess/t'] = (self.parameters['dt']*
                                               self.parameters['niter_stat']*
                                               (np.arange(ii0, ii1+1).astype(np.float)))
