@@ -339,7 +339,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_species += 1
         return None
     def get_data_file(self):
-        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'a')
     def compute_statistics(self, iter0 = 0, iter1 = None):
         if len(list(self.statistics.keys())) > 0:
             return None
@@ -367,31 +367,26 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 computation_needed =  not (ii0 == data_file['postprocess/ii0'].value and
                                            ii1 == data_file['postprocess/ii1'].value)
                 if computation_needed:
-                    for k in ['t',
-                              'energy(t, k)',
-                              'enstrophy(t, k)',
-                              'vel_max(t)',
-                              'renergy(t)']:
-                        del data_file['postprocess/' + k]
+                    del data_file['postprocess']
             else:
                 data_file['postprocess/iter0'] = iter0
                 data_file['postprocess/iter1'] = iter1
                 data_file['postprocess/ii0'] = ii0
                 data_file['postprocess/ii1'] = ii1
-                if computation_needed:
-                    data_file['postprocess/t'] = (self.parameters['dt']*
-                                                  self.parameters['niter_stat']*
-                                                  (np.arange(ii0, ii1+1).astype(np.float)))
-                    data_file['postprocess/energy(t, k)'] = (
-                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 0, 0] +
-                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 1, 1] +
-                            data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 2, 2])/2
-                    data_file['postprocess/enstrophy(t, k)'] = (
-                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 0, 0] +
-                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 1, 1] +
-                            data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
-                    data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
-                    data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
+            if computation_needed:
+                data_file['postprocess/t'] = (self.parameters['dt']*
+                                              self.parameters['niter_stat']*
+                                              (np.arange(ii0, ii1+1).astype(np.float)))
+                data_file['postprocess/energy(t, k)'] = (
+                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 0, 0] +
+                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 1, 1] +
+                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 2, 2])/2
+                data_file['postprocess/enstrophy(t, k)'] = (
+                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 0, 0] +
+                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 1, 1] +
+                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
+                data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
+                data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
             for k in ['t',
                       'energy(t, k)',
                       'enstrophy(t, k)',
