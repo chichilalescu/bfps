@@ -83,7 +83,7 @@ def launch(
     else:
         c.parameters['nu'] = nu
     if type(dt) == type(None):
-        c.parameters['dt'] = 5e-3 * (64. / opt.n)
+        c.parameters['dt'] = .4 / opt.n
     else:
         c.parameters['dt'] = dt
     c.parameters['niter_out'] = c.parameters['niter_todo']
