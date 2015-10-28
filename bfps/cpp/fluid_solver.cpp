@@ -493,7 +493,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
             this, \
             tindex = 3*rindex; \
             for (int cc=0; cc<3; cc++) \
-                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor; \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc]; \
             ); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     CLOOP_K2( \
@@ -513,7 +513,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
             this, \
             tindex = 3*rindex; \
             for (int cc=0; cc<3; cc++) \
-                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor; \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3]; \
             ); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     CLOOP_K2( \
@@ -525,7 +525,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
                     pressure[cindex][i] -= this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i]; \
                     pressure[cindex][i] -= this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i]; \
                     pressure[cindex][i] -= this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]; \
-                    pressure[cindex][i] /= k2; \
+                    pressure[cindex][i] /= k2 * this->normalization_factor; \
                 } \
             } \
             ); \
@@ -538,8 +538,9 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     ptrdiff_t tindex; \
     FFTW(complex) *pressure; \
     pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
+    this->compute_velocity(this->cvorticity); \
+    this->ift_velocity(); \
     this->compute_pressure(pressure); \
-    std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     this->dft_velocity(); \
     CLOOP( \
                 tindex = 3*cindex; \
@@ -549,6 +550,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             ); \
     double energy = 0.5*this->autocorrel(this->cu); \
     if (myrank==0) DEBUG_MSG("energy in lag acc is %g\n", energy); \
+    std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
             { \
@@ -565,12 +567,12 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                             for (int i=0; i<2; i++) \
                                 this->cv[1][tindex+c][i] += this->famplitude*this->cu[tindex+c][i]; \
                 } \
-                this->cv[1][tindex+0][0] +=  this->kx[xindex]*pressure[cindex][1]; \
-                this->cv[1][tindex+0][1] += -this->kx[xindex]*pressure[cindex][0]; \
-                this->cv[1][tindex+1][0] +=  this->ky[yindex]*pressure[cindex][1]; \
-                this->cv[1][tindex+1][1] += -this->ky[yindex]*pressure[cindex][0]; \
-                this->cv[1][tindex+2][0] +=  this->kz[zindex]*pressure[cindex][1]; \
-                this->cv[1][tindex+2][1] += -this->kz[zindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+0][0] += this->kx[xindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+0][1] -= this->kx[xindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+1][0] += this->ky[yindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+1][1] -= this->ky[yindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+2][0] += this->kz[zindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+2][1] -= this->kz[zindex]*pressure[cindex][0]; \
             } \
             ); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
