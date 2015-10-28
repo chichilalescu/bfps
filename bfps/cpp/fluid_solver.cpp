@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -541,6 +541,14 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     this->compute_pressure(pressure); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     this->dft_velocity(); \
+    CLOOP( \
+                tindex = 3*cindex; \
+            for (int cc=0; cc<3; cc++) \
+                for (int i=0; i<2; i++) \
+                    this->cu[tindex+cc][i] /= this->normalization_factor; \
+            ); \
+    double energy = 0.5*this->autocorrel(this->cu); \
+    if (myrank==0) DEBUG_MSG("energy in lag acc is %g\n", energy); \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
             { \
@@ -557,9 +565,6 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                             for (int i=0; i<2; i++) \
                                 this->cv[1][tindex+c][i] += this->famplitude*this->cu[tindex+c][i]; \
                 } \
-                for (int cc=0; cc<3; cc++) \
-                    for (int i=0; i<2; i++) \
-                        this->cv[1][tindex+cc][i] /= sqrt(this->normalization_factor); \
                 this->cv[1][tindex+0][0] +=  this->kx[xindex]*pressure[cindex][1]; \
                 this->cv[1][tindex+0][1] += -this->kx[xindex]*pressure[cindex][0]; \
                 this->cv[1][tindex+1][0] +=  this->ky[yindex]*pressure[cindex][1]; \
@@ -569,6 +574,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             } \
             ); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
+    clip_zero_padding<R>(this->rd, this->rv[1], 3); \
     std::copy( \
             this->rv[1], \
             this->rv[1] + this->rd->local_size, \
