@@ -36,7 +36,7 @@ parser.add_argument('--multiplejob',
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = launch(opt)
+    c0 = launch(opt, dt = 0.1/opt.n)
     c0.compute_statistics()
     if not opt.multiplejob:
         return None

@@ -522,9 +522,9 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
                 tindex = 3*cindex; \
                 for (int i=0; i<2; i++) \
                 { \
-                    pressure[cindex][i] -= this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i]; \
-                    pressure[cindex][i] -= this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i]; \
-                    pressure[cindex][i] -= this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]; \
+                    pressure[cindex][i] -= 2*this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i]; \
+                    pressure[cindex][i] -= 2*this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i]; \
+                    pressure[cindex][i] -= 2*this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]; \
                     pressure[cindex][i] /= k2 * this->normalization_factor; \
                 } \
             } \
@@ -541,13 +541,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     this->compute_velocity(this->cvorticity); \
     this->ift_velocity(); \
     this->compute_pressure(pressure); \
-    this->dft_velocity(); \
-    CLOOP( \
-                tindex = 3*cindex; \
-            for (int cc=0; cc<3; cc++) \
-                for (int i=0; i<2; i++) \
-                    this->cu[tindex+cc][i] /= this->normalization_factor; \
-            ); \
+    this->compute_velocity(this->cvorticity); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
