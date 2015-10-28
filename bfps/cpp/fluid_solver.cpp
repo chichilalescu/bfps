@@ -263,7 +263,7 @@ void fluid_solver<R>::dft_vorticity() \
  \
 template<> \
 void fluid_solver<R>::add_forcing(\
-        FFTW(complex) *field, R factor) \
+        FFTW(complex) *acc_field, FFTW(complex) *vort_field, R factor) \
 { \
     if (strcmp(this->forcing_type, "none") == 0) \
         return; \
@@ -273,12 +273,12 @@ void fluid_solver<R>::add_forcing(\
         if (this->cd->myrank == this->cd->rank[this->fmode]) \
         { \
             cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
-            field[cindex+2][0] -= this->famplitude*factor/2; \
+            acc_field[cindex+2][0] -= this->famplitude*factor/2; \
         } \
         if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode]) \
         { \
             cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3; \
-            field[cindex+2][0] -= this->famplitude*factor/2; \
+            acc_field[cindex+2][0] -= this->famplitude*factor/2; \
         } \
         return; \
     } \
@@ -293,7 +293,7 @@ void fluid_solver<R>::add_forcing(\
                     (this->fk1 >= knorm)) \
                     for (int c=0; c<3; c++) \
                     for (int i=0; i<2; i++) \
-                        field[cindex*3+c][i] += this->famplitude*this->cvorticity[cindex*3+c][i]*factor; \
+                        acc_field[cindex*3+c][i] += this->famplitude*vort_field[cindex*3+c][i]*factor; \
              ); \
         return; \
     } \
@@ -338,7 +338,7 @@ void fluid_solver<R>::omega_nonlin( \
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++) \
                 this->cu[tindex+cc][i] = tmp[cc][i]; \
             ); \
-    this->add_forcing(this->cu, 1.0); \
+    this->add_forcing(this->cu, this->cv[src], 1.0); \
     this->force_divfree(this->cu); \
 } \
  \
@@ -486,7 +486,6 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
 { \
     /* assume velocity is already in real space representation */ \
     ptrdiff_t tindex; \
-    std::fill_n((R*)pressure, 2*this->cd->local_size/3, 0.0); \
     \
     /* diagonal terms 11 22 33 */\
     RLOOP ( \
@@ -495,16 +494,19 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
             for (int cc=0; cc<3; cc++) \
                 this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc]; \
             ); \
+    this->clean_up_real_space(this->rv[1], 3); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    this->dealias(this->cv[1], 3); \
+    std::fill_n((R*)pressure, 2*this->cd->local_size/3, 0.0); \
     CLOOP_K2( \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
                 for (int i=0; i<2; i++) \
                 { \
-                    pressure[cindex][i] -= this->kx[xindex]*this->kx[xindex]*this->cv[1][tindex+0][i]; \
-                    pressure[cindex][i] -= this->ky[yindex]*this->ky[yindex]*this->cv[1][tindex+1][i]; \
-                    pressure[cindex][i] -= this->kz[zindex]*this->kz[zindex]*this->cv[1][tindex+2][i]; \
+                    pressure[cindex][i] = -(this->kx[xindex]*this->kx[xindex]*this->cv[1][tindex+0][i] + \
+                                            this->ky[yindex]*this->ky[yindex]*this->cv[1][tindex+1][i] + \
+                                            this->kz[zindex]*this->kz[zindex]*this->cv[1][tindex+2][i])/k2; \
                 } \
             } \
             ); \
@@ -515,17 +517,19 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
             for (int cc=0; cc<3; cc++) \
                 this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3]; \
             ); \
+    this->clean_up_real_space(this->rv[1], 3); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    this->dealias(this->cv[1], 3); \
     CLOOP_K2( \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
                 for (int i=0; i<2; i++) \
                 { \
-                    pressure[cindex][i] -= 2*this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i]; \
-                    pressure[cindex][i] -= 2*this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i]; \
-                    pressure[cindex][i] -= 2*this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]; \
-                    pressure[cindex][i] /= k2 * this->normalization_factor; \
+                    pressure[cindex][i] -= 2*(this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i] + \
+                                              this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i] + \
+                                              this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i])/k2; \
+                    pressure[cindex][i] /= this->normalization_factor; \
                 } \
             } \
             ); \
@@ -560,10 +564,10 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                                 this->cv[1][tindex+c][i] += this->famplitude*this->cu[tindex+c][i]; \
                 } \
                 this->cv[1][tindex+0][0] += this->kx[xindex]*pressure[cindex][1]; \
-                this->cv[1][tindex+0][1] -= this->kx[xindex]*pressure[cindex][0]; \
                 this->cv[1][tindex+1][0] += this->ky[yindex]*pressure[cindex][1]; \
-                this->cv[1][tindex+1][1] -= this->ky[yindex]*pressure[cindex][0]; \
                 this->cv[1][tindex+2][0] += this->kz[zindex]*pressure[cindex][1]; \
+                this->cv[1][tindex+0][1] -= this->kx[xindex]*pressure[cindex][0]; \
+                this->cv[1][tindex+1][1] -= this->ky[yindex]*pressure[cindex][0]; \
                 this->cv[1][tindex+2][1] -= this->kz[zindex]*pressure[cindex][0]; \
             } \
             ); \

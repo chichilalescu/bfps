@@ -94,7 +94,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
-        void add_forcing(rnumber (*field)[2], rnumber factor);
+        void add_forcing(rnumber (*acc_field)[2], rnumber (*vort_field)[2], rnumber factor);
 
         int read(char field, char representation);
         int write(char field, char representation);
