@@ -56,6 +56,30 @@ if hostname in ['frontend01', 'frontend02']:
                     '/usr/nld/fftw-3.3.3-mvapich2-1.9a2-gcc/lib',
                     '/usr/nld/fftw-3.3.3-float-mvapich2-1.9a2-gcc/lib']
     extra_libraries += ['mpich']
+    extra_compile_args = ['-Wall',
+                          '-O2',
+                          '-g',
+                          '-m64',
+                          '-m80387',
+                          '-mabi=sysv',
+                          '-march=x86-64',
+                          '-masm=intel',
+                          '-masm=att',
+                          '-mfancy-math-387',
+                          '-mfpmath=sse+387',
+                          '-mglibc',
+                          '-mhard-float',
+                          '-mieee-fp',
+                          '-ffast-math',
+                          '-mlarge-data-threshold=65536',
+                          '-mno-sse4',
+                          '-mpush-args',
+                          '-mred-zone',
+                          '-msse4.2',
+                          '-mstackrealign',
+                          '-mtls-direct-seg-refs',
+                          '-mtune=corei7',
+                          '-std=c++11']
 
 if hostname in ['tolima', 'misti']:
     local_install_dir = '/scratch.local/chichi/installs'
