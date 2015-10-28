@@ -106,7 +106,7 @@ def launch(
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             if type(vorticity_field) == type(None):
-                c.generate_vector_field(write_to_file = True)
+                c.generate_vector_field(write_to_file = True, spectra_slope = 1.5)
             else:
                 vorticity_field.tofile(
                         os.path.join(c.work_dir,
