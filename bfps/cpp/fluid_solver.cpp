@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -548,8 +548,6 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                 for (int i=0; i<2; i++) \
                     this->cu[tindex+cc][i] /= this->normalization_factor; \
             ); \
-    double energy = 0.5*this->autocorrel(this->cu); \
-    if (myrank==0) DEBUG_MSG("energy in lag acc is %g\n", energy); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
             if (k2 <= this->kM2) \
