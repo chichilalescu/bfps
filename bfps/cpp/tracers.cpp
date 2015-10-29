@@ -140,6 +140,7 @@ tracers<R>::~tracers() \
 template <> \
 void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
 { \
+    vec_field += this->buffer_size; \
     double *vec_local =  new double[this->array_size]; \
     std::fill_n(vec_local, this->array_size, 0.0); \
     int deriv[] = {0, 0, 0}; \
@@ -151,7 +152,7 @@ void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
     for (int p=0; p<this->nparticles; p++) \
         if (this->fs->rd->myrank == this->computing[p]) \
         { \
-            this->spline_formula(vec_field + this->buffer_size, \
+            this->spline_formula(vec_field, \
                                  xg + p*3, \
                                  xx + p*3, \
                                  vec_local + p*3, \
