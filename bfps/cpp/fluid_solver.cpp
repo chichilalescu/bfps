@@ -506,7 +506,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
                 { \
                     pressure[cindex][i] = -(this->kx[xindex]*this->kx[xindex]*this->cv[1][tindex+0][i] + \
                                             this->ky[yindex]*this->ky[yindex]*this->cv[1][tindex+1][i] + \
-                                            this->kz[zindex]*this->kz[zindex]*this->cv[1][tindex+2][i])/k2; \
+                                            this->kz[zindex]*this->kz[zindex]*this->cv[1][tindex+2][i]); \
                 } \
             } \
             ); \
@@ -528,8 +528,8 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
                 { \
                     pressure[cindex][i] -= 2*(this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i] + \
                                               this->ky[yindex]*this->kz[zindex]*this->cv[1][tindex+1][i] + \
-                                              this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i])/k2; \
-                    pressure[cindex][i] /= this->normalization_factor; \
+                                              this->kz[zindex]*this->kx[xindex]*this->cv[1][tindex+2][i]); \
+                    pressure[cindex][i] /= this->normalization_factor*k2; \
                 } \
             } \
             ); \
