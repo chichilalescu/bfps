@@ -98,6 +98,13 @@ def launch(
         c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
         c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
         c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 0)
+        c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 1)
+        c.add_particles(integration_steps = 2, neighbours = 2, smoothness = 1)
+        c.add_particles(integration_steps = 2, neighbours = 3, smoothness = 1)
+        c.add_particles(integration_steps = 2, neighbours = 4, smoothness = 1)
+        c.add_particles(integration_steps = 2, neighbours = 5, smoothness = 1)
+        c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1)
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
@@ -129,14 +136,15 @@ def launch(
     return c
 
 
-def acceleration_test(c, m = 3):
+def acceleration_test(c, m = 3, species = 7):
     import numpy as np
     import matplotlib.pyplot as plt
     from bfps.tools import get_fornberg_coeffs
     d = c.get_data_file()
-    pos = d['particles/tracers0/state'].value
-    vel = d['particles/tracers0/velocity'].value
-    acc = d['particles/tracers0/acceleration'].value
+    group = d['particles/tracers{0}'.format(species)]
+    pos = group['state'].value
+    vel = group['velocity'].value
+    acc = group['acceleration'].value
     fig = plt.figure()
     a = fig.add_subplot(111)
     col = ['red', 'green', 'blue']
@@ -148,6 +156,7 @@ def acceleration_test(c, m = 3):
     num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
 
     pid = np.unravel_index(np.argmax(np.abs(num_acc1[2:] - acc[n+2:-n])), dims = num_acc1.shape)
+    print np.abs(num_acc1[2:] - acc[n+2:-n])[pid[0], pid[1]]
     for cc in range(3):
         a.plot(num_acc1[1:, pid[1], cc], color = col[cc])
         a.plot(num_acc2[1:, pid[1], cc], color = col[cc], dashes = (2, 2))
