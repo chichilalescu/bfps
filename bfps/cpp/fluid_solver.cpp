@@ -692,9 +692,9 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                 this->cv[1][tindex+2][1] = k2*pressure[cindex][1]; \
             } \
             ); \
-    char fname[256]; \
+    /*char fname[256]; \
     this->fill_up_filename("pressure_trS2_enstrophy", fname); \
-    this->cd->write(fname, this->cv[1]); \
+    this->cd->write(fname, this->cv[1]);*/ \
     /*double difference = 0.0; \
     double itval, rtval; \
     CLOOP_K2_NXMODES( \

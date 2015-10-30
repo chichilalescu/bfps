@@ -128,6 +128,31 @@ def launch(
               njobs = opt.njobs)
     return c
 
+def acceleration_test(c):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    d = c.get_data_file()
+    pos = d['particles/tracers4/state'].value
+    vel = d['particles/tracers4/velocity'].value
+    acc = d['particles/tracers4/acceleration'].value
+
+    num_acc1 = (- vel[ :-2] + vel[2:])/(2*d['parameters/dt'].value*d['parameters/niter_part'].value)
+    num_vel = (- pos[ :-2] + pos[2:])/(2*d['parameters/dt'].value*d['parameters/niter_part'].value)
+    num_acc2 = (pos[ :-2] - 2*pos[1:-1] + pos[2:])/((d['parameters/dt'].value*d['parameters/niter_part'].value)**2)
+    num_acc3 = (-vel[4:] + 8*vel[3:-1] - 8*vel[1:-3] + vel[:-4])/(12*d['parameters/dt'].value*d['parameters/niter_part'].value)
+
+    pid = np.unravel_index(np.argmax(np.abs(num_acc3 - acc[2:-2])), dims = num_acc3.shape)[1]
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    col = ['red', 'green', 'blue']
+    for cc in range(3):
+        a.plot(num_acc1[1:, pid, cc], color = col[cc])
+        a.plot(num_acc2[1:, pid, cc], color = col[cc], dashes = (2, 2))
+        a.plot(num_acc3[1:, pid, cc], color = col[cc], dashes = (3, 4))
+        a.plot(acc[2:, pid, cc], color = col[cc], dashes = (1, 1))
+    fig.savefig(os.path.join(c.work_dir, 'acc_test_{0}.pdf'.format(c.simname)))
+    return None
+
 if __name__ == '__main__':
     print('this file doesn\'t do anything')
 
