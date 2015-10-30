@@ -40,6 +40,9 @@
 #include "spline_n1.hpp"
 #include "spline_n2.hpp"
 #include "spline_n3.hpp"
+#include "spline_n4.hpp"
+#include "spline_n5.hpp"
+#include "spline_n6.hpp"
 
 
 extern int myrank, nprocs;
@@ -58,7 +61,10 @@ slab_field_particles<rnumber>::slab_field_particles(
     assert((NCOMPONENTS % 3) == 0);
     assert((INTERP_NEIGHBOURS == 1) ||
            (INTERP_NEIGHBOURS == 2) ||
-           (INTERP_NEIGHBOURS == 3));
+           (INTERP_NEIGHBOURS == 3) ||
+           (INTERP_NEIGHBOURS == 4) ||
+           (INTERP_NEIGHBOURS == 5) ||
+           (INTERP_NEIGHBOURS == 6));
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
@@ -138,6 +144,75 @@ slab_field_particles<rnumber>::slab_field_particles(
                     break;
                 case 6:
                     this->compute_beta = &beta_n3_m6;
+                    break;
+            }
+            break;
+        case 4:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
+            assert(this->interp_smoothness >= 0 ||
+                   this->interp_smoothness <= 4);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n4_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n4_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n4_m2;
+                    break;
+                case 3:
+                    this->compute_beta = &beta_n4_m3;
+                    break;
+                case 4:
+                    this->compute_beta = &beta_n4_m4;
+                    break;
+            }
+            break;
+        case 5:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
+            assert(this->interp_smoothness >= 0 ||
+                   this->interp_smoothness <= 4);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n5_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n5_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n5_m2;
+                    break;
+                case 3:
+                    this->compute_beta = &beta_n5_m3;
+                    break;
+                case 4:
+                    this->compute_beta = &beta_n5_m4;
+                    break;
+            }
+            break;
+        case 6:
+            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
+            assert(this->interp_smoothness >= 0 ||
+                   this->interp_smoothness <= 4);
+            switch(this->interp_smoothness)
+            {
+                case 0:
+                    this->compute_beta = &beta_n6_m0;
+                    break;
+                case 1:
+                    this->compute_beta = &beta_n6_m1;
+                    break;
+                case 2:
+                    this->compute_beta = &beta_n6_m2;
+                    break;
+                case 3:
+                    this->compute_beta = &beta_n6_m3;
+                    break;
+                case 4:
+                    this->compute_beta = &beta_n6_m4;
                     break;
             }
             break;
