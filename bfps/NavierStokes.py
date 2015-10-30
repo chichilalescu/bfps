@@ -281,8 +281,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         output_vel_acc =  """
                           //begincpp
                           {{
-                              double *acceleration = fftw_alloc_real(ps{0}->array_size);
+                              double *acceleration = new double[ps{0}->array_size];
+                              double *velocity     = new double[ps{0}->array_size];
                               {1}
+                              ps{0}->sample_vec_field(ps{0}->data, velocity);
+                              {2}
                               if (ps{0}->fs->rd->myrank == 0)
                               {{
                                   //VELOCITY begin
@@ -301,7 +304,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   offset[2] = 0;
                                   mspace = H5Screate_simple(ndims, count, NULL);
                                   H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, ps{0}->rhs[0]);
+                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
                                   H5Dclose(Cdset);
                                   //VELOCITY end
                                   //ACCELERATION begin
@@ -315,10 +318,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   H5Dclose(Cdset);
                                   //ACCELERATION end
                               }}
-                              fftw_free(acceleration);
+                              delete[] acceleration;
+                              delete[] velocity;
                           }}
                           //endcpp
-                          """.format(self.particle_species, compute_acc)
+                          """.format(self.particle_species, update_field, compute_acc)
         self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
                                 'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
