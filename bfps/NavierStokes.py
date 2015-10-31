@@ -263,10 +263,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.file_datasets_grow += grow_template.format(self.particle_species, 'velocity')
         self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
         #self.particle_definitions
-        update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
-                        'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
-                        'fs->ift_velocity();\n' +
-                        'ps{0}->update_field();\n').format(self.particle_species)
+        if kcut == 'fs->kM':
+            if self.particle_species == 0:
+                update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
+                                'fs->ift_velocity();\n')
+            else:
+                update_field = ''
+        else:
+            update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
+                            'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
+                            'fs->ift_velocity();\n')
+        update_field += 'ps{0}->update_field();\n'.format(self.particle_species)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
