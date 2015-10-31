@@ -27,9 +27,24 @@
 
 from test_base import *
 
+class test_io(bfps.code):
+    def __init__(
+            self,
+            name = 'test_io',
+            work_dir = './',
+            simname = 'test'):
+        super(test_io, self).__init__(work_dir = work_dir, simname = simname)
+        self.name = name
+        self.parameters['string_parameter'] = 'test string'
+        self.parameters['other_string_parameter'] = 'another test string'
+        self.parameters['niter_todo'] = 0
+        self.parameters['real_number'] = 1.21
+        self.main_start += self.cprint_pars()
+        return None
+
 if __name__ == '__main__':
     opt = parser.parse_args()
-    c = bfps.test_io(work_dir = opt.work_dir + '/io')
+    c = test_io(work_dir = opt.work_dir + '/io')
     c.write_src()
     c.write_par()
     c.set_host_info({'type' : 'pc'})
