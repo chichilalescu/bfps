@@ -147,6 +147,7 @@ class slab_field_particles
         void roll_rhs();
         void AdamsBashforth(int nsteps);
         void Euler();
+        void cRK4();
 };
 
 

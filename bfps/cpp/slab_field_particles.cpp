@@ -517,7 +517,8 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
-    this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
+    //this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
+    this->cRK4();
     this->iteration++;
     this->synchronize();
 }
@@ -537,6 +538,49 @@ void slab_field_particles<rnumber>::Euler()
         //        p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
     }
     fftw_free(y);
+}
+
+
+template <class rnumber>
+void slab_field_particles<rnumber>::cRK4()
+{
+    double *k1 = new double[this->array_size];
+    double *k2 = new double[this->array_size];
+    double *k3 = new double[this->array_size];
+    double *k4 = new double[this->array_size];
+    double *y = new double[this->array_size];
+    this->get_rhs(this->state, k1);
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    {
+        for (int i=0; i<this->ncomponents; i++)
+            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k1[p*this->ncomponents+i]/2;
+    }
+    this->get_rhs(y, k2);
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    {
+        for (int i=0; i<this->ncomponents; i++)
+            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k2[p*this->ncomponents+i]/2;
+    }
+    this->get_rhs(y, k3);
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    {
+        for (int i=0; i<this->ncomponents; i++)
+            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k3[p*this->ncomponents+i];
+    }
+    this->get_rhs(y, k4);
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    {
+        for (int i=0; i<this->ncomponents; i++)
+            this->state[p*this->ncomponents+i] += this->dt*(k1[p*this->ncomponents+i] +
+                                                            k4[p*this->ncomponents+i] +
+                                                            2*(k2[p*this->ncomponents+i] +
+                                                               k3[p*this->ncomponents+i]))/6;
+    }
+    delete[] k1;
+    delete[] k2;
+    delete[] k3;
+    delete[] k4;
+    delete[] y;
 }
 
 template <class rnumber>
