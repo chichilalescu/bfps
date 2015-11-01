@@ -238,7 +238,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             integration_steps = 2,
-            kcut = 'fs->kM'):
+            kcut = 'fs->kM',
+            force_vel_reset = True):
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
@@ -264,7 +265,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
         #self.particle_definitions
         if kcut == 'fs->kM':
-            if self.particle_species == 0:
+            if self.particle_species == 0 or force_vel_reset:
                 update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
                                 'fs->ift_velocity();\n')
             else:
