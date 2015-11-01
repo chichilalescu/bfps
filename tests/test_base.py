@@ -92,7 +92,11 @@ def launch(
     if c.parameters['nparticles'] > 0:
         c.add_particles(kcut = 'fs->kM/2',
                         integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particles(
+                integration_steps = 1,
+                neighbours = opt.neighbours,
+                smoothness = opt.smoothness,
+                force_vel_reset = True)
         c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
         c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
         c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
@@ -136,7 +140,7 @@ def launch(
     return c
 
 
-def acceleration_test(c, m = 3, species = 7):
+def acceleration_test(c, m = 3, species = 9):
     import numpy as np
     import matplotlib.pyplot as plt
     from bfps.tools import get_fornberg_coeffs
@@ -173,7 +177,7 @@ def acceleration_test(c, m = 3, species = 7):
             a.plot(num_acc1[m+1-n:, pid[1], cc], color = col[cc])
             a.plot(num_acc2[m+1-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
     fig.tight_layout()
-    fig.savefig(os.path.join(c.work_dir, 'acc_test_{0}.pdf'.format(c.simname)))
+    fig.savefig(os.path.join(c.work_dir, 'acc_test_{0}_{1}.pdf'.format(c.simname, species)))
     return None
 
 if __name__ == '__main__':

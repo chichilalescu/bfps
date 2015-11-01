@@ -38,7 +38,8 @@ def plain(opt):
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt, dt = 0.2/opt.n)
     c0.compute_statistics()
-    acceleration_test(c0)
+    for s in range(c0.particle_species):
+        acceleration_test(c0, species = s)
     if not opt.multiplejob:
         return None
     assert(opt.niter_todo % 3 == 0)
