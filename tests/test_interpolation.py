@@ -168,8 +168,10 @@ if __name__ == '__main__':
     c.finalize_code()
     c.write_src()
     c.write_par()
+    assert((c.parameters['nparticles'] - 2) % c.parameters['nx'] == 0)
     pos = np.zeros((c.parameters['nparticles'], 3), dtype = np.float64)
-    pos[:, 0] = np.linspace(0, 2*np.pi, pos.shape[0])
+    pos[:c.parameters['nparticles']/2, 0] = np.linspace(0, 2*np.pi, pos.shape[0]/2)
+    pos[c.parameters['nparticles']/2:, 2] = np.linspace(0, 2*np.pi, pos.shape[0]/2)
     c.generate_vector_field(write_to_file = True, spectra_slope = 5./3)
     c.generate_tracer_state(
             species = 0,
@@ -183,8 +185,14 @@ if __name__ == '__main__':
     fig = plt.figure()
     a = fig.add_subplot(111)
     a.plot(x, df['statistics/xlines/velocity'][1])
-    a.plot(df['particles/tracers0/state'][0, :, 0],
-           df['particles/tracers0/velocity'][0],
+    a.plot(df['particles/tracers0/state'][0, :pos.shape[0]/2, 0],
+           df['particles/tracers0/velocity'][0, :pos.shape[0]/2],
            dashes = (1, 1))
-    fig.savefig('test.pdf')
+    fig.savefig('xinterp.pdf')
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    a.plot(df['particles/tracers0/state'][0, pos.shape[0]/2:, 2],
+           df['particles/tracers0/velocity'][0, pos.shape[0]/2:],
+           dashes = (1, 1))
+    fig.savefig('zinterp.pdf')
 
