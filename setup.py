@@ -56,7 +56,8 @@ src_file_list = ['field_descriptor',
                  'spline_n3',
                  'spline_n4',
                  'spline_n5',
-                 'spline_n6']
+                 'spline_n6',
+                 'Lagrange']
 
 header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 

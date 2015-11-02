@@ -53,6 +53,7 @@ slab_field_particles<rnumber>::slab_field_particles(
         fluid_solver_base<rnumber> *FSOLVER,
         const int NPARTICLES,
         const int NCOMPONENTS,
+        base_polynomial_values BETA_POLYS,
         const int INTERP_NEIGHBOURS,
         const int INTERP_SMOOTHNESS,
         const int TRAJ_SKIP,
@@ -75,148 +76,7 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->interp_neighbours = INTERP_NEIGHBOURS;
     this->interp_smoothness = INTERP_SMOOTHNESS;
     this->traj_skip = TRAJ_SKIP;
-    switch(this->interp_neighbours)
-    {
-        case 1:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n1_formula;
-            assert(this->interp_smoothness == 0 ||
-                   this->interp_smoothness == 1 ||
-                   this->interp_smoothness == 2);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n1_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n1_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n1_m2;
-                    break;
-            }
-            break;
-        case 2:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n2_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 4);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n2_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n2_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n2_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n2_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n2_m4;
-                    break;
-            }
-            break;
-        case 3:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 6);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n3_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n3_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n3_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n3_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n3_m4;
-                    break;
-                case 5:
-                    this->compute_beta = &beta_n3_m5;
-                    break;
-                case 6:
-                    this->compute_beta = &beta_n3_m6;
-                    break;
-            }
-            break;
-        case 4:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 4);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n4_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n4_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n4_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n4_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n4_m4;
-                    break;
-            }
-            break;
-        case 5:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 4);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n5_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n5_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n5_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n5_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n5_m4;
-                    break;
-            }
-            break;
-        case 6:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 4);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n6_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n6_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n6_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n6_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n6_m4;
-                    break;
-            }
-            break;
-    }
+    this->compute_beta = BETA_POLYS;
     // in principle only the buffer width at the top needs the +1,
     // but things are simpler if buffer_width is the same
     this->buffer_width = this->interp_neighbours+1;

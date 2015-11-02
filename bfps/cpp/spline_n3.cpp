@@ -25,7 +25,7 @@
 
 
 #include "spline_n3.hpp"
-#include <math.h>
+#include <cmath>
 
 void beta_n3_m0(int deriv, double x, double *poly_val)
 {

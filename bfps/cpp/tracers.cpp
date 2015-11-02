@@ -113,6 +113,7 @@ tracers<R>::tracers( \
                 const char *NAME, \
                 fluid_solver_base<R> *FSOLVER, \
                 const int NPARTICLES, \
+                base_polynomial_values BETA_POLYS, \
                 const int NEIGHBOURS, \
                 const int SMOOTHNESS, \
                 const int TRAJ_SKIP, \
@@ -122,6 +123,7 @@ tracers<R>::tracers( \
                     FSOLVER, \
                     NPARTICLES, \
                     3, \
+                    BETA_POLYS, \
                     NEIGHBOURS, \
                     SMOOTHNESS, \
                     TRAJ_SKIP, \

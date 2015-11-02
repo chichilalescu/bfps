@@ -44,6 +44,7 @@ class tracers final:public slab_field_particles<rnumber>
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
+                base_polynomial_values BETA_POLYS,
                 const int NEIGHBOURS,
                 const int SMOOTHNESS,
                 const int TRAJ_SKIP,

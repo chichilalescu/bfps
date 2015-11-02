@@ -25,7 +25,7 @@
 
 
 #include "spline_n5.hpp"
-#include <math.h>
+#include <cmath>
 void beta_n5_m0(int deriv, double x, double *poly_val){
 switch(deriv)
 {

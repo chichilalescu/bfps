@@ -37,6 +37,11 @@
 
 extern int myrank, nprocs;
 
+typedef void (*base_polynomial_values)(
+        int derivative,
+        double fraction,
+        double *destination);
+
 template <class rnumber>
 class slab_field_particles
 {
@@ -47,10 +52,6 @@ class slab_field_particles
         //        double *xx,
         //        double *dest,
         //        int *deriv);
-        typedef void (*base_polynomial_values)(
-                int derivative,
-                double fraction,
-                double *destination);
     public:
         fluid_solver_base<rnumber> *fs;
         field_descriptor<rnumber> *buffered_field_descriptor;
@@ -110,6 +111,7 @@ class slab_field_particles
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
                 const int NCOMPONENTS,
+                base_polynomial_values BETA_POLYS,
                 const int INTERP_NEIGHBOURS,
                 const int INTERP_SMOOTHNESS,
                 const int TRAJ_SKIP,

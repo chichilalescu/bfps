@@ -24,8 +24,9 @@
 
 
 
-#include "Lagrange.hpp"
-#include <math.h>
+#ifndef LAGRANGE_POLYS
+
+#define LAGRANGE_POLYS
 
 void beta_Lagrange_n1(int deriv, double x, double *poly_val);
 void beta_Lagrange_n2(int deriv, double x, double *poly_val);
@@ -35,4 +36,6 @@ void beta_Lagrange_n5(int deriv, double x, double *poly_val);
 void beta_Lagrange_n6(int deriv, double x, double *poly_val);
 void beta_Lagrange_n7(int deriv, double x, double *poly_val);
 void beta_Lagrange_n8(int deriv, double x, double *poly_val);
+
+#endif//LAGRANGE_POLYS
 

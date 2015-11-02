@@ -24,8 +24,8 @@
 
 
 
-#include "Lagrange.hpp"
-#include <math.h>
+#include "Lagrange_polys.hpp"
+#include <cmath>
 
 void beta_Lagrange_n1(int deriv, double x, double *poly_val){
 switch(deriv)
