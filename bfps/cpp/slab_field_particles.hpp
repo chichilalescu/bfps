@@ -86,7 +86,6 @@ class slab_field_particles
         int ncomponents;
         int array_size;
         int interp_neighbours;
-        int interp_smoothness;
         int buffer_width;
         int integration_steps;
         int traj_skip;
@@ -120,7 +119,6 @@ class slab_field_particles
                 const int NCOMPONENTS,
                 base_polynomial_values BETA_POLYS,
                 const int INTERP_NEIGHBOURS,
-                const int INTERP_SMOOTHNESS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();

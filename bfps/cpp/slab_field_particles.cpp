@@ -49,17 +49,12 @@ slab_field_particles<rnumber>::slab_field_particles(
         const int NCOMPONENTS,
         base_polynomial_values BETA_POLYS,
         const int INTERP_NEIGHBOURS,
-        const int INTERP_SMOOTHNESS,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
     assert((NCOMPONENTS % 3) == 0);
-    assert((INTERP_NEIGHBOURS == 1) ||
-           (INTERP_NEIGHBOURS == 2) ||
-           (INTERP_NEIGHBOURS == 3) ||
-           (INTERP_NEIGHBOURS == 4) ||
-           (INTERP_NEIGHBOURS == 5) ||
-           (INTERP_NEIGHBOURS == 6));
+    assert((INTERP_NEIGHBOURS >= 1) ||
+           (INTERP_NEIGHBOURS <= 8));
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
@@ -68,7 +63,6 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->ncomponents = NCOMPONENTS;
     this->integration_steps = INTEGRATION_STEPS;
     this->interp_neighbours = INTERP_NEIGHBOURS;
-    this->interp_smoothness = INTERP_SMOOTHNESS;
     this->traj_skip = TRAJ_SKIP;
     this->compute_beta = BETA_POLYS;
     // in principle only the buffer width at the top needs the +1,

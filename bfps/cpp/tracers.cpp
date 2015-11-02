@@ -115,7 +115,6 @@ tracers<R>::tracers( \
                 const int NPARTICLES, \
                 base_polynomial_values BETA_POLYS, \
                 const int NEIGHBOURS, \
-                const int SMOOTHNESS, \
                 const int TRAJ_SKIP, \
                 const int INTEGRATION_STEPS, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
@@ -125,7 +124,6 @@ tracers<R>::tracers( \
                     3, \
                     BETA_POLYS, \
                     NEIGHBOURS, \
-                    SMOOTHNESS, \
                     TRAJ_SKIP, \
                     INTEGRATION_STEPS) \
 { \

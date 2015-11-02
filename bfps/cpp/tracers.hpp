@@ -46,7 +46,6 @@ class tracers final:public slab_field_particles<rnumber>
                 const int NPARTICLES,
                 base_polynomial_values BETA_POLYS,
                 const int NEIGHBOURS,
-                const int SMOOTHNESS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS,
                 rnumber *SOURCE_DATA);

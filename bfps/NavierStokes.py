@@ -347,7 +347,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                     'fname, fs,\n' +
                                     'nparticles,\n' +
                                     '{2},\n' +
-                                    'neighbours{1}, smoothness{1}, niter_part, integration_steps{1},\n' +
+                                    'neighbours{1}, niter_part, integration_steps{1},\n' +
                                     'fs->ru);\n' +
                                 'ps{1}->dt = dt;\n' +
                                 'ps{1}->iteration = iteration;\n' +
