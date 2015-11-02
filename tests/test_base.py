@@ -168,7 +168,7 @@ def acceleration_test(c, m = 3, species = 9):
     print np.abs(num_acc1[2:] - acc[n+2:-n])[pid[0], pid[1]]
     for cc in range(3):
         a.plot(num_acc1[1:, pid[1], cc], color = col[cc])
-        a.plot(num_acc2[1:, pid[1], cc], color = col[cc], dashes = (2, 2))
+        #a.plot(num_acc2[1:, pid[1], cc], color = col[cc], dashes = (2, 2))
         a.plot(acc[m+1:, pid[1], cc], color = col[cc], dashes = (1, 1))
 
     for n in range(1, m):
@@ -180,7 +180,7 @@ def acceleration_test(c, m = 3, species = 9):
 
         for cc in range(3):
             a.plot(num_acc1[m+1-n:, pid[1], cc], color = col[cc])
-            a.plot(num_acc2[m+1-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
+            #a.plot(num_acc2[m+1-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
     fig.tight_layout()
     fig.savefig(os.path.join(c.work_dir, 'acc_test_{0}_{1}.pdf'.format(c.simname, species)))
     return None

@@ -196,10 +196,20 @@ void slab_field_particles<rnumber>::synchronize()
     double *tstate = fftw_alloc_real(this->array_size);
     // first, synchronize state and jump across CPUs
     std::fill_n(tstate, this->array_size, 0.0);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->watching[this->fs->rd->myrank*this->nparticles + p])
+        DEBUG_MSG(
+                "in synchronize, position for particle %d is %g %g %g\n",
+                p,
+                this->state[p*this->ncomponents],
+                this->state[p*this->ncomponents+1],
+                this->state[p*this->ncomponents+2]);
+        if (this->fs->rd->myrank == this->computing[p])
             std::copy(this->state + p*this->ncomponents,
                       this->state + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
+    }
     std::fill_n(this->state, this->array_size, 0.0);
     MPI_Allreduce(
             tstate,
@@ -417,12 +427,15 @@ void slab_field_particles<rnumber>::Heun()
         for (int p=0; p<this->nparticles; p++)
             this->synchronize_single_particle_state(p, k + kindex*this->array_size + p*this->ncomponents);
     }
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-        for (int i=0; i<this->ncomponents; i++)
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->fs->rd->myrank == this->computing[p]) for (int i=0; i<this->ncomponents; i++)
         {
             ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
             this->state[tindex] += this->dt*(k[tindex] + k[this->array_size+tindex])/2;
         }
+        this->synchronize_single_particle_state(p, this->state + p*this->ncomponents);
+    }
     delete[] k;
     delete[] y;
 }
