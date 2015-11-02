@@ -135,7 +135,7 @@ class slab_field_particles
         /* generic methods, should work for all children of this class */
         int get_rank(double z); // get rank for given value of z
         void synchronize();
-        void synchronize_single_particle(int p);
+        void synchronize_single_particle_state(int p, double *x);
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
         void spline_formula(      rnumber *field, int *xg, double *xx, double *dest, int *deriv);
@@ -154,6 +154,7 @@ class slab_field_particles
         void roll_rhs();
         void AdamsBashforth(int nsteps);
         void Euler();
+        void Heun();
         void cRK4();
 };
 

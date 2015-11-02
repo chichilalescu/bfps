@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -77,8 +77,8 @@ slab_field_particles<rnumber>::slab_field_particles(
         this->rhs[i] = fftw_alloc_real(this->array_size);
         std::fill_n(this->rhs[i], this->array_size, 0.0);
     }
-    this->watching = new bool[nparticles];
-    std::fill_n(this->watching, this->nparticles, false);
+    this->watching = new bool[this->fs->rd->nprocs*nparticles];
+    std::fill_n(this->watching, this->fs->rd->nprocs*this->nparticles, false);
     this->computing = new int[nparticles];
 
     int tdims[4];
@@ -119,12 +119,12 @@ slab_field_particles<rnumber>::slab_field_particles(
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tbound;
-    for (int r = 0; r<nprocs; r++)
-        DEBUG_MSG(
-                "lbound[%d] = %lg, ubound[%d] = %lg\n",
-                r, this->lbound[r],
-                r, this->ubound[r]
-                );
+    //for (int r = 0; r<nprocs; r++)
+    //    DEBUG_MSG(
+    //            "lbound[%d] = %lg, ubound[%d] = %lg\n",
+    //            r, this->lbound[r],
+    //            r, this->ubound[r]
+    //            );
 }
 
 template <class rnumber>
@@ -163,15 +163,16 @@ int slab_field_particles<rnumber>::get_rank(double z)
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::synchronize_single_particle(int p)
+void slab_field_particles<rnumber>::synchronize_single_particle_state(int p, double *x)
 {
-    MPI_Status *s = new MPI_Status;
-    if (this->watching[p]) for (int r=0; r<this->fs->rd->nprocs; r++)
-        if (r != this->computing[p])
+    if (this->watching[this->fs->rd->myrank*this->nparticles+p]) for (int r=0; r<this->fs->rd->nprocs; r++)
+        if (r != this->computing[p] &&
+            this->watching[r*this->nparticles+p])
         {
+            DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
             if (this->fs->rd->myrank == this->computing[p])
                 MPI_Send(
-                        this->state + p*this->ncomponents,
+                        x,
                         this->ncomponents,
                         MPI_DOUBLE,
                         r,
@@ -179,15 +180,14 @@ void slab_field_particles<rnumber>::synchronize_single_particle(int p)
                         this->fs->rd->comm);
             if (this->fs->rd->myrank == r)
                 MPI_Recv(
-                        this->state + p*this->ncomponents,
+                        x,
                         this->ncomponents,
                         MPI_DOUBLE,
                         this->computing[p],
                         p*this->computing[p],
                         this->fs->rd->comm,
-                        s);
+                        MPI_STATUS_IGNORE);
         }
-    delete s;
 }
 
 template <class rnumber>
@@ -234,20 +234,20 @@ void slab_field_particles<rnumber>::synchronize()
     double *jump = fftw_alloc_real(this->nparticles);
     this->jump_estimate(jump);
     // now, see who needs to watch
-    bool *local_watching = new bool[this->nparticles];
-    std::fill_n(local_watching, this->nparticles, false);
+    bool *local_watching = new bool[this->fs->rd->nprocs*this->nparticles];
+    std::fill_n(local_watching, this->fs->rd->nprocs*this->nparticles, false);
     for (int p=0; p<this->nparticles; p++)
         if (this->fs->rd->myrank == this->computing[p])
         {
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]        )*this->nparticles+p] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
         }
     fftw_free(jump);
     MPI_Allreduce(
             local_watching,
             this->watching,
-            this->nparticles,
+            this->nparticles*this->fs->rd->nprocs,
             MPI_C_BOOL,
             MPI_LOR,
             this->fs->rd->comm);
@@ -390,46 +390,77 @@ void slab_field_particles<rnumber>::Euler()
 
 
 template <class rnumber>
-void slab_field_particles<rnumber>::cRK4()
+void slab_field_particles<rnumber>::Heun()
 {
-    double *k1 = new double[this->array_size];
-    double *k2 = new double[this->array_size];
-    double *k3 = new double[this->array_size];
-    double *k4 = new double[this->array_size];
+    double *k = new double[this->array_size*2];
     double *y = new double[this->array_size];
-    this->get_rhs(this->state, k1);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    double dtfactor[] = {0.0, 1.0};
+    for (int p=0; p<this->nparticles; p++)
+        this->synchronize_single_particle_state(p, this->state+p*this->ncomponents);
+    this->get_rhs(this->state, k);
+    for (int p=0; p<this->nparticles; p++)
+        this->synchronize_single_particle_state(p, k+p*this->ncomponents);
+    for (int kindex = 1; kindex < 2; kindex++)
     {
-        for (int i=0; i<this->ncomponents; i++)
-            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k1[p*this->ncomponents+i]/2;
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+                for (int i=0; i<this->ncomponents; i++)
+                {
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                    y[tindex] = this->state[tindex] + this->dt*dtfactor[kindex]*k[(kindex-1)*this->array_size + tindex];
+                }
+        }
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, y+p*this->ncomponents);
+        this->get_rhs(y, k + kindex*this->array_size);
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, k + kindex*this->array_size + p*this->ncomponents);
     }
-    this->get_rhs(y, k2);
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-    {
         for (int i=0; i<this->ncomponents; i++)
-            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k2[p*this->ncomponents+i]/2;
-    }
-    this->get_rhs(y, k3);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-    {
-        for (int i=0; i<this->ncomponents; i++)
-            y[p*this->ncomponents+i] = this->state[p*this->ncomponents+i] + this->dt*k3[p*this->ncomponents+i];
-    }
-    this->get_rhs(y, k4);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-    {
-        for (int i=0; i<this->ncomponents; i++)
-            this->state[p*this->ncomponents+i] += this->dt*(k1[p*this->ncomponents+i] +
-                                                            k4[p*this->ncomponents+i] +
-                                                            2*(k2[p*this->ncomponents+i] +
-                                                               k3[p*this->ncomponents+i]))/6;
-    }
-    delete[] k1;
-    delete[] k2;
-    delete[] k3;
-    delete[] k4;
+        {
+            ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+            this->state[tindex] += this->dt*(k[tindex] + k[this->array_size+tindex])/2;
+        }
+    delete[] k;
     delete[] y;
 }
+
+
+template <class rnumber>
+void slab_field_particles<rnumber>::cRK4()
+{
+    double *k = new double[this->array_size*4];
+    double *y = new double[this->array_size];
+    double dtfactor[] = {0.0, 0.5, 0.5, 1.0};
+    std::copy(this->state,
+              this->state + this->array_size,
+              y);
+    this->get_rhs(y, k);
+    for (int kindex = 1; kindex < 4; kindex++)
+    {
+        for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+            for (int i=0; i<this->ncomponents; i++)
+            {
+                ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                y[tindex] = this->state[tindex] + this->dt*dtfactor[kindex]*k[(kindex-1)*this->array_size + tindex];
+            }
+        this->get_rhs(y, k + kindex*this->array_size);
+    }
+    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+        for (int i=0; i<this->ncomponents; i++)
+        {
+            ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+            this->state[tindex] += this->dt*(k[tindex] +
+                                             2*(k[this->array_size+tindex] +
+                                                k[2*this->array_size+tindex]) +
+                                             k[3*this->array_size+tindex])/6;
+        }
+    delete[] k;
+    delete[] y;
+}
+
 
 template <class rnumber>
 void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, double *xx)
@@ -450,12 +481,12 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        DEBUG_MSG(
-                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-                p,
-                 x[p*3],  x[p*3+1],  x[p*3+2],
-                xx[p*3], xx[p*3+1], xx[p*3+2],
-                xg[p*3], xg[p*3+1], xg[p*3+2]);
+        //DEBUG_MSG(
+        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+        //        p,
+        //         x[p*3],  x[p*3+1],  x[p*3+2],
+        //        xx[p*3], xx[p*3+1], xx[p*3+2],
+        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
@@ -569,7 +600,7 @@ void slab_field_particles<rnumber>::linear_interpolation(rnumber *field, int *xg
 template <class rnumber>
 void slab_field_particles<rnumber>::read(hid_t data_file_id)
 {
-    DEBUG_MSG("aloha\n");
+    //DEBUG_MSG("aloha\n");
     if (this->fs->rd->myrank == 0)
     {
         std::string temp_string = (std::string("/particles/") +

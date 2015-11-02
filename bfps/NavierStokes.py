@@ -243,10 +243,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             interp_type = 'spline',
+            integration_method = 'AdamsBashforth',
             integration_steps = 2,
             kcut = 'fs->kM',
             force_vel_reset = True,
             frozen_particles = False):
+        self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
+        self.parameters['interp_type{0}'.format(self.particle_species)] = interp_type
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
@@ -355,7 +358,16 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species, beta_name)
         self.particle_loop += update_field
         if not frozen_particles:
-            self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
+            if integration_method == 'AdamsBashforth':
+                self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
+            elif integration_method == 'Euler':
+                self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
+            elif integration_method == 'Heun':
+                self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
+            elif integration_method == 'cRK4':
+                self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
+            self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
+            self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
         self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
                                output_vel_acc)

@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -51,8 +51,6 @@ void tracers<rnumber>::jump_estimate(double *jump)
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
-        DEBUG_MSG("particle %d, about to call linear_interpolation\n", p);
-        //this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp, deriv);
         this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
         tjump[p] = fabs(2*this->dt * tmp[2]);
     }
@@ -72,7 +70,9 @@ void tracers<rnumber>::jump_estimate(double *jump)
 template <class rnumber>
 void tracers<rnumber>::get_rhs(double *x, double *y)
 {
+    DEBUG_MSG("entered get_rhs\n");
     std::fill_n(y, this->array_size, 0.0);
+    DEBUG_MSG("finished particle synchornization\n");
     int deriv[] = {0, 0, 0};
     /* get grid coordinates */
     int *xg = new int[this->array_size];
@@ -80,19 +80,38 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     rnumber *vel = this->data + this->buffer_size;
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    for (int p=0; p<this->nparticles; p++)
     {
-        this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
-        DEBUG_MSG(
-                "particle %d position %lg %lg %lg, i.e. %d %d %d %lg %lg %lg, found y %lg %lg %lg\n",
-                p,
-                x[p*3], x[p*3+1], x[p*3+2],
-                xg[p*3], xg[p*3+1], xg[p*3+2],
-                xx[p*3], xx[p*3+1], xx[p*3+2],
-                y[p*3], y[p*3+1], y[p*3+2]);
+        int crank = this->get_rank(x[p*this->ncomponents + 2]);
+        if (this->fs->rd->myrank == crank)
+        {
+            this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
+        }
+        if (crank != this->computing[p])
+        {
+            DEBUG_MSG("particle %d, compute rank is %d, computing rank is %d\n", p, crank, this->computing[p]);
+            if (this->fs->rd->myrank == crank)
+                MPI_Send(
+                        y+p*3,
+                        3,
+                        MPI_DOUBLE,
+                        this->computing[p],
+                        p*this->computing[p],
+                        this->fs->rd->comm);
+            if (this->fs->rd->myrank == this->computing[p])
+                MPI_Recv(
+                        y+p*3,
+                        3,
+                        MPI_DOUBLE,
+                        crank,
+                        p*this->computing[p],
+                        this->fs->rd->comm,
+                        MPI_STATUS_IGNORE);
+        }
     }
     delete[] xg;
     delete[] xx;
+    DEBUG_MSG("exiting get_rhs\n");
 }
 
 template<class rnumber>
