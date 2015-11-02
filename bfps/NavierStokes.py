@@ -127,7 +127,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     {
                         hid_t Cdset, wspace, mspace;
                         int ndims;
-                        hsize_t count[4], offset[4], old_dims[4], dims[4];
+                        hsize_t count[4], offset[4], dims[4];
                         offset[0] = fs->iteration/niter_stat;
                         offset[1] = 0;
                         offset[2] = 0;
@@ -242,9 +242,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             neighbours = 1,
             smoothness = 1,
+            interp_type = 'spline',
             integration_steps = 2,
             kcut = 'fs->kM',
-            force_vel_reset = True):
+            force_vel_reset = True,
+            frozen_particles = False):
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
@@ -336,19 +338,25 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           }}
                           //endcpp
                           """.format(self.particle_species, update_field, compute_acc)
+        if interp_type == 'spline':
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
         self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
                                 'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
                                     'nparticles,\n' +
+                                    '{2},\n' +
                                     'neighbours{1}, smoothness{1}, niter_part, integration_steps{1},\n' +
                                     'fs->ru);\n' +
                                 'ps{1}->dt = dt;\n' +
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species)
-        self.particle_loop += ((update_field +
-                               'ps{0}->step();\n' +
-                                'if (ps{0}->iteration % niter_part == 0)\n' +
+                                'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species, beta_name)
+        self.particle_loop += update_field
+        if not frozen_particles:
+            self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
+        self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
                                output_vel_acc)
         self.particle_end += ('ps{0}->write(stat_file);\n' +

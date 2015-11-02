@@ -37,12 +37,6 @@
 #include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
-#include "spline_n4.hpp"
-#include "spline_n5.hpp"
-#include "spline_n6.hpp"
 
 
 extern int myrank, nprocs;
