@@ -39,12 +39,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
-            fftw_plan_rigor = 'FFTW_MEASURE'):
+            fftw_plan_rigor = 'FFTW_MEASURE',
+            frozen_fields = False):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
+        self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
@@ -226,9 +228,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->read('v', 'c');
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor)
-        self.fluid_loop = ('fs->step(dt);\n' +
-                           'if (fs->iteration % niter_out == 0)\n{\n' +
-                           self.fluid_output + '\n}\n')
+        if not self.frozen_fields:
+            self.fluid_loop = 'fs->step(dt);\n'
+        else:
+            self.fluid_loop = ''
+        self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
+                            self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
                           'delete fs;\n')

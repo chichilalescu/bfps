@@ -517,8 +517,8 @@ void slab_field_particles<rnumber>::AdamsBashforth(int nsteps)
 template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
-    //this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
-    this->cRK4();
+    this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
+    //this->cRK4();
     this->iteration++;
     this->synchronize();
 }

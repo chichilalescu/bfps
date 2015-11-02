@@ -33,6 +33,7 @@ from bfps import fluid_resize
 
 parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
+parser.add_argument('--frozen', dest = 'frozen', action = 'store_true')
 parser.add_argument('--iteration',
         type = int, dest = 'iteration', default = 0)
 parser.add_argument('--neighbours',
@@ -73,7 +74,8 @@ def launch(
         code_class = bfps.NavierStokes):
     c = code_class(
             work_dir = opt.work_dir,
-            fluid_precision = opt.precision)
+            fluid_precision = opt.precision,
+            frozen_fields = opt.frozen)
     c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
