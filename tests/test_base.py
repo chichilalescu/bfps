@@ -164,12 +164,12 @@ def acceleration_test(c, m = 3, species = 9):
     num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
     num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
 
-    pid = np.unravel_index(np.argmax(np.abs(num_acc1[2:] - acc[n+2:-n])), dims = num_acc1.shape)
-    print np.abs(num_acc1[2:] - acc[n+2:-n])[pid[0], pid[1]]
+    pid = np.unravel_index(np.argmax(np.abs(num_acc1[:] - acc[n:-n])), dims = num_acc1.shape)
+    print np.abs(num_acc1[:] - acc[n:-n])[pid[0], pid[1]]
     for cc in range(3):
-        a.plot(num_acc1[1:, pid[1], cc], color = col[cc])
-        #a.plot(num_acc2[1:, pid[1], cc], color = col[cc], dashes = (2, 2))
-        a.plot(acc[m+1:, pid[1], cc], color = col[cc], dashes = (1, 1))
+        a.plot(num_acc1[:, pid[1], cc], color = col[cc])
+        #a.plot(num_acc2[:, pid[1], cc], color = col[cc], dashes = (2, 2))
+        a.plot(acc[m:, pid[1], cc], color = col[cc], dashes = (1, 1))
 
     for n in range(1, m):
         fc = get_fornberg_coeffs(0, range(-n, n+1))
@@ -179,8 +179,8 @@ def acceleration_test(c, m = 3, species = 9):
         num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
 
         for cc in range(3):
-            a.plot(num_acc1[m+1-n:, pid[1], cc], color = col[cc])
-            #a.plot(num_acc2[m+1-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
+            a.plot(num_acc1[m-n:, pid[1], cc], color = col[cc])
+            #a.plot(num_acc2[m-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
     fig.tight_layout()
     fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
     return None

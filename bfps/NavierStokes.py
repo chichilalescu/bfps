@@ -356,6 +356,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
                                 'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species, beta_name)
+        self.particle_start += output_vel_acc
         self.particle_loop += update_field
         if not frozen_particles:
             if integration_method == 'AdamsBashforth':
