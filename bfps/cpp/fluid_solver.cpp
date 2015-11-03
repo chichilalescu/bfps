@@ -673,7 +673,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     /* ********* */ \
     /* debugging */ \
     /* check k2*p = -(trS2 - vorticity^2/2) */ \
-    this->compute_trS2(this->ru); \
+    /*this->compute_trS2(this->ru); \
     RLOOP( \
             this, \
             tindex = 3*rindex; \
@@ -691,7 +691,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                 this->cv[1][tindex+2][0] = k2*pressure[cindex][0]; \
                 this->cv[1][tindex+2][1] = k2*pressure[cindex][1]; \
             } \
-            ); \
+            );*/ \
     /*char fname[256]; \
     this->fill_up_filename("pressure_trS2_enstrophy", fname); \
     this->cd->write(fname, this->cv[1]);*/ \
