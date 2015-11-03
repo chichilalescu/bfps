@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-#ifdef NDEBUG
-#undef NDEBUG
-#endif//NDEBUG
+//#ifdef NDEBUG
+//#undef NDEBUG
+//#endif//NDEBUG
 
 
 #include <cmath>
@@ -469,36 +469,41 @@ void slab_field_particles<rnumber>::Heun()
 template <class rnumber>
 void slab_field_particles<rnumber>::cRK4()
 {
-    double *k = new double[this->array_size*4];
     double *y = new double[this->array_size];
-    double dtfactor[] = {0.0, 0.5, 0.5, 1.0};
-    std::copy(this->state,
-              this->state + this->array_size,
-              y);
-    this->get_rhs(y, k);
+    double dtfactor[] = {0.0, this->dt/2, this->dt/2, this->dt};
+    this->get_rhs(this->state, this->rhs[0]);
+    for (int p=0; p<this->nparticles; p++)
+        this->synchronize_single_particle_state(p, this->rhs[0]);
     for (int kindex = 1; kindex < 4; kindex++)
     {
-        for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+                for (int i=0; i<this->ncomponents; i++)
+                {
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                    y[tindex] = this->state[tindex] + dtfactor[kindex]*this->rhs[kindex-1][tindex];
+                }
+        }
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, y);
+        this->get_rhs(y, this->rhs[kindex]);
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, this->rhs[kindex]);
+    }
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->watching[this->fs->rd->myrank*this->nparticles+p])
             for (int i=0; i<this->ncomponents; i++)
             {
                 ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
-                y[tindex] = this->state[tindex] + this->dt*dtfactor[kindex]*k[(kindex-1)*this->array_size + tindex];
+                this->state[tindex] += this->dt*(this->rhs[0][tindex] +
+                                              2*(this->rhs[1][tindex] + this->rhs[2][tindex]) +
+                                                 this->rhs[3][tindex])/6;
             }
-        this->get_rhs(y, k + kindex*this->array_size);
     }
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-        for (int i=0; i<this->ncomponents; i++)
-        {
-            ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
-            this->state[tindex] += this->dt*(k[tindex] +
-                                             2*(k[this->array_size+tindex] +
-                                                k[2*this->array_size+tindex]) +
-                                             k[3*this->array_size+tindex])/6;
-        }
-    delete[] k;
     delete[] y;
 }
-
 
 template <class rnumber>
 void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, double *xx)

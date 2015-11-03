@@ -367,6 +367,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 assert(integration_steps == 2)
                 self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
             elif integration_method == 'cRK4':
+                assert(integration_steps == 4)
                 self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
             self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
             self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
