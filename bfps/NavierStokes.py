@@ -364,6 +364,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             elif integration_method == 'Euler':
                 self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
             elif integration_method == 'Heun':
+                assert(integration_steps == 2)
                 self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
             elif integration_method == 'cRK4':
                 self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)

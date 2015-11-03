@@ -402,14 +402,11 @@ void slab_field_particles<rnumber>::Euler()
 template <class rnumber>
 void slab_field_particles<rnumber>::Heun()
 {
-    double *k = new double[this->array_size*2];
     double *y = new double[this->array_size];
     double dtfactor[] = {0.0, 1.0};
+    this->get_rhs(this->state, this->rhs[0]);
     for (int p=0; p<this->nparticles; p++)
-        this->synchronize_single_particle_state(p, this->state+p*this->ncomponents);
-    this->get_rhs(this->state, k);
-    for (int p=0; p<this->nparticles; p++)
-        this->synchronize_single_particle_state(p, k+p*this->ncomponents);
+        this->synchronize_single_particle_state(p, this->rhs[0]+p*this->ncomponents);
     for (int kindex = 1; kindex < 2; kindex++)
     {
         for (int p=0; p<this->nparticles; p++)
@@ -418,25 +415,23 @@ void slab_field_particles<rnumber>::Heun()
                 for (int i=0; i<this->ncomponents; i++)
                 {
                     ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
-                    y[tindex] = this->state[tindex] + this->dt*dtfactor[kindex]*k[(kindex-1)*this->array_size + tindex];
+                    y[tindex] = this->state[tindex] + this->dt*dtfactor[kindex]*this->rhs[kindex-1][tindex];
                 }
         }
         for (int p=0; p<this->nparticles; p++)
             this->synchronize_single_particle_state(p, y+p*this->ncomponents);
-        this->get_rhs(y, k + kindex*this->array_size);
+        this->get_rhs(y, this->rhs[kindex]);
         for (int p=0; p<this->nparticles; p++)
-            this->synchronize_single_particle_state(p, k + kindex*this->array_size + p*this->ncomponents);
+            this->synchronize_single_particle_state(p, this->rhs[kindex] + p*this->ncomponents);
     }
     for (int p=0; p<this->nparticles; p++)
     {
         if (this->fs->rd->myrank == this->computing[p]) for (int i=0; i<this->ncomponents; i++)
         {
             ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
-            this->state[tindex] += this->dt*(k[tindex] + k[this->array_size+tindex])/2;
+            this->state[tindex] += this->dt*(this->rhs[0][tindex] + this->rhs[1][tindex])/2;
         }
-        this->synchronize_single_particle_state(p, this->state + p*this->ncomponents);
     }
-    delete[] k;
     delete[] y;
 }
 
