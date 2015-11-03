@@ -92,26 +92,26 @@ def launch(
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     if c.parameters['nparticles'] > 0:
-        c.add_particles(kcut = 'fs->kM/2',
-                        integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(
-                integration_steps = 1,
-                neighbours = opt.neighbours,
-                smoothness = opt.smoothness,
-                force_vel_reset = True)
-        c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 0)
-        c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 1)
-        c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1)
-        c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 2)
-        c.add_particles(integration_steps = 2, neighbours = 1, interp_type = 'Lagrange')
-        c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange')
+        #c.add_particles(kcut = 'fs->kM/2',
+        #                integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(
+        #        integration_steps = 1,
+        #        neighbours = opt.neighbours,
+        #        smoothness = opt.smoothness,
+        #        force_vel_reset = True)
+        #c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 0)
+        #c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 1)
+        #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1)
+        #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 2)
+        #c.add_particles(integration_steps = 2, neighbours = 1, interp_type = 'Lagrange')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange')
         c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1, integration_method = 'Heun')
-        c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'Heun')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'Heun')
         #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1, integration_method = 'cRK4')
         #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'cRK4')
     c.fill_up_fluid_code()
