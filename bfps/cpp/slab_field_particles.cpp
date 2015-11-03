@@ -411,7 +411,7 @@ void slab_field_particles<rnumber>::Heun()
     for (int p=0; p<this->nparticles; p++)
     {
         this->synchronize_single_particle_state(p, this->rhs[0]);
-        int crank = this->get_rank(this->state[p*3 + 2]);
+        //int crank = this->get_rank(this->state[p*3 + 2]);
         //DEBUG_MSG(
         //        "k 0 iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g, rhs is %g %g %g\n",
         //        this->iteration, p,
@@ -453,7 +453,7 @@ void slab_field_particles<rnumber>::Heun()
                 ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                 this->state[tindex] += this->dt*(this->rhs[0][tindex] + this->rhs[1][tindex])/2;
             }
-            int crank = this->get_rank(this->state[p*3 + 2]);
+            //int crank = this->get_rank(this->state[p*3 + 2]);
             //if (crank != this->computing[p])
                 //DEBUG_MSG(
                 //        "k _ iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g\n",
