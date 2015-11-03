@@ -36,7 +36,7 @@ parser.add_argument('--multiplejob',
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = launch(opt, dt = 0.4/opt.n)
+    c0 = launch(opt, dt = 0.2/opt.n)
     c0.compute_statistics()
     df = c0.get_data_file()
     for s in range(c0.particle_species):
