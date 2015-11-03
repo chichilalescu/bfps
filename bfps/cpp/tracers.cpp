@@ -88,31 +88,7 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
                 this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
             }
             if (crank != this->computing[p])
-            {
-                if (this->fs->rd->myrank == crank)
-                {
-                    MPI_Send(
-                            y+p*3,
-                            3,
-                            MPI_DOUBLE,
-                            this->computing[p],
-                            p*this->computing[p],
-                            this->fs->rd->comm);
-                    DEBUG_MSG("this is actual compute rank %g %g %g\n", x[p*3], x[p*3+1], x[p*3+2]);
-                }
-                if (this->fs->rd->myrank == this->computing[p])
-                {
-                    MPI_Recv(
-                            y+p*3,
-                            3,
-                            MPI_DOUBLE,
-                            crank,
-                            p*this->computing[p],
-                            this->fs->rd->comm,
-                            MPI_STATUS_IGNORE);
-                    DEBUG_MSG("this is computing rank %g %g %g\n", x[p*3], x[p*3+1], x[p*3+2]);
-                }
-            }
+                this->synchronize_single_particle_state(p, y+p*3, crank);
         }
     }
     delete[] xg;

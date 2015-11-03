@@ -163,28 +163,29 @@ int slab_field_particles<rnumber>::get_rank(double z)
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::synchronize_single_particle_state(int p, double *x)
+void slab_field_particles<rnumber>::synchronize_single_particle_state(int p, double *x, int source)
 {
+    if (source == -1) source = this->computing[p];
     if (this->watching[this->fs->rd->myrank*this->nparticles+p]) for (int r=0; r<this->fs->rd->nprocs; r++)
-        if (r != this->computing[p] &&
+        if (r != source &&
             this->watching[r*this->nparticles+p])
         {
             DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
-            if (this->fs->rd->myrank == this->computing[p])
+            if (this->fs->rd->myrank == source)
                 MPI_Send(
                         x,
                         this->ncomponents,
                         MPI_DOUBLE,
                         r,
-                        p*this->computing[p],
+                        p+this->computing[p]*this->nparticles,
                         this->fs->rd->comm);
             if (this->fs->rd->myrank == r)
                 MPI_Recv(
                         x,
                         this->ncomponents,
                         MPI_DOUBLE,
-                        this->computing[p],
-                        p*this->computing[p],
+                        source,
+                        p+this->computing[p]*this->nparticles,
                         this->fs->rd->comm,
                         MPI_STATUS_IGNORE);
         }
