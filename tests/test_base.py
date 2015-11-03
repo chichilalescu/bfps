@@ -182,7 +182,7 @@ def acceleration_test(c, m = 3, species = 9):
             a.plot(num_acc1[m+1-n:, pid[1], cc], color = col[cc])
             #a.plot(num_acc2[m+1-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
     fig.tight_layout()
-    fig.savefig(os.path.join(c.work_dir, 'acc_test_{0}_{1}.pdf'.format(c.simname, species)))
+    fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
     return None
 
 if __name__ == '__main__':

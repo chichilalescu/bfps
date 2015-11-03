@@ -89,8 +89,8 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
             }
             if (crank != this->computing[p])
             {
-                DEBUG_MSG("particle %d, compute rank is %d, computing rank is %d\n", p, crank, this->computing[p]);
                 if (this->fs->rd->myrank == crank)
+                {
                     MPI_Send(
                             y+p*3,
                             3,
@@ -98,7 +98,10 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
                             this->computing[p],
                             p*this->computing[p],
                             this->fs->rd->comm);
+                    DEBUG_MSG("this is actual compute rank %g %g %g\n", x[p*3], x[p*3+1], x[p*3+2]);
+                }
                 if (this->fs->rd->myrank == this->computing[p])
+                {
                     MPI_Recv(
                             y+p*3,
                             3,
@@ -107,6 +110,8 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
                             p*this->computing[p],
                             this->fs->rd->comm,
                             MPI_STATUS_IGNORE);
+                    DEBUG_MSG("this is computing rank %g %g %g\n", x[p*3], x[p*3+1], x[p*3+2]);
+                }
             }
         }
     }
@@ -170,13 +175,11 @@ void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
     /* perform interpolation */ \
     for (int p=0; p<this->nparticles; p++) \
         if (this->fs->rd->myrank == this->computing[p]) \
-        { \
             this->spline_formula(vec_field, \
                                  xg + p*3, \
                                  xx + p*3, \
                                  vec_local + p*3, \
                                  deriv); \
-        } \
     MPI_Allreduce( \
             vec_local, \
             vec_values, \

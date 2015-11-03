@@ -38,8 +38,13 @@ def plain(opt):
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt, dt = 0.4/opt.n)
     c0.compute_statistics()
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    df = c0.get_data_file()
     for s in range(c0.particle_species):
+        a.plot(df['particles/tracers{0}/state'.format(s)][:, 2, 2])
         acceleration_test(c0, species = s)
+    fig.savefig('ztraj.pdf')
     if not opt.multiplejob:
         return None
     assert(opt.niter_todo % 3 == 0)
