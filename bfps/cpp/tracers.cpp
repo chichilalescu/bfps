@@ -37,7 +37,6 @@ template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
     int deriv[] = {0, 0, 0};
-    double *tjump = new double[this->nparticles];
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
     rnumber *vel = this->data + this->buffer_size;
@@ -45,25 +44,16 @@ void tracers<rnumber>::jump_estimate(double *jump)
     /* get grid coordinates */
     this->get_grid_coordinates(this->state, xg, xx);
 
-    std::fill_n(tjump, this->nparticles, 0.0);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
-        tjump[p] = fabs(3*this->dt * tmp[2]);
-        if (tjump[p] < this->dz*1.01)
-            tjump[p] = this->dz*1.01;
+        jump[p] = fabs(3*this->dt * tmp[2]);
+        if (jump[p] < this->dz*1.01)
+            jump[p] = this->dz*1.01;
     }
     delete[] xg;
     delete[] xx;
-    MPI_Allreduce(
-            tjump,
-            jump,
-            this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->fs->rd->comm);
-    delete[] tjump;
 }
 
 template <class rnumber>
