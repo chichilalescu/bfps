@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -157,8 +157,8 @@ void slab_field_particles<rnumber>::jump_estimate(double *dest)
 template <class rnumber>
 int slab_field_particles<rnumber>::get_rank(double z)
 {
-    int tmp = this->fs->rd->rank[MOD(floor(z/this->dz), this->fs->rd->sizes[0])];
-    assert(tmp >= 0 && tmp < this->fs->rd->sizes[0]);
+    int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
+    assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
     return tmp;
 }
 
@@ -265,6 +265,8 @@ void slab_field_particles<rnumber>::synchronize()
             MPI_LOR,
             this->fs->rd->comm);
     delete[] local_watching;
+    for (int p=0; p<this->nparticles; p++)
+        DEBUG_MSG("watching = %d for particle %d\n", this->watching[this->fs->rd->myrank*nparticles+p], p);
 }
 
 
@@ -411,13 +413,13 @@ void slab_field_particles<rnumber>::Heun()
     for (int p=0; p<this->nparticles; p++)
     {
         this->synchronize_single_particle_state(p, this->rhs[0]);
-        //int crank = this->get_rank(this->state[p*3 + 2]);
-        //DEBUG_MSG(
-        //        "k 0 iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g, rhs is %g %g %g\n",
-        //        this->iteration, p,
-        //        crank, this->computing[p],
-        //        this->state[p*3], this->state[p*3+1], this->state[p*3+2],
-        //        this->rhs[0][p*3], this->rhs[0][p*3+1], this->rhs[0][p*3+2]);
+        int crank = this->get_rank(this->state[p*3 + 2]);
+        DEBUG_MSG(
+                "k 0 iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g, rhs is %g %g %g\n",
+                this->iteration, p,
+                crank, this->computing[p],
+                this->state[p*3], this->state[p*3+1], this->state[p*3+2],
+                this->rhs[0][p*3], this->rhs[0][p*3+1], this->rhs[0][p*3+2]);
     }
     for (int kindex = 1; kindex < 2; kindex++)
     {
@@ -436,16 +438,15 @@ void slab_field_particles<rnumber>::Heun()
         for (int p=0; p<this->nparticles; p++)
         {
             this->synchronize_single_particle_state(p, this->rhs[kindex]);
-        //DEBUG_MSG(
-        //        "k %d iteration %d particle is %d, position is %g %g %g, rhs is %g %g %g\n",
-        //        kindex, this->iteration, p,
-        //        y[p*3], y[p*3+1], y[p*3+2],
-        //        this->rhs[kindex][p*3], this->rhs[kindex][p*3+1], this->rhs[kindex][p*3+2]);
+        DEBUG_MSG(
+                "k %d iteration %d particle is %d, position is %g %g %g, rhs is %g %g %g\n",
+                kindex, this->iteration, p,
+                y[p*3], y[p*3+1], y[p*3+2],
+                this->rhs[kindex][p*3], this->rhs[kindex][p*3+1], this->rhs[kindex][p*3+2]);
         }
     }
     for (int p=0; p<this->nparticles; p++)
     {
-        //if (this->fs->rd->myrank == this->computing[p])
         if (this->watching[this->fs->rd->myrank*this->nparticles+p])
         {
             for (int i=0; i<this->ncomponents; i++)
@@ -453,16 +454,17 @@ void slab_field_particles<rnumber>::Heun()
                 ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                 this->state[tindex] += this->dt*(this->rhs[0][tindex] + this->rhs[1][tindex])/2;
             }
-            //int crank = this->get_rank(this->state[p*3 + 2]);
-            //if (crank != this->computing[p])
-                //DEBUG_MSG(
-                //        "k _ iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g\n",
-                //        this->iteration, p,
-                //        crank, this->computing[p],
-                //        this->state[p*3], this->state[p*3+1], this->state[p*3+2]);
+            int crank = this->get_rank(this->state[p*3 + 2]);
+            if (crank != this->computing[p])
+                DEBUG_MSG(
+                        "k _ iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g\n",
+                        this->iteration, p,
+                        crank, this->computing[p],
+                        this->state[p*3], this->state[p*3+1], this->state[p*3+2]);
         }
     }
     delete[] y;
+    DEBUG_MSG("exiting Heun\n");
 }
 
 

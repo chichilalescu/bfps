@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -50,7 +50,9 @@ void tracers<rnumber>::jump_estimate(double *jump)
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
         this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
-        tjump[p] = fabs(2*this->dt * tmp[2]);
+        tjump[p] = fabs(3*this->dt * tmp[2]);
+        if (tjump[p] < this->dz*1.01)
+            tjump[p] = this->dz*1.01;
     }
     delete[] xg;
     delete[] xx;
