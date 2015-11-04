@@ -536,10 +536,9 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+void slab_field_particles<rnumber>::interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
 {
     double bx[this->interp_neighbours*2+2], by[this->interp_neighbours*2+2], bz[this->interp_neighbours*2+2];
-    //DEBUG_MSG("entered spline_formula\n");
     this->compute_beta(deriv[0], xx[0], bx);
     this->compute_beta(deriv[1], xx[1], by);
     this->compute_beta(deriv[2], xx[2], bz);
@@ -564,58 +563,6 @@ void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, doub
                                                                                        by[iy+this->interp_neighbours]*
                                                                                        bx[ix+this->interp_neighbours]);
         }
-    //DEBUG_MSG("finishing spline_formula\n");
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n1_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[4], by[4], bz[4];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -1; iz <= 2; iz++)
-    for (int iy = -1; iy <= 2; iy++)
-    for (int ix = -1; ix <= 2; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(    xg[2]+iz                         ) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(MOD(xg[1]+iy, this->fs->rd->sizes[1])))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(MOD(xg[0]+ix, this->fs->rd->sizes[2])))*3+c]*bz[iz+1]*by[iy+1]*bx[ix+1];
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n2_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[6], by[6], bz[6];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -2; iz <= 3; iz++)
-    for (int iy = -2; iy <= 3; iy++)
-    for (int ix = -2; ix <= 3; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+2]*by[iy+2]*bx[ix+2];
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n3_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[8], by[8], bz[8];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -3; iz <= 4; iz++)
-    for (int iy = -3; iy <= 4; iy++)
-    for (int ix = -3; ix <= 4; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+3]*by[iy+3]*bx[ix+3];
 }
 
 template <class rnumber>

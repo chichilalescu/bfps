@@ -138,10 +138,7 @@ class slab_field_particles
         void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void spline_formula(      rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void spline_n1_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void spline_n2_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void spline_n3_formula(   rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
 
         void rFFTW_to_buffered(rnumber *src, rnumber *dst);
 

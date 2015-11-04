@@ -47,7 +47,7 @@ void tracers<rnumber>::jump_estimate(double *jump)
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
-        this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
+        this->interpolation_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
         jump[p] = fabs(3*this->dt * tmp[2]);
         if (jump[p] < this->dz*1.01)
             jump[p] = this->dz*1.01;
@@ -79,7 +79,7 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
             int crank = this->get_rank(x[p*3 + 2]);
             if (this->fs->rd->myrank == crank)
             {
-                this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
+                this->interpolation_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
             DEBUG_MSG(
                     "position is %g %g %g %d %d %d %g %g %g, result is %g %g %g\n",
                     x[p*3], x[p*3+1], x[p*3+2],
@@ -159,11 +159,12 @@ void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
     /* perform interpolation */ \
     for (int p=0; p<this->nparticles; p++) \
         if (this->fs->rd->myrank == this->computing[p]) \
-            this->spline_formula(vec_field, \
-                                 xg + p*3, \
-                                 xx + p*3, \
-                                 vec_local + p*3, \
-                                 deriv); \
+            this->interpolation_formula( \
+                    vec_field, \
+                    xg + p*3, \
+                    xx + p*3, \
+                    vec_local + p*3, \
+                    deriv); \
     MPI_Allreduce( \
             vec_local, \
             vec_values, \
