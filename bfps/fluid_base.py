@@ -290,7 +290,8 @@ class fluid_particle_base(bfps.code):
         else:
             assert(data.shape == (self.parameters['nparticles'], ncomponents))
         if testing:
-            data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
+            #data[0] = np.array([3.26434, 4.24418, 3.12157])
+            data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
             time_chunk = 2**20 // (8*ncomponents*
                                    self.parameters['nparticles'])

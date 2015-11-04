@@ -25,6 +25,7 @@
 
 
 import os
+import numpy as np
 import h5py
 import bfps
 
@@ -112,7 +113,8 @@ class base(object):
     def read_parameters(self):
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
             for k in data_file['parameters'].keys():
-                self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
+                if k in self.parameters.keys():
+                    self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
         return None
     def pars_from_namespace(self, opt):
         new_pars = vars(opt)

@@ -39,12 +39,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
-            fftw_plan_rigor = 'FFTW_MEASURE'):
+            fftw_plan_rigor = 'FFTW_MEASURE',
+            frozen_fields = False):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision)
+        self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
@@ -125,7 +127,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     {
                         hid_t Cdset, wspace, mspace;
                         int ndims;
-                        hsize_t count[4], offset[4], old_dims[4], dims[4];
+                        hsize_t count[4], offset[4], dims[4];
                         offset[0] = fs->iteration/niter_stat;
                         offset[1] = 0;
                         offset[2] = 0;
@@ -226,9 +228,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->read('v', 'c');
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor)
-        self.fluid_loop = ('fs->step(dt);\n' +
-                           'if (fs->iteration % niter_out == 0)\n{\n' +
-                           self.fluid_output + '\n}\n')
+        if not self.frozen_fields:
+            self.fluid_loop = 'fs->step(dt);\n'
+        else:
+            self.fluid_loop = ''
+        self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
+                            self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
                           'delete fs;\n')
@@ -237,8 +242,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             neighbours = 1,
             smoothness = 1,
+            interp_type = 'spline',
+            integration_method = 'AdamsBashforth',
             integration_steps = 2,
-            kcut = 'fs->kM'):
+            kcut = 'fs->kM',
+            force_vel_reset = True,
+            frozen_particles = False):
+        self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
+        self.parameters['interp_type{0}'.format(self.particle_species)] = interp_type
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
         self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
@@ -263,16 +274,23 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.file_datasets_grow += grow_template.format(self.particle_species, 'velocity')
         self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
         #self.particle_definitions
-        update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
-                        'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
-                        'fs->ift_velocity();\n' +
-                        'ps{0}->update_field();\n').format(self.particle_species)
+        if kcut == 'fs->kM':
+            if self.particle_species == 0 or force_vel_reset:
+                update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
+                                'fs->ift_velocity();\n')
+            else:
+                update_field = ''
+        else:
+            update_field = ('fs->compute_velocity(fs->cvorticity);\n' +
+                            'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut) +
+                            'fs->ift_velocity();\n')
+        update_field += 'ps{0}->update_field();\n'.format(self.particle_species)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
             FFTW = 'fftw'
         compute_acc = ('{0} *acc_field = {1}_alloc_real(ps{2}->buffered_field_descriptor->local_size);\n' +
-                       '{0} *acc_field_tmp = {1}_alloc_real(fs->cd->local_size*2);\n' +
+                       '{0} *acc_field_tmp = {1}_alloc_real(fs->rd->local_size);\n' +
                        'fs->compute_Lagrangian_acceleration(acc_field_tmp);\n' +
                        'ps{2}->rFFTW_to_buffered(acc_field_tmp, acc_field);\n' +
                        'ps{2}->sample_vec_field(acc_field, acceleration);\n' +
@@ -281,8 +299,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         output_vel_acc =  """
                           //begincpp
                           {{
-                              double *acceleration = fftw_alloc_real(ps{0}->array_size);
+                              double *acceleration = new double[ps{0}->array_size];
+                              double *velocity     = new double[ps{0}->array_size];
                               {1}
+                              ps{0}->sample_vec_field(ps{0}->data, velocity);
+                              {2}
                               if (ps{0}->fs->rd->myrank == 0)
                               {{
                                   //VELOCITY begin
@@ -301,7 +322,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   offset[2] = 0;
                                   mspace = H5Screate_simple(ndims, count, NULL);
                                   H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, ps{0}->rhs[0]);
+                                  H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
                                   H5Dclose(Cdset);
                                   //VELOCITY end
                                   //ACCELERATION begin
@@ -315,23 +336,42 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                   H5Dclose(Cdset);
                                   //ACCELERATION end
                               }}
-                              fftw_free(acceleration);
+                              delete[] acceleration;
+                              delete[] velocity;
                           }}
                           //endcpp
-                          """.format(self.particle_species, compute_acc)
+                          """.format(self.particle_species, update_field, compute_acc)
+        if interp_type == 'spline':
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
         self.particle_start += ('sprintf(fname, "tracers{1}");\n' +
                                 'ps{1} = new tracers<{0}>(\n' +
                                     'fname, fs,\n' +
                                     'nparticles,\n' +
-                                    'neighbours{1}, smoothness{1}, niter_part, integration_steps{1},\n' +
+                                    '{2},\n' +
+                                    'neighbours{1}, niter_part, integration_steps{1},\n' +
                                     'fs->ru);\n' +
                                 'ps{1}->dt = dt;\n' +
                                 'ps{1}->iteration = iteration;\n' +
                                 update_field +
-                                'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species)
-        self.particle_loop += ((update_field +
-                               'ps{0}->step();\n' +
-                                'if (ps{0}->iteration % niter_part == 0)\n' +
+                                'ps{1}->read(stat_file);\n').format(self.C_dtype, self.particle_species, beta_name)
+        self.particle_start += output_vel_acc
+        self.particle_loop += update_field
+        if not frozen_particles:
+            if integration_method == 'AdamsBashforth':
+                self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
+            elif integration_method == 'Euler':
+                self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
+            elif integration_method == 'Heun':
+                assert(integration_steps == 2)
+                self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
+            elif integration_method == 'cRK4':
+                assert(integration_steps == 4)
+                self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
+            self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
+            self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
+        self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
                                output_vel_acc)
         self.particle_end += ('ps{0}->write(stat_file);\n' +

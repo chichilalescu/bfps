@@ -33,6 +33,7 @@ from bfps import fluid_resize
 
 parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
+parser.add_argument('--frozen', dest = 'frozen', action = 'store_true')
 parser.add_argument('--iteration',
         type = int, dest = 'iteration', default = 0)
 parser.add_argument('--neighbours',
@@ -73,7 +74,8 @@ def launch(
         code_class = bfps.NavierStokes):
     c = code_class(
             work_dir = opt.work_dir,
-            fluid_precision = opt.precision)
+            fluid_precision = opt.precision,
+            frozen_fields = opt.frozen)
     c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -90,14 +92,28 @@ def launch(
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     if c.parameters['nparticles'] > 0:
-        c.add_particles(kcut = 'fs->kM/2',
-                        integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(kcut = 'fs->kM/2',
+        #                integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(
+        #        integration_steps = 1,
+        #        neighbours = opt.neighbours,
+        #        smoothness = opt.smoothness,
+        #        force_vel_reset = True)
+        #c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        #c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 0)
+        #c.add_particles(integration_steps = 2, neighbours = 1, smoothness = 1)
+        #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1)
+        #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 2)
+        #c.add_particles(integration_steps = 2, neighbours = 1, interp_type = 'Lagrange')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange')
+        c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1, integration_method = 'Heun')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'Heun')
+        #c.add_particles(integration_steps = 4, neighbours = 6, smoothness = 1, integration_method = 'cRK4')
+        #c.add_particles(integration_steps = 4, neighbours = 6, interp_type = 'Lagrange', integration_method = 'cRK4')
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
@@ -127,6 +143,47 @@ def launch(
         c.run(ncpu = opt.ncpu,
               njobs = opt.njobs)
     return c
+
+
+def acceleration_test(c, m = 3, species = 9):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from bfps.tools import get_fornberg_coeffs
+    d = c.get_data_file()
+    group = d['particles/tracers{0}'.format(species)]
+    pos = group['state'].value
+    vel = group['velocity'].value
+    acc = group['acceleration'].value
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    col = ['red', 'green', 'blue']
+    n = m
+    fc = get_fornberg_coeffs(0, range(-n, n+1))
+    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+    num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+    num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+
+    pid = np.unravel_index(np.argmax(np.abs(num_acc1[:] - acc[n:-n])), dims = num_acc1.shape)
+    print np.abs(num_acc1[:] - acc[n:-n])[pid[0], pid[1]]
+    for cc in range(3):
+        a.plot(num_acc1[:, pid[1], cc], color = col[cc])
+        #a.plot(num_acc2[:, pid[1], cc], color = col[cc], dashes = (2, 2))
+        a.plot(acc[m:, pid[1], cc], color = col[cc], dashes = (1, 1))
+
+    for n in range(1, m):
+        fc = get_fornberg_coeffs(0, range(-n, n+1))
+        dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+        num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+        num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+
+        for cc in range(3):
+            a.plot(num_acc1[m-n:, pid[1], cc], color = col[cc])
+            #a.plot(num_acc2[m-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
+    fig.tight_layout()
+    fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+    return None
 
 if __name__ == '__main__':
     print('this file doesn\'t do anything')

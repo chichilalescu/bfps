@@ -32,7 +32,7 @@
 
 #define BASE
 
-static const int message_buffer_length = 1024;
+static const int message_buffer_length = 2048;
 extern int myrank, nprocs;
 
 inline int MOD(int a, int n)

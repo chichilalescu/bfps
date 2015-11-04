@@ -56,12 +56,8 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
-        if self.dtype == np.float32:
-            C_dtype = 'float'
-        else:
-            C_dtype = 'double'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<' + C_dtype + '> *fs0, *fs1;\n')
+                                 'fluid_solver<' + self.C_dtype + '> *fs0, *fs1;\n')
         self.fluid_start += """
                 //begincpp
                 char fname[512];
@@ -94,7 +90,7 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 b = 0.5*fs1->autocorrel(fs1->cvorticity);
                 DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
                 //endcpp
-                """.format(C_dtype)
+                """.format(self.C_dtype)
         self.fluid_end += """
                 //begincpp
                 delete fs0;

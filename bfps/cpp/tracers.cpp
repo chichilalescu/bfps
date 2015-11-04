@@ -23,9 +23,9 @@
 **********************************************************************/
 
 // code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#ifdef NDEBUG
+#undef NDEBUG
+#endif//NDEBUG
 
 
 #include <cmath>
@@ -36,37 +36,24 @@
 template <class rnumber>
 void tracers<rnumber>::jump_estimate(double *jump)
 {
-    DEBUG_MSG("entered jump_estimate\n");
     int deriv[] = {0, 0, 0};
-    double *tjump = new double[this->nparticles];
     int *xg = new int[this->array_size];
     double *xx = new double[this->array_size];
     rnumber *vel = this->data + this->buffer_size;
     double tmp[3];
     /* get grid coordinates */
     this->get_grid_coordinates(this->state, xg, xx);
-    DEBUG_MSG("finished get_grid_coordinate\n");
 
-    std::fill_n(tjump, this->nparticles, 0.0);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
-        DEBUG_MSG("particle %d, about to call linear_interpolation\n", p);
-        //this->linear_interpolation(vel, xg + p*3, xx + p*3, tmp, deriv);
         this->spline_formula(vel, xg + p*3, xx + p*3, tmp, deriv);
-        tjump[p] = fabs(2*this->dt * tmp[2]);
+        jump[p] = fabs(3*this->dt * tmp[2]);
+        if (jump[p] < this->dz*1.01)
+            jump[p] = this->dz*1.01;
     }
     delete[] xg;
     delete[] xx;
-    MPI_Allreduce(
-            tjump,
-            jump,
-            this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->fs->rd->comm);
-    delete[] tjump;
-    DEBUG_MSG("exiting jump_estimate\n");
 }
 
 template <class rnumber>
@@ -79,17 +66,38 @@ void tracers<rnumber>::get_rhs(double *x, double *y)
     double *xx = new double[this->array_size];
     rnumber *vel = this->data + this->buffer_size;
     this->get_grid_coordinates(x, xg, xx);
+    //DEBUG_MSG(
+    //        "position is %g %g %g, grid_coords are %d %d %d %g %g %g\n",
+    //        x[0], x[1], x[2],
+    //        xg[0], xg[1], xg[2],
+    //        xx[0], xx[1], xx[2]);
     /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    for (int p=0; p<this->nparticles; p++)
     {
-        this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
-        DEBUG_MSG(
-                "particle %d position %lg %lg %lg, i.e. %d %d %d %lg %lg %lg, found y %lg %lg %lg\n",
-                p,
-                x[p*3], x[p*3+1], x[p*3+2],
-                xg[p*3], xg[p*3+1], xg[p*3+2],
-                xx[p*3], xx[p*3+1], xx[p*3+2],
-                y[p*3], y[p*3+1], y[p*3+2]);
+        if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+        {
+            int crank = this->get_rank(x[p*3 + 2]);
+            if (this->fs->rd->myrank == crank)
+            {
+                this->spline_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
+            DEBUG_MSG(
+                    "position is %g %g %g %d %d %d %g %g %g, result is %g %g %g\n",
+                    x[p*3], x[p*3+1], x[p*3+2],
+                    xg[p*3], xg[p*3+1], xg[p*3+2],
+                    xx[p*3], xx[p*3+1], xx[p*3+2],
+                    y[p*3], y[p*3+1], y[p*3+2]);
+            }
+            if (crank != this->computing[p])
+            {
+                this->synchronize_single_particle_state(p, y, crank);
+            }
+            //DEBUG_MSG(
+            //        "after synch crank is %d, computing rank is %d, position is %g %g %g, result is %g %g %g\n",
+            //        this->iteration, p,
+            //        crank, this->computing[p],
+            //        x[p*3], x[p*3+1], x[p*3+2],
+            //        y[p*3], y[p*3+1], y[p*3+2]);
+        }
     }
     delete[] xg;
     delete[] xx;
@@ -113,8 +121,8 @@ tracers<R>::tracers( \
                 const char *NAME, \
                 fluid_solver_base<R> *FSOLVER, \
                 const int NPARTICLES, \
+                base_polynomial_values BETA_POLYS, \
                 const int NEIGHBOURS, \
-                const int SMOOTHNESS, \
                 const int TRAJ_SKIP, \
                 const int INTEGRATION_STEPS, \
                 R *SOURCE_DATA) : slab_field_particles<R>( \
@@ -122,8 +130,8 @@ tracers<R>::tracers( \
                     FSOLVER, \
                     NPARTICLES, \
                     3, \
+                    BETA_POLYS, \
                     NEIGHBOURS, \
-                    SMOOTHNESS, \
                     TRAJ_SKIP, \
                     INTEGRATION_STEPS) \
 { \
@@ -140,6 +148,7 @@ tracers<R>::~tracers() \
 template <> \
 void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
 { \
+    vec_field += this->buffer_size; \
     double *vec_local =  new double[this->array_size]; \
     std::fill_n(vec_local, this->array_size, 0.0); \
     int deriv[] = {0, 0, 0}; \
@@ -150,13 +159,11 @@ void tracers<R>::sample_vec_field(R *vec_field, double *vec_values) \
     /* perform interpolation */ \
     for (int p=0; p<this->nparticles; p++) \
         if (this->fs->rd->myrank == this->computing[p]) \
-        { \
-            this->spline_formula(vec_field + this->buffer_size, \
+            this->spline_formula(vec_field, \
                                  xg + p*3, \
                                  xx + p*3, \
                                  vec_local + p*3, \
                                  deriv); \
-        } \
     MPI_Allreduce( \
             vec_local, \
             vec_values, \

@@ -30,12 +30,24 @@
 #include <hdf5.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
+#include "spline_n1.hpp"
+#include "spline_n2.hpp"
+#include "spline_n3.hpp"
+#include "spline_n4.hpp"
+#include "spline_n5.hpp"
+#include "spline_n6.hpp"
+#include "Lagrange_polys.hpp"
 
 #ifndef SLAB_FIELD_PARTICLES
 
 #define SLAB_FIELD_PARTICLES
 
 extern int myrank, nprocs;
+
+typedef void (*base_polynomial_values)(
+        int derivative,
+        double fraction,
+        double *destination);
 
 template <class rnumber>
 class slab_field_particles
@@ -47,10 +59,6 @@ class slab_field_particles
         //        double *xx,
         //        double *dest,
         //        int *deriv);
-        typedef void (*base_polynomial_values)(
-                int derivative,
-                double fraction,
-                double *destination);
     public:
         fluid_solver_base<rnumber> *fs;
         field_descriptor<rnumber> *buffered_field_descriptor;
@@ -78,7 +86,6 @@ class slab_field_particles
         int ncomponents;
         int array_size;
         int interp_neighbours;
-        int interp_smoothness;
         int buffer_width;
         int integration_steps;
         int traj_skip;
@@ -110,8 +117,8 @@ class slab_field_particles
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
                 const int NCOMPONENTS,
+                base_polynomial_values BETA_POLYS,
                 const int INTERP_NEIGHBOURS,
-                const int INTERP_SMOOTHNESS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~slab_field_particles();
@@ -128,7 +135,7 @@ class slab_field_particles
         /* generic methods, should work for all children of this class */
         int get_rank(double z); // get rank for given value of z
         void synchronize();
-        void synchronize_single_particle(int p);
+        void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
         void spline_formula(      rnumber *field, int *xg, double *xx, double *dest, int *deriv);
@@ -147,6 +154,8 @@ class slab_field_particles
         void roll_rhs();
         void AdamsBashforth(int nsteps);
         void Euler();
+        void Heun();
+        void cRK4();
 };
 
 
