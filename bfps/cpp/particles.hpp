@@ -52,7 +52,7 @@ typedef void (*base_polynomial_values)(
 /* particle types */
 enum particle_types {VELOCITY_TRACER};
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
 class particles
 {
     public:
@@ -85,6 +85,7 @@ class particles
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
+        base_polynomial_values compute_beta;
 
         /* simulation parameters */
         char name[256];
@@ -109,6 +110,7 @@ class particles
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int NPARTICLES,
+                base_polynomial_values BETA_POLYS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();

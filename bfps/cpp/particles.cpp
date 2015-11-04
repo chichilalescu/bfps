@@ -41,11 +41,12 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::particles(
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::particles(
         const char *NAME,
         fluid_solver_base<rnumber> *FSOLVER,
         const int NPARTICLES,
+        base_polynomial_values BETA_POLYS,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
@@ -54,6 +55,7 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, com
     strncpy(this->name, NAME, 256);
     this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
+    this->compute_beta = BETA_POLYS;
     this->integration_steps = INTEGRATION_STEPS;
     this->traj_skip = TRAJ_SKIP;
     // in principle only the buffer width at the top needs the +1,
@@ -118,8 +120,8 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, com
     //            );
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::~particles()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::~particles()
 {
     delete[] this->computing;
     delete[] this->watching;
@@ -133,8 +135,8 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, com
     delete this->buffered_field_descriptor;
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::get_rhs(double *x, double *y)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_rhs(double *x, double *y)
 {
     std::fill_n(y, this->array_size, 0.0);
     switch(particle_type)
@@ -179,8 +181,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::jump_estimate(double *jump)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::jump_estimate(double *jump)
 {
     std::fill_n(jump, this->nparticles, 0.0);
     switch(particle_type)
@@ -208,16 +210,16 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-int particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::get_rank(double z)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+int particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_rank(double z)
 {
     int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
     assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
     return tmp;
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::synchronize_single_particle_state(int p, double *x, int source)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::synchronize_single_particle_state(int p, double *x, int source)
 {
     if (!multistep)
     {
@@ -248,8 +250,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::synchronize()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::synchronize()
 {
     double *tstate = fftw_alloc_real(this->array_size);
     // first, synchronize state and jump across CPUs
@@ -328,8 +330,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::roll_rhs()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
         std::copy(this->rhs[i],
@@ -339,8 +341,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::AdamsBashforth(int nsteps)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
     this->get_rhs(this->state, this->rhs[0]);
@@ -414,8 +416,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::step()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::step()
 {
     if (multistep)
         this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -429,8 +431,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::Heun()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::Heun()
 {
     if (!multistep)
     {
@@ -472,8 +474,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::cRK4()
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::cRK4()
 {
     if (!multistep)
     {
@@ -514,8 +516,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::get_grid_coordinates(double *x, int *xg, double *xx)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_grid_coordinates(double *x, int *xg, double *xx)
 {
     static double grid_size[] = {this->dx, this->dy, this->dz};
     double tval;
@@ -542,13 +544,13 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
 {
     double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
-    compute_beta(deriv[0], xx[0], bx);
-    compute_beta(deriv[1], xx[1], by);
-    compute_beta(deriv[2], xx[2], bz);
+    this->compute_beta(deriv[0], xx[0], bx);
+    this->compute_beta(deriv[1], xx[1], by);
+    this->compute_beta(deriv[2], xx[2], bz);
     std::fill_n(dest, 3, 0);
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
     for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
@@ -561,8 +563,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
                                                                                        bx[ix+interp_neighbours]);
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::read(hid_t data_file_id)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::read(hid_t data_file_id)
 {
     //DEBUG_MSG("aloha\n");
     if (this->fs->rd->myrank == 0)
@@ -635,8 +637,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     this->synchronize();
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::write(hid_t data_file_id, bool write_rhs)
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::write(hid_t data_file_id, bool write_rhs)
 {
     if (this->fs->rd->myrank == 0)
     {
@@ -691,8 +693,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 /* macro for specializations to numeric types compatible with FFTW           */
 #define PARTICLES_DEFINITIONS(R, MPI_RNUM) \
  \
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta> \
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::rFFTW_to_buffered(R *src, R *dst) \
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours> \
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::rFFTW_to_buffered(R *src, R *dst) \
 { \
     /* do big copy of middle stuff */ \
     std::copy(src, \
@@ -764,96 +766,28 @@ PARTICLES_DEFINITIONS(
 
 
 /*****************************************************************************/
-template class particles<VELOCITY_TRACER, float, true, 3, 1, beta_n1_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 1, beta_n1_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 1, beta_n1_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 2, beta_n2_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 2, beta_n2_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 2, beta_n2_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 3, beta_n3_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 3, beta_n3_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 3, beta_n3_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 4, beta_n4_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 4, beta_n4_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 4, beta_n4_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 4, beta_n4_m3>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5, beta_n5_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5, beta_n5_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5, beta_n5_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5, beta_n5_m3>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5, beta_n5_m4>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6, beta_n6_m0>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6, beta_n6_m1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6, beta_n6_m2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6, beta_n6_m3>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6, beta_n6_m4>;
-template class particles<VELOCITY_TRACER, float, false, 3, 1, beta_n1_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 1, beta_n1_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 1, beta_n1_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 2, beta_n2_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 2, beta_n2_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 2, beta_n2_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 3, beta_n3_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 3, beta_n3_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 3, beta_n3_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 4, beta_n4_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 4, beta_n4_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 4, beta_n4_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 4, beta_n4_m3>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5, beta_n5_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5, beta_n5_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5, beta_n5_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5, beta_n5_m3>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5, beta_n5_m4>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6, beta_n6_m0>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6, beta_n6_m1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6, beta_n6_m2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6, beta_n6_m3>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6, beta_n6_m4>;
-template class particles<VELOCITY_TRACER, double, true, 3, 1, beta_n1_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 1, beta_n1_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 1, beta_n1_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 2, beta_n2_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 2, beta_n2_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 2, beta_n2_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 3, beta_n3_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 3, beta_n3_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 3, beta_n3_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 4, beta_n4_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 4, beta_n4_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 4, beta_n4_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 4, beta_n4_m3>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5, beta_n5_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5, beta_n5_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5, beta_n5_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5, beta_n5_m3>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5, beta_n5_m4>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6, beta_n6_m0>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6, beta_n6_m1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6, beta_n6_m2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6, beta_n6_m3>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6, beta_n6_m4>;
-template class particles<VELOCITY_TRACER, double, false, 3, 1, beta_n1_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 1, beta_n1_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 1, beta_n1_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 2, beta_n2_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 2, beta_n2_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 2, beta_n2_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 3, beta_n3_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 3, beta_n3_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 3, beta_n3_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 4, beta_n4_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 4, beta_n4_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 4, beta_n4_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 4, beta_n4_m3>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5, beta_n5_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5, beta_n5_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5, beta_n5_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5, beta_n5_m3>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5, beta_n5_m4>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6, beta_n6_m0>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6, beta_n6_m1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6, beta_n6_m2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6, beta_n6_m3>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6, beta_n6_m4>;
+template class particles<VELOCITY_TRACER, float, true, 3, 1>;
+template class particles<VELOCITY_TRACER, float, true, 3, 2>;
+template class particles<VELOCITY_TRACER, float, true, 3, 3>;
+template class particles<VELOCITY_TRACER, float, true, 3, 4>;
+template class particles<VELOCITY_TRACER, float, true, 3, 5>;
+template class particles<VELOCITY_TRACER, float, true, 3, 6>;
+template class particles<VELOCITY_TRACER, float, false, 3, 1>;
+template class particles<VELOCITY_TRACER, float, false, 3, 2>;
+template class particles<VELOCITY_TRACER, float, false, 3, 3>;
+template class particles<VELOCITY_TRACER, float, false, 3, 4>;
+template class particles<VELOCITY_TRACER, float, false, 3, 5>;
+template class particles<VELOCITY_TRACER, float, false, 3, 6>;
+template class particles<VELOCITY_TRACER, double, true, 3, 1>;
+template class particles<VELOCITY_TRACER, double, true, 3, 2>;
+template class particles<VELOCITY_TRACER, double, true, 3, 3>;
+template class particles<VELOCITY_TRACER, double, true, 3, 4>;
+template class particles<VELOCITY_TRACER, double, true, 3, 5>;
+template class particles<VELOCITY_TRACER, double, true, 3, 6>;
+template class particles<VELOCITY_TRACER, double, false, 3, 1>;
+template class particles<VELOCITY_TRACER, double, false, 3, 2>;
+template class particles<VELOCITY_TRACER, double, false, 3, 3>;
+template class particles<VELOCITY_TRACER, double, false, 3, 4>;
+template class particles<VELOCITY_TRACER, double, false, 3, 5>;
+template class particles<VELOCITY_TRACER, double, false, 3, 6>;
 /*****************************************************************************/
