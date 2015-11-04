@@ -219,30 +219,33 @@ int particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours,
 template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
 void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours, compute_beta>::synchronize_single_particle_state(int p, double *x, int source)
 {
-    if (source == -1) source = this->computing[p];
-    if (this->watching[this->fs->rd->myrank*this->nparticles+p]) for (int r=0; r<this->fs->rd->nprocs; r++)
-        if (r != source &&
-            this->watching[r*this->nparticles+p])
-        {
-            //DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
-            if (this->fs->rd->myrank == source)
-                MPI_Send(
-                        x+p*ncomponents,
-                        ncomponents,
-                        MPI_DOUBLE,
-                        r,
-                        p+this->computing[p]*this->nparticles,
-                        this->fs->rd->comm);
-            if (this->fs->rd->myrank == r)
-                MPI_Recv(
-                        x+p*ncomponents,
-                        ncomponents,
-                        MPI_DOUBLE,
-                        source,
-                        p+this->computing[p]*this->nparticles,
-                        this->fs->rd->comm,
-                        MPI_STATUS_IGNORE);
-        }
+    if (!multistep)
+    {
+        if (source == -1) source = this->computing[p];
+        if (this->watching[this->fs->rd->myrank*this->nparticles+p]) for (int r=0; r<this->fs->rd->nprocs; r++)
+            if (r != source &&
+                this->watching[r*this->nparticles+p])
+            {
+                //DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
+                if (this->fs->rd->myrank == source)
+                    MPI_Send(
+                            x+p*ncomponents,
+                            ncomponents,
+                            MPI_DOUBLE,
+                            r,
+                            p+this->computing[p]*this->nparticles,
+                            this->fs->rd->comm);
+                if (this->fs->rd->myrank == r)
+                    MPI_Recv(
+                            x+p*ncomponents,
+                            ncomponents,
+                            MPI_DOUBLE,
+                            source,
+                            p+this->computing[p]*this->nparticles,
+                            this->fs->rd->comm,
+                            MPI_STATUS_IGNORE);
+            }
+    }
 }
 
 template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours, base_polynomial_values compute_beta>
@@ -298,29 +301,30 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         this->computing[p] = this->get_rank(this->state[p*ncomponents + 2]);
         //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
     }
-    double *jump = fftw_alloc_real(this->nparticles);
-    this->jump_estimate(jump);
-    // now, see who needs to watch
-    bool *local_watching = new bool[this->fs->rd->nprocs*this->nparticles];
-    std::fill_n(local_watching, this->fs->rd->nprocs*this->nparticles, false);
-    for (int p=0; p<this->nparticles; p++)
-        if (this->fs->rd->myrank == this->computing[p])
-        {
-            local_watching[this->get_rank(this->state[ncomponents*p+2]        )*this->nparticles+p] = true;
-            local_watching[this->get_rank(this->state[ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
-            local_watching[this->get_rank(this->state[ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
-        }
-    fftw_free(jump);
-    MPI_Allreduce(
-            local_watching,
-            this->watching,
-            this->nparticles*this->fs->rd->nprocs,
-            MPI_C_BOOL,
-            MPI_LOR,
-            this->fs->rd->comm);
-    delete[] local_watching;
-    for (int p=0; p<this->nparticles; p++)
-        DEBUG_MSG("watching = %d for particle %d\n", this->watching[this->fs->rd->myrank*nparticles+p], p);
+    if (!multistep)
+    {
+        double *jump = fftw_alloc_real(this->nparticles);
+        this->jump_estimate(jump);
+        // now, see who needs to watch
+        bool *local_watching = new bool[this->fs->rd->nprocs*this->nparticles];
+        std::fill_n(local_watching, this->fs->rd->nprocs*this->nparticles, false);
+        for (int p=0; p<this->nparticles; p++)
+            if (this->fs->rd->myrank == this->computing[p])
+            {
+                local_watching[this->get_rank(this->state[ncomponents*p+2]        )*this->nparticles+p] = true;
+                local_watching[this->get_rank(this->state[ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
+                local_watching[this->get_rank(this->state[ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
+            }
+        fftw_free(jump);
+        MPI_Allreduce(
+                local_watching,
+                this->watching,
+                this->nparticles*this->fs->rd->nprocs,
+                MPI_C_BOOL,
+                MPI_LOR,
+                this->fs->rd->comm);
+        delete[] local_watching;
+    }
 }
 
 
