@@ -84,7 +84,7 @@ class fluid_particle_base(bfps.code):
         self.fluid_loop = ''
         self.fluid_end  = ''
         self.fluid_output = ''
-        self.particle_includes = '#include "tracers.hpp"\n'
+        self.particle_includes = ''
         self.particle_variables = ''
         self.particle_definitions = ''
         self.particle_start = ''

@@ -248,6 +248,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             kcut = 'fs->kM',
             force_vel_reset = True,
             frozen_particles = False):
+        if self.particle_includes == '':
+            self.particle_includes += '#include "tracers.hpp"\n'
         self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
         self.parameters['interp_type{0}'.format(self.particle_species)] = interp_type
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
