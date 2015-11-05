@@ -96,30 +96,34 @@ def launch(
                 kcut = 'fs->kM/2',
                 integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness,
                 particle_type = 'new_tracers')
-        for integr_steps in range(1, 7):
-            c.add_particles(
-                    integration_steps = 1,
-                    neighbours = opt.neighbours,
-                    smoothness = opt.smoothness,
-                    particle_type = 'new_tracers')
-        for info in [(2, 1, 0), (2, 1, 1), (2, 6, 1), (2, 6, 2)]:
-            c.add_particles(
-                    integration_steps = info[0],
-                    neighbours = info[1],
-                    smoothness = info[2],
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1, integration_method = 'Heun',
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 4, neighbours = 6, smoothness = 1, integration_method = 'cRK4',
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 2, neighbours = 1, interp_type = 'Lagrange',
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange',
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'Heun',
-                    particle_type = 'new_tracers')
-        c.add_particles(integration_steps = 4, neighbours = 6, interp_type = 'Lagrange', integration_method = 'cRK4',
-                    particle_type = 'new_tracers')
+        c.add_particles(
+                kcut = 'fs->kM/2',
+                integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness,
+                particle_type = 'old_tracers')
+        #for integr_steps in range(1, 7):
+        #    c.add_particles(
+        #            integration_steps = 1,
+        #            neighbours = opt.neighbours,
+        #            smoothness = opt.smoothness,
+        #            particle_type = 'new_tracers')
+        #for info in [(2, 1, 0), (2, 1, 1), (2, 6, 1), (2, 6, 2)]:
+        #    c.add_particles(
+        #            integration_steps = info[0],
+        #            neighbours = info[1],
+        #            smoothness = info[2],
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 2, neighbours = 6, smoothness = 1, integration_method = 'Heun',
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 4, neighbours = 6, smoothness = 1, integration_method = 'cRK4',
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 2, neighbours = 1, interp_type = 'Lagrange',
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange',
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 2, neighbours = 6, interp_type = 'Lagrange', integration_method = 'Heun',
+        #            particle_type = 'new_tracers')
+        #c.add_particles(integration_steps = 4, neighbours = 6, interp_type = 'Lagrange', integration_method = 'cRK4',
+        #            particle_type = 'new_tracers')
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()

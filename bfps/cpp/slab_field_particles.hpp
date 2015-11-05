@@ -30,24 +30,13 @@
 #include <hdf5.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
-#include "spline_n4.hpp"
-#include "spline_n5.hpp"
-#include "spline_n6.hpp"
-#include "Lagrange_polys.hpp"
+#include "interpolations.hpp"
 
 #ifndef SLAB_FIELD_PARTICLES
 
 #define SLAB_FIELD_PARTICLES
 
 extern int myrank, nprocs;
-
-typedef void (*base_polynomial_values)(
-        int derivative,
-        double fraction,
-        double *destination);
 
 template <class rnumber>
 class slab_field_particles

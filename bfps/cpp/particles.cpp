@@ -142,6 +142,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     switch(particle_type)
     {
         case VELOCITY_TRACER:
+            DEBUG_MSG("aloha from get_rhs\n");
             int deriv[] = {0, 0, 0};
             /* get grid coordinates */
             int *xg = new int[this->array_size];
