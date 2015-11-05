@@ -157,12 +157,12 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
                     if (this->fs->rd->myrank == crank)
                     {
                         this->interpolation_formula(vel, xg + p*3, xx + p*3, y + p*3, deriv);
-                    //DEBUG_MSG(
-                    //        "position is %g %g %g %d %d %d %g %g %g, result is %g %g %g\n",
-                    //        x[p*3], x[p*3+1], x[p*3+2],
-                    //        xg[p*3], xg[p*3+1], xg[p*3+2],
-                    //        xx[p*3], xx[p*3+1], xx[p*3+2],
-                    //        y[p*3], y[p*3+1], y[p*3+2]);
+                    DEBUG_MSG(
+                            "position is %g %g %g %d %d %d %g %g %g, result is %g %g %g\n",
+                            x[p*3], x[p*3+1], x[p*3+2],
+                            xg[p*3], xg[p*3+1], xg[p*3+2],
+                            xx[p*3], xx[p*3+1], xx[p*3+2],
+                            y[p*3], y[p*3+1], y[p*3+2]);
                     }
                     if (crank != this->computing[p])
                     {
@@ -302,6 +302,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     for (int p=0; p<this->nparticles; p++)
     {
         this->computing[p] = this->get_rank(this->state[p*ncomponents + 2]);
+        for (int r=0; r<this->buffered_field_descriptor->nprocs; r++)
+            this->watching[r*this->nparticles+p] = (r == this->computing[p]);
         //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
     }
     if (!multistep)
