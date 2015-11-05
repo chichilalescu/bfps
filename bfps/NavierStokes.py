@@ -333,16 +333,22 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                         'fs->ru);\n').format(self.C_dtype, self.particle_species, beta_name)
         else:
             self.particle_includes += '#include "particles.hpp"\n'
-            self.particle_variables += 'particles<VELOCITY_TRACER, {0}, true, 3, {1}> *ps{2};\n'.format(
+            if integration_method == 'AdamsBashforth':
+                multistep = 'true'
+            else:
+                multistep = 'false'
+            self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, 3, {2}> *ps{3};\n'.format(
                     self.C_dtype,
+                    multistep,
                     neighbours,
                     self.particle_species)
             self.particle_variables += '{0} *particle_field{1};\n'.format(self.C_dtype, self.particle_species)
-            self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, true, 3, {2}>(\n' +
+            self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
                                         'fname, fs,\n' +
                                         'nparticles,\n' +
-                                        '{3},\n' +
-                                        'niter_part, integration_steps{0});\n').format(self.particle_species, self.C_dtype, neighbours, beta_name)
+                                        '{4},\n' +
+                                        'niter_part, integration_steps{0});\n').format(
+                                                self.particle_species, self.C_dtype, multistep, neighbours, beta_name)
             self.particle_start += ('particle_field{0} = {1}_alloc_real(ps{0}->buffered_field_descriptor->local_size);\n' +
                                     'ps{0}->data = particle_field{0};\n').format(self.particle_species, FFTW)
             self.particle_end += '{0}_free(particle_field{1});\n'.format(FFTW, self.particle_species)
