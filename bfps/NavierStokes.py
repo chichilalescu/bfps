@@ -249,24 +249,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.parameters['kcut{0}'.format(self.particle_species)] = kcut
         self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
         self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
-        grow_template = """
+        self.file_datasets_grow += """
                         //begincpp
                         temp_string = (std::string("/particles/") +
-                                       std::string(ps{0}->name) +
-                                       std::string("/{1}"));
-                        Cdset = H5Dopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
-                        Cspace = H5Dget_space(Cdset);
-                        ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);
-                        dims[0] += niter_todo/niter_part;
-                        H5Dset_extent(Cdset, dims);
-                        H5Sclose(Cspace);
-                        H5Dclose(Cdset);
+                                       std::string(ps{0}->name));
+                        group = H5Gopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
+                        grow_particle_datasets(group, temp_string.c_str(), NULL, NULL);
+                        H5Gclose(group);
                         //endcpp
-                        """
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'state')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'rhs')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'velocity')
-        self.file_datasets_grow += grow_template.format(self.particle_species, 'acceleration')
+                        """.format(self.particle_species)
         #self.particle_definitions
         if kcut == 'fs->kM':
             if self.particle_species == 0 or force_vel_reset:

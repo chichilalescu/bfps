@@ -118,6 +118,19 @@ class fluid_particle_base(bfps.code):
                              'grow_single_dataset(dset, niter_todo/niter_stat);\n'
                              'H5Dclose(dset);\n}\n' +
                              'return 0;\n}\n')
+        self.definitions += ('herr_t grow_particle_datasets(hid_t g_id, const char *name, const H5L_info_t *info, void *op_data)\n{\n' +
+                             'std::string full_name;\n' +
+                             'hsize_t dset;\n')
+        for key in ['state', 'velocity', 'acceleration']:
+            self.definitions += ('full_name = (std::string(name) + std::string("/{0}"));\n'.format(key) +
+                                 'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+                                 'grow_single_dataset(dset, niter_todo/niter_part);\n' +
+                                 'H5Dclose(dset);\n')
+        self.definitions += ('full_name = (std::string(name) + std::string("/rhs"));\n' +
+                             'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+                             'grow_single_dataset(dset, 1);\n' +
+                             'H5Dclose(dset);\n' +
+                             'return 0;\n}\n')
         self.definitions += ('int grow_file_datasets()\n{\n' +
                              'int file_problems = 0;\n' +
                              self.file_datasets_grow +
