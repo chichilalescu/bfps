@@ -40,12 +40,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             simname = 'test',
             fluid_precision = 'single',
             fftw_plan_rigor = 'FFTW_MEASURE',
-            frozen_fields = False):
+            frozen_fields = False,
+            use_fftw_wisdom = True):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = fluid_precision)
+                dtype = fluid_precision,
+                use_fftw_wisdom = use_fftw_wisdom)
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
