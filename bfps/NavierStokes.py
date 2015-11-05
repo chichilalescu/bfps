@@ -249,10 +249,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         update_fields += ('fs->ift_velocity();\n' +
                           'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
-                          'fs->compute_velocity(fs->cvorticity);\n' +
-                          'fs->ift_velocity();\n' +
                           'fs->compute_Lagrangian_acceleration({0}_tmp);\n' +
-                          'clip_zero_padding(fs->rd, {0}_tmp, 3);\n' +
                           'acc_{0}->read_rFFTW({0}_tmp);\n').format(name)
         self.particle_start += update_fields
         self.particle_loop += update_fields

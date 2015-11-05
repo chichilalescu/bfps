@@ -573,10 +573,10 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         std::string temp_string = (std::string("/particles/") +
                                    std::string(this->name) +
                                    std::string("/state"));
-        hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+        hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
         hid_t mspace, rspace;
         hsize_t count[4], offset[4];
-        rspace = H5Dget_space(Cdset);
+        rspace = H5Dget_space(dset);
         H5Sget_simple_extent_dims(rspace, count, NULL);
         count[0] = 1;
         offset[0] = this->iteration / this->traj_skip;
@@ -584,17 +584,17 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         offset[2] = 0;
         mspace = H5Screate_simple(3, count, NULL);
         H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dread(Cdset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->state);
+        H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->state);
         H5Sclose(mspace);
         H5Sclose(rspace);
-        H5Dclose(Cdset);
+        H5Dclose(dset);
         if (this->iteration > 0)
         {
             temp_string = (std::string("/particles/") +
                            std::string(this->name) +
                            std::string("/rhs"));
-            Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-            rspace = H5Dget_space(Cdset);
+            dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+            rspace = H5Dget_space(dset);
             H5Sget_simple_extent_dims(rspace, count, NULL);
             //reading from last available position
             offset[0] = count[0] - 1;
@@ -606,11 +606,11 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             {
                 offset[1] = i;
                 H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                H5Dread(Cdset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->rhs[i]);
+                H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->rhs[i]);
             }
             H5Sclose(mspace);
             H5Sclose(rspace);
-            H5Dclose(Cdset);
+            H5Dclose(dset);
         }
     }
     MPI_Bcast(
@@ -646,10 +646,10 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         std::string temp_string = (std::string("/particles/") +
                                    std::string(this->name) +
                                    std::string("/state"));
-        hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+        hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
         hid_t mspace, wspace;
         hsize_t count[4], offset[4];
-        wspace = H5Dget_space(Cdset);
+        wspace = H5Dget_space(dset);
         H5Sget_simple_extent_dims(wspace, count, NULL);
         count[0] = 1;
         offset[0] = this->iteration / this->traj_skip;
@@ -657,17 +657,17 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         offset[2] = 0;
         mspace = H5Screate_simple(3, count, NULL);
         H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->state);
+        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->state);
         H5Sclose(mspace);
         H5Sclose(wspace);
-        H5Dclose(Cdset);
+        H5Dclose(dset);
         if (write_rhs)
         {
             temp_string = (std::string("/particles/") +
                            std::string(this->name) +
                            std::string("/rhs"));
-            Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-            wspace = H5Dget_space(Cdset);
+            dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+            wspace = H5Dget_space(dset);
             H5Sget_simple_extent_dims(wspace, count, NULL);
             //writing to last available position
             offset[0] = count[0] - 1;
@@ -679,11 +679,11 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             {
                 offset[1] = i;
                 H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->rhs[i]);
+                H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->rhs[i]);
             }
             H5Sclose(mspace);
             H5Sclose(wspace);
-            H5Dclose(Cdset);
+            H5Dclose(dset);
         }
     }
 }
@@ -691,7 +691,6 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
 void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::sample_vec_field(void *vec_field, double *vec_values)
 {
-    rnumber *tmp_field = ((rnumber*)vec_field);
     double *vec_local =  new double[3*this->nparticles];
     std::fill_n(vec_local, 3*this->nparticles, 0.0);
     int deriv[] = {0, 0, 0};
@@ -703,7 +702,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     for (int p=0; p<this->nparticles; p++)
         if (this->fs->rd->myrank == this->computing[p])
             this->interpolation_formula(
-                    tmp_field,
+                    (rnumber*)vec_field,
                     xg + p*3,
                     xx + p*3,
                     vec_local + p*3,
