@@ -114,8 +114,7 @@ class particles
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();
-        void rFFTW_to_buffered(float *src, float *dst);
-        void rFFTW_to_buffered(double *src, double *dst);
+        void rFFTW_to_buffered(void *src, void *dst);
 
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
@@ -128,7 +127,7 @@ class particles
         void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-
+        void sample_vec_field(void *vec_field, double *vec_values);
 
         /* input/output */
         void read(hid_t data_file_id);

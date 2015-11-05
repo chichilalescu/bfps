@@ -238,7 +238,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             integration_method = 'AdamsBashforth',
             integration_steps = 2,
             kcut = 'fs->kM',
-            force_vel_reset = True,
             frozen_particles = False,
             particle_type = 'old_tracers'):
         self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
@@ -342,8 +341,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, true, 3, {2}>(\n' +
                                         'fname, fs,\n' +
                                         'nparticles,\n' +
-                                        '{2},\n' +
-                                        'niter_part, integration_steps{1});\n').format(self.particle_species, self.C_dtype, neighbours, beta_name)
+                                        '{3},\n' +
+                                        'niter_part, integration_steps{0});\n').format(self.particle_species, self.C_dtype, neighbours, beta_name)
             self.particle_start += ('particle_field{0} = {1}_alloc_real(fs->rd->local_size);\n' +
                                     'ps{0}->data = particle_field{0};\n').format(self.particle_species, FFTW)
             self.particle_end += '{0}_free(particle_field{1});\n'.format(FFTW, self.particle_species)

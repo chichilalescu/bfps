@@ -687,82 +687,97 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::sample_vec_field(void *vec_field, double *vec_values)
+{
+    rnumber *tmp_field = ((rnumber*)vec_field) + this->buffer_size;
+    double *vec_local =  new double[3*this->nparticles];
+    std::fill_n(vec_local, 3*this->nparticles, 0.0);
+    int deriv[] = {0, 0, 0};
+    /* get grid coordinates */
+    int *xg = new int[3*this->nparticles];
+    double *xx = new double[3*this->nparticles];
+    this->get_grid_coordinates(this->state, xg, xx);
+    /* perform interpolation */
+    for (int p=0; p<this->nparticles; p++)
+        if (this->fs->rd->myrank == this->computing[p])
+            this->interpolation_formula(
+                    tmp_field,
+                    xg + p*3,
+                    xx + p*3,
+                    vec_local + p*3,
+                    deriv);
+    MPI_Allreduce(
+            vec_local,
+            vec_values,
+            3*this->nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->fs->rd->comm);
+    delete[] xg;
+    delete[] xx;
+    delete[] vec_local;
+}
 
-
-/*****************************************************************************/
-/* macro for specializations to numeric types compatible with FFTW           */
-#define PARTICLES_DEFINITIONS(R, MPI_RNUM) \
- \
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours> \
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::rFFTW_to_buffered(R *src, R *dst) \
-{ \
-    /* do big copy of middle stuff */ \
-    std::copy(src, \
-              src + this->fs->rd->local_size, \
-              dst + this->buffer_size); \
-    int rsrc; \
-    /* get upper slices */ \
-    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
-    { \
-        rsrc = this->fs->rd->rank[(this->fs->rd->all_start0[rdst] + \
-                                   this->fs->rd->all_size0[rdst]) % \
-                                   this->fs->rd->sizes[0]]; \
-        if (this->fs->rd->myrank == rsrc) \
-            MPI_Send( \
-                    (void*)(src), \
-                    this->buffer_size, \
-                    MPI_RNUM, \
-                    rdst, \
-                    2*(rsrc*this->fs->rd->nprocs + rdst), \
-                    this->fs->rd->comm); \
-        if (this->fs->rd->myrank == rdst) \
-            MPI_Recv( \
-                    (void*)(dst + this->buffer_size + this->fs->rd->local_size), \
-                    this->buffer_size, \
-                    MPI_RNUM, \
-                    rsrc, \
-                    2*(rsrc*this->fs->rd->nprocs + rdst), \
-                    this->fs->rd->comm, \
-                    MPI_STATUS_IGNORE); \
-    } \
-    /* get lower slices */ \
-    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++) \
-    { \
-        rsrc = this->fs->rd->rank[MOD(this->fs->rd->all_start0[rdst] - 1, \
-                                      this->fs->rd->sizes[0])]; \
-        if (this->fs->rd->myrank == rsrc) \
-            MPI_Send( \
-                    (void*)(src + this->fs->rd->local_size - this->buffer_size), \
-                    this->buffer_size, \
-                    MPI_RNUM, \
-                    rdst, \
-                    2*(rsrc*this->fs->rd->nprocs + rdst)+1, \
-                    this->fs->rd->comm); \
-        if (this->fs->rd->myrank == rdst) \
-            MPI_Recv( \
-                    (void*)(dst), \
-                    this->buffer_size, \
-                    MPI_RNUM, \
-                    rsrc, \
-                    2*(rsrc*this->fs->rd->nprocs + rdst)+1, \
-                    this->fs->rd->comm, \
-                    MPI_STATUS_IGNORE); \
-    } \
-} \
-/*****************************************************************************/
-
-
-
-/*****************************************************************************/
-/* now actually use the macro defined above                                  */
-PARTICLES_DEFINITIONS(
-        float,
-        MPI_FLOAT)
-PARTICLES_DEFINITIONS(
-        double,
-        MPI_DOUBLE)
-/*****************************************************************************/
-
+template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::rFFTW_to_buffered(void *void_src, void *void_dst)
+{
+    rnumber *src = (rnumber*)void_src;
+    rnumber *dst = (rnumber*)void_dst;
+    /* do big copy of middle stuff */
+    std::copy(src,
+              src + this->fs->rd->local_size,
+              dst + this->buffer_size);
+    MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
+    int rsrc;
+    /* get upper slices */
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++)
+    {
+        rsrc = this->fs->rd->rank[(this->fs->rd->all_start0[rdst] +
+                                   this->fs->rd->all_size0[rdst]) %
+                                   this->fs->rd->sizes[0]];
+        if (this->fs->rd->myrank == rsrc)
+            MPI_Send(
+                    src,
+                    this->buffer_size,
+                    MPI_RNUM,
+                    rdst,
+                    2*(rsrc*this->fs->rd->nprocs + rdst),
+                    this->fs->rd->comm);
+        if (this->fs->rd->myrank == rdst)
+            MPI_Recv(
+                    dst + this->buffer_size + this->fs->rd->local_size,
+                    this->buffer_size,
+                    MPI_RNUM,
+                    rsrc,
+                    2*(rsrc*this->fs->rd->nprocs + rdst),
+                    this->fs->rd->comm,
+                    MPI_STATUS_IGNORE);
+    }
+    /* get lower slices */
+    for (int rdst = 0; rdst < this->fs->rd->nprocs; rdst++)
+    {
+        rsrc = this->fs->rd->rank[MOD(this->fs->rd->all_start0[rdst] - 1,
+                                      this->fs->rd->sizes[0])];
+        if (this->fs->rd->myrank == rsrc)
+            MPI_Send(
+                    src + this->fs->rd->local_size - this->buffer_size,
+                    this->buffer_size,
+                    MPI_RNUM,
+                    rdst,
+                    2*(rsrc*this->fs->rd->nprocs + rdst)+1,
+                    this->fs->rd->comm);
+        if (this->fs->rd->myrank == rdst)
+            MPI_Recv(
+                    dst,
+                    this->buffer_size,
+                    MPI_RNUM,
+                    rsrc,
+                    2*(rsrc*this->fs->rd->nprocs + rdst)+1,
+                    this->fs->rd->comm,
+                    MPI_STATUS_IGNORE);
+    }
+}
 
 
 /*****************************************************************************/
