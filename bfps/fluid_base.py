@@ -102,6 +102,22 @@ class fluid_particle_base(bfps.code):
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
+        self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
+                             'int ndims;\n' +
+                             'hsize_t dims[4];\n' +
+                             'hsize_t space;\n' +
+                             'space = H5Dget_space(dset);\n' +
+                             'ndims = H5Sget_simple_extent_dims(space, dims, NULL);\n' +
+                             'dims[0] += tincrement;\n' +
+                             'H5Dset_extent(dset, dims);\n' +
+                             'H5Sclose(space);\n' +
+                             'return EXIT_SUCCESS;\n}\n')
+        self.definitions += ('herr_t grow_statistics_dataset(hid_t o_id, const char *name, const H5O_info_t *info, void *op_data)\n{\n' +
+                             'if (info->type == H5O_TYPE_DATASET)\n{\n' +
+                             'hsize_t dset = H5Dopen(o_id, name, H5P_DEFAULT);\n' +
+                             'grow_single_dataset(dset, niter_todo/niter_stat);\n'
+                             'H5Dclose(dset);\n}\n' +
+                             'return 0;\n}\n')
         self.definitions += ('int grow_file_datasets()\n{\n' +
                              'int file_problems = 0;\n' +
                              self.file_datasets_grow +

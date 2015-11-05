@@ -52,7 +52,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 //begincpp
                 std::string temp_string;
                 hsize_t dims[4];
-                hid_t Cdset, Cspace;
+                hid_t group;
+                hid_t Cspace, Cdset;
                 int ndims;
                 // store kspace information
                 Cdset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
@@ -75,20 +76,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 Cdset = H5Dopen(stat_file, "/kspace/dk", H5P_DEFAULT);
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
                 H5Dclose(Cdset);
+                group = H5Gopen(stat_file, "/statistics", H5P_DEFAULT);
+                H5Ovisit(group, H5_INDEX_NAME, H5_ITER_NATIVE, grow_statistics_dataset, NULL);
+                H5Gclose(group);
                 //endcpp
                 """
-        for field in ['velocity', 'vorticity']:
-            for key in ['/statistics/xlines/{0}'.format(field),
-                        '/statistics/moments/{0}'.format(field),
-                        '/statistics/histograms/{0}'.format(field),
-                        '/statistics/spectra/{0}_{0}'.format(field)]:
-                self.file_datasets_grow += ('Cdset = H5Dopen(stat_file, "{0}", H5P_DEFAULT);\n'.format(key) +
-                                            'Cspace = H5Dget_space(Cdset);\n' +
-                                            'ndims = H5Sget_simple_extent_dims(Cspace, dims, NULL);\n' +
-                                            'dims[0] += niter_todo/niter_stat;\n' +
-                                            'H5Dset_extent(Cdset, dims);\n' +
-                                            'H5Sclose(Cspace);\n' +
-                                            'H5Dclose(Cdset);\n')
         self.style = {}
         self.statistics = {}
         self.fluid_output = 'fs->write(\'v\', \'c\');\n'
