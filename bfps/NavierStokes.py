@@ -343,7 +343,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                         'nparticles,\n' +
                                         '{3},\n' +
                                         'niter_part, integration_steps{0});\n').format(self.particle_species, self.C_dtype, neighbours, beta_name)
-            self.particle_start += ('particle_field{0} = {1}_alloc_real(fs->rd->local_size);\n' +
+            self.particle_start += ('particle_field{0} = {1}_alloc_real(ps{0}->buffered_field_descriptor->local_size);\n' +
                                     'ps{0}->data = particle_field{0};\n').format(self.particle_species, FFTW)
             self.particle_end += '{0}_free(particle_field{1});\n'.format(FFTW, self.particle_species)
         self.particle_start += ('ps{0}->dt = dt;\n' +
@@ -366,8 +366,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
             self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
         self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
+                                '{{\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
-                               output_vel_acc)
+                               output_vel_acc + '}\n')
         self.particle_species += 1
         return None
     def get_data_file(self):
