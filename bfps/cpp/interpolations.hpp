@@ -24,6 +24,8 @@
 
 
 
+#include "field_descriptor.hpp"
+#include "fluid_solver_base.hpp"
 #include "spline_n1.hpp"
 #include "spline_n2.hpp"
 #include "spline_n3.hpp"
@@ -40,6 +42,25 @@ typedef void (*base_polynomial_values)(
         int derivative,
         double fraction,
         double *destination);
+
+template <class rnumber>
+class buffered_vec_field
+{
+    public:
+        int buffer_width;
+        ptrdiff_t buffer_size;
+        field_descriptor<rnumber> *descriptor;
+        field_descriptor<rnumber> *src_descriptor;
+        rnumber *f;
+
+        buffered_vec_field(
+                fluid_solver_base<rnumber> *FSOLVER,
+                const int BUFFER_WIDTH);
+        ~buffered_vec_field();
+
+        /* destroys input */
+        int read_rFFTW(void *src);
+};
 
 #endif//INTERPOLATIONS
 

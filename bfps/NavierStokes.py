@@ -230,6 +230,33 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           self.fluid_output + '\n}\n' +
                           'delete fs;\n')
         return None
+    def add_particle_fields(
+            self,
+            kcut = None,
+            neighbours = 1,
+            name = 'particle_field'):
+        self.particle_variables += ('buffered_vec_field<{0}> *vel_{1}, *acc_{1};\n' +
+                                    '{0} *{1}_tmp;\n').format(self.C_dtype, name)
+        self.particle_start += ('vel_{0} = new buffered_vec_field<{1}>(fs, {2});\n' +
+                                'acc_{0} = new buffered_vec_field<{1}>(fs, {2});\n' +
+                                '{0}_tmp = new {1}[acc_{0}->src_descriptor->local_size];\n').format(name, self.C_dtype, neighbours+1)
+        self.particle_end += ('delete vel_{0};\n' +
+                              'delete acc_{0};\n' +
+                              'delete[] {0}_tmp;\n').format(name)
+        update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
+        if not type(kcut) == type(None):
+            update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
+        update_fields += ('fs->ift_velocity();\n' +
+                          'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
+                          'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
+                          'fs->compute_velocity(fs->cvorticity);\n' +
+                          'fs->ift_velocity();\n' +
+                          'fs->compute_Lagrangian_acceleration({0}_tmp);\n' +
+                          'clip_zero_padding(fs->rd, {0}_tmp, 3);\n' +
+                          'acc_{0}->read_rFFTW({0}_tmp);\n').format(name)
+        self.particle_start += update_fields
+        self.particle_loop += update_fields
+        return None
     def add_particles(
             self,
             neighbours = 1,
@@ -239,7 +266,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             integration_steps = 2,
             kcut = 'fs->kM',
             frozen_particles = False,
-            particle_type = 'old_tracers'):
+            particle_type = 'old_tracers',
+            fields_name = None):
+        if integration_method == 'cRK4':
+            integration_steps = 4
+        elif integration_method == 'Heun':
+            integration_steps = 2
         self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
         self.parameters['interp_type{0}'.format(self.particle_species)] = interp_type
         self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
@@ -255,21 +287,25 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5Gclose(group);
                         //endcpp
                         """.format(self.particle_species)
-        update_field = 'fs->compute_velocity(fs->cvorticity);\n'
-        if kcut != 'fs->kM':
-            update_field += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
-        update_field += ('fs->ift_velocity();\n' +
-                         'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
-                         'ps{0}->rFFTW_to_buffered(fs->rvelocity, ps{0}->data);\n').format(self.particle_species)
+        if particle_type == 'old_tracers':
+            update_field = 'fs->compute_velocity(fs->cvorticity);\n'
+            if kcut != 'fs->kM':
+                update_field += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
+            update_field += ('fs->ift_velocity();\n' +
+                             'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
+                             'ps{0}->rFFTW_to_buffered(fs->rvelocity, ps{0}->data);\n').format(self.particle_species)
+            compute_acc = ('{0} *acc_field_tmp = {1}_alloc_real(fs->rd->local_size);\n' +
+                           'fs->compute_Lagrangian_acceleration(acc_field_tmp);\n' +
+                           'ps{2}->rFFTW_to_buffered(acc_field_tmp, ps{2}->data);\n' +
+                           'ps{2}->sample_vec_field(ps{2}->data, acceleration);\n' +
+                           '{1}_free(acc_field_tmp);\n').format(self.C_dtype, FFTW, self.particle_species)
+        else:
+            update_field = ''
+            compute_acc = 'ps{0}->sample_vec_field(acc_{1}->f+acc_{1}->buffer_size, acceleration);\n'.format(self.particle_species, fields_name)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
             FFTW = 'fftw'
-        compute_acc = ('{0} *acc_field_tmp = {1}_alloc_real(fs->rd->local_size);\n' +
-                       'fs->compute_Lagrangian_acceleration(acc_field_tmp);\n' +
-                       'ps{2}->rFFTW_to_buffered(acc_field_tmp, ps{2}->data);\n' +
-                       'ps{2}->sample_vec_field(ps{2}->data, acceleration);\n' +
-                       '{1}_free(acc_field_tmp);\n').format(self.C_dtype, FFTW, self.particle_species)
         output_vel_acc =  """
                           //begincpp
                           {{
@@ -342,16 +378,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     multistep,
                     neighbours,
                     self.particle_species)
-            self.particle_variables += '{0} *particle_field{1};\n'.format(self.C_dtype, self.particle_species)
             self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
                                         'fname, fs,\n' +
                                         'nparticles,\n' +
                                         '{4},\n' +
                                         'niter_part, integration_steps{0});\n').format(
                                                 self.particle_species, self.C_dtype, multistep, neighbours, beta_name)
-            self.particle_start += ('particle_field{0} = {1}_alloc_real(ps{0}->buffered_field_descriptor->local_size);\n' +
-                                    'ps{0}->data = particle_field{0};\n').format(self.particle_species, FFTW)
-            self.particle_end += '{0}_free(particle_field{1});\n'.format(FFTW, self.particle_species)
+            self.particle_start += ('ps{0}->data = vel_{1}->f+vel_{1}->buffer_size;\n').format(self.particle_species, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 update_field +

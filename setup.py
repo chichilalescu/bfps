@@ -46,6 +46,7 @@ except:
 VERSION = date_name
 
 src_file_list = ['field_descriptor',
+                 'interpolations',
                  'fftw_tools',
                  'fluid_solver_base',
                  'fluid_solver',
@@ -60,7 +61,7 @@ src_file_list = ['field_descriptor',
                  'spline_n6',
                  'Lagrange_polys']
 
-header_list = ['cpp/base.hpp', 'cpp/interpolations.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
+header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
 # not sure we need the MANIFEST.in file, but I might as well
 #with open('MANIFEST.in', 'w') as manifest_in_file:
