@@ -295,7 +295,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         //endcpp
                         """.format(self.particle_species)
         update_field = ''
-        compute_acc = 'ps{0}->sample_vec_field(acc_{1}->f+acc_{1}->buffer_size, acceleration);\n'.format(self.particle_species, fields_name)
+        compute_acc = 'ps{0}->sample_vec_field(acc_{1}, acceleration);\n'.format(self.particle_species, fields_name)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
@@ -306,7 +306,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               double *acceleration = new double[ps{0}->array_size];
                               double *velocity     = new double[ps{0}->array_size];
                               {1}
-                              ps{0}->sample_vec_field(ps{0}->data, velocity);
+                              ps{0}->sample_vec_field(ps{0}->vel, velocity);
                               {2}
                               if (ps{0}->fs->rd->myrank == 0)
                               {{
@@ -363,12 +363,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 neighbours,
                 self.particle_species)
         self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
-                                    'fname, fs,\n' +
+                                    'fname, fs, vel_{4},\n' +
                                     'nparticles,\n' +
-                                    '{4},\n' +
                                     'niter_part, integration_steps{0});\n').format(
-                                            self.particle_species, self.C_dtype, multistep, neighbours, beta_name)
-        self.particle_start += ('ps{0}->data = vel_{1}->f+vel_{1}->buffer_size;\n').format(self.particle_species, fields_name)
+                                            self.particle_species, self.C_dtype, multistep, neighbours, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 update_field +

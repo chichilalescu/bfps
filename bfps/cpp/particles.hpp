@@ -74,7 +74,7 @@ class particles
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
-        base_polynomial_values compute_beta;
+        interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
         char name[256];
@@ -98,8 +98,8 @@ class particles
         particles(
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
+                interpolator<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
-                base_polynomial_values BETA_POLYS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();
@@ -115,8 +115,7 @@ class particles
         void synchronize();
         void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
-        void interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void sample_vec_field(void *vec_field, double *vec_values);
+        void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values);
 
         /* input/output */
         void read(hid_t data_file_id);

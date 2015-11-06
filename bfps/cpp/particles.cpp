@@ -45,8 +45,8 @@ template <int particle_type, class rnumber, bool multistep, int ncomponents, int
 particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::particles(
         const char *NAME,
         fluid_solver_base<rnumber> *FSOLVER,
+        interpolator<rnumber, interp_neighbours> *FIELD,
         const int NPARTICLES,
-        base_polynomial_values BETA_POLYS,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
@@ -55,7 +55,7 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::pa
     strncpy(this->name, NAME, 256);
     this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
-    this->compute_beta = BETA_POLYS;
+    this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
     this->traj_skip = TRAJ_SKIP;
     // in principle only the buffer width at the top needs the +1,
@@ -155,13 +155,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
                     int crank = this->get_rank(x[p*3 + 2]);
                     if (this->fs->rd->myrank == crank)
                     {
-                        this->interpolation_formula(this->data, xg + p*3, xx + p*3, y + p*3, deriv);
-                    DEBUG_MSG(
-                            "position is %g %g %g %d %d %d %g %g %g, result is %g %g %g\n",
-                            x[p*3], x[p*3+1], x[p*3+2],
-                            xg[p*3], xg[p*3+1], xg[p*3+2],
-                            xx[p*3], xx[p*3+1], xx[p*3+2],
-                            y[p*3], y[p*3+1], y[p*3+2]);
+                        (*this->vel)(xg + p*3, xx + p*3, y + p*3, deriv);
                     }
                     if (crank != this->computing[p])
                     {
@@ -198,7 +192,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             /* perform interpolation */
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
             {
-                this->interpolation_formula(this->data, xg + p*3, xx + p*3, tmp, deriv);
+                (*this->vel)(xg + p*3, xx + p*3, tmp, deriv);
                 jump[p] = fabs(3*this->dt * tmp[2]);
                 if (jump[p] < this->dz*1.01)
                     jump[p] = this->dz*1.01;
@@ -546,25 +540,6 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
-    for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
-    for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(    xg[2]+iz                         ) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(MOD(xg[1]+iy, this->fs->rd->sizes[1])))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(MOD(xg[0]+ix, this->fs->rd->sizes[2])))*3+c]*(bz[iz+interp_neighbours]*
-                                                                                       by[iy+interp_neighbours]*
-                                                                                       bx[ix+interp_neighbours]);
-}
-
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
 void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::read(hid_t data_file_id)
 {
     //DEBUG_MSG("aloha\n");
@@ -689,7 +664,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::sample_vec_field(void *vec_field, double *vec_values)
+void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::sample_vec_field(
+        interpolator<rnumber, interp_neighbours> *field, double *vec_values)
 {
     double *vec_local =  new double[3*this->nparticles];
     std::fill_n(vec_local, 3*this->nparticles, 0.0);
@@ -701,8 +677,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++)
         if (this->fs->rd->myrank == this->computing[p])
-            this->interpolation_formula(
-                    (rnumber*)vec_field,
+            (*field)(
                     xg + p*3,
                     xx + p*3,
                     vec_local + p*3,

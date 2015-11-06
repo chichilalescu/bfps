@@ -47,12 +47,10 @@ VERSION = date_name
 
 src_file_list = ['field_descriptor',
                  'interpolator',
+                 'particles',
                  'fftw_tools',
                  'fluid_solver_base',
                  'fluid_solver',
-                 'slab_field_particles',
-                 'particles',
-                 'tracers',
                  'spline_n1',
                  'spline_n2',
                  'spline_n3',
