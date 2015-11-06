@@ -28,11 +28,13 @@
 
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::interpolator(
-        fluid_solver_base<rnumber> *fs)
+        fluid_solver_base<rnumber> *fs,
+        base_polynomial_values BETA_POLYS)
 {
     int tdims[4];
     this->unbuffered_descriptor = fs->rd;
     this->buffer_size = (interp_neighbours+1)*this->unbuffered_descriptor->slice_size;
+    this->compute_beta = BETA_POLYS;
     tdims[0] = (interp_neighbours+1)*2*this->unbuffered_descriptor->nprocs + this->unbuffered_descriptor->sizes[0];
     tdims[1] = this->unbuffered_descriptor->sizes[1];
     tdims[2] = this->unbuffered_descriptor->sizes[2];
@@ -114,6 +116,39 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
                     MPI_STATUS_IGNORE);
     }
     return EXIT_SUCCESS;
+}
+
+template <class rnumber, int interp_neighbours>
+void interpolator<rnumber, interp_neighbours>::operator()(
+        int *xg,
+        double *xx,
+        double *dest,
+        int *deriv)
+{
+    double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
+    if (deriv == NULL)
+    {
+        this->compute_beta(0, xx[0], bx);
+        this->compute_beta(0, xx[1], by);
+        this->compute_beta(0, xx[2], bz);
+    }
+    else
+    {
+        this->compute_beta(deriv[0], xx[0], bx);
+        this->compute_beta(deriv[1], xx[1], by);
+        this->compute_beta(deriv[2], xx[2], bz);
+    }
+    std::fill_n(dest, 3, 0);
+    rnumber *field = this->f + this->buffer_size;
+    for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
+    for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
+    for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
+        for (int c=0; c<3; c++)
+            dest[c] += field[((ptrdiff_t(    xg[2]+iz                             ) *this->descriptor->sizes[1] +
+                               ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1])))*this->descriptor->sizes[2] +
+                               ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2])))*3+c]*(bz[iz+interp_neighbours]*
+                                                                                           by[iy+interp_neighbours]*
+                                                                                           bx[ix+interp_neighbours]);
 }
 
 template class interpolator<float, 1>;

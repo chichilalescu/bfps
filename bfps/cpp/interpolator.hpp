@@ -48,14 +48,17 @@ class interpolator
 {
     public:
         ptrdiff_t buffer_size;
+        base_polynomial_values compute_beta;
         field_descriptor<rnumber> *descriptor;
         field_descriptor<rnumber> *unbuffered_descriptor;
         rnumber *f;
 
         interpolator(
-                fluid_solver_base<rnumber> *FSOLVER);
+                fluid_solver_base<rnumber> *FSOLVER,
+                base_polynomial_values BETA_POLYS);
         ~interpolator();
 
+        void operator()(int *xg, double *xx, double *dest, int *deriv = NULL);
         /* destroys input */
         int read_rFFTW(void *src);
 };

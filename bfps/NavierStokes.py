@@ -234,14 +234,23 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         return None
     def add_particle_fields(
             self,
+            interp_type = 'spline',
             kcut = None,
             neighbours = 1,
+            smoothness = 1,
             name = 'particle_field'):
         self.particle_variables += ('interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n' +
                                     '{0} *{2}_tmp;\n').format(self.C_dtype, neighbours, name)
-        self.particle_start += ('vel_{0} = new interpolator<{1}, {2}>(fs);\n' +
-                                'acc_{0} = new interpolator<{1}, {2}>(fs);\n' +
-                                '{0}_tmp = new {1}[acc_{0}->unbuffered_descriptor->local_size];\n').format(name, self.C_dtype, neighbours)
+        if interp_type == 'spline':
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
+        self.particle_start += ('vel_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
+                                'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
+                                '{0}_tmp = new {1}[acc_{0}->unbuffered_descriptor->local_size];\n').format(name,
+                                                                                                           self.C_dtype,
+                                                                                                           neighbours,
+                                                                                                           beta_name)
         self.particle_end += ('delete vel_{0};\n' +
                               'delete acc_{0};\n' +
                               'delete[] {0}_tmp;\n').format(name)
