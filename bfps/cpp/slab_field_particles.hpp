@@ -30,7 +30,7 @@
 #include <hdf5.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
-#include "interpolations.hpp"
+#include "interpolator.hpp"
 
 #ifndef SLAB_FIELD_PARTICLES
 

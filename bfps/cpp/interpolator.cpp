@@ -24,7 +24,7 @@
 
 
 
-#include "interpolations.hpp"
+#include "interpolator.hpp"
 
 template <class rnumber>
 interpolator<rnumber>::interpolator(

@@ -46,7 +46,7 @@ except:
 VERSION = date_name
 
 src_file_list = ['field_descriptor',
-                 'interpolations',
+                 'interpolator',
                  'fftw_tools',
                  'fluid_solver_base',
                  'fluid_solver',
