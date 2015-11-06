@@ -239,29 +239,26 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'particle_field'):
-        self.particle_variables += ('interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n' +
-                                    '{0} *{2}_tmp;\n').format(self.C_dtype, neighbours, name)
+        self.particle_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
         if interp_type == 'spline':
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
         self.particle_start += ('vel_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
-                                'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
-                                '{0}_tmp = new {1}[acc_{0}->unbuffered_descriptor->local_size];\n').format(name,
-                                                                                                           self.C_dtype,
-                                                                                                           neighbours,
-                                                                                                           beta_name)
+                                'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n').format(name,
+                                                                                           self.C_dtype,
+                                                                                           neighbours,
+                                                                                           beta_name)
         self.particle_end += ('delete vel_{0};\n' +
-                              'delete acc_{0};\n' +
-                              'delete[] {0}_tmp;\n').format(name)
+                              'delete acc_{0};\n').format(name)
         update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == type(None):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
         update_fields += ('fs->ift_velocity();\n' +
                           'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
-                          'fs->compute_Lagrangian_acceleration({0}_tmp);\n' +
-                          'acc_{0}->read_rFFTW({0}_tmp);\n').format(name)
+                          'fs->compute_Lagrangian_acceleration(acc_{0}->f+acc_{0}->buffer_size);\n' +
+                          'acc_{0}->read_rFFTW(acc_{0}->f+acc_{0}->buffer_size);\n').format(name)
         self.particle_start += update_fields
         self.particle_loop += update_fields
         return None
