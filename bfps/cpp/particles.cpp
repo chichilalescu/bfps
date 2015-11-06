@@ -289,7 +289,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
             MPI_DOUBLE,
             MPI_SUM,
             this->comm);
-    if (this->integration_steps >= 1)
+    if (this->integration_steps >= 1 && multistep)
     {
         for (int i=0; i<this->integration_steps; i++)
         {
@@ -586,7 +586,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::read(hid_t
         H5Sclose(mspace);
         H5Sclose(rspace);
         H5Dclose(dset);
-        if (this->iteration > 0)
+        if (this->iteration > 0 && multistep)
         {
             temp_string = (std::string("/particles/") +
                            std::string(this->name) +
@@ -617,15 +617,13 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::read(hid_t
             MPI_DOUBLE,
             0,
             this->comm);
-    for (int i = 0; i<this->integration_steps; i++)
-    {
+    if (multistep) for (int i = 0; i<this->integration_steps; i++)
         MPI_Bcast(
                 this->rhs[i],
                 this->array_size,
                 MPI_DOUBLE,
                 0,
                 this->comm);
-    }
     // initial assignment of particles
     for (int p=0; p<this->nparticles; p++)
     {
@@ -659,7 +657,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::write(hid_
         H5Sclose(mspace);
         H5Sclose(wspace);
         H5Dclose(dset);
-        if (write_rhs)
+        if (write_rhs && multistep)
         {
             temp_string = (std::string("/particles/") +
                            std::string(this->name) +

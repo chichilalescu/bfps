@@ -97,7 +97,7 @@ def launch(
         c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
         c.add_particles(
                 kcut = 'fs->kM/2',
-                integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness,
+                integration_steps = 1,
                 fields_name = 'filtered')
         #for integr_steps in range(1, 7):
         #    c.add_particles(
@@ -105,16 +105,11 @@ def launch(
         #            neighbours = opt.neighbours,
         #            smoothness = opt.smoothness,
         #            fields_name = 'regular')
-        for info in [(2, 1, 'spline', 'Heun'),
-                     (4, 1, 'spline', 'cRK4'),
-                     (2, 1, 'Lagrange', 'Heun'),
-                     (4, 1, 'Lagrange', 'cRK4')]:
+        for info in [(2, 'Heun'),
+                     (4, 'cRK4')]:
             c.add_particles(
                     integration_steps = info[0],
-                    neighbours = opt.neighbours,
-                    smoothness = info[1],
-                    interp_type = info[2],
-                    integration_method = info[3],
+                    integration_method = info[1],
                     fields_name = 'regular')
     c.fill_up_fluid_code()
     c.finalize_code()

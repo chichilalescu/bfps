@@ -240,7 +240,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             smoothness = 1,
             name = 'particle_field'):
         self.particle_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
+        self.parameters[name + '_type'] = interp_type
+        self.parameters[name + '_neighbours'] = neighbours
         if interp_type == 'spline':
+            self.parameters[name + '_smoothness'] = smoothness
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
@@ -263,9 +266,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         return None
     def add_particles(
             self,
-            neighbours = 1,
-            smoothness = 1,
-            interp_type = 'spline',
             integration_method = 'AdamsBashforth',
             integration_steps = 2,
             kcut = 'fs->kM',
@@ -275,12 +275,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             integration_steps = 4
         elif integration_method == 'Heun':
             integration_steps = 2
-        self.parameters['integration_method{0}'.format(self.particle_species)] = integration_method
-        self.parameters['interp_type{0}'.format(self.particle_species)] = interp_type
-        self.parameters['neighbours{0}'.format(self.particle_species)] = neighbours
-        self.parameters['smoothness{0}'.format(self.particle_species)] = smoothness
-        self.parameters['kcut{0}'.format(self.particle_species)] = kcut
-        self.parameters['integration_steps{0}'.format(self.particle_species)] = integration_steps
+        neighbours = self.parameters[fields_name + '_neighbours']
+        self.parameters['tracers{0}_field'.format(self.particle_species)] = fields_name
+        self.parameters['tracers{0}_integration_method'.format(self.particle_species)] = integration_method
+        self.parameters['tracers{0}_kcut'.format(self.particle_species)] = kcut
+        self.parameters['tracers{0}_integration_steps'.format(self.particle_species)] = integration_steps
         self.file_datasets_grow += """
                         //begincpp
                         temp_string = (std::string("/particles/") +
@@ -341,10 +340,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           }}
                           //endcpp
                           """.format(self.particle_species, update_field, compute_acc)
-        if interp_type == 'spline':
-            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
-        elif interp_type == 'Lagrange':
-            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
         self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(self.particle_species)
         self.particle_end += ('ps{0}->write(stat_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
@@ -361,7 +356,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2},{3}>(\n' +
                                     'fname, fs, vel_{4},\n' +
                                     'nparticles,\n' +
-                                    'niter_part, integration_steps{0});\n').format(
+                                    'niter_part, tracers{0}_integration_steps);\n').format(
                                             self.particle_species, self.C_dtype, multistep, neighbours, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
