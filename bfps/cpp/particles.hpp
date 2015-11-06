@@ -36,8 +36,6 @@
 
 #define PARTICLES
 
-extern int myrank, nprocs;
-
 /* particle types */
 enum particle_types {VELOCITY_TRACER};
 
@@ -45,6 +43,7 @@ template <int particle_type, class rnumber, bool multistep, int interp_neighbour
 class particles
 {
     public:
+        int myrank, nprocs;
         fluid_solver_base<rnumber> *fs;
         field_descriptor<rnumber> *buffered_field_descriptor;
         rnumber *data;
