@@ -160,11 +160,15 @@ def acceleration_test(c, m = 3, species = 9):
 
     num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
     num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+    num_vel1 = sum(fc[1, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt
 
     pid = np.unravel_index(np.argmax(np.abs(num_acc1[:] - acc[n:-n])), dims = num_acc1.shape)
-    snrv = -20*np.log10(np.average((num_acc1[:] - acc[n:-n])**2) / np.average((acc[n:-n])**2))
-    snrp = -20*np.log10(np.average((num_acc2[:] - acc[n:-n])**2) / np.average((acc[n:-n])**2))
-    print('SNR diffvel vs acc {0}, SNR diffpos vs acc {1}'.format(snrv, snrp))
+    def SNR(a, b):
+        return -20*np.log10(np.average((a - b)**2)**.5 / np.average(a**2)**.5)
+    print('SNR diffpos vs vel {0}, SNR diffvel vs acc {1}, SNR diffpos vs acc {2}'.format(
+        SNR(num_vel1, vel[n:-n]),
+        SNR(num_acc1, acc[n:-n]),
+        SNR(num_acc2, acc[n:-n])))
     #for cc in range(3):
     #    a.plot(num_acc1[:, pid[1], cc], color = col[cc])
     #    #a.plot(num_acc2[:, pid[1], cc], color = col[cc], dashes = (2, 2))
