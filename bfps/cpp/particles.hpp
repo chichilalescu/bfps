@@ -109,6 +109,7 @@ class particles
          * */
         void jump_estimate(double *jump_length);
         void get_rhs(double *x, double *rhs);
+        void get_rhs(double t, double *x, double *rhs);
 
         int get_rank(double z); // get rank for given value of z
         void synchronize();
@@ -116,13 +117,14 @@ class particles
         void get_grid_coordinates(double *x, int *xg, double *xx);
         void sample_vec_field(
             interpolator<rnumber, interp_neighbours> *vec,
+            double t,
             double *x,
             double *y,
             const bool synch = false,
             int *deriv = NULL);
         inline void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values)
         {
-            this->sample_vec_field(field, this->state, vec_values, true, NULL);
+            this->sample_vec_field(field, 1.0, this->state, vec_values, true, NULL);
         }
 
         /* input/output */

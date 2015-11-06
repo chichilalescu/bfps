@@ -43,25 +43,30 @@ interpolator<rnumber, interp_neighbours>::interpolator(
             4, tdims,
             this->unbuffered_descriptor->mpi_dtype,
             this->unbuffered_descriptor->comm);
-    this->f = new rnumber[this->descriptor->local_size];
-    //if (sizeof(rnumber) == 4)
-    //    this->f = fftwf_alloc_real(this->descriptor->local_size);
-    //else if (sizeof(rnumber) == 8)
-    //    this->f = fftw_alloc_real(this->descriptor->local_size);
+    this->f0 = new rnumber[this->descriptor->local_size];
+    this->f1 = new rnumber[this->descriptor->local_size];
+    this->temp = this->f1 + this->buffer_size;
 }
 
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::~interpolator()
 {
-    delete[] this->f;
+    delete[] this->f0;
+    delete[] this->f1;
     delete this->descriptor;
 }
 
 template <class rnumber, int interp_neighbours>
 int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 {
+    /* first, roll fields */
+    rnumber *tmp = this->f0;
+    this->f0 = this->f1;
+    this->f1 = tmp;
+    this->temp = this->f0 + this->buffer_size;
+    /* now do regular things */
     rnumber *src = (rnumber*)void_src;
-    rnumber *dst = this->f;
+    rnumber *dst = this->f1;
     /* do big copy of middle stuff */
     clip_zero_padding<rnumber>(this->unbuffered_descriptor, src, 3);
     std::copy(src,
@@ -121,6 +126,7 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 
 template <class rnumber, int interp_neighbours>
 void interpolator<rnumber, interp_neighbours>::operator()(
+        double t,
         int *xg,
         double *xx,
         double *dest,
@@ -140,16 +146,18 @@ void interpolator<rnumber, interp_neighbours>::operator()(
         this->compute_beta(deriv[2], xx[2], bz);
     }
     std::fill_n(dest, 3, 0);
-    rnumber *field = this->f + this->buffer_size;
+    rnumber *ff0 = this->f0 + this->buffer_size;
+    rnumber *ff1 = this->f1 + this->buffer_size;
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
     for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
     for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
         for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(    xg[2]+iz                             ) *this->descriptor->sizes[1] +
-                               ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1])))*this->descriptor->sizes[2] +
-                               ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2])))*3+c]*(bz[iz+interp_neighbours]*
-                                                                                           by[iy+interp_neighbours]*
-                                                                                           bx[ix+interp_neighbours]);
+        {
+            ptrdiff_t tindex = ((ptrdiff_t(    xg[2]+iz                             ) *this->descriptor->sizes[1] +
+                                 ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1])))*this->descriptor->sizes[2] +
+                                 ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2])))*3+c;
+            dest[c] += (ff0[tindex]*(1-t) + t*ff1[tindex])*(bz[iz+interp_neighbours]*by[iy+interp_neighbours]*bx[ix+interp_neighbours]);
+        }
 }
 
 template class interpolator<float, 1>;

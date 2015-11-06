@@ -135,6 +135,7 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::~particles()
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
 void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec_field(
         interpolator<rnumber, interp_neighbours> *vec,
+        double t,
         double *x,
         double *y,
         const bool synch,
@@ -151,7 +152,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec
         for (int p=0; p<this->nparticles; p++)
         {
             if (this->myrank == this->computing[p])
-               (*vec)(xg + p*3, xx + p*3, y + p*3, deriv);
+               (*vec)(t, xg + p*3, xx + p*3, y + p*3, deriv);
         }
     }
     else
@@ -162,7 +163,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec
             {
                 int crank = this->get_rank(x[p*3 + 2]);
                 if (this->myrank == crank)
-                    (*vec)(xg + p*3, xx + p*3, y + p*3, deriv);
+                    (*vec)(t, xg + p*3, xx + p*3, y + p*3, deriv);
                 if (crank != this->computing[p])
                     this->synchronize_single_particle_state(p, y, crank);
             }
@@ -191,12 +192,12 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec
 }
 
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, interp_neighbours>::get_rhs(double *x, double *y)
+void particles<particle_type, rnumber, multistep, interp_neighbours>::get_rhs(double t, double *x, double *y)
 {
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->sample_vec_field(this->vel, x, y, false);
+            this->sample_vec_field(this->vel, t, x, y, false);
             break;
     }
 }
@@ -209,7 +210,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::jump_estim
     {
         case VELOCITY_TRACER:
             double *y = new double[3*this->nparticles];
-            this->sample_vec_field(this->vel, this->state, y, false);
+            this->sample_vec_field(this->vel, 1.0, this->state, y, false);
             for (int p=0; p<this->nparticles; p++) if (this->myrank == this->computing[p])
             {
                 jump[p] = fabs(2*this->dt * y[3*p+2]);
@@ -358,7 +359,7 @@ template <int particle_type, class rnumber, bool multistep, int interp_neighbour
 void particles<particle_type, rnumber, multistep, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
-    this->get_rhs(this->state, this->rhs[0]);
+    this->get_rhs(0, this->state, this->rhs[0]);
     switch(nsteps)
     {
         case 1:
@@ -450,8 +451,11 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::Heun()
     if (!multistep)
     {
         double *y = new double[this->array_size];
-        double dtfactor[] = {0.0, this->dt};
-        this->get_rhs(this->state, this->rhs[0]);
+        double dtfactor[2];
+        double factor[] = {0.0, 1.0};
+        dtfactor[0] = factor[0]*this->dt;
+        dtfactor[1] = factor[1]*this->dt;
+        this->get_rhs(0, this->state, this->rhs[0]);
         for (int p=0; p<this->nparticles; p++)
             this->synchronize_single_particle_state(p, this->rhs[0]);
         for (int kindex = 1; kindex < 2; kindex++)
@@ -467,7 +471,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::Heun()
             }
             for (int p=0; p<this->nparticles; p++)
                 this->synchronize_single_particle_state(p, y);
-            this->get_rhs(y, this->rhs[kindex]);
+            this->get_rhs(factor[kindex], y, this->rhs[kindex]);
             for (int p=0; p<this->nparticles; p++)
                 this->synchronize_single_particle_state(p, this->rhs[kindex]);
         }
@@ -492,9 +496,10 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::cRK4()
 {
     if (!multistep)
     {
+        static double   factor[] = {0.0, 0.5, 0.5, 1.0};
+        static double dtfactor[] = {0.0, this->dt/2, this->dt/2, this->dt};
         double *y = new double[this->array_size];
-        double dtfactor[] = {0.0, this->dt/2, this->dt/2, this->dt};
-        this->get_rhs(this->state, this->rhs[0]);
+        this->get_rhs(0, this->state, this->rhs[0]);
         for (int p=0; p<this->nparticles; p++)
             this->synchronize_single_particle_state(p, this->rhs[0]);
         for (int kindex = 1; kindex < 4; kindex++)
@@ -510,7 +515,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::cRK4()
             }
             for (int p=0; p<this->nparticles; p++)
                 this->synchronize_single_particle_state(p, y);
-            this->get_rhs(y, this->rhs[kindex]);
+            this->get_rhs(factor[kindex], y, this->rhs[kindex]);
             for (int p=0; p<this->nparticles; p++)
                 this->synchronize_single_particle_state(p, this->rhs[kindex]);
         }
