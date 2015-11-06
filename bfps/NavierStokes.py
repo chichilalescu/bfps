@@ -265,7 +265,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             integration_steps = 2,
             kcut = 'fs->kM',
             frozen_particles = False,
-            particle_type = 'old_tracers',
             fields_name = None):
         if integration_method == 'cRK4':
             integration_steps = 4
@@ -286,21 +285,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5Gclose(group);
                         //endcpp
                         """.format(self.particle_species)
-        if particle_type == 'old_tracers':
-            update_field = 'fs->compute_velocity(fs->cvorticity);\n'
-            if kcut != 'fs->kM':
-                update_field += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
-            update_field += ('fs->ift_velocity();\n' +
-                             'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
-                             'ps{0}->rFFTW_to_buffered(fs->rvelocity, ps{0}->data);\n').format(self.particle_species)
-            compute_acc = ('{0} *acc_field_tmp = {1}_alloc_real(fs->rd->local_size);\n' +
-                           'fs->compute_Lagrangian_acceleration(acc_field_tmp);\n' +
-                           'ps{2}->rFFTW_to_buffered(acc_field_tmp, ps{2}->data);\n' +
-                           'ps{2}->sample_vec_field(ps{2}->data, acceleration);\n' +
-                           '{1}_free(acc_field_tmp);\n').format(self.C_dtype, FFTW, self.particle_species)
-        else:
-            update_field = ''
-            compute_acc = 'ps{0}->sample_vec_field(acc_{1}->f+acc_{1}->buffer_size, acceleration);\n'.format(self.particle_species, fields_name)
+        update_field = ''
+        compute_acc = 'ps{0}->sample_vec_field(acc_{1}->f+acc_{1}->buffer_size, acceleration);\n'.format(self.particle_species, fields_name)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
@@ -357,33 +343,23 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(self.particle_species)
         self.particle_end += ('ps{0}->write(stat_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
-        if particle_type == 'old_tracers':
-            self.particle_includes += '#include "tracers.hpp"\n'
-            self.particle_variables += 'tracers<{0}> *ps{1};\n'.format(self.C_dtype, self.particle_species)
-            self.particle_start += ('ps{1} = new tracers<{0}>(\n' +
-                                        'fname, fs,\n' +
-                                        'nparticles,\n' +
-                                        '{2},\n' +
-                                        'neighbours{1}, niter_part, integration_steps{1},\n' +
-                                        'fs->ru);\n').format(self.C_dtype, self.particle_species, beta_name)
+        self.particle_includes += '#include "particles.hpp"\n'
+        if integration_method == 'AdamsBashforth':
+            multistep = 'true'
         else:
-            self.particle_includes += '#include "particles.hpp"\n'
-            if integration_method == 'AdamsBashforth':
-                multistep = 'true'
-            else:
-                multistep = 'false'
-            self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, 3, {2}> *ps{3};\n'.format(
-                    self.C_dtype,
-                    multistep,
-                    neighbours,
-                    self.particle_species)
-            self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
-                                        'fname, fs,\n' +
-                                        'nparticles,\n' +
-                                        '{4},\n' +
-                                        'niter_part, integration_steps{0});\n').format(
-                                                self.particle_species, self.C_dtype, multistep, neighbours, beta_name)
-            self.particle_start += ('ps{0}->data = vel_{1}->f+vel_{1}->buffer_size;\n').format(self.particle_species, fields_name)
+            multistep = 'false'
+        self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, 3, {2}> *ps{3};\n'.format(
+                self.C_dtype,
+                multistep,
+                neighbours,
+                self.particle_species)
+        self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
+                                    'fname, fs,\n' +
+                                    'nparticles,\n' +
+                                    '{4},\n' +
+                                    'niter_part, integration_steps{0});\n').format(
+                                            self.particle_species, self.C_dtype, multistep, neighbours, beta_name)
+        self.particle_start += ('ps{0}->data = vel_{1}->f+vel_{1}->buffer_size;\n').format(self.particle_species, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 update_field +
