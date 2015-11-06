@@ -43,19 +43,17 @@ typedef void (*base_polynomial_values)(
         double fraction,
         double *destination);
 
-template <class rnumber>
+template <class rnumber, int interp_neighbours>
 class interpolator
 {
     public:
-        int buffer_width;
         ptrdiff_t buffer_size;
         field_descriptor<rnumber> *descriptor;
-        field_descriptor<rnumber> *src_descriptor;
+        field_descriptor<rnumber> *unbuffered_descriptor;
         rnumber *f;
 
         interpolator(
-                fluid_solver_base<rnumber> *FSOLVER,
-                const int BUFFER_WIDTH);
+                fluid_solver_base<rnumber> *FSOLVER);
         ~interpolator();
 
         /* destroys input */

@@ -237,11 +237,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             kcut = None,
             neighbours = 1,
             name = 'particle_field'):
-        self.particle_variables += ('interpolator<{0}> *vel_{1}, *acc_{1};\n' +
-                                    '{0} *{1}_tmp;\n').format(self.C_dtype, name)
-        self.particle_start += ('vel_{0} = new interpolator<{1}>(fs, {2});\n' +
-                                'acc_{0} = new interpolator<{1}>(fs, {2});\n' +
-                                '{0}_tmp = new {1}[acc_{0}->src_descriptor->local_size];\n').format(name, self.C_dtype, neighbours+1)
+        self.particle_variables += ('interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n' +
+                                    '{0} *{2}_tmp;\n').format(self.C_dtype, neighbours, name)
+        self.particle_start += ('vel_{0} = new interpolator<{1}, {2}>(fs);\n' +
+                                'acc_{0} = new interpolator<{1}, {2}>(fs);\n' +
+                                '{0}_tmp = new {1}[acc_{0}->unbuffered_descriptor->local_size];\n').format(name, self.C_dtype, neighbours)
         self.particle_end += ('delete vel_{0};\n' +
                               'delete acc_{0};\n' +
                               'delete[] {0}_tmp;\n').format(name)
