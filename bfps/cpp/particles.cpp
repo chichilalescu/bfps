@@ -69,10 +69,7 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::particles(
     this->traj_skip = TRAJ_SKIP;
     this->myrank = this->vel->descriptor->myrank;
     this->nprocs = this->vel->descriptor->nprocs;
-    // in principle only the buffer width at the top needs the +1,
-    // but things are simpler if buffer_width is the same
-    this->buffer_width = interp_neighbours+1;
-    this->buffer_size = this->buffer_width*this->fs->rd->slice_size;
+    this->comm = this->vel->descriptor->comm;
     this->array_size = this->nparticles * this->ncomponents;
     this->state = fftw_alloc_real(this->array_size);
     std::fill_n(this->state, this->array_size, 0.0);
@@ -84,16 +81,6 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::particles(
     this->watching = new bool[this->fs->rd->nprocs*nparticles];
     std::fill_n(this->watching, this->fs->rd->nprocs*this->nparticles, false);
     this->computing = new int[nparticles];
-
-    int tdims[4];
-    tdims[0] = this->buffer_width*2*this->fs->rd->nprocs + this->fs->rd->sizes[0];
-    tdims[1] = this->fs->rd->sizes[1];
-    tdims[2] = this->fs->rd->sizes[2];
-    tdims[3] = this->fs->rd->sizes[3];
-    this->buffered_field_descriptor = new field_descriptor<rnumber>(
-            4, tdims,
-            this->fs->rd->mpi_dtype,
-            this->fs->rd->comm);
 
     // compute dx, dy, dz;
     this->dx = 4*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
@@ -112,7 +99,7 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::particles(
             nprocs,
             MPI_DOUBLE,
             MPI_SUM,
-            this->fs->rd->comm);
+            this->comm);
     std::fill_n(tbound, nprocs, 0.0);
     tbound[this->myrank] = (this->fs->rd->starts[0] + this->fs->rd->subsizes[0])*this->dz;
     MPI_Allreduce(
@@ -121,7 +108,7 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::particles(
             nprocs,
             MPI_DOUBLE,
             MPI_SUM,
-            this->fs->rd->comm);
+            this->comm);
     delete[] tbound;
     //for (int r = 0; r<nprocs; r++)
     //    DEBUG_MSG(
@@ -143,7 +130,64 @@ particles<particle_type, rnumber, multistep, interp_neighbours>::~particles()
     }
     delete[] this->lbound;
     delete[] this->ubound;
-    delete this->buffered_field_descriptor;
+}
+
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec_field(
+        interpolator<rnumber, interp_neighbours> *vec,
+        double *x,
+        double *y,
+        const bool synch,
+        int *deriv)
+{
+    /* get grid coordinates */
+    int *xg = new int[3*this->nparticles];
+    double *xx = new double[3*this->nparticles];
+    this->get_grid_coordinates(x, xg, xx);
+    /* perform interpolation */
+    std::fill_n(y, 3*this->nparticles, 0.0);
+    if (multistep)
+    {
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->myrank == this->computing[p])
+               (*vec)(xg + p*3, xx + p*3, y + p*3, deriv);
+        }
+    }
+    else
+    {
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->watching[this->myrank*this->nparticles+p])
+            {
+                int crank = this->get_rank(x[p*3 + 2]);
+                if (this->myrank == crank)
+                    (*vec)(xg + p*3, xx + p*3, y + p*3, deriv);
+                if (crank != this->computing[p])
+                    this->synchronize_single_particle_state(p, y, crank);
+            }
+        }
+    }
+    if (synch)
+    {
+        double *yy =  new double[3*this->nparticles];
+        std::fill_n(yy, 3*this->nparticles, 0.0);
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->myrank == this->computing[p])
+               std::copy(y+3*p, y+3*(p+1), yy+3*p);
+        }
+        MPI_Allreduce(
+                yy,
+                y,
+                3*this->nparticles,
+                MPI_DOUBLE,
+                MPI_SUM,
+                this->comm);
+        delete[] yy;
+    }
+    delete[] xg;
+    delete[] xx;
 }
 
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
@@ -240,7 +284,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
                             MPI_DOUBLE,
                             r,
                             p+this->computing[p]*this->nparticles,
-                            this->fs->rd->comm);
+                            this->comm);
                 if (this->myrank == r)
                     MPI_Recv(
                             x+p*this->ncomponents,
@@ -248,7 +292,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
                             MPI_DOUBLE,
                             source,
                             p+this->computing[p]*this->nparticles,
-                            this->fs->rd->comm,
+                            this->comm,
                             MPI_STATUS_IGNORE);
             }
     }
@@ -280,7 +324,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
             this->array_size,
             MPI_DOUBLE,
             MPI_SUM,
-            this->fs->rd->comm);
+            this->comm);
     if (this->integration_steps >= 1)
     {
         for (int i=0; i<this->integration_steps; i++)
@@ -297,7 +341,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
                     this->array_size,
                     MPI_DOUBLE,
                     MPI_SUM,
-                    this->fs->rd->comm);
+                    this->comm);
         }
     }
     fftw_free(tstate);
@@ -305,7 +349,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
     for (int p=0; p<this->nparticles; p++)
     {
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
-        for (int r=0; r<this->buffered_field_descriptor->nprocs; r++)
+        for (int r=0; r<this->nprocs; r++)
             this->watching[r*this->nparticles+p] = (r == this->computing[p]);
         //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
     }
@@ -330,7 +374,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::synchroniz
                 this->nparticles*this->fs->rd->nprocs,
                 MPI_C_BOOL,
                 MPI_LOR,
-                this->fs->rd->comm);
+                this->comm);
         delete[] local_watching;
     }
 }
@@ -604,7 +648,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::read(hid_t
             this->array_size,
             MPI_DOUBLE,
             0,
-            this->fs->rd->comm);
+            this->comm);
     for (int i = 0; i<this->integration_steps; i++)
     {
         MPI_Bcast(
@@ -612,7 +656,7 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::read(hid_t
                 this->array_size,
                 MPI_DOUBLE,
                 0,
-                this->fs->rd->comm);
+                this->comm);
     }
     // initial assignment of particles
     for (int p=0; p<this->nparticles; p++)
@@ -672,38 +716,6 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::write(hid_
             H5Dclose(dset);
         }
     }
-}
-
-template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec_field(
-        interpolator<rnumber, interp_neighbours> *field,
-        double *vec_values)
-{
-    double *vec_local =  new double[3*this->nparticles];
-    std::fill_n(vec_local, 3*this->nparticles, 0.0);
-    int deriv[] = {0, 0, 0};
-    /* get grid coordinates */
-    int *xg = new int[3*this->nparticles];
-    double *xx = new double[3*this->nparticles];
-    this->get_grid_coordinates(this->state, xg, xx);
-    /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++)
-        if (this->myrank == this->computing[p])
-            (*field)(
-                    xg + p*3,
-                    xx + p*3,
-                    vec_local + p*3,
-                    deriv);
-    MPI_Allreduce(
-            vec_local,
-            vec_values,
-            3*this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->fs->rd->comm);
-    delete[] xg;
-    delete[] xx;
-    delete[] vec_local;
 }
 
 

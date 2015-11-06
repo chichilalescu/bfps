@@ -44,8 +44,8 @@ class particles
 {
     public:
         int myrank, nprocs;
+        MPI_Comm comm;
         fluid_solver_base<rnumber> *fs;
-        field_descriptor<rnumber> *buffered_field_descriptor;
         rnumber *data;
 
         /* watching is an array of shape [nparticles], with
@@ -114,7 +114,16 @@ class particles
         void synchronize();
         void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
-        void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values);
+        void sample_vec_field(
+            interpolator<rnumber, interp_neighbours> *vec,
+            double *x,
+            double *y,
+            const bool synch = false,
+            int *deriv = NULL);
+        inline void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values)
+        {
+            this->sample_vec_field(field, this->state, vec_values, true, NULL);
+        }
 
         /* input/output */
         void read(hid_t data_file_id);
