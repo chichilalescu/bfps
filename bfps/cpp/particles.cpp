@@ -41,8 +41,8 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::particles(
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+particles<particle_type, rnumber, multistep, interp_neighbours>::particles(
         const char *NAME,
         fluid_solver_base<rnumber> *FSOLVER,
         interpolator<rnumber, interp_neighbours> *FIELD,
@@ -50,6 +50,15 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::pa
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            this->ncomponents = 3;
+            break;
+        default:
+            this->ncomponents = 3;
+            break;
+    }
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
@@ -62,7 +71,7 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::pa
     // but things are simpler if buffer_width is the same
     this->buffer_width = interp_neighbours+1;
     this->buffer_size = this->buffer_width*this->fs->rd->slice_size;
-    this->array_size = this->nparticles * ncomponents;
+    this->array_size = this->nparticles * this->ncomponents;
     this->state = fftw_alloc_real(this->array_size);
     std::fill_n(this->state, this->array_size, 0.0);
     for (int i=0; i < this->integration_steps; i++)
@@ -120,8 +129,8 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::pa
     //            );
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::~particles()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+particles<particle_type, rnumber, multistep, interp_neighbours>::~particles()
 {
     delete[] this->computing;
     delete[] this->watching;
@@ -135,8 +144,8 @@ particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::~p
     delete this->buffered_field_descriptor;
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_rhs(double *x, double *y)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::get_rhs(double *x, double *y)
 {
     std::fill_n(y, this->array_size, 0.0);
     switch(particle_type)
@@ -175,8 +184,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::jump_estimate(double *jump)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::jump_estimate(double *jump)
 {
     std::fill_n(jump, this->nparticles, 0.0);
     switch(particle_type)
@@ -203,16 +212,16 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-int particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_rank(double z)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+int particles<particle_type, rnumber, multistep, interp_neighbours>::get_rank(double z)
 {
     int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
     assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
     return tmp;
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::synchronize_single_particle_state(int p, double *x, int source)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::synchronize_single_particle_state(int p, double *x, int source)
 {
     if (!multistep)
     {
@@ -224,16 +233,16 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
                 //DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
                 if (this->fs->rd->myrank == source)
                     MPI_Send(
-                            x+p*ncomponents,
-                            ncomponents,
+                            x+p*this->ncomponents,
+                            this->ncomponents,
                             MPI_DOUBLE,
                             r,
                             p+this->computing[p]*this->nparticles,
                             this->fs->rd->comm);
                 if (this->fs->rd->myrank == r)
                     MPI_Recv(
-                            x+p*ncomponents,
-                            ncomponents,
+                            x+p*this->ncomponents,
+                            this->ncomponents,
                             MPI_DOUBLE,
                             source,
                             p+this->computing[p]*this->nparticles,
@@ -243,8 +252,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::synchronize()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::synchronize()
 {
     double *tstate = fftw_alloc_real(this->array_size);
     // first, synchronize state and jump across CPUs
@@ -255,13 +264,13 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         //DEBUG_MSG(
         //        "in synchronize, position for particle %d is %g %g %g\n",
         //        p,
-        //        this->state[p*ncomponents],
-        //        this->state[p*ncomponents+1],
-        //        this->state[p*ncomponents+2]);
+        //        this->state[p*this->ncomponents],
+        //        this->state[p*this->ncomponents+1],
+        //        this->state[p*this->ncomponents+2]);
         if (this->fs->rd->myrank == this->computing[p])
-            std::copy(this->state + p*ncomponents,
-                      this->state + (p+1)*ncomponents,
-                      tstate + p*ncomponents);
+            std::copy(this->state + p*this->ncomponents,
+                      this->state + (p+1)*this->ncomponents,
+                      tstate + p*this->ncomponents);
     }
     MPI_Allreduce(
             tstate,
@@ -276,9 +285,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         {
             std::fill_n(tstate, this->array_size, 0.0);
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                std::copy(this->rhs[i] + p*ncomponents,
-                          this->rhs[i] + (p+1)*ncomponents,
-                          tstate + p*ncomponents);
+                std::copy(this->rhs[i] + p*this->ncomponents,
+                          this->rhs[i] + (p+1)*this->ncomponents,
+                          tstate + p*this->ncomponents);
             std::fill_n(this->rhs[i], this->array_size, 0.0);
             MPI_Allreduce(
                     tstate,
@@ -293,7 +302,7 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
     {
-        this->computing[p] = this->get_rank(this->state[p*ncomponents + 2]);
+        this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
         for (int r=0; r<this->buffered_field_descriptor->nprocs; r++)
             this->watching[r*this->nparticles+p] = (r == this->computing[p]);
         //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
@@ -308,9 +317,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         for (int p=0; p<this->nparticles; p++)
             if (this->fs->rd->myrank == this->computing[p])
             {
-                local_watching[this->get_rank(this->state[ncomponents*p+2]        )*this->nparticles+p] = true;
-                local_watching[this->get_rank(this->state[ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
-                local_watching[this->get_rank(this->state[ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
+                local_watching[this->get_rank(this->state[this->ncomponents*p+2]        )*this->nparticles+p] = true;
+                local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
+                local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
             }
         fftw_free(jump);
         MPI_Allreduce(
@@ -325,8 +334,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::roll_rhs()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
         std::copy(this->rhs[i],
@@ -336,8 +345,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::AdamsBashforth(int nsteps)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
     this->get_rhs(this->state, this->rhs[0]);
@@ -345,26 +354,26 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     {
         case 1:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*this->rhs[0][ii];
                 }
             break;
         case 2:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*(3*this->rhs[0][ii]
                                                -   this->rhs[1][ii])/2;
                 }
             break;
         case 3:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*(23*this->rhs[0][ii]
                                                - 16*this->rhs[1][ii]
                                                +  5*this->rhs[2][ii])/12;
@@ -372,9 +381,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             break;
         case 4:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*(55*this->rhs[0][ii]
                                                - 59*this->rhs[1][ii]
                                                + 37*this->rhs[2][ii]
@@ -383,9 +392,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             break;
         case 5:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*(1901*this->rhs[0][ii]
                                                - 2774*this->rhs[1][ii]
                                                + 2616*this->rhs[2][ii]
@@ -395,9 +404,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             break;
         case 6:
             for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ii = p*ncomponents+i;
+                    ii = p*this->ncomponents+i;
                     this->state[ii] += this->dt*(4277*this->rhs[0][ii]
                                                - 7923*this->rhs[1][ii]
                                                + 9982*this->rhs[2][ii]
@@ -411,8 +420,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::step()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::step()
 {
     if (multistep)
         this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -426,8 +435,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::Heun()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::Heun()
 {
     if (!multistep)
     {
@@ -441,9 +450,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             for (int p=0; p<this->nparticles; p++)
             {
                 if (this->watching[this->fs->rd->myrank*this->nparticles+p])
-                    for (int i=0; i<ncomponents; i++)
+                    for (int i=0; i<this->ncomponents; i++)
                     {
-                        ptrdiff_t tindex = ptrdiff_t(p)*ncomponents + i;
+                        ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                         y[tindex] = this->state[tindex] + dtfactor[kindex]*this->rhs[kindex-1][tindex];
                     }
             }
@@ -457,9 +466,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         {
             if (this->watching[this->fs->rd->myrank*this->nparticles+p])
             {
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ptrdiff_t tindex = ptrdiff_t(p)*ncomponents + i;
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                     this->state[tindex] += this->dt*(this->rhs[0][tindex] + this->rhs[1][tindex])/2;
                 }
             }
@@ -469,8 +478,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 }
 
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::cRK4()
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::cRK4()
 {
     if (!multistep)
     {
@@ -484,9 +493,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
             for (int p=0; p<this->nparticles; p++)
             {
                 if (this->watching[this->fs->rd->myrank*this->nparticles+p])
-                    for (int i=0; i<ncomponents; i++)
+                    for (int i=0; i<this->ncomponents; i++)
                     {
-                        ptrdiff_t tindex = ptrdiff_t(p)*ncomponents + i;
+                        ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                         y[tindex] = this->state[tindex] + dtfactor[kindex]*this->rhs[kindex-1][tindex];
                     }
             }
@@ -499,9 +508,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
         for (int p=0; p<this->nparticles; p++)
         {
             if (this->watching[this->fs->rd->myrank*this->nparticles+p])
-                for (int i=0; i<ncomponents; i++)
+                for (int i=0; i<this->ncomponents; i++)
                 {
-                    ptrdiff_t tindex = ptrdiff_t(p)*ncomponents + i;
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
                     this->state[tindex] += this->dt*(this->rhs[0][tindex] +
                                                   2*(this->rhs[1][tindex] + this->rhs[2][tindex]) +
                                                      this->rhs[3][tindex])/6;
@@ -511,8 +520,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::get_grid_coordinates(double *x, int *xg, double *xx)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::get_grid_coordinates(double *x, int *xg, double *xx)
 {
     static double grid_size[] = {this->dx, this->dy, this->dz};
     double tval;
@@ -522,9 +531,9 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     {
         for (int c=0; c<3; c++)
         {
-            tval = floor(x[p*ncomponents+c]/grid_size[c]);
+            tval = floor(x[p*this->ncomponents+c]/grid_size[c]);
             xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
-            xx[p*3+c] = (x[p*ncomponents+c] - tval*grid_size[c]) / grid_size[c];
+            xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
         }
         xg[p*3+2] -= this->fs->rd->starts[0];
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
@@ -539,8 +548,8 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::read(hid_t data_file_id)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::read(hid_t data_file_id)
 {
     //DEBUG_MSG("aloha\n");
     if (this->fs->rd->myrank == 0)
@@ -606,15 +615,15 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     // initial assignment of particles
     for (int p=0; p<this->nparticles; p++)
     {
-        this->computing[p] = this->get_rank(this->state[p*ncomponents + 2]);
+        this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
         //DEBUG_MSG("reading particles, particle %d computing is %d\n", p, this->computing[p]);
     }
     // now actual synchronization
     this->synchronize();
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::write(hid_t data_file_id, bool write_rhs)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::write(hid_t data_file_id, bool write_rhs)
 {
     if (this->fs->rd->myrank == 0)
     {
@@ -663,9 +672,10 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
     }
 }
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
-void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours>::sample_vec_field(
-        interpolator<rnumber, interp_neighbours> *field, double *vec_values)
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec_field(
+        interpolator<rnumber, interp_neighbours> *field,
+        double *vec_values)
 {
     double *vec_local =  new double[3*this->nparticles];
     std::fill_n(vec_local, 3*this->nparticles, 0.0);
@@ -696,28 +706,28 @@ void particles<particle_type, rnumber, multistep, ncomponents, interp_neighbours
 
 
 /*****************************************************************************/
-template class particles<VELOCITY_TRACER, float, true, 3, 1>;
-template class particles<VELOCITY_TRACER, float, true, 3, 2>;
-template class particles<VELOCITY_TRACER, float, true, 3, 3>;
-template class particles<VELOCITY_TRACER, float, true, 3, 4>;
-template class particles<VELOCITY_TRACER, float, true, 3, 5>;
-template class particles<VELOCITY_TRACER, float, true, 3, 6>;
-template class particles<VELOCITY_TRACER, float, false, 3, 1>;
-template class particles<VELOCITY_TRACER, float, false, 3, 2>;
-template class particles<VELOCITY_TRACER, float, false, 3, 3>;
-template class particles<VELOCITY_TRACER, float, false, 3, 4>;
-template class particles<VELOCITY_TRACER, float, false, 3, 5>;
-template class particles<VELOCITY_TRACER, float, false, 3, 6>;
-template class particles<VELOCITY_TRACER, double, true, 3, 1>;
-template class particles<VELOCITY_TRACER, double, true, 3, 2>;
-template class particles<VELOCITY_TRACER, double, true, 3, 3>;
-template class particles<VELOCITY_TRACER, double, true, 3, 4>;
-template class particles<VELOCITY_TRACER, double, true, 3, 5>;
-template class particles<VELOCITY_TRACER, double, true, 3, 6>;
-template class particles<VELOCITY_TRACER, double, false, 3, 1>;
-template class particles<VELOCITY_TRACER, double, false, 3, 2>;
-template class particles<VELOCITY_TRACER, double, false, 3, 3>;
-template class particles<VELOCITY_TRACER, double, false, 3, 4>;
-template class particles<VELOCITY_TRACER, double, false, 3, 5>;
-template class particles<VELOCITY_TRACER, double, false, 3, 6>;
+template class particles<VELOCITY_TRACER, float, true, 1>;
+template class particles<VELOCITY_TRACER, float, true, 2>;
+template class particles<VELOCITY_TRACER, float, true, 3>;
+template class particles<VELOCITY_TRACER, float, true, 4>;
+template class particles<VELOCITY_TRACER, float, true, 5>;
+template class particles<VELOCITY_TRACER, float, true, 6>;
+template class particles<VELOCITY_TRACER, float, false, 1>;
+template class particles<VELOCITY_TRACER, float, false, 2>;
+template class particles<VELOCITY_TRACER, float, false, 3>;
+template class particles<VELOCITY_TRACER, float, false, 4>;
+template class particles<VELOCITY_TRACER, float, false, 5>;
+template class particles<VELOCITY_TRACER, float, false, 6>;
+template class particles<VELOCITY_TRACER, double, true, 1>;
+template class particles<VELOCITY_TRACER, double, true, 2>;
+template class particles<VELOCITY_TRACER, double, true, 3>;
+template class particles<VELOCITY_TRACER, double, true, 4>;
+template class particles<VELOCITY_TRACER, double, true, 5>;
+template class particles<VELOCITY_TRACER, double, true, 6>;
+template class particles<VELOCITY_TRACER, double, false, 1>;
+template class particles<VELOCITY_TRACER, double, false, 2>;
+template class particles<VELOCITY_TRACER, double, false, 3>;
+template class particles<VELOCITY_TRACER, double, false, 4>;
+template class particles<VELOCITY_TRACER, double, false, 5>;
+template class particles<VELOCITY_TRACER, double, false, 6>;
 /*****************************************************************************/

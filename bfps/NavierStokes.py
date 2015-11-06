@@ -357,12 +357,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             multistep = 'true'
         else:
             multistep = 'false'
-        self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, 3, {2}> *ps{3};\n'.format(
+        self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, {2}> *ps{3};\n'.format(
                 self.C_dtype,
                 multistep,
                 neighbours,
                 self.particle_species)
-        self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2}, 3, {3}>(\n' +
+        self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2},{3}>(\n' +
                                     'fname, fs, vel_{4},\n' +
                                     'nparticles,\n' +
                                     'niter_part, integration_steps{0});\n').format(

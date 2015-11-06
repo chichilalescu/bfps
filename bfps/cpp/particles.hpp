@@ -41,7 +41,7 @@ extern int myrank, nprocs;
 /* particle types */
 enum particle_types {VELOCITY_TRACER};
 
-template <int particle_type, class rnumber, bool multistep, int ncomponents, int interp_neighbours>
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
 class particles
 {
     public:
@@ -67,6 +67,7 @@ class particles
         double *state;
         double *rhs[6];
         int nparticles;
+        int ncomponents;
         int array_size;
         int integration_steps;
         int traj_skip;
@@ -103,7 +104,6 @@ class particles
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();
-        void rFFTW_to_buffered(void *src, void *dst);
 
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
