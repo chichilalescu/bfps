@@ -255,7 +255,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         if not type(kcut) == type(None):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
         update_fields += ('fs->ift_velocity();\n' +
-                          'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
                           'fs->compute_Lagrangian_acceleration(acc_{0}->f+acc_{0}->buffer_size);\n' +
                           'acc_{0}->read_rFFTW(acc_{0}->f+acc_{0}->buffer_size);\n').format(name)

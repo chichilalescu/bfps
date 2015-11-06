@@ -63,6 +63,7 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
     rnumber *src = (rnumber*)void_src;
     rnumber *dst = this->f;
     /* do big copy of middle stuff */
+    clip_zero_padding<rnumber>(this->unbuffered_descriptor, src, 3);
     std::copy(src,
               src + this->unbuffered_descriptor->local_size,
               dst + this->buffer_size);

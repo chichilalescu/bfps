@@ -25,6 +25,7 @@
 
 
 #include "field_descriptor.hpp"
+#include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
 #include "spline_n1.hpp"
 #include "spline_n2.hpp"
