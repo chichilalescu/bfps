@@ -193,41 +193,12 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::sample_vec
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
 void particles<particle_type, rnumber, multistep, interp_neighbours>::get_rhs(double *x, double *y)
 {
-    std::fill_n(y, this->array_size, 0.0);
-    int deriv[] = {0, 0, 0};
-    /* get grid coordinates */
-    int *xg = new int[this->array_size];
-    double *xx = new double[this->array_size];
-    this->get_grid_coordinates(x, xg, xx);
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            if (multistep)
-            {
-                for (int p=0; p<this->nparticles; p++)
-                {
-                    if (this->myrank == this->computing[p])
-                       (*this->vel)(xg + p*3, xx + p*3, y + p*3, deriv);
-                }
-            }
-            else
-            {
-                for (int p=0; p<this->nparticles; p++)
-                {
-                    if (this->watching[this->myrank*this->nparticles+p])
-                    {
-                        int crank = this->get_rank(x[p*3 + 2]);
-                        if (this->myrank == crank)
-                            (*this->vel)(xg + p*3, xx + p*3, y + p*3, deriv);
-                        if (crank != this->computing[p])
-                            this->synchronize_single_particle_state(p, y, crank);
-                    }
-                }
-            }
+            this->sample_vec_field(this->vel, x, y, false);
             break;
     }
-    delete[] xg;
-    delete[] xx;
 }
 
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
@@ -237,23 +208,15 @@ void particles<particle_type, rnumber, multistep, interp_neighbours>::jump_estim
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            int deriv[] = {0, 0, 0};
-            int *xg = new int[this->array_size];
-            double *xx = new double[this->array_size];
-            double tmp[3];
-            /* get grid coordinates */
-            this->get_grid_coordinates(this->state, xg, xx);
-
-            /* perform interpolation */
+            double *y = new double[3*this->nparticles];
+            this->sample_vec_field(this->vel, this->state, y, false);
             for (int p=0; p<this->nparticles; p++) if (this->myrank == this->computing[p])
             {
-                (*this->vel)(xg + p*3, xx + p*3, tmp, deriv);
-                jump[p] = fabs(3*this->dt * tmp[2]);
+                jump[p] = fabs(2*this->dt * y[3*p+2]);
                 if (jump[p] < this->dz*1.01)
                     jump[p] = this->dz*1.01;
             }
-            delete[] xg;
-            delete[] xx;
+            delete[] y;
             break;
     }
 }
