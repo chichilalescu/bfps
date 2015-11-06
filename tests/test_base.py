@@ -167,7 +167,7 @@ def acceleration_test(c, m = 3, species = 0):
 
     def SNR(a, b):
         return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
-    pid = np.argmax(SNR(num_acc1, acc[n+1:-n-1]))
+    pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
     print('SNR diffpos vs vel {0}, SNR diffvel vs acc {1}, SNR diffpos vs acc {2}'.format(
         np.mean(SNR(num_vel1, vel[n+1:-n-1])),
         np.mean(SNR(num_acc1, acc[n+1:-n-1])),
