@@ -40,12 +40,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             simname = 'test',
             fluid_precision = 'single',
             fftw_plan_rigor = 'FFTW_MEASURE',
-            frozen_fields = False):
+            frozen_fields = False,
+            use_fftw_wisdom = True):
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = fluid_precision)
+                dtype = fluid_precision,
+                use_fftw_wisdom = use_fftw_wisdom)
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
@@ -249,10 +251,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         update_fields += ('fs->ift_velocity();\n' +
                           'clip_zero_padding(fs->rd, fs->rvelocity, 3);\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
-                          'fs->compute_velocity(fs->cvorticity);\n' +
-                          'fs->ift_velocity();\n' +
                           'fs->compute_Lagrangian_acceleration({0}_tmp);\n' +
-                          'clip_zero_padding(fs->rd, {0}_tmp, 3);\n' +
                           'acc_{0}->read_rFFTW({0}_tmp);\n').format(name)
         self.particle_start += update_fields
         self.particle_loop += update_fields

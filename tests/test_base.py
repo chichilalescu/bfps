@@ -75,7 +75,8 @@ def launch(
     c = code_class(
             work_dir = opt.work_dir,
             fluid_precision = opt.precision,
-            frozen_fields = opt.frozen)
+            frozen_fields = opt.frozen,
+            use_fftw_wisdom = False)
     c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n

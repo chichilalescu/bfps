@@ -38,10 +38,12 @@ class fluid_particle_base(bfps.code):
             name = 'solver',
             work_dir = './',
             simname = 'test',
-            dtype = np.float32):
+            dtype = np.float32,
+            use_fftw_wisdom = True):
         super(fluid_particle_base, self).__init__(
                 work_dir = work_dir,
                 simname = simname)
+        self.use_fftw_wisdom = use_fftw_wisdom
         self.name = name
         self.particle_species = 0
         if dtype in [np.float32, np.float64]:
@@ -138,33 +140,34 @@ class fluid_particle_base(bfps.code):
                              '}\n')
         self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
         # take care of wisdom
-        if self.dtype == np.float32:
-            fftw_prefix = 'fftwf_'
-        elif self.dtype == np.float64:
-            fftw_prefix = 'fftw_'
-        self.main_start += """
-                    //begincpp
-                    if (myrank == 0)
-                    {{
-                        char fname[256];
-                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
-                        {0}import_wisdom_from_filename(fname);
-                    }}
-                    {0}mpi_broadcast_wisdom(MPI_COMM_WORLD);
-                    //endcpp
-                    """.format(fftw_prefix)
-        self.main_end = """
-                    //begincpp
-                    {0}mpi_gather_wisdom(MPI_COMM_WORLD);
-                    MPI_Barrier(MPI_COMM_WORLD);
-                    if (myrank == 0)
-                    {{
-                        char fname[256];
-                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
-                        {0}export_wisdom_to_filename(fname);
-                    }}
-                    //endcpp
-                    """.format(fftw_prefix) + self.main_end
+        if self.use_fftw_wisdom:
+            if self.dtype == np.float32:
+                fftw_prefix = 'fftwf_'
+            elif self.dtype == np.float64:
+                fftw_prefix = 'fftw_'
+            self.main_start += """
+                        //begincpp
+                        if (myrank == 0)
+                        {{
+                            char fname[256];
+                            sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                            {0}import_wisdom_from_filename(fname);
+                        }}
+                        {0}mpi_broadcast_wisdom(MPI_COMM_WORLD);
+                        //endcpp
+                        """.format(fftw_prefix)
+            self.main_end = """
+                        //begincpp
+                        {0}mpi_gather_wisdom(MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        if (myrank == 0)
+                        {{
+                            char fname[256];
+                            sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                            {0}export_wisdom_to_filename(fname);
+                        }}
+                        //endcpp
+                        """.format(fftw_prefix) + self.main_end
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
