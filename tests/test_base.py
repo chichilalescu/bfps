@@ -106,7 +106,10 @@ def launch(
         #            smoothness = opt.smoothness,
         #            fields_name = 'regular')
         for info in [(2, 'Heun'),
-                     (4, 'cRK4')]:
+                     (2, 'AdamsBashforth'),
+                     (4, 'cRK4'),
+                     (4, 'AdamsBashforth'),
+                     (6, 'AdamsBashforth')]:
             c.add_particles(
                     integration_steps = info[0],
                     integration_method = info[1],
@@ -142,7 +145,7 @@ def launch(
     return c
 
 
-def acceleration_test(c, m = 3, species = 9):
+def acceleration_test(c, m = 3, species = 0):
     import numpy as np
     import matplotlib.pyplot as plt
     from bfps.tools import get_fornberg_coeffs
@@ -158,35 +161,35 @@ def acceleration_test(c, m = 3, species = 9):
     fc = get_fornberg_coeffs(0, range(-n, n+1))
     dt = d['parameters/dt'].value*d['parameters/niter_part'].value
 
-    num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
-    num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
-    num_vel1 = sum(fc[1, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt
+    num_acc1 = sum(fc[1, n-i]*vel[1+n-i:vel.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
+    num_acc2 = sum(fc[2, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt**2
+    num_vel1 = sum(fc[1, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
 
-    pid = np.unravel_index(np.argmax(np.abs(num_acc1[:] - acc[n:-n])), dims = num_acc1.shape)
     def SNR(a, b):
-        return -20*np.log10(np.average((a - b)**2)**.5 / np.average(a**2)**.5)
+        return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
+    pid = np.argmax(SNR(num_acc1, acc[n+1:-n-1]))
     print('SNR diffpos vs vel {0}, SNR diffvel vs acc {1}, SNR diffpos vs acc {2}'.format(
-        SNR(num_vel1, vel[n:-n]),
-        SNR(num_acc1, acc[n:-n]),
-        SNR(num_acc2, acc[n:-n])))
-    #for cc in range(3):
-    #    a.plot(num_acc1[:, pid[1], cc], color = col[cc])
-    #    #a.plot(num_acc2[:, pid[1], cc], color = col[cc], dashes = (2, 2))
-    #    a.plot(acc[m:, pid[1], cc], color = col[cc], dashes = (1, 1))
+        np.mean(SNR(num_vel1, vel[n+1:-n-1])),
+        np.mean(SNR(num_acc1, acc[n+1:-n-1])),
+        np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    for cc in range(3):
+        a.plot(num_acc1[:, pid, cc], color = col[cc])
+        a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
+        a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
 
-    #for n in range(1, m):
-    #    fc = get_fornberg_coeffs(0, range(-n, n+1))
-    #    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+    for n in range(1, m):
+        fc = get_fornberg_coeffs(0, range(-n, n+1))
+        dt = d['parameters/dt'].value*d['parameters/niter_part'].value
 
-    #    num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
-    #    num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+        num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+        num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
 
-    #    for cc in range(3):
-    #        a.plot(num_acc1[m-n:, pid[1], cc], color = col[cc])
-    #        #a.plot(num_acc2[m-n:, pid[1], cc], color = col[cc], dashes = (2, 2))
-    #fig.tight_layout()
-    #fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
-    return None
+        for cc in range(3):
+            a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
+            a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
+    fig.tight_layout()
+    fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+    return pid
 
 if __name__ == '__main__':
     print('this file doesn\'t do anything')
