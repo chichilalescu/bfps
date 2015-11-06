@@ -27,7 +27,7 @@
 #include "interpolations.hpp"
 
 template <class rnumber>
-buffered_vec_field<rnumber>::buffered_vec_field(
+interpolator<rnumber>::interpolator(
         fluid_solver_base<rnumber> *fs,
         const int bw)
 {
@@ -51,14 +51,14 @@ buffered_vec_field<rnumber>::buffered_vec_field(
 }
 
 template <class rnumber>
-buffered_vec_field<rnumber>::~buffered_vec_field()
+interpolator<rnumber>::~interpolator()
 {
     delete[] this->f;
     delete this->descriptor;
 }
 
 template <class rnumber>
-int buffered_vec_field<rnumber>::read_rFFTW(void *void_src)
+int interpolator<rnumber>::read_rFFTW(void *void_src)
 {
     rnumber *src = (rnumber*)void_src;
     rnumber *dst = this->f;
@@ -118,5 +118,6 @@ int buffered_vec_field<rnumber>::read_rFFTW(void *void_src)
     return EXIT_SUCCESS;
 }
 
-template class buffered_vec_field<float>;
-template class buffered_vec_field<double>;
+template class interpolator<float>;
+template class interpolator<double>;
+

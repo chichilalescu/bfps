@@ -34,9 +34,9 @@
 #include "spline_n6.hpp"
 #include "Lagrange_polys.hpp"
 
-#ifndef INTERPOLATIONS
+#ifndef INTERPOLATOR
 
-#define INTERPOLATIONS
+#define INTERPOLATOR
 
 typedef void (*base_polynomial_values)(
         int derivative,
@@ -44,7 +44,7 @@ typedef void (*base_polynomial_values)(
         double *destination);
 
 template <class rnumber>
-class buffered_vec_field
+class interpolator
 {
     public:
         int buffer_width;
@@ -53,14 +53,14 @@ class buffered_vec_field
         field_descriptor<rnumber> *src_descriptor;
         rnumber *f;
 
-        buffered_vec_field(
+        interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
                 const int BUFFER_WIDTH);
-        ~buffered_vec_field();
+        ~interpolator();
 
         /* destroys input */
         int read_rFFTW(void *src);
 };
 
-#endif//INTERPOLATIONS
+#endif//INTERPOLATOR
 
