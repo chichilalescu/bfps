@@ -21,8 +21,6 @@ Comments
 TODO
 ----
 
-* store nonlinear term for particles
-
 * add different numerical method, for testing purposes
 
 * test involving hydrodynamic similarity

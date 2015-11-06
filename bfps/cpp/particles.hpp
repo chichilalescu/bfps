@@ -32,32 +32,26 @@
 #include "fluid_solver_base.hpp"
 #include "interpolator.hpp"
 
-#ifndef SLAB_FIELD_PARTICLES
+#ifndef PARTICLES
 
-#define SLAB_FIELD_PARTICLES
+#define PARTICLES
 
-extern int myrank, nprocs;
+/* particle types */
+enum particle_types {VELOCITY_TRACER};
 
-template <class rnumber>
-class slab_field_particles
+template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
+class particles
 {
-    protected:
-        //typedef void (slab_field_particles<rnumber>::*tensor_product_interpolation_formula)(
-        //        rnumber *field,
-        //        int *xg,
-        //        double *xx,
-        //        double *dest,
-        //        int *deriv);
     public:
+        int myrank, nprocs;
+        MPI_Comm comm;
         fluid_solver_base<rnumber> *fs;
-        field_descriptor<rnumber> *buffered_field_descriptor;
+        rnumber *data;
 
         /* watching is an array of shape [nparticles], with
          * watching[p] being true if particle p is in the domain of myrank
          * or in the buffer regions.
-         * watching is not really being used right now, since I don't do partial
-         * synchronizations of particles.
-         * we may do this at some point in the future, if it seems needed...
+         * only used if multistep is false.
          * */
         bool *watching;
         /* computing is an array of shape [nparticles], with
@@ -74,15 +68,13 @@ class slab_field_particles
         int nparticles;
         int ncomponents;
         int array_size;
-        int interp_neighbours;
-        int buffer_width;
         int integration_steps;
         int traj_skip;
+        int buffer_width;
         ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
-        //tensor_product_interpolation_formula spline_formula;
-        base_polynomial_values compute_beta;
+        interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
         char name[256];
@@ -90,60 +82,62 @@ class slab_field_particles
         double dt;
 
         /* physical parameters of field */
-        rnumber dx, dy, dz;
+        double dx, dy, dz;
 
         /* methods */
 
         /* constructor and destructor.
          * allocate and deallocate:
          *  this->state
+         *  this->rhs
          *  this->lbound
          *  this->ubound
+         *  this->computing
          *  this->watching
          * */
-        slab_field_particles(
+        particles(
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
+                interpolator<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
-                const int NCOMPONENTS,
-                base_polynomial_values BETA_POLYS,
-                const int INTERP_NEIGHBOURS,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
-        ~slab_field_particles();
+        ~particles();
 
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
          * */
-        virtual void jump_estimate(double *jump_length);
-        /* function get_rhs is virtual since we want children to do different things,
-         * depending on the type of particle.
-         * */
-        virtual void get_rhs(double *x, double *rhs);
+        void jump_estimate(double *jump_length);
+        void get_rhs(double *x, double *rhs);
+        void get_rhs(double t, double *x, double *rhs);
 
-        /* generic methods, should work for all children of this class */
         int get_rank(double z); // get rank for given value of z
         void synchronize();
         void synchronize_single_particle_state(int p, double *x, int source_id = -1);
         void get_grid_coordinates(double *x, int *xg, double *xx);
-        void linear_interpolation(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
-        void interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv);
+        void sample_vec_field(
+            interpolator<rnumber, interp_neighbours> *vec,
+            double t,
+            double *x,
+            double *y,
+            const bool synch = false,
+            int *deriv = NULL);
+        inline void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values)
+        {
+            this->sample_vec_field(field, 1.0, this->state, vec_values, true, NULL);
+        }
 
-        void rFFTW_to_buffered(rnumber *src, rnumber *dst);
-
-        /* generic methods, should work for all children of this class */
+        /* input/output */
         void read(hid_t data_file_id);
         void write(hid_t data_file_id, bool write_rhs = true);
 
-        /* solver stuff */
+        /* solvers */
         void step();
         void roll_rhs();
         void AdamsBashforth(int nsteps);
-        void Euler();
         void Heun();
         void cRK4();
 };
 
-
-#endif//SLAB_FIELD_PARTICLES
+#endif//PARTICLES
 

@@ -477,10 +477,9 @@ void fluid_solver<R>::compute_Eulerian_acceleration(R *acceleration) \
     if (this->cd->myrank == this->cd->rank[0]) \
         std::fill_n((R*)(this->cv[2]), 6, 0.0); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[2])); \
-    clip_zero_padding<R>(this->rd, this->rv[2], 3); \
     std::copy( \
             this->rv[2], \
-            this->rv[2] + this->rd->local_size, \
+            this->rv[2] + 2*this->cd->local_size, \
             acceleration); \
 } \
  \
@@ -665,10 +664,9 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             } \
             ); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
-    clip_zero_padding<R>(this->rd, this->rv[1], 3); \
     std::copy( \
             this->rv[1], \
-            this->rv[1] + this->rd->local_size, \
+            this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
     /* ********* */ \
     /* debugging */ \
