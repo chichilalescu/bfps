@@ -289,8 +289,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         H5Gclose(group);
                         //endcpp
                         """.format(self.particle_species)
-        update_field = ''
-        compute_acc = 'ps{0}->sample_vec_field(acc_{1}, acceleration);\n'.format(self.particle_species, fields_name)
         if self.dtype == np.float32:
             FFTW = 'fftwf'
         elif self.dtype == np.float64:
@@ -300,9 +298,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           {{
                               double *acceleration = new double[ps{0}->array_size];
                               double *velocity     = new double[ps{0}->array_size];
-                              {1}
-                              ps{0}->sample_vec_field(ps{0}->vel, velocity);
-                              {2}
+                              ps{0}->sample_vec_field(vel_{1}, velocity);
+                              ps{0}->sample_vec_field(acc_{1}, acceleration);
                               if (ps{0}->fs->rd->myrank == 0)
                               {{
                                   //VELOCITY begin
@@ -339,7 +336,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               delete[] velocity;
                           }}
                           //endcpp
-                          """.format(self.particle_species, update_field, compute_acc)
+                          """.format(self.particle_species, fields_name)
         self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(self.particle_species)
         self.particle_end += ('ps{0}->write(stat_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
@@ -360,10 +357,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                             self.particle_species, self.C_dtype, multistep, neighbours, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
-                                update_field +
                                 'ps{0}->read(stat_file);\n').format(self.particle_species)
         self.particle_start += output_vel_acc
-        self.particle_loop += update_field
         if not frozen_particles:
             if integration_method == 'AdamsBashforth':
                 self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
