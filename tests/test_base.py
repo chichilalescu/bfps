@@ -168,10 +168,17 @@ def acceleration_test(c, m = 3, species = 0):
     def SNR(a, b):
         return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
     pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
-    print('SNR diffpos vs vel {0}, SNR diffvel vs acc {1}, SNR diffpos vs acc {2}'.format(
-        np.mean(SNR(num_vel1, vel[n+1:-n-1])),
-        np.mean(SNR(num_acc1, acc[n+1:-n-1])),
-        np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    pars = d['parameters']
+    print('integration={0}, steps={1}, interp={2}, neighbours={3}, smoothness={4}, '.format(
+            pars['tracers{0}_integration_method'.format(species)].value,
+            pars['tracers{0}_integration_steps'.format(species)].value,
+            pars[str(pars['tracers{0}_field'.format(species)].value) + '_type'].value,
+            pars[str(pars['tracers{0}_field'.format(species)].value) + '_neighbours'].value,
+            pars[str(pars['tracers{0}_field'.format(species)].value) + '_smoothness'].value) +
+          'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
+            np.mean(SNR(num_vel1, vel[n+1:-n-1])),
+            np.mean(SNR(num_acc1, acc[n+1:-n-1])),
+            np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
     for cc in range(3):
         a.plot(num_acc1[:, pid, cc], color = col[cc])
         a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
@@ -189,6 +196,7 @@ def acceleration_test(c, m = 3, species = 0):
             a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
     fig.tight_layout()
     fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+    plt.close(fig)
     return pid
 
 if __name__ == '__main__':
