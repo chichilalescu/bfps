@@ -169,16 +169,20 @@ def acceleration_test(c, m = 3, species = 0):
         return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
     pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
     pars = d['parameters']
-    print('integration={0}, steps={1}, interp={2}, neighbours={3}, smoothness={4}, '.format(
-            pars['tracers{0}_integration_method'.format(species)].value,
-            pars['tracers{0}_integration_steps'.format(species)].value,
-            pars[str(pars['tracers{0}_field'.format(species)].value) + '_type'].value,
-            pars[str(pars['tracers{0}_field'.format(species)].value) + '_neighbours'].value,
-            pars[str(pars['tracers{0}_field'.format(species)].value) + '_smoothness'].value) +
-          'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
-            np.mean(SNR(num_vel1, vel[n+1:-n-1])),
-            np.mean(SNR(num_acc1, acc[n+1:-n-1])),
-            np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    to_print = (
+            'integration={0}, steps={1}, interp={2}, neighbours={3}, '.format(
+                pars['tracers{0}_integration_method'.format(species)].value,
+                pars['tracers{0}_integration_steps'.format(species)].value,
+                pars[str(pars['tracers{0}_field'.format(species)].value) + '_type'].value,
+                pars[str(pars['tracers{0}_field'.format(species)].value) + '_neighbours'].value))
+    if 'spline' in pars['tracers{0}_field'.format(species)].value:
+        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_field'.format(species)].value) + '_smoothness'].value)
+    to_print += (
+            'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
+                np.mean(SNR(num_vel1, vel[n+1:-n-1])),
+                np.mean(SNR(num_acc1, acc[n+1:-n-1])),
+                np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    print(to_print)
     for cc in range(3):
         a.plot(num_acc1[:, pid, cc], color = col[cc])
         a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
