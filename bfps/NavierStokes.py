@@ -234,6 +234,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                  'int *kindices;\n' +
                                  'int nksamples;\n' +
                                  'hid_t H5T_field_complex;\n')
+        self.fluid_definitions += """
+                    typedef struct {{
+                        {0} re;
+                        {0} im;
+                    }} tmp_complex_type;
+                    """.format(self.C_dtype)
         self.write_fluid_stats()
         if self.dtype == np.float32:
             field_H5T = 'H5T_NATIVE_FLOAT'
@@ -268,10 +274,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     kindices = new int[nksamples*2];
                     H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, kindices);
                     H5Dclose(dset);
-                    typedef struct {{
-                       double re;   /*real part*/
-                       double im;   /*imaginary part*/
-                    }} tmp_complex_type;
                     H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
                     H5Tinsert(H5T_field_complex, "r", HOFFSET(tmp_complex_type, re), {2});
                     H5Tinsert(H5T_field_complex, "i", HOFFSET(tmp_complex_type, im), {2});
@@ -286,12 +288,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
-                          'delete fs;\n' +
                           'if (fs->cd->myrank == 0)\n' +
                           '{\n' +
                           'delete[] kindices;\n' +
                           'H5Tclose(H5T_field_complex);\n' +
-                          '}\n')
+                          '}\n' +
+                          'delete fs;\n')
         return None
     def add_particle_fields(
             self,
