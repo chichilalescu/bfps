@@ -37,9 +37,6 @@
 #include "base.hpp"
 #include "slab_field_particles.hpp"
 #include "fftw_tools.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
 
 
 extern int myrank, nprocs;
@@ -50,15 +47,14 @@ slab_field_particles<rnumber>::slab_field_particles(
         fluid_solver_base<rnumber> *FSOLVER,
         const int NPARTICLES,
         const int NCOMPONENTS,
+        base_polynomial_values BETA_POLYS,
         const int INTERP_NEIGHBOURS,
-        const int INTERP_SMOOTHNESS,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS)
 {
     assert((NCOMPONENTS % 3) == 0);
-    assert((INTERP_NEIGHBOURS == 1) ||
-           (INTERP_NEIGHBOURS == 2) ||
-           (INTERP_NEIGHBOURS == 3));
+    assert((INTERP_NEIGHBOURS >= 1) ||
+           (INTERP_NEIGHBOURS <= 8));
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
@@ -67,81 +63,8 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->ncomponents = NCOMPONENTS;
     this->integration_steps = INTEGRATION_STEPS;
     this->interp_neighbours = INTERP_NEIGHBOURS;
-    this->interp_smoothness = INTERP_SMOOTHNESS;
     this->traj_skip = TRAJ_SKIP;
-    switch(this->interp_neighbours)
-    {
-        case 1:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n1_formula;
-            assert(this->interp_smoothness == 0 ||
-                   this->interp_smoothness == 1 ||
-                   this->interp_smoothness == 2);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n1_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n1_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n1_m2;
-                    break;
-            }
-            break;
-        case 2:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n2_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 4);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n2_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n2_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n2_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n2_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n2_m4;
-                    break;
-            }
-            break;
-        case 3:
-            //this->spline_formula = &slab_field_particles<rnumber>::spline_n3_formula;
-            assert(this->interp_smoothness >= 0 ||
-                   this->interp_smoothness <= 6);
-            switch(this->interp_smoothness)
-            {
-                case 0:
-                    this->compute_beta = &beta_n3_m0;
-                    break;
-                case 1:
-                    this->compute_beta = &beta_n3_m1;
-                    break;
-                case 2:
-                    this->compute_beta = &beta_n3_m2;
-                    break;
-                case 3:
-                    this->compute_beta = &beta_n3_m3;
-                    break;
-                case 4:
-                    this->compute_beta = &beta_n3_m4;
-                    break;
-                case 5:
-                    this->compute_beta = &beta_n3_m5;
-                    break;
-                case 6:
-                    this->compute_beta = &beta_n3_m6;
-                    break;
-            }
-            break;
-    }
+    this->compute_beta = BETA_POLYS;
     // in principle only the buffer width at the top needs the +1,
     // but things are simpler if buffer_width is the same
     this->buffer_width = this->interp_neighbours+1;
@@ -154,8 +77,8 @@ slab_field_particles<rnumber>::slab_field_particles(
         this->rhs[i] = fftw_alloc_real(this->array_size);
         std::fill_n(this->rhs[i], this->array_size, 0.0);
     }
-    this->watching = new bool[nparticles];
-    std::fill_n(this->watching, this->nparticles, false);
+    this->watching = new bool[this->fs->rd->nprocs*nparticles];
+    std::fill_n(this->watching, this->fs->rd->nprocs*this->nparticles, false);
     this->computing = new int[nparticles];
 
     int tdims[4];
@@ -196,12 +119,12 @@ slab_field_particles<rnumber>::slab_field_particles(
             MPI_SUM,
             this->fs->rd->comm);
     delete[] tbound;
-    for (int r = 0; r<nprocs; r++)
-        DEBUG_MSG(
-                "lbound[%d] = %lg, ubound[%d] = %lg\n",
-                r, this->lbound[r],
-                r, this->ubound[r]
-                );
+    //for (int r = 0; r<nprocs; r++)
+    //    DEBUG_MSG(
+    //            "lbound[%d] = %lg, ubound[%d] = %lg\n",
+    //            r, this->lbound[r],
+    //            r, this->ubound[r]
+    //            );
 }
 
 template <class rnumber>
@@ -234,37 +157,38 @@ void slab_field_particles<rnumber>::jump_estimate(double *dest)
 template <class rnumber>
 int slab_field_particles<rnumber>::get_rank(double z)
 {
-    int tmp = this->fs->rd->rank[MOD(floor(z/this->dz), this->fs->rd->sizes[0])];
-    assert(tmp >= 0 && tmp < this->fs->rd->sizes[0]);
+    int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
+    assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
     return tmp;
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::synchronize_single_particle(int p)
+void slab_field_particles<rnumber>::synchronize_single_particle_state(int p, double *x, int source)
 {
-    MPI_Status *s = new MPI_Status;
-    if (this->watching[p]) for (int r=0; r<this->fs->rd->nprocs; r++)
-        if (r != this->computing[p])
+    if (source == -1) source = this->computing[p];
+    if (this->watching[this->fs->rd->myrank*this->nparticles+p]) for (int r=0; r<this->fs->rd->nprocs; r++)
+        if (r != source &&
+            this->watching[r*this->nparticles+p])
         {
-            if (this->fs->rd->myrank == this->computing[p])
+            //DEBUG_MSG("synchronizing state %d from %d to %d\n", p, this->computing[p], r);
+            if (this->fs->rd->myrank == source)
                 MPI_Send(
-                        this->state + p*this->ncomponents,
+                        x+p*this->ncomponents,
                         this->ncomponents,
                         MPI_DOUBLE,
                         r,
-                        p*this->computing[p],
+                        p+this->computing[p]*this->nparticles,
                         this->fs->rd->comm);
             if (this->fs->rd->myrank == r)
                 MPI_Recv(
-                        this->state + p*this->ncomponents,
+                        x+p*this->ncomponents,
                         this->ncomponents,
                         MPI_DOUBLE,
-                        this->computing[p],
-                        p*this->computing[p],
+                        source,
+                        p+this->computing[p]*this->nparticles,
                         this->fs->rd->comm,
-                        s);
+                        MPI_STATUS_IGNORE);
         }
-    delete s;
 }
 
 template <class rnumber>
@@ -273,11 +197,20 @@ void slab_field_particles<rnumber>::synchronize()
     double *tstate = fftw_alloc_real(this->array_size);
     // first, synchronize state and jump across CPUs
     std::fill_n(tstate, this->array_size, 0.0);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    for (int p=0; p<this->nparticles; p++)
+    {
+        //if (this->watching[this->fs->rd->myrank*this->nparticles + p])
+        //DEBUG_MSG(
+        //        "in synchronize, position for particle %d is %g %g %g\n",
+        //        p,
+        //        this->state[p*this->ncomponents],
+        //        this->state[p*this->ncomponents+1],
+        //        this->state[p*this->ncomponents+2]);
+        if (this->fs->rd->myrank == this->computing[p])
             std::copy(this->state + p*this->ncomponents,
                       this->state + (p+1)*this->ncomponents,
                       tstate + p*this->ncomponents);
-    std::fill_n(this->state, this->array_size, 0.0);
+    }
     MPI_Allreduce(
             tstate,
             this->state,
@@ -307,28 +240,33 @@ void slab_field_particles<rnumber>::synchronize()
     fftw_free(tstate);
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
+    {
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
+        //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
+    }
     double *jump = fftw_alloc_real(this->nparticles);
     this->jump_estimate(jump);
     // now, see who needs to watch
-    bool *local_watching = new bool[this->nparticles];
-    std::fill_n(local_watching, this->nparticles, false);
+    bool *local_watching = new bool[this->fs->rd->nprocs*this->nparticles];
+    std::fill_n(local_watching, this->fs->rd->nprocs*this->nparticles, false);
     for (int p=0; p<this->nparticles; p++)
         if (this->fs->rd->myrank == this->computing[p])
         {
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])] = true;
-            local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]        )*this->nparticles+p] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
+            local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
         }
     fftw_free(jump);
     MPI_Allreduce(
             local_watching,
             this->watching,
-            this->nparticles,
+            this->nparticles*this->fs->rd->nprocs,
             MPI_C_BOOL,
             MPI_LOR,
             this->fs->rd->comm);
     delete[] local_watching;
+    for (int p=0; p<this->nparticles; p++)
+        DEBUG_MSG("watching = %d for particle %d\n", this->watching[this->fs->rd->myrank*nparticles+p], p);
 }
 
 
@@ -443,6 +381,7 @@ template <class rnumber>
 void slab_field_particles<rnumber>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ? this->iteration+1 : this->integration_steps);
+    //this->cRK4();
     this->iteration++;
     this->synchronize();
 }
@@ -464,6 +403,110 @@ void slab_field_particles<rnumber>::Euler()
     fftw_free(y);
 }
 
+
+template <class rnumber>
+void slab_field_particles<rnumber>::Heun()
+{
+    double *y = new double[this->array_size];
+    double dtfactor[] = {0.0, this->dt};
+    this->get_rhs(this->state, this->rhs[0]);
+    for (int p=0; p<this->nparticles; p++)
+    {
+        this->synchronize_single_particle_state(p, this->rhs[0]);
+        //int crank = this->get_rank(this->state[p*3 + 2]);
+        //DEBUG_MSG(
+        //        "k 0 iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g, rhs is %g %g %g\n",
+        //        this->iteration, p,
+        //        crank, this->computing[p],
+        //        this->state[p*3], this->state[p*3+1], this->state[p*3+2],
+        //        this->rhs[0][p*3], this->rhs[0][p*3+1], this->rhs[0][p*3+2]);
+    }
+    for (int kindex = 1; kindex < 2; kindex++)
+    {
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+                for (int i=0; i<this->ncomponents; i++)
+                {
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                    y[tindex] = this->state[tindex] + dtfactor[kindex]*this->rhs[kindex-1][tindex];
+                }
+        }
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, y);
+        this->get_rhs(y, this->rhs[kindex]);
+        for (int p=0; p<this->nparticles; p++)
+        {
+            this->synchronize_single_particle_state(p, this->rhs[kindex]);
+        DEBUG_MSG(
+                "k %d iteration %d particle is %d, position is %g %g %g, rhs is %g %g %g\n",
+                kindex, this->iteration, p,
+                y[p*3], y[p*3+1], y[p*3+2],
+                this->rhs[kindex][p*3], this->rhs[kindex][p*3+1], this->rhs[kindex][p*3+2]);
+        }
+    }
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+        {
+            for (int i=0; i<this->ncomponents; i++)
+            {
+                ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                this->state[tindex] += this->dt*(this->rhs[0][tindex] + this->rhs[1][tindex])/2;
+            }
+            //int crank = this->get_rank(this->state[p*3 + 2]);
+            //if (crank != this->computing[p])
+            //    DEBUG_MSG(
+            //            "k _ iteration %d particle is %d, crank is %d, computing rank is %d, position is %g %g %g\n",
+            //            this->iteration, p,
+            //            crank, this->computing[p],
+            //            this->state[p*3], this->state[p*3+1], this->state[p*3+2]);
+        }
+    }
+    delete[] y;
+    DEBUG_MSG("exiting Heun\n");
+}
+
+
+template <class rnumber>
+void slab_field_particles<rnumber>::cRK4()
+{
+    double *y = new double[this->array_size];
+    double dtfactor[] = {0.0, this->dt/2, this->dt/2, this->dt};
+    this->get_rhs(this->state, this->rhs[0]);
+    for (int p=0; p<this->nparticles; p++)
+        this->synchronize_single_particle_state(p, this->rhs[0]);
+    for (int kindex = 1; kindex < 4; kindex++)
+    {
+        for (int p=0; p<this->nparticles; p++)
+        {
+            if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+                for (int i=0; i<this->ncomponents; i++)
+                {
+                    ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                    y[tindex] = this->state[tindex] + dtfactor[kindex]*this->rhs[kindex-1][tindex];
+                }
+        }
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, y);
+        this->get_rhs(y, this->rhs[kindex]);
+        for (int p=0; p<this->nparticles; p++)
+            this->synchronize_single_particle_state(p, this->rhs[kindex]);
+    }
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->watching[this->fs->rd->myrank*this->nparticles+p])
+            for (int i=0; i<this->ncomponents; i++)
+            {
+                ptrdiff_t tindex = ptrdiff_t(p)*this->ncomponents + i;
+                this->state[tindex] += this->dt*(this->rhs[0][tindex] +
+                                              2*(this->rhs[1][tindex] + this->rhs[2][tindex]) +
+                                                 this->rhs[3][tindex])/6;
+            }
+    }
+    delete[] y;
+}
+
 template <class rnumber>
 void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, double *xx)
 {
@@ -471,7 +514,7 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
     double tval;
     std::fill_n(xg, this->nparticles*3, 0);
     std::fill_n(xx, this->nparticles*3, 0.0);
-    for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
+    for (int p=0; p<this->nparticles; p++) if (this->watching[this->fs->rd->myrank*this->nparticles+p])
     {
         for (int c=0; c<3; c++)
         {
@@ -483,20 +526,19 @@ void slab_field_particles<rnumber>::get_grid_coordinates(double *x, int *xg, dou
         if (this->fs->rd->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
             xg[p*3+2] -= this->fs->rd->sizes[0];
-        DEBUG_MSG(
-                "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
-                p,
-                 x[p*3],  x[p*3+1],  x[p*3+2],
-                xx[p*3], xx[p*3+1], xx[p*3+2],
-                xg[p*3], xg[p*3+1], xg[p*3+2]);
+        //DEBUG_MSG(
+        //        "particle %d x is %lg %lg %lg xx is %lg %lg %lg xg is %d %d %d\n",
+        //        p,
+        //         x[p*3],  x[p*3+1],  x[p*3+2],
+        //        xx[p*3], xx[p*3+1], xx[p*3+2],
+        //        xg[p*3], xg[p*3+1], xg[p*3+2]);
     }
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
+void slab_field_particles<rnumber>::interpolation_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
 {
     double bx[this->interp_neighbours*2+2], by[this->interp_neighbours*2+2], bz[this->interp_neighbours*2+2];
-    //DEBUG_MSG("entered spline_formula\n");
     this->compute_beta(deriv[0], xx[0], bx);
     this->compute_beta(deriv[1], xx[1], by);
     this->compute_beta(deriv[2], xx[2], bz);
@@ -521,58 +563,6 @@ void slab_field_particles<rnumber>::spline_formula(rnumber *field, int *xg, doub
                                                                                        by[iy+this->interp_neighbours]*
                                                                                        bx[ix+this->interp_neighbours]);
         }
-    //DEBUG_MSG("finishing spline_formula\n");
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n1_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[4], by[4], bz[4];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -1; iz <= 2; iz++)
-    for (int iy = -1; iy <= 2; iy++)
-    for (int ix = -1; ix <= 2; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(    xg[2]+iz                         ) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(MOD(xg[1]+iy, this->fs->rd->sizes[1])))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(MOD(xg[0]+ix, this->fs->rd->sizes[2])))*3+c]*bz[iz+1]*by[iy+1]*bx[ix+1];
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n2_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[6], by[6], bz[6];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -2; iz <= 3; iz++)
-    for (int iy = -2; iy <= 3; iy++)
-    for (int ix = -2; ix <= 3; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+2]*by[iy+2]*bx[ix+2];
-}
-
-template <class rnumber>
-void slab_field_particles<rnumber>::spline_n3_formula(rnumber *field, int *xg, double *xx, double *dest, int *deriv)
-{
-    double bx[8], by[8], bz[8];
-    this->compute_beta(deriv[0], xx[0], bx);
-    this->compute_beta(deriv[1], xx[1], by);
-    this->compute_beta(deriv[2], xx[2], bz);
-    std::fill_n(dest, 3, 0);
-    for (int iz = -3; iz <= 4; iz++)
-    for (int iy = -3; iy <= 4; iy++)
-    for (int ix = -3; ix <= 4; ix++)
-        for (int c=0; c<3; c++)
-            dest[c] += field[((ptrdiff_t(xg[2]+iz) *this->fs->rd->subsizes[1] +
-                               ptrdiff_t(xg[1]+iy))*this->fs->rd->subsizes[2] +
-                               ptrdiff_t(xg[0]+ix))*3+c]*bz[iz+3]*by[iy+3]*bx[ix+3];
 }
 
 template <class rnumber>
@@ -600,66 +590,52 @@ void slab_field_particles<rnumber>::linear_interpolation(rnumber *field, int *xg
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::read(H5::H5File *dfile)
+void slab_field_particles<rnumber>::read(hid_t data_file_id)
 {
+    //DEBUG_MSG("aloha\n");
     if (this->fs->rd->myrank == 0)
     {
-        if (dfile == NULL)
+        std::string temp_string = (std::string("/particles/") +
+                                   std::string(this->name) +
+                                   std::string("/state"));
+        hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+        hid_t mspace, rspace;
+        hsize_t count[4], offset[4];
+        rspace = H5Dget_space(Cdset);
+        H5Sget_simple_extent_dims(rspace, count, NULL);
+        count[0] = 1;
+        offset[0] = this->iteration / this->traj_skip;
+        offset[1] = 0;
+        offset[2] = 0;
+        mspace = H5Screate_simple(3, count, NULL);
+        H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dread(Cdset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->state);
+        H5Sclose(mspace);
+        H5Sclose(rspace);
+        H5Dclose(Cdset);
+        if (this->iteration > 0)
         {
-            char full_name[512];
-            sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
-            FILE *ifile;
-            ifile = fopen(full_name, "rb");
-            fread((void*)this->state, sizeof(double), this->array_size, ifile);
-            fclose(ifile);
-            // if we're not at iteration 0, we should read rhs as well
-            if (this->iteration > 0)
-            {
-                sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
-                ifile = fopen(full_name, "rb");
-                for (int i=0; i<this->integration_steps; i++)
-                    fread((void*)this->rhs[i], sizeof(double), this->array_size, ifile);
-                fclose(ifile);
-            }
-        }
-        else
-        {
-            std::string temp_string = (std::string("/particles/") +
-                                       std::string(this->name) +
-                                       std::string("/state"));
-            H5::DataSet dset = dfile->openDataSet(temp_string);
-            H5::DataSpace memspace, readspace;
-            hsize_t count[4], offset[4];
-            readspace = dset.getSpace();
-            readspace.getSimpleExtentDims(count);
+            temp_string = (std::string("/particles/") +
+                           std::string(this->name) +
+                           std::string("/rhs"));
+            Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+            rspace = H5Dget_space(Cdset);
+            H5Sget_simple_extent_dims(rspace, count, NULL);
+            //reading from last available position
+            offset[0] = count[0] - 1;
+            offset[3] = 0;
             count[0] = 1;
-            offset[0] = this->iteration / this->traj_skip;
-            offset[1] = 0;
-            offset[2] = 0;
-            memspace = H5::DataSpace(3, count);
-            readspace.selectHyperslab(H5S_SELECT_SET, count, offset);
-            dset.read(this->state, H5::PredType::NATIVE_DOUBLE, memspace, readspace);
-            if (this->iteration > 0)
+            count[1] = 1;
+            mspace = H5Screate_simple(4, count, NULL);
+            for (int i=0; i<this->integration_steps; i++)
             {
-                temp_string = (std::string("/particles/") +
-                               std::string(this->name) +
-                               std::string("/rhs"));
-                dset = dfile->openDataSet(temp_string);
-                readspace = dset.getSpace();
-                readspace.getSimpleExtentDims(count);
-                //reading from last available position
-                offset[0] = count[0] - 1;
-                offset[3] = 0;
-                count[0] = 1;
-                count[1] = 1;
-                memspace = H5::DataSpace(4, count);
-                for (int i=0; i<this->integration_steps; i++)
-                {
-                    offset[1] = i;
-                    readspace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                    dset.read(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, readspace);
-                }
+                offset[1] = i;
+                H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                H5Dread(Cdset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->rhs[i]);
             }
+            H5Sclose(mspace);
+            H5Sclose(rspace);
+            H5Dclose(Cdset);
         }
     }
     MPI_Bcast(
@@ -679,73 +655,60 @@ void slab_field_particles<rnumber>::read(H5::H5File *dfile)
     }
     // initial assignment of particles
     for (int p=0; p<this->nparticles; p++)
+    {
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
+        //DEBUG_MSG("reading particles, particle %d computing is %d\n", p, this->computing[p]);
+    }
     // now actual synchronization
     this->synchronize();
 }
 
 template <class rnumber>
-void slab_field_particles<rnumber>::write(H5::H5File *dfile, bool write_rhs)
+void slab_field_particles<rnumber>::write(hid_t data_file_id, bool write_rhs)
 {
     if (this->fs->rd->myrank == 0)
     {
-        if (dfile == NULL)
+        std::string temp_string = (std::string("/particles/") +
+                                   std::string(this->name) +
+                                   std::string("/state"));
+        hid_t Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+        hid_t mspace, wspace;
+        hsize_t count[4], offset[4];
+        wspace = H5Dget_space(Cdset);
+        H5Sget_simple_extent_dims(wspace, count, NULL);
+        count[0] = 1;
+        offset[0] = this->iteration / this->traj_skip;
+        offset[1] = 0;
+        offset[2] = 0;
+        mspace = H5Screate_simple(3, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->state);
+        H5Sclose(mspace);
+        H5Sclose(wspace);
+        H5Dclose(Cdset);
+        if (write_rhs)
         {
-            char full_name[512];
-            sprintf(full_name, "%s_state_i%.5x", this->name, this->iteration);
-            FILE *ofile0, *ofile1;
-            ofile0 = fopen(full_name, "wb");
-            fwrite((void*)this->state, sizeof(double), this->array_size, ofile0);
-            fclose(ofile0);
-            if (write_rhs)
-            {
-                sprintf(full_name, "%s_rhs_i%.5x", this->name, this->iteration);
-                ofile1 = fopen(full_name, "wb");
-                for (int i=0; i<this->integration_steps; i++)
-                {
-                    fwrite((void*)this->rhs[i], sizeof(double), this->array_size, ofile1);
-                }
-                fclose(ofile1);
-            }
-        }
-        else
-        {
-            std::string temp_string = (std::string("/particles/") +
-                                       std::string(this->name) +
-                                       std::string("/state"));
-            H5::DataSet dset = dfile->openDataSet(temp_string);
-            H5::DataSpace memspace, writespace;
-            hsize_t count[4], offset[4];
-            writespace = dset.getSpace();
-            writespace.getSimpleExtentDims(count);
+            temp_string = (std::string("/particles/") +
+                           std::string(this->name) +
+                           std::string("/rhs"));
+            Cdset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+            wspace = H5Dget_space(Cdset);
+            H5Sget_simple_extent_dims(wspace, count, NULL);
+            //writing to last available position
+            offset[0] = count[0] - 1;
             count[0] = 1;
-            offset[0] = this->iteration / this->traj_skip;
-            offset[1] = 0;
-            offset[2] = 0;
-            memspace = H5::DataSpace(3, count);
-            writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-            dset.write(this->state, H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-            if (write_rhs)
+            count[1] = 1;
+            offset[3] = 0;
+            mspace = H5Screate_simple(4, count, NULL);
+            for (int i=0; i<this->integration_steps; i++)
             {
-                temp_string = (std::string("/particles/") +
-                               std::string(this->name) +
-                               std::string("/rhs"));
-                dset = dfile->openDataSet(temp_string);
-                writespace = dset.getSpace();
-                writespace.getSimpleExtentDims(count);
-                //writing to last available position
-                offset[0] = count[0] - 1;
-                count[0] = 1;
-                count[1] = 1;
-                offset[3] = 0;
-                memspace = H5::DataSpace(4, count);
-                for (int i=0; i<this->integration_steps; i++)
-                {
-                    offset[1] = i;
-                    writespace.selectHyperslab(H5S_SELECT_SET, count, offset);
-                    dset.write(this->rhs[i], H5::PredType::NATIVE_DOUBLE, memspace, writespace);
-                }
+                offset[1] = i;
+                H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->rhs[i]);
             }
+            H5Sclose(mspace);
+            H5Sclose(wspace);
+            H5Dclose(Cdset);
         }
     }
 }

@@ -24,40 +24,21 @@
 
 
 
-#include "slab_field_particles.hpp"
+#ifndef SPLINE_N5
 
-#ifndef TRACERS
+#define SPLINE_N5
 
-#define TRACERS
+void beta_n5_m0(int deriv, double x, double *poly_val);
+void beta_n5_m1(int deriv, double x, double *poly_val);
+void beta_n5_m2(int deriv, double x, double *poly_val);
+void beta_n5_m3(int deriv, double x, double *poly_val);
+void beta_n5_m4(int deriv, double x, double *poly_val);
+void beta_n5_m5(int deriv, double x, double *poly_val);
+void beta_n5_m6(int deriv, double x, double *poly_val);
+void beta_n5_m7(int deriv, double x, double *poly_val);
+void beta_n5_m8(int deriv, double x, double *poly_val);
+void beta_n5_m9(int deriv, double x, double *poly_val);
+void beta_n5_m10(int deriv, double x, double *poly_val);
 
-extern int myrank, nprocs;
-
-template <class rnumber>
-class tracers final:public slab_field_particles<rnumber>
-{
-    public:
-        rnumber *source_data;
-        rnumber *data;
-
-        /* methods */
-        tracers(
-                const char *NAME,
-                fluid_solver_base<rnumber> *FSOLVER,
-                const int NPARTICLES,
-                base_polynomial_values BETA_POLYS,
-                const int NEIGHBOURS,
-                const int TRAJ_SKIP,
-                const int INTEGRATION_STEPS,
-                rnumber *SOURCE_DATA);
-        ~tracers();
-
-        void update_field(bool clip_on = true);
-        virtual void get_rhs(double *x, double *rhs);
-        virtual void jump_estimate(double *jump_length);
-
-        void sample_vec_field(rnumber *vec_field, double *vec_values);
-};
-
-
-#endif//TRACERS
+#endif//SPLINE_N5
 

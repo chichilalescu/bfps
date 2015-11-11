@@ -38,25 +38,27 @@ class fluid_particle_base(bfps.code):
             name = 'solver',
             work_dir = './',
             simname = 'test',
-            dtype = np.float32):
+            dtype = np.float32,
+            use_fftw_wisdom = True):
         super(fluid_particle_base, self).__init__(
                 work_dir = work_dir,
                 simname = simname)
+        self.use_fftw_wisdom = use_fftw_wisdom
         self.name = name
         self.particle_species = 0
         if dtype in [np.float32, np.float64]:
             self.dtype = dtype
         elif dtype in ['single', 'double']:
             if dtype == 'single':
-                self.dtype = np.float32
+                self.dtype = np.dtype(np.float32)
             elif dtype == 'double':
-                self.dtype = np.float64
+                self.dtype = np.dtype(np.float64)
         self.rtype = self.dtype
         if self.rtype == np.float32:
-            self.ctype = np.complex64
+            self.ctype = np.dtype(np.complex64)
             self.C_dtype = 'float'
         elif self.rtype == np.float64:
-            self.ctype = np.complex128
+            self.ctype = np.dtype(np.complex128)
             self.C_dtype = 'double'
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
@@ -84,7 +86,7 @@ class fluid_particle_base(bfps.code):
         self.fluid_loop = ''
         self.fluid_end  = ''
         self.fluid_output = ''
-        self.particle_includes = '#include "tracers.hpp"\n'
+        self.particle_includes = ''
         self.particle_variables = ''
         self.particle_definitions = ''
         self.particle_start = ''
@@ -94,8 +96,6 @@ class fluid_particle_base(bfps.code):
         self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
-        self.variables  += self.cdef_pars()
-        self.definitions+= self.cread_pars()
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
         self.variables  += self.fluid_variables
@@ -104,6 +104,36 @@ class fluid_particle_base(bfps.code):
             self.includes    += self.particle_includes
             self.variables   += self.particle_variables
             self.definitions += self.particle_definitions
+        self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
+                             'int ndims;\n' +
+                             'hsize_t dims[4];\n' +
+                             'hsize_t space;\n' +
+                             'space = H5Dget_space(dset);\n' +
+                             'ndims = H5Sget_simple_extent_dims(space, dims, NULL);\n' +
+                             'dims[0] += tincrement;\n' +
+                             'H5Dset_extent(dset, dims);\n' +
+                             'H5Sclose(space);\n' +
+                             'return EXIT_SUCCESS;\n}\n')
+        self.definitions += ('herr_t grow_statistics_dataset(hid_t o_id, const char *name, const H5O_info_t *info, void *op_data)\n{\n' +
+                             'if (info->type == H5O_TYPE_DATASET)\n{\n' +
+                             'hsize_t dset = H5Dopen(o_id, name, H5P_DEFAULT);\n' +
+                             'grow_single_dataset(dset, niter_todo/niter_stat);\n'
+                             'H5Dclose(dset);\n}\n' +
+                             'return 0;\n}\n')
+        self.definitions += ('herr_t grow_particle_datasets(hid_t g_id, const char *name, const H5L_info_t *info, void *op_data)\n{\n' +
+                             'std::string full_name;\n' +
+                             'hsize_t dset;\n')
+        for key in ['state', 'velocity', 'acceleration']:
+            self.definitions += ('full_name = (std::string(name) + std::string("/{0}"));\n'.format(key) +
+                                 'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+                                 'grow_single_dataset(dset, niter_todo/niter_part);\n' +
+                                 'H5Dclose(dset);\n')
+        self.definitions += ('full_name = (std::string(name) + std::string("/rhs"));\n' +
+                             'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
+                             'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+                             'grow_single_dataset(dset, 1);\n' +
+                             'H5Dclose(dset);\n}\n' +
+                             'return 0;\n}\n')
         self.definitions += ('int grow_file_datasets()\n{\n' +
                              'int file_problems = 0;\n' +
                              self.file_datasets_grow +
@@ -111,32 +141,34 @@ class fluid_particle_base(bfps.code):
                              '}\n')
         self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
         # take care of wisdom
-        if self.dtype == np.float32:
-            fftw_prefix = 'fftwf_'
-        elif self.dtype == np.float64:
-            fftw_prefix = 'fftw_'
-        self.main_start += """
-                    //begincpp
-                    if (myrank == 0)
-                    {{
-                        char fname[256];
-                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
-                        {0}import_wisdom_from_filename(fname);
-                    }}
-                    {0}mpi_broadcast_wisdom(MPI_COMM_WORLD);
-                    //endcpp
-                    """.format(fftw_prefix)
-        self.main_end = """
-                    //begincpp
-                    {0}mpi_gather_wisdom(MPI_COMM_WORLD);
-                    if (myrank == 0)
-                    {{
-                        char fname[256];
-                        sprintf(fname, "%s_fftw_wisdom.txt", simname);
-                        {0}export_wisdom_to_filename(fname);
-                    }}
-                    //endcpp
-                    """.format(fftw_prefix) + self.main_end
+        if self.use_fftw_wisdom:
+            if self.dtype == np.float32:
+                fftw_prefix = 'fftwf_'
+            elif self.dtype == np.float64:
+                fftw_prefix = 'fftw_'
+            self.main_start += """
+                        //begincpp
+                        if (myrank == 0)
+                        {{
+                            char fname[256];
+                            sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                            {0}import_wisdom_from_filename(fname);
+                        }}
+                        {0}mpi_broadcast_wisdom(MPI_COMM_WORLD);
+                        //endcpp
+                        """.format(fftw_prefix)
+            self.main_end = """
+                        //begincpp
+                        {0}mpi_gather_wisdom(MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        if (myrank == 0)
+                        {{
+                            char fname[256];
+                            sprintf(fname, "%s_fftw_wisdom.txt", simname);
+                            {0}export_wisdom_to_filename(fname);
+                        }}
+                        //endcpp
+                        """.format(fftw_prefix) + self.main_end
         self.main        = self.fluid_start
         if self.particle_species > 0:
             self.main   += self.particle_start
@@ -243,19 +275,19 @@ class fluid_particle_base(bfps.code):
             write_to_file = False):
         np.random.seed(rseed)
         Kdata00 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata01 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata02 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
@@ -291,7 +323,8 @@ class fluid_particle_base(bfps.code):
         else:
             assert(data.shape == (self.parameters['nparticles'], ncomponents))
         if testing:
-            data[0] = np.array([5.37632864e+00,   6.10414710e+00,   6.25256493e+00])
+            #data[0] = np.array([3.26434, 4.24418, 3.12157])
+            data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
             time_chunk = 2**20 // (8*ncomponents*
                                    self.parameters['nparticles'])
@@ -343,6 +376,8 @@ class fluid_particle_base(bfps.code):
         kspace['kz'] = np.arange(-self.parameters['nz']//2 + 1,
                                   self.parameters['nz']//2 + 1).astype(np.float64)*self.parameters['dkz']
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
+        kspace['ksample_indices'] = bfps.tools.get_kindices(n = self.parameters['nx'])
+        print kspace['ksample_indices'].shape[0]
         return kspace
     def write_par(self, iter0 = 0):
         assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
@@ -357,6 +392,14 @@ class fluid_particle_base(bfps.code):
             for k in kspace.keys():
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
+            time_chunk = 2**20//(self.ctype.itemsize*3*kspace['ksample_indices'].shape[0])
+            time_chunk = max(time_chunk, 1)
+            ofile.create_dataset('statistics/ksamples/velocity',
+                                 (1, kspace['ksample_indices'].shape[0], 3),
+                                 chunks = (time_chunk, kspace['ksample_indices'].shape[0], 3),
+                                 maxshape = (None, kspace['ksample_indices'].shape[0], 3),
+                                 dtype = self.ctype,
+                                 compression = 'gzip')
             for k in ['velocity', 'vorticity']:
                 time_chunk = 2**20//(8*3*self.parameters['nx'])
                 time_chunk = max(time_chunk, 1)
@@ -397,24 +440,25 @@ class fluid_particle_base(bfps.code):
                                      dtype = np.int64,
                                      compression = 'gzip')
             for s in range(self.particle_species):
-                time_chunk = 2**20 // (8*3*
-                                       self.parameters['nparticles']*
-                                       self.parameters['integration_steps{0}'.format(s)])
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
-                                     (1,
-                                      self.parameters['integration_steps{0}'.format(s)],
-                                      self.parameters['nparticles'],
-                                      3),
-                                     maxshape = (None,
-                                                 self.parameters['integration_steps{0}'.format(s)],
-                                                 self.parameters['nparticles'],
-                                                 3),
-                                     chunks =  (time_chunk,
-                                                self.parameters['integration_steps{0}'.format(s)],
-                                                self.parameters['nparticles'],
-                                                3),
-                                     dtype = np.float64)
+                if self.parameters['tracers{0}_integration_method'.format(s)] == 'AdamsBashforth':
+                    time_chunk = 2**20 // (8*3*
+                                           self.parameters['nparticles']*
+                                           self.parameters['tracers{0}_integration_steps'.format(s)])
+                    time_chunk = max(time_chunk, 1)
+                    ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
+                                         (1,
+                                          self.parameters['tracers{0}_integration_steps'.format(s)],
+                                          self.parameters['nparticles'],
+                                          3),
+                                         maxshape = (None,
+                                                     self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                     self.parameters['nparticles'],
+                                                     3),
+                                         chunks =  (time_chunk,
+                                                    self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                    self.parameters['nparticles'],
+                                                    3),
+                                         dtype = np.float64)
                 time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset(

@@ -33,6 +33,7 @@ from bfps import fluid_resize
 
 parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
+parser.add_argument('--frozen', dest = 'frozen', action = 'store_true')
 parser.add_argument('--iteration',
         type = int, dest = 'iteration', default = 0)
 parser.add_argument('--neighbours',
@@ -67,12 +68,15 @@ def double(opt):
 def launch(
         opt,
         nu = None,
+        dt = None,
         tracer_state_file = None,
         vorticity_field = None,
         code_class = bfps.NavierStokes):
     c = code_class(
             work_dir = opt.work_dir,
-            fluid_precision = opt.precision)
+            fluid_precision = opt.precision,
+            frozen_fields = opt.frozen,
+            use_fftw_wisdom = False)
     c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
@@ -81,19 +85,35 @@ def launch(
         c.parameters['nu'] = 5.5*opt.n**(-4./3)
     else:
         c.parameters['nu'] = nu
-    c.parameters['dt'] = 5e-3 * (64. / opt.n)
+    if type(dt) == type(None):
+        c.parameters['dt'] = .4 / opt.n
+    else:
+        c.parameters['dt'] = dt
     c.parameters['niter_out'] = c.parameters['niter_todo']
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     if c.parameters['nparticles'] > 0:
-        c.add_particles(kcut = 'fs->kM/2',
-                        integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 1, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 2, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 3, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 4, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 5, neighbours = opt.neighbours, smoothness = opt.smoothness)
-        c.add_particles(integration_steps = 6, neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particle_fields(name = 'regular', neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
+        c.add_particles(
+                kcut = 'fs->kM/2',
+                integration_steps = 1,
+                fields_name = 'filtered')
+        #for integr_steps in range(1, 7):
+        #    c.add_particles(
+        #            integration_steps = integr_steps,
+        #            neighbours = opt.neighbours,
+        #            smoothness = opt.smoothness,
+        #            fields_name = 'regular')
+        for info in [(2, 'Heun'),
+                     (2, 'AdamsBashforth'),
+                     (4, 'cRK4'),
+                     (4, 'AdamsBashforth'),
+                     (6, 'AdamsBashforth')]:
+            c.add_particles(
+                    integration_steps = info[0],
+                    integration_method = info[1],
+                    fields_name = 'regular')
     c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
@@ -102,7 +122,7 @@ def launch(
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             if type(vorticity_field) == type(None):
-                c.generate_vector_field(write_to_file = True)
+                c.generate_vector_field(write_to_file = True, spectra_slope = 1.5)
             else:
                 vorticity_field.tofile(
                         os.path.join(c.work_dir,
@@ -123,6 +143,65 @@ def launch(
         c.run(ncpu = opt.ncpu,
               njobs = opt.njobs)
     return c
+
+
+def acceleration_test(c, m = 3, species = 0):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from bfps.tools import get_fornberg_coeffs
+    d = c.get_data_file()
+    group = d['particles/tracers{0}'.format(species)]
+    pos = group['state'].value
+    vel = group['velocity'].value
+    acc = group['acceleration'].value
+    fig = plt.figure()
+    a = fig.add_subplot(111)
+    col = ['red', 'green', 'blue']
+    n = m
+    fc = get_fornberg_coeffs(0, range(-n, n+1))
+    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+    num_acc1 = sum(fc[1, n-i]*vel[1+n-i:vel.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
+    num_acc2 = sum(fc[2, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt**2
+    num_vel1 = sum(fc[1, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
+
+    def SNR(a, b):
+        return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
+    pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
+    pars = d['parameters']
+    to_print = (
+            'integration={0}, steps={1}, interp={2}, neighbours={3}, '.format(
+                pars['tracers{0}_integration_method'.format(species)].value,
+                pars['tracers{0}_integration_steps'.format(species)].value,
+                pars[str(pars['tracers{0}_field'.format(species)].value) + '_type'].value,
+                pars[str(pars['tracers{0}_field'.format(species)].value) + '_neighbours'].value))
+    if 'spline' in pars['tracers{0}_field'.format(species)].value:
+        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_field'.format(species)].value) + '_smoothness'].value)
+    to_print += (
+            'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
+                np.mean(SNR(num_vel1, vel[n+1:-n-1])),
+                np.mean(SNR(num_acc1, acc[n+1:-n-1])),
+                np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    print(to_print)
+    for cc in range(3):
+        a.plot(num_acc1[:, pid, cc], color = col[cc])
+        a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
+        a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
+
+    for n in range(1, m):
+        fc = get_fornberg_coeffs(0, range(-n, n+1))
+        dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+        num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+        num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+
+        for cc in range(3):
+            a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
+            a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
+    fig.tight_layout()
+    fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+    plt.close(fig)
+    return pid
 
 if __name__ == '__main__':
     print('this file doesn\'t do anything')

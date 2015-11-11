@@ -93,6 +93,7 @@ def convergence_test(
     c2.compute_statistics()
     c2.set_plt_style({'dashes': (3, 4)})
     for c in [c0, c1, c2]:
+        acceleration_test(c)
         c.style.update({'label' : '${0}\\times {1} \\times {2}$'.format(c.parameters['nx'],
                                                                         c.parameters['ny'],
                                                                         c.parameters['nz'])})

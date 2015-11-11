@@ -84,7 +84,11 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
-        void compute_acceleration(rnumber *dst);
+        void compute_pressure(rnumber (*pressure)[2]);
+        void compute_vel_gradient(rnumber (*A)[2]);
+        void compute_trS2(rnumber *trS2);
+        void compute_Eulerian_acceleration(rnumber *dst);
+        void compute_Lagrangian_acceleration(rnumber *dst);
         void ift_velocity();
         void dft_velocity();
         void ift_vorticity();
@@ -92,7 +96,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
-        void add_forcing(rnumber (*field)[2], rnumber factor);
+        void add_forcing(rnumber (*acc_field)[2], rnumber (*vort_field)[2], rnumber factor);
 
         int read(char field, char representation);
         int write(char field, char representation);

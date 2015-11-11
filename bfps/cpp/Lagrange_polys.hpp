@@ -24,40 +24,18 @@
 
 
 
-#include "slab_field_particles.hpp"
+#ifndef LAGRANGE_POLYS
 
-#ifndef TRACERS
+#define LAGRANGE_POLYS
 
-#define TRACERS
+void beta_Lagrange_n1(int deriv, double x, double *poly_val);
+void beta_Lagrange_n2(int deriv, double x, double *poly_val);
+void beta_Lagrange_n3(int deriv, double x, double *poly_val);
+void beta_Lagrange_n4(int deriv, double x, double *poly_val);
+void beta_Lagrange_n5(int deriv, double x, double *poly_val);
+void beta_Lagrange_n6(int deriv, double x, double *poly_val);
+void beta_Lagrange_n7(int deriv, double x, double *poly_val);
+void beta_Lagrange_n8(int deriv, double x, double *poly_val);
 
-extern int myrank, nprocs;
-
-template <class rnumber>
-class tracers final:public slab_field_particles<rnumber>
-{
-    public:
-        rnumber *source_data;
-        rnumber *data;
-
-        /* methods */
-        tracers(
-                const char *NAME,
-                fluid_solver_base<rnumber> *FSOLVER,
-                const int NPARTICLES,
-                base_polynomial_values BETA_POLYS,
-                const int NEIGHBOURS,
-                const int TRAJ_SKIP,
-                const int INTEGRATION_STEPS,
-                rnumber *SOURCE_DATA);
-        ~tracers();
-
-        void update_field(bool clip_on = true);
-        virtual void get_rhs(double *x, double *rhs);
-        virtual void jump_estimate(double *jump_length);
-
-        void sample_vec_field(rnumber *vec_field, double *vec_values);
-};
-
-
-#endif//TRACERS
+#endif//LAGRANGE_POLYS
 

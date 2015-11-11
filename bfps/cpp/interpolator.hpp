@@ -24,40 +24,45 @@
 
 
 
-#include "slab_field_particles.hpp"
+#include "field_descriptor.hpp"
+#include "fftw_tools.hpp"
+#include "fluid_solver_base.hpp"
+#include "spline_n1.hpp"
+#include "spline_n2.hpp"
+#include "spline_n3.hpp"
+#include "spline_n4.hpp"
+#include "spline_n5.hpp"
+#include "spline_n6.hpp"
+#include "Lagrange_polys.hpp"
 
-#ifndef TRACERS
+#ifndef INTERPOLATOR
 
-#define TRACERS
+#define INTERPOLATOR
 
-extern int myrank, nprocs;
+typedef void (*base_polynomial_values)(
+        int derivative,
+        double fraction,
+        double *destination);
 
-template <class rnumber>
-class tracers final:public slab_field_particles<rnumber>
+template <class rnumber, int interp_neighbours>
+class interpolator
 {
     public:
-        rnumber *source_data;
-        rnumber *data;
+        ptrdiff_t buffer_size;
+        base_polynomial_values compute_beta;
+        field_descriptor<rnumber> *descriptor;
+        field_descriptor<rnumber> *unbuffered_descriptor;
+        rnumber *f0, *f1, *temp;
 
-        /* methods */
-        tracers(
-                const char *NAME,
+        interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                const int NPARTICLES,
-                base_polynomial_values BETA_POLYS,
-                const int NEIGHBOURS,
-                const int TRAJ_SKIP,
-                const int INTEGRATION_STEPS,
-                rnumber *SOURCE_DATA);
-        ~tracers();
+                base_polynomial_values BETA_POLYS);
+        ~interpolator();
 
-        void update_field(bool clip_on = true);
-        virtual void get_rhs(double *x, double *rhs);
-        virtual void jump_estimate(double *jump_length);
-
-        void sample_vec_field(rnumber *vec_field, double *vec_values);
+        void operator()(double t, int *xg, double *xx, double *dest, int *deriv = NULL);
+        /* destroys input */
+        int read_rFFTW(void *src);
 };
 
-
-#endif//TRACERS
+#endif//INTERPOLATOR
 

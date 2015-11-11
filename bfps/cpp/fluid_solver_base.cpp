@@ -397,6 +397,7 @@ void fluid_solver_base<R>::force_divfree(FFTW(complex) *a) \
 { \
     FFTW(complex) tval; \
     CLOOP_K2( \
+            if (k2 > 0) \
             { \
                 tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) + \
                            this->ky[yindex]*((*(a + cindex*3+1))[0]) + \
