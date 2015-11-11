@@ -50,15 +50,15 @@ class fluid_particle_base(bfps.code):
             self.dtype = dtype
         elif dtype in ['single', 'double']:
             if dtype == 'single':
-                self.dtype = np.float32
+                self.dtype = np.dtype(np.float32)
             elif dtype == 'double':
-                self.dtype = np.float64
+                self.dtype = np.dtype(np.float64)
         self.rtype = self.dtype
         if self.rtype == np.float32:
-            self.ctype = np.complex64
+            self.ctype = np.dtype(np.complex64)
             self.C_dtype = 'float'
         elif self.rtype == np.float64:
-            self.ctype = np.complex128
+            self.ctype = np.dtype(np.complex128)
             self.C_dtype = 'double'
         self.parameters['dkx'] = 1.0
         self.parameters['dky'] = 1.0
@@ -275,19 +275,19 @@ class fluid_particle_base(bfps.code):
             write_to_file = False):
         np.random.seed(rseed)
         Kdata00 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata01 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata02 = bfps.tools.generate_data_3D(
-                self.parameters['nz']/2,
-                self.parameters['ny']/2,
-                self.parameters['nx']/2,
+                self.parameters['nz']//2,
+                self.parameters['ny']//2,
+                self.parameters['nx']//2,
                 p = spectra_slope).astype(self.ctype)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
@@ -376,6 +376,8 @@ class fluid_particle_base(bfps.code):
         kspace['kz'] = np.arange(-self.parameters['nz']//2 + 1,
                                   self.parameters['nz']//2 + 1).astype(np.float64)*self.parameters['dkz']
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
+        kspace['ksample_indices'] = bfps.tools.get_kindices(n = self.parameters['nx'])
+        print kspace['ksample_indices'].shape[0]
         return kspace
     def write_par(self, iter0 = 0):
         assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
@@ -390,6 +392,14 @@ class fluid_particle_base(bfps.code):
             for k in kspace.keys():
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
+            time_chunk = 2**20//(self.ctype.itemsize*3*kspace['ksample_indices'].shape[0])
+            time_chunk = max(time_chunk, 1)
+            ofile.create_dataset('statistics/ksamples/velocity',
+                                 (1, kspace['ksample_indices'].shape[0], 3),
+                                 chunks = (time_chunk, kspace['ksample_indices'].shape[0], 3),
+                                 maxshape = (None, kspace['ksample_indices'].shape[0], 3),
+                                 dtype = self.ctype,
+                                 compression = 'gzip')
             for k in ['velocity', 'vorticity']:
                 time_chunk = 2**20//(8*3*self.parameters['nx'])
                 time_chunk = max(time_chunk, 1)

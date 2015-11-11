@@ -24,6 +24,7 @@
 
 
 
+import math
 import numpy as np
 
 def generate_data_3D(
@@ -49,7 +50,7 @@ def generate_data_3D(
         a[0, n0-kz, 0] = np.conj(a[0, kz, 0])
     for ky in range(1, n1//2):
         for kz in range(1, n0):
-            a[n-ky, n-kz, 0] = np.conj(a[ky, kz, 0])
+            a[n1-ky, n0-kz, 0] = np.conj(a[ky, kz, 0])
     ii = np.where(k > min(n0, n1, n2)/3.)
     a[ii] = 0
     return a
@@ -72,6 +73,45 @@ def padd_with_zeros(
     b[n0-m0/2:    ,        :m1/2, :m2/2+1] = a[m0-m0/2:    ,        :m1/2, :m2/2+1]
     b[n0-m0/2:    , n1-m1/2:    , :m2/2+1] = a[m0-m0/2:    , m1-m1/2:    , :m2/2+1]
     return b
+
+def get_kindices(
+        n = 64):
+    nx = n
+    nz = n
+    kx = np.arange(0, nx//2+1, 1).astype(np.float)
+    kvals = []
+    radii = set([])
+    index = []
+    for iz in range(kx.shape[0]):
+        for ix in range(0, kx.shape[0]):
+            kval = (kx[iz]**2+kx[ix]**2)**.5
+            tmp = math.modf(kval)
+            if (tmp[0] == 0 and tmp[1] <= nx//2):
+                kvals.append([kx[iz], kx[ix]])
+                radii.add(math.floor(kval))
+                index.append([ix, iz])
+
+    kvals = np.array(kvals)
+    index = np.array(index)
+    new_kvals = []
+    ordered_kvals = []
+    radius_vals = []
+    ii = []
+    for r in radii:
+        ncircle = np.count_nonzero((kvals[:, 0]**2 + kvals[:, 1]**2)**.5 == r)
+        indices = np.where((kvals[:, 0]**2 + kvals[:, 1]**2)**.5 == r)[0]
+        if ncircle > 2:
+            ordered_kvals.append(kvals[indices])
+            new_kvals += list(kvals[indices])
+            radius_vals.append(r)
+            ii += list(index[indices])
+    ii = np.array(ii)
+    good_indices = np.where(ii[:, 1] > 0)[0]
+    i1 = (kx.shape[0] - 1)*2 - ii[good_indices, 1]
+    i0 = ii[good_indices, 0]
+    i1 = np.concatenate((ii[:, 1], i1)),
+    i0 = np.concatenate((ii[:, 0], i0)),
+    return np.vstack((i0, i1)).T.copy()
 
 try:
     import sympy as sp
