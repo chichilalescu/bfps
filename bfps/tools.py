@@ -34,19 +34,23 @@ def generate_data_3D(
     generate something that has the proper shape
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
-    a = np.zeros((n0, n1, n2/2+1), dtype = dtype)
+    a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
     a[:] = np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape)
-    k, j, i = np.mgrid[-n0/2+1:n0/2+1, -n1/2+1:n1/2+1, 0:n2/2+1]
+    k, j, i = np.mgrid[-n1/2+1:n1/2+1, -n0/2+1:n0/2+1, 0:n2/2+1]
     k = (k**2 + j**2 + i**2)**.5
-    k = np.roll(k, n0//2+1, axis = 0)
-    k = np.roll(k, n1//2+1, axis = 1)
+    k = np.roll(k, n1//2+1, axis = 0)
+    k = np.roll(k, n0//2+1, axis = 1)
+    k[0, 0, 0] = 1
     a /= k**p
-    a[0, :, :] = 0
-    a[:, 0, :] = 0
-    a[:, :, 0] = 0
-    ii = np.where(k == 0)
-    a[ii] = 0
-    ii = np.where(k > min(n0, n1, n2)/3)
+    a[0, 0, 0] = 0
+    for ky in range(1, n1//2):
+        a[n1-ky, 0, 0] = np.conj(a[ky, 0, 0])
+    for kz in range(1, n0//2):
+        a[0, n0-kz, 0] = np.conj(a[0, kz, 0])
+    for ky in range(1, n1//2):
+        for kz in range(1, n0):
+            a[n-ky, n-kz, 0] = np.conj(a[ky, kz, 0])
+    ii = np.where(k > min(n0, n1, n2)/3.)
     a[ii] = 0
     return a
 
