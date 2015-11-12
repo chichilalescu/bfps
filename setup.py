@@ -46,11 +46,11 @@ except:
 VERSION = date_name
 
 src_file_list = ['field_descriptor',
+                 'fluid_solver_base',
+                 'fluid_solver',
                  'interpolator',
                  'particles',
                  'fftw_tools',
-                 'fluid_solver_base',
-                 'fluid_solver',
                  'spline_n1',
                  'spline_n2',
                  'spline_n3',

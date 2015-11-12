@@ -93,8 +93,9 @@ class fluid_solver_base
         void compute_rspace_stats(rnumber *a,
                                   double *moments,
                                   ptrdiff_t *hist,
-                                  double max_estimate = 1.0,
+                                  double max_estimate[4],
                                   int nbins = 256);
+        void compute_vector_gradient(rnumber (*A)[2], rnumber(*source)[2]);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);
         int read_base(const char *fname, rnumber *data);

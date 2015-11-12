@@ -82,11 +82,18 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 unsigned FFTW_PLAN_RIGOR = FFTW_MEASURE);
         ~fluid_solver(void);
 
+        void compute_gradient_statistics(
+                rnumber (*vec)[2],
+                double *moments,
+                ptrdiff_t *histograms_1D,
+                ptrdiff_t *histogram_QR2D,
+                double trS2_max_estimate = 1.0,
+                int nbins_1D = 256,
+                int nbins_2D = 64);
+
         void compute_vorticity(void);
         void compute_velocity(rnumber (*vorticity)[2]);
         void compute_pressure(rnumber (*pressure)[2]);
-        void compute_vel_gradient(rnumber (*A)[2]);
-        void compute_trS2(rnumber *trS2);
         void compute_Eulerian_acceleration(rnumber *dst);
         void compute_Lagrangian_acceleration(rnumber *dst);
         void ift_velocity();

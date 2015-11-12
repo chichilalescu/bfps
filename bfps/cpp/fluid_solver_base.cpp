@@ -130,17 +130,18 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         rnumber *a,
         double *moments,
         ptrdiff_t *hist,
-        double max_estimate,
+        double max_estimate[],
         int nbins)
 {
     double *local_moments = fftw_alloc_real(10*4);
-    double val_tmp[4], binsize, pow_tmp[4];
+    double val_tmp[4], binsize[4], pow_tmp[4];
     ptrdiff_t *local_hist = new ptrdiff_t[nbins*4];
     int bin;
-    binsize = 2*max_estimate / nbins;
+    for (int i=0; i<4; i++)
+        binsize[i] = 2*max_estimate[i] / nbins;
     std::fill_n(local_hist, nbins*4, 0);
     std::fill_n(local_moments, 10*4, 0);
-    local_moments[3] = max_estimate;
+    local_moments[3] = max_estimate[3];
     RLOOP(
         this,
         std::fill_n(pow_tmp, 4, 1.0);
@@ -155,7 +156,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
             local_moments[0*4+3] = val_tmp[3];
         if (val_tmp[3] > local_moments[9*4+3])
             local_moments[9*4+3] = val_tmp[3];
-        bin = int(val_tmp[3]*2/binsize);
+        bin = int(val_tmp[3]*2/binsize[3]);
         if (bin >= 0 && bin < nbins)
             local_hist[bin*4+3]++;
         for (int i=0; i<3; i++)
@@ -164,7 +165,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*4+i] = val_tmp[i];
             if (val_tmp[i] > local_moments[9*4+i])
                 local_moments[9*4+i] = val_tmp[i];
-            bin = int((val_tmp[i] + max_estimate) / binsize);
+            bin = int((val_tmp[i] + max_estimate[i]) / binsize[i]);
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*4+i]++;
         }
@@ -415,6 +416,32 @@ void fluid_solver_base<R>::force_divfree(FFTW(complex) *a) \
             );\
     if (this->cd->myrank == this->cd->rank[0]) \
         std::fill_n((R*)(a), 6, 0.0); \
+} \
+ \
+template<> \
+void fluid_solver_base<R>::compute_vector_gradient(FFTW(complex) *A, FFTW(complex) *cvec) \
+{ \
+    ptrdiff_t tindex; \
+    std::fill_n((R*)A, 3*2*this->cd->local_size, 0.0); \
+    FFTW(complex) *dx_u, *dy_u, *dz_u; \
+    dx_u = A; \
+    dy_u = A + this->cd->local_size; \
+    dz_u = A + 2*this->cd->local_size; \
+    CLOOP_K2( \
+            if (k2 <= this->kM2) \
+            { \
+                tindex = 3*cindex; \
+                for (int cc=0; cc<3; cc++) \
+                { \
+                    dx_u[tindex + cc][0] = -this->kx[xindex]*cvec[tindex+cc][1]; \
+                    dx_u[tindex + cc][1] =  this->kx[xindex]*cvec[tindex+cc][0]; \
+                    dy_u[tindex + cc][0] = -this->ky[yindex]*cvec[tindex+cc][1]; \
+                    dy_u[tindex + cc][1] =  this->ky[yindex]*cvec[tindex+cc][0]; \
+                    dz_u[tindex + cc][0] = -this->kz[zindex]*cvec[tindex+cc][1]; \
+                    dz_u[tindex + cc][1] =  this->kz[zindex]*cvec[tindex+cc][0]; \
+                } \
+            } \
+            ); \
 } \
  \
 template<> \

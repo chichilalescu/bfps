@@ -539,41 +539,20 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_vel_gradient(FFTW(complex) *A) \
+void fluid_solver<R>::compute_gradient_statistics( \
+        FFTW(complex) *vec, \
+        double *moments, \
+        ptrdiff_t *hist, \
+        ptrdiff_t *QR2D_hist, \
+        double max_estimate, \
+        int nbins, \
+        int QR2D_nbins) \
 { \
-    ptrdiff_t tindex; \
-    this->compute_velocity(this->cvorticity); \
-    std::fill_n((R*)A, 3*2*this->cd->local_size, 0.0); \
-    FFTW(complex) *dx_u, *dy_u, *dz_u; \
-    dx_u = A; \
-    dy_u = A + this->cd->local_size; \
-    dz_u = A + 2*this->cd->local_size; \
-    CLOOP_K2( \
-            if (k2 <= this->kM2) \
-            { \
-                tindex = 3*cindex; \
-                for (int cc=0; cc<3; cc++) \
-                { \
-                    dx_u[tindex + cc][0] = -this->kx[xindex]*this->cu[tindex+cc][1]; \
-                    dx_u[tindex + cc][1] =  this->kx[xindex]*this->cu[tindex+cc][0]; \
-                    dy_u[tindex + cc][0] = -this->ky[yindex]*this->cu[tindex+cc][1]; \
-                    dy_u[tindex + cc][1] =  this->ky[yindex]*this->cu[tindex+cc][0]; \
-                    dz_u[tindex + cc][0] = -this->kz[zindex]*this->cu[tindex+cc][1]; \
-                    dz_u[tindex + cc][1] =  this->kz[zindex]*this->cu[tindex+cc][0]; \
-                } \
-            } \
-            ); \
-} \
- \
-template<> \
-void fluid_solver<R>::compute_trS2(R *trS2) \
-{ \
-    ptrdiff_t tindex; \
     FFTW(complex) *ca; \
     R *ra; \
     ca = FFTW(alloc_complex)(this->cd->local_size*3); \
     ra = (R*)(ca); \
-    this->compute_vel_gradient(ca); \
+    this->compute_vector_gradient(ca, vec); \
     for (int cc=0; cc<3; cc++) \
     { \
         std::copy( \
@@ -587,21 +566,85 @@ void fluid_solver<R>::compute_trS2(R *trS2) \
                 ra + cc*this->cd->local_size*2); \
     } \
     /* velocity gradient is now stored, in real space, in ra */ \
+    R *vals_trS2 = this->rv[1]; \
+    R *vals_Q = this->rv[1] + 2*this->cd->local_size/3; \
+    R *vals_R = this->rv[1] + 4*this->cd->local_size/3; \
+    std::fill_n(this->rv[1], 2*this->cd->local_size, 0.0); \
     R *dx_u, *dy_u, *dz_u; \
     dx_u = ra; \
     dy_u = ra + 2*this->cd->local_size; \
     dz_u = ra + 4*this->cd->local_size; \
+    double norm3half = this->normalization_factor*sqrt(this->normalization_factor); \
+    double binsize[2]; \
+    double tmp_max_estimate[4]; \
+    tmp_max_estimate[0] = max_estimate; \
+    tmp_max_estimate[1] = max_estimate; \
+    tmp_max_estimate[2] = max_estimate*sqrt(max_estimate); \
+    tmp_max_estimate[3] = 1.0; /* 4th component is gonna be disregarded anyway... */ \
+    binsize[0] = 2*tmp_max_estimate[2] / QR2D_nbins; \
+    binsize[1] = 2*tmp_max_estimate[1] / QR2D_nbins; \
+    ptrdiff_t *local_hist = new ptrdiff_t[QR2D_nbins*QR2D_nbins]; \
+    std::fill_n(local_hist, QR2D_nbins*QR2D_nbins, 0); \
     RLOOP( \
             this, \
-            tindex = 3*rindex; \
-            trS2[rindex] = (dx_u[tindex+0]*dx_u[tindex+0] + \
-                            dy_u[tindex+1]*dy_u[tindex+1] + \
-                            dz_u[tindex+2]*dz_u[tindex+2] + \
-                          ((dx_u[tindex+1]+dy_u[tindex+0])*(dx_u[tindex+1]+dy_u[tindex+0]) + \
-                           (dy_u[tindex+2]+dz_u[tindex+1])*(dy_u[tindex+2]+dz_u[tindex+1]) + \
-                           (dz_u[tindex+0]+dx_u[tindex+2])*(dz_u[tindex+0]+dx_u[tindex+2]))/2) / this->normalization_factor; \
+            R AxxAxx; \
+            R AyyAyy; \
+            R AzzAzz; \
+            R AxyAyx; \
+            R AyzAzy; \
+            R AzxAxz; \
+            R Sxy; \
+            R Syz; \
+            R Szx; \
+            ptrdiff_t tindex = 3*rindex; \
+            AxxAxx = dx_u[tindex+0]*dx_u[tindex+0]; \
+            AyyAyy = dy_u[tindex+1]*dy_u[tindex+1]; \
+            AzzAzz = dz_u[tindex+2]*dz_u[tindex+2]; \
+            AxyAyx = dx_u[tindex+1]*dy_u[tindex+0]; \
+            AyzAzy = dy_u[tindex+2]*dz_u[tindex+1]; \
+            AzxAxz = dz_u[tindex+0]*dx_u[tindex+2]; \
+            vals_Q[rindex] = (- ((AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz) / \
+                                this->normalization_factor); \
+            vals_R[rindex] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) + \
+                                dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) + \
+                                dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
+                                dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] + \
+                                dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]) / norm3half; \
+            int bin0 = int((vals_R[rindex] + tmp_max_estimate[2]) / binsize[0]); \
+            int bin1 = int((vals_Q[rindex] + tmp_max_estimate[1]) / binsize[1]); \
+            if ((bin0 >= 0 && bin0 < QR2D_nbins) && \
+                (bin1 >= 0 && bin1 < QR2D_nbins)) \
+                local_hist[bin1*QR2D_nbins + bin0]++; \
+            Sxy = dx_u[tindex+1]+dy_u[tindex+0]; \
+            Syz = dy_u[tindex+2]+dz_u[tindex+1]; \
+            Szx = dz_u[tindex+0]+dx_u[tindex+2]; \
+            vals_trS2[rindex] = ((AxxAxx + AyyAyy + AzzAzz + \
+                                  (Sxy*Sxy + Syz*Syz + Szx*Szx)/2) / \
+                                 this->normalization_factor); \
             ); \
     FFTW(free)(ca); \
+    MPI_Allreduce( \
+            local_hist, \
+            QR2D_hist, \
+            QR2D_nbins * QR2D_nbins, \
+            MPI_INT64_T, MPI_SUM, this->cd->comm); \
+    delete[] local_hist; \
+    double *tmp_moments = new double[4*10]; \
+    ptrdiff_t *tmp_hist = new ptrdiff_t[4*nbins]; \
+    this->compute_rspace_stats( \
+            this->rv[1], \
+            tmp_moments, \
+            tmp_hist, \
+            tmp_max_estimate, \
+            nbins); \
+    for (int i=0; i<10; i++) \
+        for (int j=0; j<3; j++) \
+            moments[i*3+j] = tmp_moments[i*4+j]; \
+    delete[] tmp_moments; \
+    for (int i=0; i<nbins; i++) \
+        for (int j=0; j<3; j++) \
+            hist[i*3+j] = tmp_hist[i*4+j]; \
+    delete[] tmp_hist; \
 } \
  \
 template<> \
@@ -612,31 +655,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
     this->compute_velocity(this->cvorticity); \
     this->ift_velocity(); \
-    /*clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
-    std::copy( \
-            this->rvelocity, \
-            this->rvelocity + this->rd->local_size, \
-            acceleration); \
-    return; */\
     this->compute_pressure(pressure); \
-    /*this->compute_trS2(this->ru); \
-    RLOOP( \
-            this, \
-            tindex = 3*rindex; \
-            this->rv[1][tindex+0] = this->ru[rindex]; \
-            this->rv[1][tindex+1] = (this->rv[0][tindex+0]*this->rv[0][tindex+0] + \
-                                     this->rv[0][tindex+1]*this->rv[0][tindex+1] + \
-                                     this->rv[0][tindex+2]*this->rv[0][tindex+2])/(2*this->normalization_factor); \
-             ); \
-    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
-    CLOOP_K2( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-            tindex = 3*cindex; \
-            pressure[cindex][0] = (this->cv[1][tindex+0][0] - this->cv[1][tindex+1][0]) / k2; \
-            pressure[cindex][1] = (this->cv[1][tindex+0][1] - this->cv[1][tindex+1][1]) / k2; \
-            } \
-            );*/ \
     this->compute_velocity(this->cvorticity); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
@@ -668,51 +687,6 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             this->rv[1], \
             this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
-    /* ********* */ \
-    /* debugging */ \
-    /* check k2*p = -(trS2 - vorticity^2/2) */ \
-    /*this->compute_trS2(this->ru); \
-    RLOOP( \
-            this, \
-            tindex = 3*rindex; \
-            this->rv[1][tindex+0] = this->ru[rindex]; \
-            this->rv[1][tindex+1] = (this->rv[0][tindex+0]*this->rv[0][tindex+0] + \
-                                     this->rv[0][tindex+1]*this->rv[0][tindex+1] + \
-                                     this->rv[0][tindex+2]*this->rv[0][tindex+2])/(2*this->normalization_factor); \
-             ); \
-    this->dealias(this->cu, 3); \
-    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
-    CLOOP_K2( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-                tindex = 3*cindex; \
-                this->cv[1][tindex+2][0] = k2*pressure[cindex][0]; \
-                this->cv[1][tindex+2][1] = k2*pressure[cindex][1]; \
-            } \
-            );*/ \
-    /*char fname[256]; \
-    this->fill_up_filename("pressure_trS2_enstrophy", fname); \
-    this->cd->write(fname, this->cv[1]);*/ \
-    /*double difference = 0.0; \
-    double itval, rtval; \
-    CLOOP_K2_NXMODES( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-            tindex = 3*cindex; \
-            rtval = k2*pressure[cindex][0] - this->cv[1][tindex+0][0] + this->cv[1][tindex+1][0]; \
-            itval = k2*pressure[cindex][1] - this->cv[1][tindex+0][1] + this->cv[1][tindex+1][1]; \
-            difference += nxmodes*(itval*itval + rtval*rtval); \
-            } \
-            ); \
-    itval = difference; \
-    MPI_Allreduce( \
-            &itval, \
-            &difference, \
-            1, \
-            MPI_DOUBLE, MPI_SUM, this->cd->comm); \
-    if (myrank == 0) DEBUG_MSG("difference is %g\n", difference);*/ \
-    /* debugging */ \
-    /* ********* */ \
     FFTW(free)(pressure); \
 } \
 
