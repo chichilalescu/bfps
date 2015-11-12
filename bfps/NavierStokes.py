@@ -98,10 +98,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 """
         self.stat_src += """
                 //begincpp
-                    double *velocity_moments = fftw_alloc_real(10*4);
-                    double *vorticity_moments = fftw_alloc_real(10*4);
-                    ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
+                    double *velocity_moments  = new double[10*4];
+                    double *vorticity_moments = new double[10*4];
+                    double *trS2_Q_R_moments  = new double[10*3];
+                    ptrdiff_t *hist_velocity  = new ptrdiff_t[histogram_bins*4];
                     ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
+                    ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
+                    ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
                     double max_estimates[4];
                     {0} *ksample_values;
                     fs->compute_velocity(fs->cvorticity);
@@ -116,10 +119,18 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                       ksample_values + i*6);
                         }}
                     }}
-                    double *spec_velocity = fftw_alloc_real(fs->nshells*9);
-                    double *spec_vorticity = fftw_alloc_real(fs->nshells*9);
+                    double *spec_velocity  = new double[fs->nshells*9];
+                    double *spec_vorticity = new double[fs->nshells*9];
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
+                    fs->compute_gradient_statistics(
+                        fs->cvelocity,
+                        trS2_Q_R_moments,
+                        hist_trS2_Q_R,
+                        hist_QR2D,
+                        max_trS2_estimate,
+                        histogram_bins,
+                        QR2D_histogram_bins);
                     fs->ift_velocity();
                     max_estimates[0] = max_velocity_estimate/sqrt(3);
                     max_estimates[1] = max_estimates[0];
@@ -151,89 +162,131 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         offset[3] = 0;
                 //endcpp
                 """.format(self.C_dtype)
-        size_setups = ["""
-                        count[0] = 1;
-                        count[1] = nx;
-                        count[2] = 3;
-                       """,
-                       """
-                        count[0] = 1;
-                        count[1] = 10;
-                        count[2] = 4;
-                       """,
-                       """
-                        count[0] = 1;
-                        count[1] = histogram_bins;
-                        count[2] = 4;
-                       """,
-                       """
-                        count[0] = 1;
-                        count[1] = fs->nshells;
-                        count[2] = 3;
-                        count[3] = 3;
-                       """,]
         if self.dtype == np.float32:
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
-        stat_template = """
-                //begincpp
-                        Cdset = H5Dopen(stat_file, "{0}", H5P_DEFAULT);
-                        wspace = H5Dget_space(Cdset);
-                        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
-                        mspace = H5Screate_simple(ndims, count, NULL);
-                        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                        H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {2});
-                        H5Dclose(Cdset);
-                        Cdset = H5Dopen(stat_file, "{3}", H5P_DEFAULT);
-                        H5Dwrite(Cdset, {1}, mspace, wspace, H5P_DEFAULT, {4});
-                        H5Sclose(mspace);
-                        H5Sclose(wspace);
-                        H5Dclose(Cdset);
-                //endcpp
-                """
-        stat_outputs = [stat_template.format('/statistics/xlines/velocity',
-                                              field_H5T,
-                                              'fs->rvelocity',
-                                              '/statistics/xlines/vorticity',
-                                              'fs->rvorticity'),
-                        stat_template.format('/statistics/moments/velocity',
-                                             'H5T_NATIVE_DOUBLE',
-                                             'velocity_moments',
-                                             '/statistics/moments/vorticity',
-                                             'vorticity_moments'),
-                        stat_template.format('/statistics/histograms/velocity',
-                                             'H5T_NATIVE_DOUBLE',
-                                             'hist_velocity',
-                                             '/statistics/histograms/vorticity',
-                                             'hist_vorticity'),
-                        stat_template.format('/statistics/spectra/velocity_velocity',
-                                             'H5T_NATIVE_DOUBLE',
-                                             'spec_velocity',
-                                             '/statistics/spectra/vorticity_vorticity',
-                                             'spec_vorticity')]
-        for i in range(len(size_setups)):
-            self.stat_src += size_setups[i] + stat_outputs[i]
+        def add_stat_output(
+                dset_name,
+                data_buffer,
+                data_type = 'H5T_NATIVE_DOUBLE',
+                size_setup = None,
+                close_spaces = True):
+            new_stat_output_txt = 'Cdset = H5Dopen(stat_file, "{0}", H5P_DEFAULT);\n'.format(dset_name)
+            if not type(size_setup) == type(None):
+                new_stat_output_txt += (
+                        size_setup +
+                        'wspace = H5Dget_space(Cdset);\n' +
+                        'ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);\n' +
+                        'mspace = H5Screate_simple(ndims, count, NULL);\n' +
+                        'H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);\n')
+            new_stat_output_txt += ('H5Dwrite(Cdset, {0}, mspace, wspace, H5P_DEFAULT, {1});\n' +
+                                    'H5Dclose(Cdset);\n').format(data_type, data_buffer)
+            if close_spaces:
+                new_stat_output_txt += ('H5Sclose(mspace);\n' +
+                                        'H5Sclose(wspace);\n')
+            return new_stat_output_txt
+        self.stat_src += add_stat_output(
+                '/statistics/xlines/velocity',
+                'fs->rvelocity',
+                data_type = field_H5T,
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = nx;
+                    count[2] = 3;
+                    """,
+                close_spaces = False)
+        self.stat_src += add_stat_output(
+                '/statistics/xlines/vorticity',
+                'fs->rvorticity',
+                data_type = field_H5T)
+        self.stat_src += add_stat_output(
+                '/statistics/moments/velocity',
+                'velocity_moments',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = 10;
+                    count[2] = 4;
+                    """,
+                close_spaces = False)
+        self.stat_src += add_stat_output(
+                '/statistics/moments/vorticity',
+                'vorticity_moments')
+        self.stat_src += add_stat_output(
+                '/statistics/moments/trS2_Q_R',
+                'trS2_Q_R_moments',
+                size_setup ="""
+                    count[0] = 1;
+                    count[1] = 10;
+                    count[2] = 3;
+                    """)
+        self.stat_src += add_stat_output(
+                '/statistics/spectra/velocity_velocity',
+                'spec_velocity',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = fs->nshells;
+                    count[2] = 3;
+                    count[3] = 3;
+                    """,
+                close_spaces = False)
+        self.stat_src += add_stat_output(
+                '/statistics/spectra/vorticity_vorticity',
+                'spec_vorticity')
+        self.stat_src += add_stat_output(
+                '/statistics/histograms/velocity',
+                'hist_velocity',
+                data_type = 'H5T_NATIVE_INT64',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = histogram_bins;
+                    count[2] = 4;
+                    """,
+                close_spaces = False)
+        self.stat_src += add_stat_output(
+                '/statistics/histograms/vorticity',
+                'hist_vorticity',
+                data_type = 'H5T_NATIVE_INT64')
+        self.stat_src += add_stat_output(
+                '/statistics/histograms/trS2_Q_R',
+                'hist_trS2_Q_R',
+                data_type = 'H5T_NATIVE_INT64',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = histogram_bins;
+                    count[2] = 3;
+                    """)
+        self.stat_src += add_stat_output(
+                '/statistics/histograms/QR2D',
+                'hist_QR2D',
+                data_type = 'H5T_NATIVE_INT64',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = QR2D_histogram_bins;
+                    count[2] = QR2D_histogram_bins;
+                    """)
+        self.stat_src += add_stat_output(
+                '/statistics/ksamples/velocity',
+                'ksample_values',
+                data_type = 'H5T_field_complex',
+                size_setup = """
+                    count[0] = 1;
+                    count[1] = nksamples;
+                    count[2] = 3;
+                    """)
         self.stat_src += """
                 //begincpp
-                        count[0] = 1;
-                        count[1] = nksamples;
-                        count[2] = 3;
-                        Cdset = H5Dopen(stat_file, "/statistics/ksamples/velocity", H5P_DEFAULT);
-                        wspace = H5Dget_space(Cdset);
-                        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
-                        mspace = H5Screate_simple(ndims, count, NULL);
-                        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                        H5Dwrite(Cdset, H5T_field_complex, mspace, wspace, H5P_DEFAULT, ksample_values);
-                        H5Dclose(Cdset);
                         delete[] ksample_values;
                     }
-                    fftw_free(spec_velocity);
-                    fftw_free(spec_vorticity);
-                    fftw_free(velocity_moments);
-                    fftw_free(vorticity_moments);
+                    delete[] spec_velocity;
+                    delete[] spec_vorticity;
+                    delete[] velocity_moments;
+                    delete[] vorticity_moments;
+                    delete[] trS2_Q_R_moments;
                     delete[] hist_velocity;
                     delete[] hist_vorticity;
+                    delete[] hist_trS2_Q_R;
+                    delete[] hist_QR2D;
                 //endcpp
                 """
         return None

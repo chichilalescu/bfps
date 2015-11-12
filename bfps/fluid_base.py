@@ -76,8 +76,10 @@ class fluid_particle_base(bfps.code):
         self.parameters['fk1'] = 3.0
         self.parameters['forcing_type'] = 'linear'
         self.parameters['histogram_bins'] = 256
+        self.parameters['QR2D_histogram_bins'] = 64
         self.parameters['max_velocity_estimate'] = 1.0
         self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['max_trS2_estimate'] = 1.0
         self.parameters['dealias_type'] = 1
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
@@ -399,6 +401,42 @@ class fluid_particle_base(bfps.code):
                                  chunks = (time_chunk, kspace['ksample_indices'].shape[0], 3),
                                  maxshape = (None, kspace['ksample_indices'].shape[0], 3),
                                  dtype = self.ctype,
+                                 compression = 'gzip')
+            time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
+            time_chunk = max(time_chunk, 1)
+            ofile.create_dataset('statistics/histograms/trS2_Q_R',
+                                 (1,
+                                  self.parameters['histogram_bins'],
+                                  3),
+                                 chunks = (time_chunk,
+                                           self.parameters['histogram_bins'],
+                                           3),
+                                 maxshape = (None,
+                                             self.parameters['histogram_bins'],
+                                             3),
+                                 dtype = np.int64,
+                                 compression = 'gzip')
+            time_chunk = 2**20//(8*3*10)
+            time_chunk = max(time_chunk, 1)
+            a = ofile.create_dataset('statistics/moments/trS2_Q_R',
+                                 (1, 10, 3),
+                                 chunks = (time_chunk, 10, 3),
+                                 maxshape = (None, 10, 3),
+                                 dtype = np.float64,
+                                 compression = 'gzip')
+            time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
+            time_chunk = max(time_chunk, 1)
+            ofile.create_dataset('statistics/histograms/QR2D',
+                                 (1,
+                                  self.parameters['QR2D_histogram_bins'],
+                                  self.parameters['QR2D_histogram_bins']),
+                                 chunks = (time_chunk,
+                                           self.parameters['QR2D_histogram_bins'],
+                                           self.parameters['QR2D_histogram_bins']),
+                                 maxshape = (None,
+                                             self.parameters['QR2D_histogram_bins'],
+                                             self.parameters['QR2D_histogram_bins']),
+                                 dtype = np.int64,
                                  compression = 'gzip')
             for k in ['velocity', 'vorticity']:
                 time_chunk = 2**20//(8*3*self.parameters['nx'])
