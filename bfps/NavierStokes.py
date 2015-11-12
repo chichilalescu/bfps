@@ -102,6 +102,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     double *vorticity_moments = fftw_alloc_real(10*4);
                     ptrdiff_t *hist_velocity = new ptrdiff_t[histogram_bins*4];
                     ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
+                    double max_estimates[4];
                     {0} *ksample_values;
                     fs->compute_velocity(fs->cvorticity);
                     if (fs->cd->myrank == 0)
@@ -120,16 +121,24 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
                     fs->ift_velocity();
+                    max_estimates[0] = max_velocity_estimate/sqrt(3);
+                    max_estimates[1] = max_estimates[0];
+                    max_estimates[2] = max_estimates[0];
+                    max_estimates[3] = max_velocity_estimate;
                     fs->compute_rspace_stats(fs->rvelocity,
                                              velocity_moments,
                                              hist_velocity,
-                                             max_velocity_estimate,
+                                             max_estimates,
                                              histogram_bins);
                     fs->ift_vorticity();
+                    max_estimates[0] = max_velocity_estimate/sqrt(3);
+                    max_estimates[1] = max_estimates[0];
+                    max_estimates[2] = max_estimates[0];
+                    max_estimates[3] = max_velocity_estimate;
                     fs->compute_rspace_stats(fs->rvorticity,
                                              vorticity_moments,
                                              hist_vorticity,
-                                             max_vorticity_estimate,
+                                             max_estimates,
                                              histogram_bins);
                     if (fs->cd->myrank == 0)
                     {{
