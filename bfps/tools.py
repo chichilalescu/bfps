@@ -55,6 +55,18 @@ def generate_data_3D(
     a[ii] = 0
     return a
 
+def randomize_phases(v):
+    phi = np.random.random(v.shape[:3])*(2*np.pi)
+    phi[0, 0, 0] = 0.0
+    for ky in range(1, phi.shape[0]//2):
+        phi[phi.shape[0] - ky, 0, 0] = - phi[ky, 0, 0]
+    for kz in range(1, phi.shape[1]//2):
+        phi[0, phi.shape[1] - kz, 0] = - phi[0, kz, 0]
+    for ky in range(1, phi.shape[0]//2):
+        for kz in range(1, phi.shape[1]):
+            phi[phi.shape[0] - ky, phi.shape[1] - kz, 0] = - phi[ky, kz, 0]
+    return v*(np.exp(1j*phi)[:, :, :, None]).astype(v.dtype)
+
 def padd_with_zeros(
         a,
         n0, n1, n2,
