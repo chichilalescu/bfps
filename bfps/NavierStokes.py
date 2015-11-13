@@ -588,6 +588,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             style = {'dashes' : (None, None)}):
         self.style.update(style)
         return None
+    def read_cfield(
+            self,
+            field_name = 'vorticity',
+            iteration = 0):
+        return np.memmap(
+                os.path.join(self.work_dir,
+                             self.simname + '_{0}_i{1:0>5x}'.format('c' + field_name, iteration)),
+                dtype = self.ctype,
+                mode = 'r',
+                shape = (self.parameters['ny'],
+                         self.parameters['nz'],
+                         self.parameters['nx']//2+1,
+                         3))
 
 def launch(
         opt,
