@@ -128,7 +128,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         trS2_Q_R_moments,
                         hist_trS2_Q_R,
                         hist_QR2D,
-                        max_trS2_estimate,
+                        max_vorticity_estimate*max_vorticity_estimate,
                         histogram_bins,
                         QR2D_histogram_bins);
                     fs->ift_velocity();
@@ -142,10 +142,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                              max_estimates,
                                              histogram_bins);
                     fs->ift_vorticity();
-                    max_estimates[0] = max_velocity_estimate/sqrt(3);
+                    max_estimates[0] = max_vorticity_estimate/sqrt(3);
                     max_estimates[1] = max_estimates[0];
                     max_estimates[2] = max_estimates[0];
-                    max_estimates[3] = max_velocity_estimate;
+                    max_estimates[3] = max_vorticity_estimate;
                     fs->compute_rspace_stats(fs->rvorticity,
                                              vorticity_moments,
                                              hist_vorticity,
@@ -551,18 +551,20 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
                 data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
                 data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
+                data_file['postprocess/mean_trS2(t)'] = data_file['statistics/moments/trS2_Q_R'][:, 1, 0]
             for k in ['t',
                       'energy(t, k)',
                       'enstrophy(t, k)',
                       'vel_max(t)',
-                      'renergy(t)']:
+                      'renergy(t)',
+                      'mean_trS2(t)']:
                 self.statistics[k] = data_file['postprocess/' + k].value
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
         for key in ['energy', 'enstrophy']:
             self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
-        for key in ['energy', 'enstrophy', 'vel_max']:
+        for key in ['energy', 'enstrophy', 'vel_max', 'mean_trS2']:
             self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
         for suffix in ['', '(t)']:
             self.statistics['diss'    + suffix] = (self.parameters['nu'] *
