@@ -599,7 +599,7 @@ void fluid_solver<R>::compute_gradient_statistics( \
             AxyAyx = dx_u[tindex+1]*dy_u[tindex+0]; \
             AyzAzy = dy_u[tindex+2]*dz_u[tindex+1]; \
             AzxAxz = dz_u[tindex+0]*dx_u[tindex+2]; \
-            this->rv[1][tindex+1] = - ((AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz); \
+            this->rv[1][tindex+1] = - (AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz; \
             this->rv[1][tindex+2] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) + \
                                        dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) + \
                                        dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
