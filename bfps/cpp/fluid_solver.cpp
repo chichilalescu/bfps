@@ -566,15 +566,11 @@ void fluid_solver<R>::compute_gradient_statistics( \
                 ra + cc*this->cd->local_size*2); \
     } \
     /* velocity gradient is now stored, in real space, in ra */ \
-    R *vals_trS2 = this->rv[1]; \
-    R *vals_Q = this->rv[1] + 2*this->cd->local_size/3; \
-    R *vals_R = this->rv[1] + 4*this->cd->local_size/3; \
     std::fill_n(this->rv[1], 2*this->cd->local_size, 0.0); \
     R *dx_u, *dy_u, *dz_u; \
     dx_u = ra; \
     dy_u = ra + 2*this->cd->local_size; \
     dz_u = ra + 4*this->cd->local_size; \
-    double norm3half = this->normalization_factor*sqrt(this->normalization_factor); \
     double binsize[2]; \
     double tmp_max_estimate[4]; \
     tmp_max_estimate[0] = max_estimate; \
@@ -603,24 +599,22 @@ void fluid_solver<R>::compute_gradient_statistics( \
             AxyAyx = dx_u[tindex+1]*dy_u[tindex+0]; \
             AyzAzy = dy_u[tindex+2]*dz_u[tindex+1]; \
             AzxAxz = dz_u[tindex+0]*dx_u[tindex+2]; \
-            vals_Q[rindex] = (- ((AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz) / \
-                                this->normalization_factor); \
-            vals_R[rindex] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) + \
-                                dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) + \
-                                dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
-                                dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] + \
-                                dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]) / norm3half; \
-            int bin0 = int((vals_R[rindex] + tmp_max_estimate[2]) / binsize[0]); \
-            int bin1 = int((vals_Q[rindex] + tmp_max_estimate[1]) / binsize[1]); \
+            this->rv[1][tindex+1] = - ((AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz); \
+            this->rv[1][tindex+2] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) + \
+                                       dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) + \
+                                       dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
+                                       dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] + \
+                                       dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]); \
+            int bin0 = int((this->rv[1][tindex+2] + tmp_max_estimate[2]) / binsize[0]); \
+            int bin1 = int((this->rv[1][tindex+1] + tmp_max_estimate[1]) / binsize[1]); \
             if ((bin0 >= 0 && bin0 < QR2D_nbins) && \
                 (bin1 >= 0 && bin1 < QR2D_nbins)) \
                 local_hist[bin1*QR2D_nbins + bin0]++; \
             Sxy = dx_u[tindex+1]+dy_u[tindex+0]; \
             Syz = dy_u[tindex+2]+dz_u[tindex+1]; \
             Szx = dz_u[tindex+0]+dx_u[tindex+2]; \
-            vals_trS2[rindex] = ((AxxAxx + AyyAyy + AzzAzz + \
-                                  (Sxy*Sxy + Syz*Syz + Szx*Szx)/2) / \
-                                 this->normalization_factor); \
+            this->rv[1][tindex] = (AxxAxx + AyyAyy + AzzAzz + \
+                                   (Sxy*Sxy + Syz*Syz + Szx*Szx)/2); \
             ); \
     FFTW(free)(ca); \
     MPI_Allreduce( \
