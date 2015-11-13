@@ -87,7 +87,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 double *moments,
                 ptrdiff_t *histograms_1D,
                 ptrdiff_t *histogram_QR2D,
-                double trS2_max_estimate = 1.0,
+                double max_estimates[3],
                 int nbins_1D = 256,
                 int nbins_2D = 64);
 

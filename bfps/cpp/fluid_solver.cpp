@@ -544,7 +544,7 @@ void fluid_solver<R>::compute_gradient_statistics( \
         double *moments, \
         ptrdiff_t *hist, \
         ptrdiff_t *QR2D_hist, \
-        double max_estimate, \
+        double max_estimates[], \
         int nbins, \
         int QR2D_nbins) \
 { \
@@ -573,9 +573,9 @@ void fluid_solver<R>::compute_gradient_statistics( \
     dz_u = ra + 4*this->cd->local_size; \
     double binsize[2]; \
     double tmp_max_estimate[4]; \
-    tmp_max_estimate[0] = max_estimate; \
-    tmp_max_estimate[1] = max_estimate; \
-    tmp_max_estimate[2] = max_estimate*sqrt(max_estimate); \
+    tmp_max_estimate[0] = max_estimates[0]; \
+    tmp_max_estimate[1] = max_estimates[1]; \
+    tmp_max_estimate[2] = max_estimates[2]; \
     tmp_max_estimate[3] = 1.0; /* 4th component is gonna be disregarded anyway... */ \
     binsize[0] = 2*tmp_max_estimate[2] / QR2D_nbins; \
     binsize[1] = 2*tmp_max_estimate[1] / QR2D_nbins; \

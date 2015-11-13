@@ -123,12 +123,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     double *spec_vorticity = new double[fs->nshells*9];
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
+                    max_estimates[0] = max_trS2_estimate;
+                    max_estimates[1] = max_Q_estimate;
+                    max_estimates[2] = max_R_estimate;
                     fs->compute_gradient_statistics(
                         fs->cvelocity,
                         trS2_Q_R_moments,
                         hist_trS2_Q_R,
                         hist_QR2D,
-                        max_vorticity_estimate*max_vorticity_estimate,
+                        max_estimates,
                         histogram_bins,
                         QR2D_histogram_bins);
                     fs->ift_velocity();

@@ -79,6 +79,9 @@ class fluid_particle_base(bfps.code):
         self.parameters['QR2D_histogram_bins'] = 64
         self.parameters['max_velocity_estimate'] = 1.0
         self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['max_trS2_estimate'] = 1.0
+        self.parameters['max_Q_estimate'] = 1.0
+        self.parameters['max_R_estimate'] = 1.0
         self.parameters['dealias_type'] = 1
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
