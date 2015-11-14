@@ -562,7 +562,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                       'vel_max(t)',
                       'renergy(t)',
                       'mean_trS2(t)']:
-                if key in data_file['postprocess'].keys():
+                if k in data_file['postprocess'].keys():
                     self.statistics[k] = data_file['postprocess/' + k].value
             self.compute_time_averages()
         return None
