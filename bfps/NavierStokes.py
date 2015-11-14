@@ -554,21 +554,24 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
                 data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
                 data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
-                data_file['postprocess/mean_trS2(t)'] = data_file['statistics/moments/trS2_Q_R'][:, 1, 0]
+                if 'trS2_Q_R' in data_file['statistics/moments'].keys():
+                    data_file['postprocess/mean_trS2(t)'] = data_file['statistics/moments/trS2_Q_R'][:, 1, 0]
             for k in ['t',
                       'energy(t, k)',
                       'enstrophy(t, k)',
                       'vel_max(t)',
                       'renergy(t)',
                       'mean_trS2(t)']:
-                self.statistics[k] = data_file['postprocess/' + k].value
+                if key in data_file['postprocess'].keys():
+                    self.statistics[k] = data_file['postprocess/' + k].value
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
         for key in ['energy', 'enstrophy']:
             self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
         for key in ['energy', 'enstrophy', 'vel_max', 'mean_trS2']:
-            self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
+            if key + '(t)' in self.statistics.keys():
+                self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
         for suffix in ['', '(t)']:
             self.statistics['diss'    + suffix] = (self.parameters['nu'] *
                                                    self.statistics['enstrophy' + suffix]*2)
