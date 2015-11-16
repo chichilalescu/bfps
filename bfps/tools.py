@@ -94,8 +94,8 @@ def get_kindices(
     kvals = []
     radii = set([])
     index = []
-    for iz in range(kx.shape[0]):
-        for ix in range(0, kx.shape[0]):
+    for iz in range(1, kx.shape[0]):
+        for ix in range(1, kx.shape[0]):
             kval = (kx[iz]**2+kx[ix]**2)**.5
             tmp = math.modf(kval)
             if (tmp[0] == 0 and tmp[1] <= nx//2):
