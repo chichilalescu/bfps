@@ -104,6 +104,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
                     ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
                     double max_estimates[4];
+                    fs->compute_velocity(fs->cvorticity);
                     double *spec_velocity  = new double[fs->nshells*9];
                     double *spec_vorticity = new double[fs->nshells*9];
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
