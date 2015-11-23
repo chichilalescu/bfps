@@ -71,8 +71,8 @@ fluid_solver<R>::fluid_solver( \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
     this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
-    this->rvelocity  = (R*)(this->cvelocity);\
-    /*this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);*/\
+    /*this->rvelocity  = (R*)(this->cvelocity);*/\
+    this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
  \
     this->ru = this->rvelocity;\
     this->cu = this->cvelocity;\
@@ -156,6 +156,7 @@ fluid_solver<R>::fluid_solver( \
     /* initialization of fields must be done AFTER planning */ \
     std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
     std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
     std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
     std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
     std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
@@ -191,6 +192,7 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->cvorticity);\
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
+    FFTW(free)(this->rvelocity);\
     DEBUG_MSG("freed arrays\n"); \
     DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
