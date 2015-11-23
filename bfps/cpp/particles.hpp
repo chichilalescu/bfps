@@ -107,19 +107,19 @@ class particles
         /* an Euler step is needed to compute an estimate of future positions,
          * which is needed for synchronization.
          * */
-        void jump_estimate(double *jump_length);
-        void get_rhs(double *x, double *rhs);
-        void get_rhs(double t, double *x, double *rhs);
+        void jump_estimate(double *__restrict__ jump_length);
+        void get_rhs(double *__restrict__ x, double *__restrict__ rhs);
+        void get_rhs(double t, double *__restrict__ x, double *__restrict__ rhs);
 
         int get_rank(double z); // get rank for given value of z
         void synchronize();
-        void synchronize_single_particle_state(int p, double *x, int source_id = -1);
-        void get_grid_coordinates(double *x, int *xg, double *xx);
+        void synchronize_single_particle_state(int p, double *__restrict__ x, int source_id = -1);
+        void get_grid_coordinates(double *__restrict__ x, int *__restrict__ xg, double *__restrict__ xx);
         void sample_vec_field(
             interpolator<rnumber, interp_neighbours> *vec,
             double t,
-            double *x,
-            double *y,
+            double *__restrict__ x,
+            double *__restrict__ y,
             const bool synch = false,
             int *deriv = NULL);
         inline void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values)

@@ -28,13 +28,13 @@
 
 #define SPLINE_N3
 
-void beta_n3_m0(int deriv, double x, double *poly_val);
-void beta_n3_m1(int deriv, double x, double *poly_val);
-void beta_n3_m2(int deriv, double x, double *poly_val);
-void beta_n3_m3(int deriv, double x, double *poly_val);
-void beta_n3_m4(int deriv, double x, double *poly_val);
-void beta_n3_m5(int deriv, double x, double *poly_val);
-void beta_n3_m6(int deriv, double x, double *poly_val);
+void beta_n3_m0(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m1(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m2(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m3(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m4(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m5(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n3_m6(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//SPLINE_N3
 

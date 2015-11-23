@@ -28,17 +28,17 @@
 
 #define SPLINE_N5
 
-void beta_n5_m0(int deriv, double x, double *poly_val);
-void beta_n5_m1(int deriv, double x, double *poly_val);
-void beta_n5_m2(int deriv, double x, double *poly_val);
-void beta_n5_m3(int deriv, double x, double *poly_val);
-void beta_n5_m4(int deriv, double x, double *poly_val);
-void beta_n5_m5(int deriv, double x, double *poly_val);
-void beta_n5_m6(int deriv, double x, double *poly_val);
-void beta_n5_m7(int deriv, double x, double *poly_val);
-void beta_n5_m8(int deriv, double x, double *poly_val);
-void beta_n5_m9(int deriv, double x, double *poly_val);
-void beta_n5_m10(int deriv, double x, double *poly_val);
+void beta_n5_m0( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m1( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m2( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m3( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m4( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m5( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m6( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m7( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m8( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m9( const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n5_m10(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//SPLINE_N5
 
