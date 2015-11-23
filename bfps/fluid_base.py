@@ -380,8 +380,6 @@ class fluid_particle_base(bfps.code):
         kspace['kz'] = np.arange(-self.parameters['nz']//2 + 1,
                                   self.parameters['nz']//2 + 1).astype(np.float64)*self.parameters['dkz']
         kspace['kz'] = np.roll(kspace['kz'], self.parameters['nz']//2+1)
-        kspace['ksample_indices'] = bfps.tools.get_kindices(n = self.parameters['nx'])
-        print kspace['ksample_indices'].shape[0]
         return kspace
     def write_par(self, iter0 = 0):
         assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
@@ -396,14 +394,6 @@ class fluid_particle_base(bfps.code):
             for k in kspace.keys():
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
-            time_chunk = 2**20//(self.ctype.itemsize*3*kspace['ksample_indices'].shape[0])
-            time_chunk = max(time_chunk, 1)
-            ofile.create_dataset('statistics/ksamples/velocity',
-                                 (1, kspace['ksample_indices'].shape[0], 3),
-                                 chunks = (time_chunk, kspace['ksample_indices'].shape[0], 3),
-                                 maxshape = (None, kspace['ksample_indices'].shape[0], 3),
-                                 dtype = self.ctype,
-                                 compression = 'gzip')
             time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
             time_chunk = max(time_chunk, 1)
             ofile.create_dataset('statistics/histograms/trS2_Q_R',

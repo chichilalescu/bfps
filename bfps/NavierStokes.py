@@ -90,8 +90,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
-        ## ksamples
-        #self.stat_src += '{0} *ksamples = new {0}[nksamples];\n'.format(self.C_dtype)
         self.stat_src += """
                 //begincpp
                 //endcpp
@@ -106,19 +104,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
                     ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
                     double max_estimates[4];
-                    {0} *ksample_values;
-                    fs->compute_velocity(fs->cvorticity);
-                    if (fs->cd->myrank == 0)
-                    {{
-                        ksample_values = new {0}[nksamples*6];
-                        for (int i=0; i<nksamples; i++)
-                        {{
-                            ptrdiff_t cindex = (ptrdiff_t(kindices[2*i+1])*fs->cd->subsizes[2] + ptrdiff_t(kindices[2*i]))*3;
-                            std::copy(({0}*)(fs->cvelocity + cindex),
-                                      ({0}*)(fs->cvelocity + cindex + 3),
-                                      ksample_values + i*6);
-                        }}
-                    }}
                     double *spec_velocity  = new double[fs->nshells*9];
                     double *spec_vorticity = new double[fs->nshells*9];
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
@@ -268,18 +253,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[1] = QR2D_histogram_bins;
                     count[2] = QR2D_histogram_bins;
                     """)
-        self.stat_src += add_stat_output(
-                '/statistics/ksamples/velocity',
-                'ksample_values',
-                data_type = 'H5T_field_complex',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = nksamples;
-                    count[2] = 3;
-                    """)
         self.stat_src += """
                 //begincpp
-                        delete[] ksample_values;
                     }
                     delete[] spec_velocity;
                     delete[] spec_vorticity;
@@ -297,7 +272,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
                                  'int *kindices;\n' +
-                                 'int nksamples;\n' +
                                  'hid_t H5T_field_complex;\n')
         self.fluid_definitions += """
                     typedef struct {{
@@ -329,16 +303,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 fs->read('v', 'c');
                 if (fs->cd->myrank == 0)
                 {{
-                    hid_t dset = H5Dopen(stat_file, "kspace/ksample_indices", H5P_DEFAULT);
-                    hid_t rspace;
-                    rspace = H5Dget_space(dset);
-                    hsize_t count[2];
-                    H5Sget_simple_extent_dims(rspace, count, NULL);
-                    H5Sclose(rspace);
-                    nksamples = count[0];
-                    kindices = new int[nksamples*2];
-                    H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, kindices);
-                    H5Dclose(dset);
                     H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
                     H5Tinsert(H5T_field_complex, "r", HOFFSET(tmp_complex_type, re), {2});
                     H5Tinsert(H5T_field_complex, "i", HOFFSET(tmp_complex_type, im), {2});
