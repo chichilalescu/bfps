@@ -40,6 +40,11 @@ parser.add_argument('--neighbours',
         type = int, dest = 'neighbours', default = 3)
 parser.add_argument('--smoothness',
         type = int, dest = 'smoothness', default = 2)
+parser.add_argument(
+        '--kMeta',
+        type = float,
+        dest = 'kMeta',
+        default = 2.0)
 
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
@@ -81,12 +86,9 @@ def launch(
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n
     c.parameters['nz'] = opt.n
-    if type(nu) == type(None):
-        c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    else:
-        c.parameters['nu'] = nu
+    c.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
     if type(dt) == type(None):
-        c.parameters['dt'] = .4 / opt.n
+        c.parameters['dt'] = (0.5 / opt.n)
     else:
         c.parameters['dt'] = dt
     c.parameters['niter_out'] = c.parameters['niter_todo']
