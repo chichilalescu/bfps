@@ -607,8 +607,8 @@ void fluid_solver<R>::compute_gradient_statistics( \
                                        dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
                                        dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] + \
                                        dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]); \
-            int bin0 = int((this->rv[1][tindex+2] + tmp_max_estimate[2]) / binsize[0]); \
-            int bin1 = int((this->rv[1][tindex+1] + tmp_max_estimate[1]) / binsize[1]); \
+            int bin0 = int(floor((this->rv[1][tindex+2] + tmp_max_estimate[2]) / binsize[0])); \
+            int bin1 = int(floor((this->rv[1][tindex+1] + tmp_max_estimate[1]) / binsize[1])); \
             if ((bin0 >= 0 && bin0 < QR2D_nbins) && \
                 (bin1 >= 0 && bin1 < QR2D_nbins)) \
                 local_hist[bin1*QR2D_nbins + bin0]++; \
