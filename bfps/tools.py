@@ -30,13 +30,14 @@ import numpy as np
 def generate_data_3D(
         n0, n1, n2,
         dtype = np.complex128,
-        p = 1.5):
+        p = 1.5,
+        amplitude = 0.5):
     """
     generate something that has the proper shape
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
-    a[:] = np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape)
+    a[:] = amplitude*(np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape))
     k, j, i = np.mgrid[-n1/2+1:n1/2+1, -n0/2+1:n0/2+1, 0:n2/2+1]
     k = (k**2 + j**2 + i**2)**.5
     k = np.roll(k, n1//2+1, axis = 0)

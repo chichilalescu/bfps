@@ -273,6 +273,7 @@ class fluid_particle_base(bfps.code):
             self,
             rseed = 7547,
             spectra_slope = 1.,
+            amplitude = 1.,
             precision = 'single',
             iteration = 0,
             field_name = 'vorticity',
@@ -282,17 +283,20 @@ class fluid_particle_base(bfps.code):
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
-                p = spectra_slope).astype(self.ctype)
+                p = spectra_slope,
+                amplitude = amplitude).astype(self.ctype)
         Kdata01 = bfps.tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
-                p = spectra_slope).astype(self.ctype)
+                p = spectra_slope,
+                amplitude = amplitude).astype(self.ctype)
         Kdata02 = bfps.tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
-                p = spectra_slope).astype(self.ctype)
+                p = spectra_slope,
+                amplitude = amplitude).astype(self.ctype)
         Kdata0 = np.zeros(
                 Kdata00.shape + (3,),
                 Kdata00.dtype)
