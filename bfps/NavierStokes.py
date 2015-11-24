@@ -503,9 +503,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 computation_needed =  not (ii0 == pp_file['ii0'].value and
                                            ii1 == pp_file['ii1'].value)
                 if computation_needed:
-                    pp_file.close()
-                    os.remove(self.get_postprocess_file_name())
-                    pp_file = h5py.File(self.get_postprocess_file_name(), 'a')
+                    for k in pp_file.keys():
+                        del pp_file[k]
             if computation_needed:
                 pp_file['iter0'] = iter0
                 pp_file['iter1'] = iter1
