@@ -472,7 +472,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_species += 1
         return None
     def get_data_file(self):
-        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'a')
+        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
+    def get_postprocess_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
     def compute_statistics(self, iter0 = 0, iter1 = None):
         if len(list(self.statistics.keys())) > 0:
             return None
@@ -496,39 +498,42 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                             iter0//self.parameters['niter_part']:iter1//self.parameters['niter_part']+1]
                                      for key in data_file['particles'].keys()]
             computation_needed = True
-            if 'postprocess' in data_file.keys():
-                computation_needed =  not (ii0 == data_file['postprocess/ii0'].value and
-                                           ii1 == data_file['postprocess/ii1'].value)
+            pp_file = h5py.File(self.get_postprocess_file_name(), 'a')
+            if 'ii0' in pp_file.keys():
+                computation_needed =  not (ii0 == pp_file['ii0'].value and
+                                           ii1 == pp_file['ii1'].value)
                 if computation_needed:
-                    del data_file['postprocess']
+                    pp_file.close()
+                    os.remove(self.get_postprocess_file_name())
+                    pp_file = h5py.File(self.get_postprocess_file_name(), 'a')
             if computation_needed:
-                data_file['postprocess/iter0'] = iter0
-                data_file['postprocess/iter1'] = iter1
-                data_file['postprocess/ii0'] = ii0
-                data_file['postprocess/ii1'] = ii1
-                data_file['postprocess/t'] = (self.parameters['dt']*
-                                              self.parameters['niter_stat']*
-                                              (np.arange(ii0, ii1+1).astype(np.float)))
-                data_file['postprocess/energy(t, k)'] = (
-                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 0, 0] +
-                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 1, 1] +
-                        data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 2, 2])/2
-                data_file['postprocess/enstrophy(t, k)'] = (
-                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 0, 0] +
-                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 1, 1] +
-                        data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
-                data_file['postprocess/vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
-                data_file['postprocess/renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
+                pp_file['iter0'] = iter0
+                pp_file['iter1'] = iter1
+                pp_file['ii0'] = ii0
+                pp_file['ii1'] = ii1
+                pp_file['t'] = (self.parameters['dt']*
+                                self.parameters['niter_stat']*
+                                (np.arange(ii0, ii1+1).astype(np.float)))
+                pp_file['energy(t, k)'] = (
+                    data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 0, 0] +
+                    data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 1, 1] +
+                    data_file['statistics/spectra/velocity_velocity'][ii0:ii1+1, :, 2, 2])/2
+                pp_file['enstrophy(t, k)'] = (
+                    data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 0, 0] +
+                    data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 1, 1] +
+                    data_file['statistics/spectra/vorticity_vorticity'][ii0:ii1+1, :, 2, 2])/2
+                pp_file['vel_max(t)'] = data_file['statistics/moments/velocity']  [ii0:ii1+1, 9, 3]
+                pp_file['renergy(t)'] = data_file['statistics/moments/velocity'][ii0:ii1+1, 2, 3]/2
                 if 'trS2_Q_R' in data_file['statistics/moments'].keys():
-                    data_file['postprocess/mean_trS2(t)'] = data_file['statistics/moments/trS2_Q_R'][:, 1, 0]
+                    pp_file['mean_trS2(t)'] = data_file['statistics/moments/trS2_Q_R'][:, 1, 0]
             for k in ['t',
                       'energy(t, k)',
                       'enstrophy(t, k)',
                       'vel_max(t)',
                       'renergy(t)',
                       'mean_trS2(t)']:
-                if k in data_file['postprocess'].keys():
-                    self.statistics[k] = data_file['postprocess/' + k].value
+                if k in pp_file.keys():
+                    self.statistics[k] = pp_file[k].value
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
