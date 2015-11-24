@@ -156,7 +156,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
             local_moments[0*4+3] = val_tmp[3];
         if (val_tmp[3] > local_moments[9*4+3])
             local_moments[9*4+3] = val_tmp[3];
-        bin = int(val_tmp[3]*2/binsize[3]);
+        bin = int(floor(val_tmp[3]*2/binsize[3]));
         if (bin >= 0 && bin < nbins)
             local_hist[bin*4+3]++;
         for (int i=0; i<3; i++)
@@ -165,7 +165,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*4+i] = val_tmp[i];
             if (val_tmp[i] > local_moments[9*4+i])
                 local_moments[9*4+i] = val_tmp[i];
-            bin = int((val_tmp[i] + max_estimate[i]) / binsize[i]);
+            bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*4+i]++;
         }
