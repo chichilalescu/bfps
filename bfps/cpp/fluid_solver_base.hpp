@@ -110,32 +110,32 @@ class fluid_solver_base
 /* macros for loops                                                          */
 
 /* Fourier space loop */
-#define CLOOP(expression) \
+#define CLOOP(obj, expression) \
  \
 { \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
-    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
             expression; \
             cindex++; \
         } \
 }
 
-#define CLOOP_NXMODES(expression) \
+#define CLOOP_NXMODES(obj, expression) \
  \
 { \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
     { \
         int nxmodes = 1; \
         ptrdiff_t xindex = 0; \
         expression; \
         cindex++; \
         nxmodes = 2; \
-    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
             expression; \
             cindex++; \
@@ -143,44 +143,44 @@ class fluid_solver_base
     } \
 }
 
-#define CLOOP_K2(expression) \
+#define CLOOP_K2(obj, expression) \
  \
 { \
     double k2; \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
-    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
             expression; \
             cindex++; \
         } \
 }
 
-#define CLOOP_K2_NXMODES(expression) \
+#define CLOOP_K2_NXMODES(obj, expression) \
  \
 { \
     double k2; \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
     { \
         int nxmodes = 1; \
         ptrdiff_t xindex = 0; \
-        k2 = (this->kx[xindex]*this->kx[xindex] + \
-              this->ky[yindex]*this->ky[yindex] + \
-              this->kz[zindex]*this->kz[zindex]); \
+        k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+              obj->ky[yindex]*obj->ky[yindex] + \
+              obj->kz[zindex]*obj->kz[zindex]); \
         expression; \
         cindex++; \
         nxmodes = 2; \
-    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
             expression; \
             cindex++; \
         } \

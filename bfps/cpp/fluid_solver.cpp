@@ -202,6 +202,7 @@ void fluid_solver<R>::compute_vorticity() \
 { \
     ptrdiff_t tindex; \
     CLOOP_K2( \
+            this, \
             tindex = 3*cindex; \
             if (k2 <= this->kM2) \
             { \
@@ -223,6 +224,7 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 { \
     ptrdiff_t tindex; \
     CLOOP_K2( \
+            this, \
             tindex = 3*cindex; \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
@@ -290,6 +292,7 @@ void fluid_solver<R>::add_forcing(\
     { \
         double knorm; \
         CLOOP( \
+                this, \
                 knorm = sqrt(this->kx[xindex]*this->kx[xindex] + \
                              this->ky[yindex]*this->ky[yindex] + \
                              this->kz[zindex]*this->kz[zindex]); \
@@ -330,6 +333,7 @@ void fluid_solver<R>::omega_nonlin( \
     this->dealias(this->cu, 3); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
     CLOOP( \
+            this, \
             tindex = 3*cindex; \
             { \
                 tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]); \
@@ -353,6 +357,7 @@ void fluid_solver<R>::step(double dt) \
     std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
     this->omega_nonlin(0); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt); \
@@ -364,6 +369,7 @@ void fluid_solver<R>::step(double dt) \
  \
     this->omega_nonlin(1); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt/2); \
@@ -377,6 +383,7 @@ void fluid_solver<R>::step(double dt) \
  \
     this->omega_nonlin(2); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt * 0.5); \
@@ -461,11 +468,13 @@ void fluid_solver<R>::compute_Eulerian_acceleration(R *acceleration) \
 { \
     this->omega_nonlin(0); \
     CLOOP_K2( \
+            this, \
             for (int cc=0; cc<3; cc++) \
                 for (int i=0; i<2; i++) \
                     this->cv[1][3*cindex+cc][i] = this->cu[3*cindex+cc][i] - this->nu*k2*this->cv[0][3*cindex+cc][i]; \
             ); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 this->cv[2][3*cindex+0][0] = -(this->ky[yindex]*this->cv[1][3*cindex+2][1] - this->kz[zindex]*this->cv[1][3*cindex+1][1]) / k2; \
@@ -502,6 +511,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     this->dealias(this->cv[1], 3); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
@@ -526,6 +536,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     this->dealias(this->cv[1], 3); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
@@ -655,6 +666,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     this->compute_velocity(this->cvorticity); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 tindex = 3*cindex; \

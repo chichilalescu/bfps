@@ -70,6 +70,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     std::fill_n(cospec_local, this->nshells*9, 0);
     int tmp_int;
     CLOOP_K2_NXMODES(
+            this,
             if (k2 <= this->kM2)
             {
                 tmp_int = int(sqrt(k2)/this->dk)*9;
@@ -98,6 +99,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     double factor = 1;
     int tmp_int;
     CLOOP_K2_NXMODES(
+            this,
             if (k2 <= this->kM2)
             {
                 factor = nxmodes*pow(k2, k2exponent);
@@ -316,6 +318,7 @@ fluid_solver_base<R>::fluid_solver_base( \
     std::fill_n(nshell_local, this->nshells, 0.0); \
     double knorm; \
     CLOOP_K2_NXMODES( \
+            this, \
             if (k2 < this->kM2) \
             { \
                 knorm = sqrt(k2); \
@@ -366,6 +369,7 @@ void fluid_solver_base<R>::low_pass_Fourier(FFTW(complex) *a, const int howmany,
     const int howmany2 = 2*howmany; \
     /*DEBUG_MSG("entered low_pass_Fourier, kmax=%lg km2=%lg howmany2=%d\n", kmax, km2, howmany2);*/ \
     CLOOP_K2( \
+            this, \
             /*DEBUG_MSG("kx=%lg ky=%lg kz=%lg k2=%lg\n", \
                       this->kx[xindex], \
                       this->ky[yindex], \
@@ -386,6 +390,7 @@ void fluid_solver_base<R>::dealias(FFTW(complex) *a, const int howmany) \
         } \
     double tval; \
     CLOOP_K2( \
+            this, \
             tval = this->Fourier_filter[int(round(k2/this->dk2))]; \
             for (int tcounter = 0; tcounter < howmany; tcounter++) \
             for (int i=0; i<2; i++) \
@@ -398,6 +403,7 @@ void fluid_solver_base<R>::force_divfree(FFTW(complex) *a) \
 { \
     FFTW(complex) tval; \
     CLOOP_K2( \
+            this, \
             if (k2 > 0) \
             { \
                 tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) + \
@@ -428,6 +434,7 @@ void fluid_solver_base<R>::compute_vector_gradient(FFTW(complex) *A, FFTW(comple
     dy_u = A + this->cd->local_size; \
     dz_u = A + 2*this->cd->local_size; \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 tindex = 3*cindex; \
