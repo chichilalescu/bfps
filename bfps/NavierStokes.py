@@ -87,6 +87,27 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.statistics = {}
         self.fluid_output = 'fs->write(\'v\', \'c\');\n'
         return None
+    def create_stat_output(
+            self,
+            dset_name,
+            data_buffer,
+            data_type = 'H5T_NATIVE_DOUBLE',
+            size_setup = None,
+            close_spaces = True):
+        new_stat_output_txt = 'Cdset = H5Dopen(stat_file, "{0}", H5P_DEFAULT);\n'.format(dset_name)
+        if not type(size_setup) == type(None):
+            new_stat_output_txt += (
+                    size_setup +
+                    'wspace = H5Dget_space(Cdset);\n' +
+                    'ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);\n' +
+                    'mspace = H5Screate_simple(ndims, count, NULL);\n' +
+                    'H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);\n')
+        new_stat_output_txt += ('H5Dwrite(Cdset, {0}, mspace, wspace, H5P_DEFAULT, {1});\n' +
+                                'H5Dclose(Cdset);\n').format(data_type, data_buffer)
+        if close_spaces:
+            new_stat_output_txt += ('H5Sclose(mspace);\n' +
+                                    'H5Sclose(wspace);\n')
+        return new_stat_output_txt
     def write_fluid_stats(self):
         self.fluid_includes += '#include <cmath>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
@@ -155,27 +176,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
-        def add_stat_output(
-                dset_name,
-                data_buffer,
-                data_type = 'H5T_NATIVE_DOUBLE',
-                size_setup = None,
-                close_spaces = True):
-            new_stat_output_txt = 'Cdset = H5Dopen(stat_file, "{0}", H5P_DEFAULT);\n'.format(dset_name)
-            if not type(size_setup) == type(None):
-                new_stat_output_txt += (
-                        size_setup +
-                        'wspace = H5Dget_space(Cdset);\n' +
-                        'ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);\n' +
-                        'mspace = H5Screate_simple(ndims, count, NULL);\n' +
-                        'H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);\n')
-            new_stat_output_txt += ('H5Dwrite(Cdset, {0}, mspace, wspace, H5P_DEFAULT, {1});\n' +
-                                    'H5Dclose(Cdset);\n').format(data_type, data_buffer)
-            if close_spaces:
-                new_stat_output_txt += ('H5Sclose(mspace);\n' +
-                                        'H5Sclose(wspace);\n')
-            return new_stat_output_txt
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/xlines/velocity',
                 'fs->rvelocity',
                 data_type = field_H5T,
@@ -185,11 +186,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[2] = 3;
                     """,
                 close_spaces = False)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/xlines/vorticity',
                 'fs->rvorticity',
                 data_type = field_H5T)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/moments/velocity',
                 'velocity_moments',
                 size_setup = """
@@ -198,10 +199,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[2] = 4;
                     """,
                 close_spaces = False)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/moments/vorticity',
                 'vorticity_moments')
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/moments/trS2_Q_R',
                 'trS2_Q_R_moments',
                 size_setup ="""
@@ -209,7 +210,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[1] = 10;
                     count[2] = 3;
                     """)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/spectra/velocity_velocity',
                 'spec_velocity',
                 size_setup = """
@@ -219,10 +220,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[3] = 3;
                     """,
                 close_spaces = False)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/spectra/vorticity_vorticity',
                 'spec_vorticity')
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/histograms/velocity',
                 'hist_velocity',
                 data_type = 'H5T_NATIVE_INT64',
@@ -232,11 +233,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[2] = 4;
                     """,
                 close_spaces = False)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/histograms/vorticity',
                 'hist_vorticity',
                 data_type = 'H5T_NATIVE_INT64')
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/histograms/trS2_Q_R',
                 'hist_trS2_Q_R',
                 data_type = 'H5T_NATIVE_INT64',
@@ -245,7 +246,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     count[1] = histogram_bins;
                     count[2] = 3;
                     """)
-        self.stat_src += add_stat_output(
+        self.stat_src += self.create_stat_output(
                 '/statistics/histograms/QR2D',
                 'hist_QR2D',
                 data_type = 'H5T_NATIVE_INT64',

@@ -110,7 +110,7 @@ class fluid_particle_base(bfps.code):
             self.definitions += self.particle_definitions
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
-                             'hsize_t dims[4];\n' +
+                             'hsize_t dims[5];\n' +
                              'hsize_t space;\n' +
                              'space = H5Dget_space(dset);\n' +
                              'ndims = H5Sget_simple_extent_dims(space, dims, NULL);\n' +
