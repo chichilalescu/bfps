@@ -43,16 +43,32 @@ interpolator<rnumber, interp_neighbours>::interpolator(
             4, tdims,
             this->unbuffered_descriptor->mpi_dtype,
             this->unbuffered_descriptor->comm);
-    this->f0 = new rnumber[this->descriptor->local_size];
-    this->f1 = new rnumber[this->descriptor->local_size];
+    if (sizeof(rnumber) == 4)
+    {
+        this->f0 = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
+        this->f1 = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
+    }
+    else if (sizeof(rnumber) == 8)
+    {
+        this->f0 = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
+        this->f1 = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
+    }
     this->temp = this->f1 + this->buffer_size;
 }
 
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::~interpolator()
 {
-    delete[] this->f0;
-    delete[] this->f1;
+    if (sizeof(rnumber) == 4)
+    {
+        fftwf_free((float*)((void*)this->f0));
+        fftwf_free((float*)((void*)this->f1));
+    }
+    else if (sizeof(rnumber) == 8)
+    {
+        fftw_free((double*)((void*)this->f0));
+        fftw_free((double*)((void*)this->f1));
+    }
     delete this->descriptor;
 }
 
