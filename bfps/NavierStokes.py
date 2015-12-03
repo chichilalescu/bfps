@@ -350,6 +350,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'particle_field'):
+        self.fluid_includes += '#include "interpolator.hpp"\n'
         self.fluid_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
         self.parameters[name + '_neighbours'] = neighbours
