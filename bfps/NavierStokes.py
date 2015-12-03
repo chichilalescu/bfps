@@ -41,15 +41,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             fluid_precision = 'single',
             fftw_plan_rigor = 'FFTW_MEASURE',
             frozen_fields = False,
-            use_fftw_wisdom = True):
+            use_fftw_wisdom = True,
+            QR_stats_on = False):
+        self.QR_stats_on = QR_stats_on
+        self.frozen_fields = frozen_fields
+        self.fftw_plan_rigor = fftw_plan_rigor
         super(NavierStokes, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision,
                 use_fftw_wisdom = use_fftw_wisdom)
-        self.frozen_fields = frozen_fields
-        self.fftw_plan_rigor = fftw_plan_rigor
         self.file_datasets_grow = """
                 //begincpp
                 std::string temp_string;
@@ -119,17 +121,22 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 //begincpp
                     double *velocity_moments  = new double[10*4];
                     double *vorticity_moments = new double[10*4];
-                    double *trS2_Q_R_moments  = new double[10*3];
                     ptrdiff_t *hist_velocity  = new ptrdiff_t[histogram_bins*4];
                     ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
-                    ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
-                    ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
                     double max_estimates[4];
                     fs->compute_velocity(fs->cvorticity);
                     double *spec_velocity  = new double[fs->nshells*9];
                     double *spec_vorticity = new double[fs->nshells*9];
                     fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
                     fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
+                    //endcpp
+                    """
+        if self.QR_stats_on:
+            self.stat_src += """
+                //begincpp
+                    double *trS2_Q_R_moments  = new double[10*3];
+                    ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
+                    ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
                     max_estimates[0] = max_trS2_estimate;
                     max_estimates[1] = max_Q_estimate;
                     max_estimates[2] = max_R_estimate;
@@ -141,6 +148,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         max_estimates,
                         histogram_bins,
                         QR2D_histogram_bins);
+                    //endcpp
+                    """
+        self.stat_src += """
+                //begincpp
                     fs->ift_velocity();
                     max_estimates[0] = max_velocity_estimate/sqrt(3);
                     max_estimates[1] = max_estimates[0];
@@ -203,14 +214,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 '/statistics/moments/vorticity',
                 'vorticity_moments')
         self.stat_src += self.create_stat_output(
-                '/statistics/moments/trS2_Q_R',
-                'trS2_Q_R_moments',
-                size_setup ="""
-                    count[0] = 1;
-                    count[1] = 10;
-                    count[2] = 3;
-                    """)
-        self.stat_src += self.create_stat_output(
                 '/statistics/spectra/velocity_velocity',
                 'spec_velocity',
                 size_setup = """
@@ -237,24 +240,33 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 '/statistics/histograms/vorticity',
                 'hist_vorticity',
                 data_type = 'H5T_NATIVE_INT64')
-        self.stat_src += self.create_stat_output(
-                '/statistics/histograms/trS2_Q_R',
-                'hist_trS2_Q_R',
-                data_type = 'H5T_NATIVE_INT64',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = histogram_bins;
-                    count[2] = 3;
-                    """)
-        self.stat_src += self.create_stat_output(
-                '/statistics/histograms/QR2D',
-                'hist_QR2D',
-                data_type = 'H5T_NATIVE_INT64',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = QR2D_histogram_bins;
-                    count[2] = QR2D_histogram_bins;
-                    """)
+        if self.QR_stats_on:
+            self.stat_src += self.create_stat_output(
+                    '/statistics/moments/trS2_Q_R',
+                    'trS2_Q_R_moments',
+                    size_setup ="""
+                        count[0] = 1;
+                        count[1] = 10;
+                        count[2] = 3;
+                        """)
+            self.stat_src += self.create_stat_output(
+                    '/statistics/histograms/trS2_Q_R',
+                    'hist_trS2_Q_R',
+                    data_type = 'H5T_NATIVE_INT64',
+                    size_setup = """
+                        count[0] = 1;
+                        count[1] = histogram_bins;
+                        count[2] = 3;
+                        """)
+            self.stat_src += self.create_stat_output(
+                    '/statistics/histograms/QR2D',
+                    'hist_QR2D',
+                    data_type = 'H5T_NATIVE_INT64',
+                    size_setup = """
+                        count[0] = 1;
+                        count[1] = QR2D_histogram_bins;
+                        count[2] = QR2D_histogram_bins;
+                        """)
         self.stat_src += """
                 //begincpp
                     }
@@ -262,9 +274,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     delete[] spec_vorticity;
                     delete[] velocity_moments;
                     delete[] vorticity_moments;
-                    delete[] trS2_Q_R_moments;
                     delete[] hist_velocity;
                     delete[] hist_vorticity;
+                //endcpp
+                """
+        if self.QR_stats_on:
+            self.stat_src += """
+                //begincpp
+                    delete[] trS2_Q_R_moments;
                     delete[] hist_trS2_Q_R;
                     delete[] hist_QR2D;
                 //endcpp
