@@ -591,6 +591,49 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                          self.parameters['nz'],
                          self.parameters['nx']//2+1,
                          3))
+    def write_par(self, iter0 = 0):
+        super(NavierStokes, self).write_par(iter0 = iter0)
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
+            kspace = self.get_kspace()
+            nshells = kspace['nshell'].shape[0]
+            if self.QR_stats_on:
+                time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/trS2_Q_R',
+                                     (1,
+                                      self.parameters['histogram_bins'],
+                                      3),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins'],
+                                               3),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins'],
+                                                 3),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*3*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/trS2_Q_R',
+                                     (1, 10, 3),
+                                     chunks = (time_chunk, 10, 3),
+                                     maxshape = (None, 10, 3),
+                                     dtype = np.float64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/QR2D',
+                                     (1,
+                                      self.parameters['QR2D_histogram_bins'],
+                                      self.parameters['QR2D_histogram_bins']),
+                                     chunks = (time_chunk,
+                                               self.parameters['QR2D_histogram_bins'],
+                                               self.parameters['QR2D_histogram_bins']),
+                                     maxshape = (None,
+                                                 self.parameters['QR2D_histogram_bins'],
+                                                 self.parameters['QR2D_histogram_bins']),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
+        return None
 
 def launch(
         opt,
