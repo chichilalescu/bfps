@@ -44,7 +44,7 @@ class fluid_particle_base(bfps.code):
                 work_dir = work_dir,
                 simname = simname)
         self.use_fftw_wisdom = use_fftw_wisdom
-        self.name = name
+        self.name = name + '_' + simname
         self.particle_species = 0
         if dtype in [np.float32, np.float64]:
             self.dtype = dtype
