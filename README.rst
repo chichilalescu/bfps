@@ -18,20 +18,3 @@ Comments
 * particles: initialization of multistep solvers is done with lower
   order methods, so don't be surprised if direct convergence tests fail.
 
-TODO
-----
-
-* add different numerical method, for testing purposes
-
-* test involving hydrodynamic similarity
-
-* test anisotropic grids
-
-* test non-cubic domains
-
-* use HDF5 io for fields
-
-* try to make code more memory efficient
-
-* make code py3 compatible
-
