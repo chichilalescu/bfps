@@ -85,7 +85,7 @@ def get_parser(base_class = NavierStokes,
     parser.add_argument('--njobs',
             type = int, dest = 'njobs',
             default = njobs)
-    c = base_class()
+    c = base_class(simname = simname)
     for k in sorted(c.parameters.keys()):
         parser.add_argument(
                 '--{0}'.format(k),
