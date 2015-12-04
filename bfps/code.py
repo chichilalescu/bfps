@@ -139,7 +139,7 @@ class code(base):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['bfps'] + bfps.install_info['libraries']
+        libraries = ['bfps.cpython-34m'] + bfps.install_info['libraries']
 
         command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]

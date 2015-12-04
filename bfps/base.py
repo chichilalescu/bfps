@@ -48,8 +48,7 @@ class base(object):
         self.simname = simname
         return None
     def cdef_pars(self):
-        key = self.parameters.keys()
-        key.sort()
+        key = sorted(list(self.parameters.keys()))
         src_txt = ''
         for i in range(len(key)):
             if type(self.parameters[key[i]]) == int:
@@ -60,8 +59,7 @@ class base(object):
                 src_txt += 'double ' + key[i] + ';\n'
         return src_txt
     def cread_pars(self):
-        key = self.parameters.keys()
-        key.sort()
+        key = sorted(list(self.parameters.keys()))
         src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
                  + 'hid_t dset, memtype, space;\n'
                  + 'hsize_t dims[1];\n'

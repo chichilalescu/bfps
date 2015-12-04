@@ -49,7 +49,7 @@ except DistributionNotFound:
 install_info = pickle.load(
         open(os.path.join(os.path.dirname(here),
                           'install_info.pickle'),
-             'r'))
+             'rb'))
 
 from .code import code
 from .fluid_converter import fluid_converter
