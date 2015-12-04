@@ -62,8 +62,8 @@ src_file_list = ['field_descriptor',
 
 header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
-with open('MANIFEST.in', 'w') as manifest_in_file:
-    manifest_in_file.write('include libbfps.a\n')
+#with open('MANIFEST.in', 'w') as manifest_in_file:
+#    manifest_in_file.write('include libbfps.a\n')
 #    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
 #        manifest_in_file.write('include {0}\n'.format(fname))
 
@@ -84,11 +84,13 @@ pickle.dump(
         open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
 
-from distutils.command.install import install as DistutilsInstall
+from distutils.command.build import build as DistutilsBuild
 
-class CustomInstall(DistutilsInstall):
+class CustomBuild(DistutilsBuild):
     def run(self):
         # compile bfps library
+        if not os.path.isdir('obj'):
+            os.makedirs('obj')
         for fname in src_file_list:
             ifile = 'bfps/cpp/' + fname + '.cpp'
             ofile = 'obj/' + fname + '.o'
@@ -106,14 +108,14 @@ class CustomInstall(DistutilsInstall):
                 command_strings.append('-Ibfps/cpp/')
                 print(' '.join(command_strings))
                 subprocess.call(command_strings)
-        command_strings = ['ar', 'rvs', 'libbfps.a']
+        command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
         command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
         #command_strings += ['-l' + libname for libname in libraries]
         #command_strings += ['-L' + ldir for ldir in library_dirs]
         #command_strings += ['-o', 'libbfps.a']
         print(' '.join(command_strings))
         subprocess.call(command_strings)
-        DistutilsInstall.run(self)
+        DistutilsBuild.run(self)
 
 from setuptools import setup
 
@@ -121,7 +123,7 @@ setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
-        cmdclass={'install': CustomInstall},
+        cmdclass={'build': CustomBuild},
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'libbfps.a',
                                                'install_info.pickle']},

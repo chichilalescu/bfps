@@ -41,7 +41,7 @@ try:
         lib_dir = os.path.join(os.path.dirname(here), os.pardir)
         raise DistributionNotFound
     header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
-    lib_dir = _dist.location
+    lib_dir = os.path.join(dist_loc, 'bfps')
     __version__ = _dist.version
 except DistributionNotFound:
     __version__ = ''
