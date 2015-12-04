@@ -86,8 +86,7 @@ class base(object):
         src_txt += 'return 0;\n}\n' # finishing read_parameters
         return src_txt
     def cprint_pars(self):
-        key = self.parameters.keys()
-        key.sort()
+        key = sorted(list(self.parameters.keys()))
         src_txt = ''
         for i in range(len(key)):
             if type(self.parameters[key[i]]) == int:

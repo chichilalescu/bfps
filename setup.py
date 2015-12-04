@@ -110,9 +110,6 @@ class CustomBuild(DistutilsBuild):
                 subprocess.call(command_strings)
         command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
         command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
-        #command_strings += ['-l' + libname for libname in libraries]
-        #command_strings += ['-L' + ldir for ldir in library_dirs]
-        #command_strings += ['-o', 'libbfps.a']
         print(' '.join(command_strings))
         subprocess.call(command_strings)
         DistutilsBuild.run(self)
