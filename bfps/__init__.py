@@ -38,7 +38,7 @@ try:
     if not here.startswith(os.path.join(dist_loc, 'bfps')):
         # not installed, but there is another version that *is*
         header_dir = os.path.join(os.path.dirname(here), 'cpp')
-        lib_dir = os.path.join(os.path.dirname(here), os.pardir)
+        lib_dir = os.path.dirname(here)
         raise DistributionNotFound
     header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
     lib_dir = os.path.join(dist_loc, 'bfps')
