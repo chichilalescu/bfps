@@ -64,16 +64,14 @@ class base(object):
         src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
                  + 'hid_t dset, memtype, space;\n'
                  + 'hsize_t dims[1];\n'
-                 + 'char *string_data;\n'
-                 + 'std::string tempstr;\n')
+                 + 'char *string_data;\n')
         for i in range(len(key)):
             src_txt += 'dset = H5Dopen(data_file_id, "parameters/{0}", H5P_DEFAULT);\n'.format(key[i])
             if type(self.parameters[key[i]]) == int:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
             elif type(self.parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
-                            'memtype = H5Tcopy(H5T_C_S1);\n' +
-                            'H5Tset_size(memtype, H5T_VARIABLE);\n' +
+                            'memtype = H5Dget_type(dset);\n' +
                             'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
                             'string_data = (char*)malloc(dims[0]*sizeof(char));\n' +
                             'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
@@ -103,8 +101,11 @@ class base(object):
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             if (type(self.parameters[k]) == str) and (sys.version[0] == 3):
-                ofile['parameters/' + k] = bytes(self.parameters[k], 'ascii')
-                print (ofile['parameters/' + k])
+                ofile.create_dataset('parameters/' + k,
+                                     (1,),
+                                     dtype = 'S10')
+                #ofile['parameters/' + k] = self.parameters[k].encode('ascii', 'ignore')
+                #print (ofile['parameters/' + k])
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
