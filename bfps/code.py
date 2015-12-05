@@ -24,10 +24,11 @@
 
 
 
-import h5py
-import subprocess
 import os
+import sys
 import shutil
+import subprocess
+import h5py
 from datetime import datetime
 import math
 import bfps
@@ -139,7 +140,8 @@ class code(base):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['bfps'] + bfps.install_info['libraries']
+        libraries = ['bfps']
+        libraries += bfps.install_info['libraries']
 
         command_strings = ['g++']
         command_strings += [self.name + '.cpp', '-o', self.name]

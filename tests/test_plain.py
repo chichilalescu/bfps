@@ -46,12 +46,12 @@ def plain(opt):
     assert(opt.niter_todo % 3 == 0)
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
-    opt.niter_todo /= 2
+    opt.niter_todo = opt.niter_todo//2
     c1 = launch(opt, dt = c0.parameters['dt'])
     c1.compute_statistics()
     opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
-    opt.njobs = 3*opt.njobs/2
-    opt.niter_todo = 2*opt.niter_todo/3
+    opt.njobs = 3*opt.njobs//2
+    opt.niter_todo = 2*opt.niter_todo//3
     c2 = launch(opt, dt = c0.parameters['dt'])
     c2.compute_statistics()
     # plot energy and enstrophy

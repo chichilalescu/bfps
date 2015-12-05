@@ -28,9 +28,7 @@
 #include "base.hpp"
 #include "fftw_tools.hpp"
 
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+#define NDEBUG
 
 template <class rnumber>
 int clip_zero_padding(

@@ -37,12 +37,14 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
             name = 'fluid_converter',
             work_dir = './',
             simname = 'test',
-            fluid_precision = 'single'):
+            fluid_precision = 'single',
+            use_fftw_wisdom = True):
         super(fluid_converter, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = fluid_precision)
+                dtype = fluid_precision,
+                use_fftw_wisdom = use_fftw_wisdom)
         self.parameters['write_rvelocity']  = 1
         self.parameters['write_rvorticity'] = 1
         self.parameters['fluid_name'] = 'test'
