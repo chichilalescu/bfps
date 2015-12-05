@@ -1,6 +1,5 @@
 (B) use less memory                                         @optimization
 (C) code overview                                           @documentation
-(C) make code py3 compatible                                @python3
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @HDF5 +I/O
 (D) test anisotropic grids                                  @tests

@@ -94,6 +94,7 @@ def launch(
     c.parameters['niter_out'] = c.parameters['niter_todo']
     c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
+    c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:
         c.add_particle_fields(name = 'regular', neighbours = opt.neighbours, smoothness = opt.smoothness)
         c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
@@ -116,7 +117,6 @@ def launch(
                     integration_steps = info[0],
                     integration_method = info[1],
                     fields_name = 'regular')
-    c.fill_up_fluid_code()
     c.finalize_code()
     c.write_src()
     c.write_par()
@@ -124,7 +124,9 @@ def launch(
     if opt.run:
         if opt.iteration == 0 and opt.initialize:
             if type(vorticity_field) == type(None):
-                c.generate_vector_field(write_to_file = True, spectra_slope = 1.5)
+                c.generate_vector_field(write_to_file = True,
+                                        spectra_slope = 2.0,
+                                        amplitude = 0.25)
             else:
                 vorticity_field.tofile(
                         os.path.join(c.work_dir,

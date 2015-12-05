@@ -31,6 +31,7 @@ import pickle
 AUTHOR = 'Cristian C Lalescu'
 AUTHOR_EMAIL = 'Cristian.Lalescu@ds.mpg.de'
 
+import os
 import datetime
 import subprocess
 from subprocess import CalledProcessError
@@ -61,8 +62,8 @@ src_file_list = ['field_descriptor',
 
 header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
-# not sure we need the MANIFEST.in file, but I might as well
 #with open('MANIFEST.in', 'w') as manifest_in_file:
+#    manifest_in_file.write('include libbfps.a\n')
 #    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
 #        manifest_in_file.write('include {0}\n'.format(fname))
 
@@ -83,22 +84,45 @@ pickle.dump(
         open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
 
-from setuptools import setup, Extension
+from distutils.command.build import build as DistutilsBuild
 
-libbfps = Extension(
-        'libbfps',
-        sources = ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list],
-        include_dirs = include_dirs,
-        libraries = libraries,
-        extra_compile_args = extra_compile_args,
-        library_dirs = library_dirs)
+class CustomBuild(DistutilsBuild):
+    def run(self):
+        # compile bfps library
+        if not os.path.isdir('obj'):
+            os.makedirs('obj')
+        for fname in src_file_list:
+            ifile = 'bfps/cpp/' + fname + '.cpp'
+            ofile = 'obj/' + fname + '.o'
+            if not os.path.exists(ofile):
+                need_to_compile = True
+            else:
+                need_to_compile = (datetime.datetime.fromtimestamp(os.path.getctime(ofile)) <
+                                   datetime.datetime.fromtimestamp(os.path.getctime(ifile)))
+            if need_to_compile:
+                command_strings = ['g++', '-c']
+                command_strings += ['bfps/cpp/' + fname + '.cpp']
+                command_strings += ['-o', 'obj/' + fname + '.o']
+                command_strings += extra_compile_args
+                command_strings += ['-I' + idir for idir in include_dirs]
+                command_strings.append('-Ibfps/cpp/')
+                print(' '.join(command_strings))
+                subprocess.call(command_strings)
+        command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
+        command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
+        print(' '.join(command_strings))
+        subprocess.call(command_strings)
+        DistutilsBuild.run(self)
+
+from setuptools import setup
 
 setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
-        ext_modules = [libbfps],
+        cmdclass={'build': CustomBuild},
         package_data = {'bfps': header_list + ['../machine_settings.py',
+                                               'libbfps.a',
                                                'install_info.pickle']},
 ########################################################################
 # useless stuff folows

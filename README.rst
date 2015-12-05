@@ -18,3 +18,7 @@ Comments
 * particles: initialization of multistep solvers is done with lower
   order methods, so don't be surprised if direct convergence tests fail.
 
+* I am using this code mainly with Python 3.4, but Python 2.7
+  compatibility should be kept since mayavi (well, vtk actually) only
+  works on Python 2.
+

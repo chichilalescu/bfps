@@ -350,7 +350,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'particle_field'):
-        self.particle_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
+        self.fluid_includes += '#include "interpolator.hpp"\n'
+        self.fluid_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
         self.parameters[name + '_neighbours'] = neighbours
         if interp_type == 'spline':
@@ -358,13 +359,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.particle_start += ('vel_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
-                                'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n').format(name,
-                                                                                           self.C_dtype,
-                                                                                           neighbours,
-                                                                                           beta_name)
-        self.particle_end += ('delete vel_{0};\n' +
-                              'delete acc_{0};\n').format(name)
+        self.fluid_start += ('vel_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
+                             'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n').format(name,
+                                                                                        self.C_dtype,
+                                                                                        neighbours,
+                                                                                        beta_name)
+        self.fluid_end += ('delete vel_{0};\n' +
+                           'delete acc_{0};\n').format(name)
         update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == type(None):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
@@ -372,8 +373,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
                           'fs->compute_Lagrangian_acceleration(acc_{0}->temp);\n' +
                           'acc_{0}->read_rFFTW(acc_{0}->temp);\n').format(name)
-        self.particle_start += update_fields
-        self.particle_loop += update_fields
+        self.fluid_start += update_fields
+        self.fluid_loop += update_fields
         return None
     def add_particles(
             self,
@@ -591,6 +592,49 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                          self.parameters['nz'],
                          self.parameters['nx']//2+1,
                          3))
+    def write_par(self, iter0 = 0):
+        super(NavierStokes, self).write_par(iter0 = iter0)
+        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
+            kspace = self.get_kspace()
+            nshells = kspace['nshell'].shape[0]
+            if self.QR_stats_on:
+                time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/trS2_Q_R',
+                                     (1,
+                                      self.parameters['histogram_bins'],
+                                      3),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins'],
+                                               3),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins'],
+                                                 3),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*3*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/trS2_Q_R',
+                                     (1, 10, 3),
+                                     chunks = (time_chunk, 10, 3),
+                                     maxshape = (None, 10, 3),
+                                     dtype = np.float64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/QR2D',
+                                     (1,
+                                      self.parameters['QR2D_histogram_bins'],
+                                      self.parameters['QR2D_histogram_bins']),
+                                     chunks = (time_chunk,
+                                               self.parameters['QR2D_histogram_bins'],
+                                               self.parameters['QR2D_histogram_bins']),
+                                     maxshape = (None,
+                                                 self.parameters['QR2D_histogram_bins'],
+                                                 self.parameters['QR2D_histogram_bins']),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
+        return None
 
 def launch(
         opt,
