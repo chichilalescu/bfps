@@ -349,9 +349,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             kcut = None,
             neighbours = 1,
             smoothness = 1,
-            name = 'particle_field'):
-        self.fluid_includes += '#include "interpolator.hpp"\n'
-        self.fluid_variables += 'interpolator<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
+            name = 'particle_field',
+            field_class = 'rFFTW_interpolator'):
+        self.fluid_includes += '#include "{0}.hpp"\n'.format(field_class)
+        self.fluid_variables += field_class + '<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
         self.parameters[name + '_neighbours'] = neighbours
         if interp_type == 'spline':
@@ -359,11 +360,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.fluid_start += ('vel_{0} = new interpolator<{1}, {2}>(fs, {3});\n' +
-                             'acc_{0} = new interpolator<{1}, {2}>(fs, {3});\n').format(name,
-                                                                                        self.C_dtype,
-                                                                                        neighbours,
-                                                                                        beta_name)
+        self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4});\n' +
+                             'acc_{0} = new {1}<{2}, {3}>(fs, {4});\n').format(name,
+                                                                               field_class,
+                                                                               self.C_dtype,
+                                                                               neighbours,
+                                                                               beta_name)
         self.fluid_end += ('delete vel_{0};\n' +
                            'delete acc_{0};\n').format(name)
         update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
@@ -382,7 +384,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             integration_steps = 2,
             kcut = 'fs->kM',
             frozen_particles = False,
-            fields_name = None):
+            fields_name = None,
+            particle_class = 'rFFTW_particles'):
         if integration_method == 'cRK4':
             integration_steps = 4
         elif integration_method == 'Heun':
@@ -452,21 +455,32 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(self.particle_species)
         self.particle_end += ('ps{0}->write(stat_file);\n' +
                               'delete ps{0};\n').format(self.particle_species)
-        self.particle_includes += '#include "particles.hpp"\n'
-        if integration_method == 'AdamsBashforth':
-            multistep = 'true'
-        else:
-            multistep = 'false'
-        self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, {2}> *ps{3};\n'.format(
-                self.C_dtype,
-                multistep,
-                neighbours,
-                self.particle_species)
-        self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2},{3}>(\n' +
+        self.particle_includes += '#include "{0}.hpp"\n'.format(particle_class)
+        if particle_class == 'particles':
+            if integration_method == 'AdamsBashforth':
+                multistep = 'true'
+            else:
+                multistep = 'false'
+            self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, {2}> *ps{3};\n'.format(
+                    self.C_dtype,
+                    multistep,
+                    neighbours,
+                    self.particle_species)
+            self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2},{3}>(\n' +
                                     'fname, fs, vel_{4},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             self.particle_species, self.C_dtype, multistep, neighbours, fields_name)
+        else:
+            self.particle_variables += 'rFFTW_particles<VELOCITY_TRACER, {0}, {1}> *ps{2};\n'.format(
+                    self.C_dtype,
+                    neighbours,
+                    self.particle_species)
+            self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
+                                    'fname, fs, vel_{3},\n' +
+                                    'nparticles,\n' +
+                                    'niter_part, tracers{0}_integration_steps);\n').format(
+                                            self.particle_species, self.C_dtype, neighbours, fields_name)
         self.particle_start += ('ps{0}->dt = dt;\n' +
                                 'ps{0}->iteration = iteration;\n' +
                                 'ps{0}->read(stat_file);\n').format(self.particle_species)
@@ -483,7 +497,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 assert(integration_steps == 4)
                 self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
             self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
-            self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
+            if particle_class == 'particles':
+                self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
         self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 '{{\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +

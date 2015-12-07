@@ -49,10 +49,10 @@ class rFFTW_interpolator
         field_descriptor<rnumber> *descriptor;
         rnumber *f0, *f1, *temp;
 
-        interpolator(
+        rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
                 base_polynomial_values BETA_POLYS);
-        ~interpolator();
+        ~rFFTW_interpolator();
 
         void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
         int read_rFFTW(void *src);

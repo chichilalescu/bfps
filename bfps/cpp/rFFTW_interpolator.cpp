@@ -31,7 +31,6 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         fluid_solver_base<rnumber> *fs,
         base_polynomial_values BETA_POLYS)
 {
-    int tdims[4];
     this->descriptor = fs->rd;
     this->field_size = 2*fs->cd->local_size;
     this->compute_beta = BETA_POLYS;
@@ -77,8 +76,8 @@ int rFFTW_interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
     rnumber *dst = this->f1;
     /* do big copy of middle stuff */
     std::copy(src,
-              src + this->unbuffered_descriptor->local_size,
-              dst + this->buffer_size);
+              src + this->field_size,
+              dst);
     return EXIT_SUCCESS;
 }
 
@@ -119,7 +118,7 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                     {
                         ptrdiff_t tindex = ((bigiz *this->descriptor->sizes[1] +
                                              bigiy)*this->descriptor->sizes[2] +
-                                             bigix)*3+c + this->buffer_size;
+                                             bigix)*3+c;
                         dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
                                                                                   by[iy+interp_neighbours]*
                                                                                   bx[ix+interp_neighbours]);
