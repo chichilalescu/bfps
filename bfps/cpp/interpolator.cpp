@@ -162,18 +162,28 @@ void interpolator<rnumber, interp_neighbours>::operator()(
         this->compute_beta(deriv[2], xx[2], bz);
     }
     std::fill_n(dest, 3, 0);
+    ptrdiff_t bigiz, bigiy, bigix;
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
-    for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
-    for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
-        for (int c=0; c<3; c++)
+    {
+        bigiz = ptrdiff_t(xg[2]+iz);
+        for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
         {
-            ptrdiff_t tindex = ((ptrdiff_t(    xg[2]+iz                             ) *this->descriptor->sizes[1] +
-                                 ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1])))*this->descriptor->sizes[2] +
-                                 ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2])))*3+c + this->buffer_size;
-            dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
-                                                                      by[iy+interp_neighbours]*
-                                                                      bx[ix+interp_neighbours]);
+            bigiy = ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1]));
+            for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
+            {
+                bigix = ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2]));
+                for (int c=0; c<3; c++)
+                {
+                    ptrdiff_t tindex = ((bigiz *this->descriptor->sizes[1] +
+                                         bigiy)*this->descriptor->sizes[2] +
+                                         bigix)*3+c + this->buffer_size;
+                    dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
+                                                                              by[iy+interp_neighbours]*
+                                                                              bx[ix+interp_neighbours]);
+                }
+            }
         }
+    }
 }
 
 template class interpolator<float, 1>;
