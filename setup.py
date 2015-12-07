@@ -84,35 +84,54 @@ pickle.dump(
         open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
 
+def compile_bfps_library():
+    if not os.path.isdir('obj'):
+        os.makedirs('obj')
+        need_to_compile = True
+    else:
+        ofile = 'bfps/libbfps.a'
+        libtime = datetime.datetime.fromtimestamp(os.path.getctime(ofile))
+        latest = libtime
+        for fname in header_list:
+            latest = max(latest,
+                         datetime.datetime.fromtimestamp(os.path.getctime('bfps/' + fname)))
+        need_to_compile = (latest > libtime)
+    for fname in src_file_list:
+        ifile = 'bfps/cpp/' + fname + '.cpp'
+        ofile = 'obj/' + fname + '.o'
+        if not os.path.exists(ofile):
+            need_to_compile_file = True
+        else:
+            need_to_compile_file = (need_to_compile or
+                                    (datetime.datetime.fromtimestamp(os.path.getctime(ofile)) <
+                                     datetime.datetime.fromtimestamp(os.path.getctime(ifile))))
+        if need_to_compile_file:
+            command_strings = ['g++', '-c']
+            command_strings += ['bfps/cpp/' + fname + '.cpp']
+            command_strings += ['-o', 'obj/' + fname + '.o']
+            command_strings += extra_compile_args
+            command_strings += ['-I' + idir for idir in include_dirs]
+            command_strings.append('-Ibfps/cpp/')
+            print(' '.join(command_strings))
+            subprocess.call(command_strings)
+    command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
+    command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
+    print(' '.join(command_strings))
+    subprocess.call(command_strings)
+    return None
+
 from distutils.command.build import build as DistutilsBuild
+from distutils.command.install import install as DistutilsInstall
 
 class CustomBuild(DistutilsBuild):
     def run(self):
-        # compile bfps library
-        if not os.path.isdir('obj'):
-            os.makedirs('obj')
-        for fname in src_file_list:
-            ifile = 'bfps/cpp/' + fname + '.cpp'
-            ofile = 'obj/' + fname + '.o'
-            if not os.path.exists(ofile):
-                need_to_compile = True
-            else:
-                need_to_compile = (datetime.datetime.fromtimestamp(os.path.getctime(ofile)) <
-                                   datetime.datetime.fromtimestamp(os.path.getctime(ifile)))
-            if need_to_compile:
-                command_strings = ['g++', '-c']
-                command_strings += ['bfps/cpp/' + fname + '.cpp']
-                command_strings += ['-o', 'obj/' + fname + '.o']
-                command_strings += extra_compile_args
-                command_strings += ['-I' + idir for idir in include_dirs]
-                command_strings.append('-Ibfps/cpp/')
-                print(' '.join(command_strings))
-                subprocess.call(command_strings)
-        command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
-        command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
-        print(' '.join(command_strings))
-        subprocess.call(command_strings)
+        compile_bfps_library()
         DistutilsBuild.run(self)
+
+class CustomInstall(DistutilsInstall):
+    def run(self):
+        compile_bfps_library()
+        DistutilsInstall.run(self)
 
 from setuptools import setup
 
@@ -120,7 +139,7 @@ setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
-        cmdclass={'build': CustomBuild},
+        cmdclass={'install' : CustomInstall},
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'libbfps.a',
                                                'install_info.pickle']},
