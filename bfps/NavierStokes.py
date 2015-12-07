@@ -486,21 +486,24 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                 'ps{0}->read(stat_file);\n').format(self.particle_species)
         self.particle_start += output_vel_acc
         if not frozen_particles:
-            if integration_method == 'AdamsBashforth':
-                self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
-            elif integration_method == 'Euler':
-                self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
-            elif integration_method == 'Heun':
-                assert(integration_steps == 2)
-                self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
-            elif integration_method == 'cRK4':
-                assert(integration_steps == 4)
-                self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
-            self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
             if particle_class == 'particles':
+                if integration_method == 'AdamsBashforth':
+                    self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
+                elif integration_method == 'Euler':
+                    self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
+                elif integration_method == 'Heun':
+                    assert(integration_steps == 2)
+                    self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
+                elif integration_method == 'cRK4':
+                    assert(integration_steps == 4)
+                    self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
+                self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
                 self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
+            elif particle_class == 'rFFTW_particles':
+                self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
         self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 '{{\n' +
+                                'DEBUG_MSG("aloha\\n");\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
                                output_vel_acc + '}\n')
         self.particle_species += 1
