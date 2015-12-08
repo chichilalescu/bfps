@@ -503,7 +503,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
         self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
                                 '{{\n' +
-                                'DEBUG_MSG("aloha\\n");\n' +
                                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
                                output_vel_acc + '}\n')
         self.particle_species += 1

@@ -270,7 +270,6 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::step()
                             this->iteration+1 :
                             this->integration_steps);
     this->iteration++;
-    DEBUG_MSG("hallo\n");
 }
 
 
