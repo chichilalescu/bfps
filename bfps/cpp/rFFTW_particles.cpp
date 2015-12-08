@@ -143,7 +143,10 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::sample_vec_fiel
     for (int p=0; p<this->nparticles; p++)
     {
         if (this->myrank == this->get_rank(x[3*p+2]))
-           (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
+        {
+            DEBUG_MSG("particle %d\n", p);
+            (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
+        }
     }
     MPI_Allreduce(
             yy,
