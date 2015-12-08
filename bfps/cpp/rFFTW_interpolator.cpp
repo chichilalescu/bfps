@@ -60,7 +60,6 @@ rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
         fftw_free((double*)((void*)this->f0));
         fftw_free((double*)((void*)this->f1));
     }
-    delete this->descriptor;
 }
 
 template <class rnumber, int interp_neighbours>
