@@ -116,17 +116,17 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                 for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
                 {
                     bigix = ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2]));
+                    ptrdiff_t tindex = (((bigiz-this->descriptor->starts[0])*this->descriptor->sizes[1] +
+                                         bigiy)*(this->descriptor->sizes[2]+2) +
+                                         bigix)*3;
                     for (int c=0; c<3; c++)
                     {
-                        ptrdiff_t tindex = ((bigiz *this->descriptor->sizes[1] +
-                                             bigiy)*(this->descriptor->sizes[2]+2) +
-                                             bigix)*3+c;
-                        dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
-                                                                                  by[iy+interp_neighbours]*
-                                                                                  bx[ix+interp_neighbours]);
-                        tval[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
-                                                                                  by[iy+interp_neighbours]*
-                                                                                  bx[ix+interp_neighbours]);
+                        dest[c] += (this->f0[tindex+c]*(1-t) + t*this->f1[tindex+c])*(bz[iz+interp_neighbours]*
+                                                                                      by[iy+interp_neighbours]*
+                                                                                      bx[ix+interp_neighbours]);
+                        tval[c] += (this->f0[tindex+c]*(1-t) + t*this->f1[tindex+c])*(bz[iz+interp_neighbours]*
+                                                                                      by[iy+interp_neighbours]*
+                                                                                      bx[ix+interp_neighbours]);
                     }
                 }
             }
