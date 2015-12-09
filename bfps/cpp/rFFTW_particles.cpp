@@ -141,13 +141,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::sample_vec_fiel
     this->get_grid_coordinates(x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++)
-    {
-        if (this->myrank == this->get_rank(x[3*p+2]))
-        {
-            DEBUG_MSG("particle %d\n", p);
-            (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
-        }
-    }
+        (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
     MPI_Allreduce(
             yy,
             y,
@@ -292,10 +286,10 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_grid_coordi
             xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
             xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
         }
-        xg[p*3+2] -= this->fs->rd->starts[0];
+        /*xg[p*3+2] -= this->fs->rd->starts[0];
         if (this->myrank == this->fs->rd->rank[0] &&
             xg[p*3+2] > this->fs->rd->subsizes[0])
-            xg[p*3+2] -= this->fs->rd->sizes[0];
+            xg[p*3+2] -= this->fs->rd->sizes[0];*/
     }
 }
 

@@ -103,10 +103,13 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
     }
     std::fill_n(dest, 3, 0);
     ptrdiff_t bigiz, bigiy, bigix;
+    double tval[3];
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
     {
         bigiz = ptrdiff_t(((xg[2]+iz) + this->descriptor->sizes[0]) % this->descriptor->sizes[0]);
         if (this->descriptor->myrank == this->descriptor->rank[bigiz])
+        {
+            std::fill_n(tval, 3, 0);
             for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
             {
                 bigiy = ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1]));
@@ -116,14 +119,19 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                     for (int c=0; c<3; c++)
                     {
                         ptrdiff_t tindex = ((bigiz *this->descriptor->sizes[1] +
-                                             bigiy)*this->descriptor->sizes[2] +
+                                             bigiy)*(this->descriptor->sizes[2]+2) +
                                              bigix)*3+c;
                         dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
+                                                                                  by[iy+interp_neighbours]*
+                                                                                  bx[ix+interp_neighbours]);
+                        tval[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
                                                                                   by[iy+interp_neighbours]*
                                                                                   bx[ix+interp_neighbours]);
                     }
                 }
             }
+            DEBUG_MSG("%ld %d %d %g %g %g\n", bigiz, xg[1], xg[0], tval[0], tval[1], tval[2]);
+        }
     }
 }
 
