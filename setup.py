@@ -37,14 +37,17 @@ import subprocess
 from subprocess import CalledProcessError
 
 now = datetime.datetime.now()
-date_name = '{0:0>4}{1:0>2}{2:0>2}'.format(now.year, now.month, now.day)
 
 try:
     git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+    git_date = datetime.datetime.fromtimestamp(int(subprocess.check_output(['git', 'log', '-1', '--format=%ct']).strip()))
 except:
     git_revision = ''
+    git_date = now
 
-VERSION = date_name
+VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>4}{4:0>2}{5:0>2}'.format(
+            git_date.year, git_date.month, git_date.day,
+            git_date.hour, git_date.minute, git_date.second)
 
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
