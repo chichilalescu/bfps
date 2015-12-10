@@ -130,6 +130,7 @@ class CustomBuild(DistutilsBuild):
         compile_bfps_library()
         DistutilsBuild.run(self)
 
+# this custom install leads to a broken installation. no idea why...
 class CustomInstall(DistutilsInstall):
     def run(self):
         compile_bfps_library()
@@ -141,8 +142,7 @@ setup(
         name = 'bfps',
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
-        cmdclass={'install' : CustomInstall,
-                  'build'   : CustomBuild},
+        cmdclass={'build' : CustomBuild},
         package_data = {'bfps': header_list + ['../machine_settings.py',
                                                'libbfps.a',
                                                'install_info.pickle']},
