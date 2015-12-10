@@ -1,4 +1,7 @@
 (B) use less memory                                         @optimization
+(B) compute z polynomials only when needed                  @optimization +rFFTW_interpolator
+(B) move get_grid coords to interpolator                    @optimization +rFFTW_particles +rFFTW_interpolator
+(B) get rid of temporal interpolation                       @optimization +rFFTW_particles +rFFTW_interpolator
 (C) code overview                                           @documentation
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @HDF5 +I/O
