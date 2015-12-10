@@ -71,7 +71,7 @@ if hostname in ['frontend01', 'frontend02']:
                           '-mhard-float',
                           '-mieee-fp',
                           '-ffast-math',
-                          '-mlarge-data-threshold=65536',
+#                          '-mlarge-data-threshold=65536',
                           '-mno-sse4',
                           '-mpush-args',
                           '-mred-zone',
