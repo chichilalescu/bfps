@@ -45,7 +45,7 @@ except:
     git_revision = ''
     git_date = now
 
-VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>4}{4:0>2}{5:0>2}'.format(
+VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>2}{4:0>2}{5:0>2}'.format(
             git_date.year, git_date.month, git_date.day,
             git_date.hour, git_date.minute, git_date.second)
 
