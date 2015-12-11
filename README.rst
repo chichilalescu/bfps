@@ -19,6 +19,7 @@ Installation
 **Postprocessing only**
 
 .. code:: bash
+
     python setup.py install
 
 (add `--user` or `sudo` as appropriate).
@@ -30,6 +31,7 @@ If you want to run simulations on the machine where you're installing,
 you will need to call `build` before installing.
 
 .. code:: bash
+
     python setup.py build
     python setup.py install
 
