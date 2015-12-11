@@ -24,6 +24,8 @@
 
 
 
+#define NDEBUG
+
 #include "rFFTW_interpolator.hpp"
 
 template <class rnumber, int interp_neighbours>
