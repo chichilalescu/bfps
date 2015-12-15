@@ -274,7 +274,6 @@ class fluid_particle_base(bfps.code):
             rseed = 7547,
             spectra_slope = 1.,
             amplitude = 1.,
-            precision = 'single',
             iteration = 0,
             field_name = 'vorticity',
             write_to_file = False):
