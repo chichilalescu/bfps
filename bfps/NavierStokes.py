@@ -530,6 +530,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             ii1 = iter1 // self.parameters['niter_stat']
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
+            self.statistics['dk'] = data_file['kspace/dk'].value
             if self.particle_species > 0:
                 self.trajectories = [
                         data_file['particles/' + key + '/state'][
@@ -575,8 +576,18 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         return None
     def compute_time_averages(self):
         for key in ['energy', 'enstrophy']:
-            self.statistics[key + '(t)'] = np.sum(self.statistics[key + '(t, k)'], axis = 1)
-        for key in ['energy', 'enstrophy', 'vel_max', 'mean_trS2']:
+            self.statistics[key + '(t)'] = (self.statistics['dk'] *
+                                            np.sum(self.statistics[key + '(t, k)'], axis = 1))
+        self.statistics['Uint(t)'] = np.sqrt(2*self.statistics['energy(t)'] / 3)
+        self.statistics['Lint(t)'] = ((self.statistics['dk']*np.pi / (2*self.statistics['Uint(t)']**2)) *
+                                      np.nansum(self.statistics['energy(t, k)'] /
+                                                self.statistics['kshell'][None, :], axis = 1))
+        for key in ['energy',
+                    'enstrophy',
+                    'vel_max',
+                    'mean_trS2',
+                    'Uint',
+                    'Lint']:
             if key + '(t)' in self.statistics.keys():
                 self.statistics[key] = np.average(self.statistics[key + '(t)'], axis = 0)
         for suffix in ['', '(t)']:
@@ -584,14 +595,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                    self.statistics['enstrophy' + suffix]*2)
             self.statistics['etaK'    + suffix] = (self.parameters['nu']**3 /
                                                    self.statistics['diss' + suffix])**.25
-            self.statistics['Rlambda' + suffix] = (2*np.sqrt(5./3) *
-                                                   (self.statistics['energy' + suffix] /
-                                                   (self.parameters['nu']*self.statistics['diss' + suffix])**.5))
             self.statistics['tauK'    + suffix] =  (self.parameters['nu'] /
                                                     self.statistics['diss' + suffix])**.5
-        self.statistics['Tint'] = 2*self.statistics['energy'] / self.statistics['diss']
-        self.statistics['Lint'] = (2*self.statistics['energy'])**1.5 / self.statistics['diss']
-        self.statistics['Taylor_microscale'] = (10 * self.parameters['nu'] * self.statistics['energy'] / self.statistics['diss'])**.5
+            self.statistics['Re' + suffix] = (self.statistics['Uint' + suffix] *
+                                              self.statistics['Lint' + suffix] /
+                                              self.parameters['nu'])
+            self.statistics['lambda' + suffix] = (15 * self.parameters['nu'] *
+                                                  self.statistics['Uint' + suffix]**2 /
+                                                  self.statistics['diss' + suffix])**.5
+            self.statistics['Rlambda' + suffix] = (self.statistics['Uint' + suffix] *
+                                                   self.statistics['lambda' + suffix] /
+                                                   self.parameters['nu'])
+        self.statistics['Tint'] = self.statistics['Lint'] / self.statistics['Uint']
+        self.statistics['Taylor_microscale'] = self.statistics['lambda']
         return None
     def set_plt_style(
             self,

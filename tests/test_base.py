@@ -96,7 +96,10 @@ def launch(
     c.parameters['famplitude'] = 0.2
     c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:
-        c.add_particle_fields(name = 'regular', neighbours = opt.neighbours, smoothness = opt.smoothness)
+        c.add_particle_fields(
+                name = 'regular',
+                neighbours = opt.neighbours,
+                smoothness = opt.smoothness)
         c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
         c.add_particles(
                 kcut = 'fs->kM/2',
@@ -108,9 +111,8 @@ def launch(
         #            neighbours = opt.neighbours,
         #            smoothness = opt.smoothness,
         #            fields_name = 'regular')
-        for info in [(2, 'Heun'),
-                     (2, 'AdamsBashforth'),
-                     (4, 'cRK4'),
+        for info in [(2, 'AdamsBashforth'),
+                     (3, 'AdamsBashforth'),
                      (4, 'AdamsBashforth'),
                      (6, 'AdamsBashforth')]:
             c.add_particles(
