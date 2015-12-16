@@ -66,7 +66,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5Sclose(Cspace);
                 if (fs->nshells != dims[0])
                 {
-                    std::cerr << "ERROR: computed nshells not equal to data file nshells\\n" << std::endl;
+                    DEBUG_MSG(
+                        "ERROR: computed nshells %d not equal to data file nshells %d\\n",
+                        fs->nshells, dims[0]);
                     file_problems++;
                 }
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);

@@ -267,9 +267,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     { \
         /* HL07 smooth filter */ \
         case 1: \
-            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)); \
-            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)); \
-            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)); \
+            this->kMx = this->dkx*(int(2*this->rd->sizes[2] / 5)); \
+            this->kMy = this->dky*(int(2*this->rd->sizes[1] / 5)); \
+            this->kMz = this->dkz*(int(2*this->rd->sizes[0] / 5)); \
             break; \
         default: \
             this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
