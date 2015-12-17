@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -70,7 +70,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     int tmp_int;
     CLOOP_K2_NXMODES(
             this,
-            if (k2 <= this->kM2)
+            if (k2 <= this->kMspec2)
             {
                 tmp_int = int(sqrt(k2)/this->dk)*9;
                 for (int i=0; i<3; i++)
@@ -99,7 +99,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     int tmp_int;
     CLOOP_K2_NXMODES(
             this,
-            if (k2 <= this->kM2)
+            if (k2 <= this->kMspec2)
             {
                 factor = nxmodes*pow(k2, k2exponent);
                 tmp_int = int(sqrt(k2)/this->dk)*9;
@@ -267,9 +267,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     { \
         /* HL07 smooth filter */ \
         case 1: \
-            this->kMx = this->dkx*(int(2*this->rd->sizes[2] / 5)); \
-            this->kMy = this->dky*(int(2*this->rd->sizes[1] / 5)); \
-            this->kMz = this->dkz*(int(2*this->rd->sizes[0] / 5)); \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)-1); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)-1); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)-1); \
             break; \
         default: \
             this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
@@ -298,6 +298,17 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->kM < this->kMy) this->kM = this->kMy; \
     if (this->kM < this->kMz) this->kM = this->kMz; \
     this->kM2 = this->kM * this->kM; \
+    switch(this->dealias_type) \
+    { \
+        case 1: \
+            this->kMspec = 4*this->kM/5; \
+            this->kMspec2 = this->kMspec*this->kMspec; \
+            break; \
+        default: \
+            this->kMspec = this->kM; \
+            this->kMspec2 = this->kM2; \
+            break; \
+    } \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
@@ -306,7 +317,10 @@ fluid_solver_base<R>::fluid_solver_base( \
             "kM = %g, kM2 = %g, dk = %g, dk2 = %g\n", \
             this->kM, this->kM2, this->dk, this->dk2); \
     /* spectra stuff */ \
-    this->nshells = int(this->kM / this->dk) + 2; \
+    this->nshells = int(this->kMspec / this->dk) + 2; \
+    DEBUG_MSG( \
+            "kMspec = %g, kMspec2 = %g, nshells = %ld\n", \
+            this->kMspec, this->kMspec2, this->nshells); \
     this->kshell = new double[this->nshells]; \
     std::fill_n(this->kshell, this->nshells, 0.0); \
     this->nshell = new int64_t[this->nshells]; \
@@ -348,7 +362,6 @@ fluid_solver_base<R>::fluid_solver_base( \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
-    DEBUG_MSG("entered ~fluid_solver_base\n"); \
     delete[] this->kshell; \
     delete[] this->nshell; \
  \
@@ -358,7 +371,6 @@ fluid_solver_base<R>::~fluid_solver_base() \
  \
     delete this->cd; \
     delete this->rd; \
-    DEBUG_MSG("exiting ~fluid_solver_base\n"); \
 } \
  \
 template<> \
@@ -483,7 +495,6 @@ void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
                         (*(data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[imag_comp]; \
         if (ranksrc != rankdst) \
         { \
-            DEBUG_MSG("inside fluid_solver_base::symmetrize, about to send/recv data\n"); \
             if (this->cd->myrank == ranksrc) \
                 MPI_Send((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, rankdst, yy, \
@@ -492,7 +503,6 @@ void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
                 MPI_Recv((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, ranksrc, yy, \
                          this->cd->comm, mpistatus); \
-            DEBUG_MSG("inside fluid_solver_base::symmetrize, after send/recv data\n"); \
         } \
         if (this->cd->myrank == rankdst) \
         { \

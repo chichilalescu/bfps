@@ -62,6 +62,7 @@ class fluid_solver_base
         /* mode and dealiasing information */
         int dealias_type;
         double kMx, kMy, kMz, kM, kM2;
+        double kMspec, kMspec2;
         double *kx, *ky, *kz;
         std::unordered_map<int, double> Fourier_filter;
         double *kshell;
