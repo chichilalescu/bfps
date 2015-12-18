@@ -118,11 +118,11 @@ def compile_bfps_library():
             command_strings += ['-I' + idir for idir in include_dirs]
             command_strings.append('-Ibfps/cpp/')
             print(' '.join(command_strings))
-            subprocess.call(command_strings)
+            assert(subprocess.call(command_strings) == 0)
     command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
     command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
     print(' '.join(command_strings))
-    subprocess.call(command_strings)
+    assert(subprocess.call(command_strings) == 0)
     return None
 
 from distutils.command.build import build as DistutilsBuild

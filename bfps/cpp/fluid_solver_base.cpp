@@ -127,76 +127,80 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
+template<int nvals>
 void fluid_solver_base<rnumber>::compute_rspace_stats(
         rnumber *a,
         double *moments,
         ptrdiff_t *hist,
         double max_estimate[],
-        int nbins)
+        const int nbins)
 {
-    double *local_moments = fftw_alloc_real(10*4);
-    double val_tmp[4], binsize[4], pow_tmp[4];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*4];
+    double *local_moments = fftw_alloc_real(10*nvals);
+    double val_tmp[nvals], binsize[nvals], pow_tmp[nvals];
+    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
     int bin;
-    for (int i=0; i<4; i++)
+    for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*4, 0);
-    std::fill_n(local_moments, 10*4, 0);
-    local_moments[3] = max_estimate[3];
+    std::fill_n(local_hist, nbins*nvals, 0);
+    std::fill_n(local_moments, 10*nvals, 0);
+    if (nvals == 4) local_moments[3] = max_estimate[3];
     RLOOP(
         this,
-        std::fill_n(pow_tmp, 4, 1.0);
-        val_tmp[3] = 0.0;
+        std::fill_n(pow_tmp, nvals, 1.0);
+        if (nvals == 4) val_tmp[3] = 0.0;
         for (int i=0; i<3; i++)
         {
             val_tmp[i] = a[rindex*3+i];
-            val_tmp[3] += val_tmp[i]*val_tmp[i];
+            if (nvals == 4) val_tmp[3] += val_tmp[i]*val_tmp[i];
         }
-        val_tmp[3] = sqrt(val_tmp[3]);
-        if (val_tmp[3] < local_moments[0*4+3])
-            local_moments[0*4+3] = val_tmp[3];
-        if (val_tmp[3] > local_moments[9*4+3])
-            local_moments[9*4+3] = val_tmp[3];
-        bin = int(floor(val_tmp[3]*2/binsize[3]));
-        if (bin >= 0 && bin < nbins)
-            local_hist[bin*4+3]++;
+        if (nvals == 4)
+        {
+            val_tmp[3] = sqrt(val_tmp[3]);
+            if (val_tmp[3] < local_moments[0*nvals+3])
+                local_moments[0*nvals+3] = val_tmp[3];
+            if (val_tmp[3] > local_moments[9*nvals+3])
+                local_moments[9*nvals+3] = val_tmp[3];
+            bin = int(floor(val_tmp[3]*2/binsize[3]));
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*nvals+3]++;
+        }
         for (int i=0; i<3; i++)
         {
-            if (val_tmp[i] < local_moments[0*4+i])
-                local_moments[0*4+i] = val_tmp[i];
-            if (val_tmp[i] > local_moments[9*4+i])
-                local_moments[9*4+i] = val_tmp[i];
+            if (val_tmp[i] < local_moments[0*nvals+i])
+                local_moments[0*nvals+i] = val_tmp[i];
+            if (val_tmp[i] > local_moments[9*nvals+i])
+                local_moments[9*nvals+i] = val_tmp[i];
             bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
             if (bin >= 0 && bin < nbins)
-                local_hist[bin*4+i]++;
+                local_hist[bin*nvals+i]++;
         }
         for (int n=1; n<9; n++)
-            for (int i=0; i<4; i++)
-                local_moments[n*4 + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+            for (int i=0; i<nvals; i++)
+                local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
         );
     MPI_Allreduce(
             (void*)local_moments,
             (void*)moments,
-            4,
+            nvals,
             MPI_DOUBLE, MPI_MIN, this->cd->comm);
     MPI_Allreduce(
-            (void*)(local_moments + 4),
-            (void*)(moments+4),
-            8*4,
+            (void*)(local_moments + nvals),
+            (void*)(moments+nvals),
+            8*nvals,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
     MPI_Allreduce(
-            (void*)(local_moments + 9*4),
-            (void*)(moments+9*4),
-            4,
+            (void*)(local_moments + 9*nvals),
+            (void*)(moments+9*nvals),
+            nvals,
             MPI_DOUBLE, MPI_MAX, this->cd->comm);
     MPI_Allreduce(
             (void*)local_hist,
             (void*)hist,
-            nbins*4,
+            nbins*nvals,
             MPI_INT64_T, MPI_SUM, this->cd->comm);
     for (int n=1; n<9; n++)
-        for (int i=0; i<4; i++)
-            moments[n*4 + i] /= this->normalization_factor;
+        for (int i=0; i<nvals; i++)
+            moments[n*nvals + i] /= this->normalization_factor;
     fftw_free(local_moments);
     delete[] local_hist;
 }

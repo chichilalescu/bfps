@@ -91,11 +91,12 @@ class fluid_solver_base
         void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec);
         void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec, const double k2exponent);
         double autocorrel(cnumber *__restrict__ a);
+        template <int nvals>
         void compute_rspace_stats(rnumber *__restrict__ a,
                                   double *__restrict__ moments,
                                   ptrdiff_t *__restrict__ hist,
-                                  double max_estimate[4],
-                                  int nbins = 256);
+                                  double max_estimate[nvals],
+                                  const int nbins = 256);
         void compute_vector_gradient(rnumber (*__restrict__ A)[2], rnumber(*__restrict__ source)[2]);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);

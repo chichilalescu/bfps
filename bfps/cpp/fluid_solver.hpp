@@ -84,12 +84,15 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         void compute_gradient_statistics(
                 rnumber (*__restrict__ vec)[2],
-                double *__restrict__ moments,
-                ptrdiff_t *__restrict__ histograms_1D,
-                ptrdiff_t *__restrict__ histogram_QR2D,
-                double max_estimates[3],
-                int nbins_1D = 256,
-                int nbins_2D = 64);
+                double *__restrict__ gradu_moments,
+                double *__restrict__ trS2_Q_R_moments,
+                ptrdiff_t *__restrict__ gradu_histograms,
+                ptrdiff_t *__restrict__ trS2_Q_R_histograms,
+                ptrdiff_t *__restrict__ QR2D_histogram,
+                double trS2_Q_R_max_estimates[3],
+                double gradu_max_estimates[9],
+                const int nbins_1D = 256,
+                const int nbins_2D = 64);
 
         void compute_vorticity(void);
         void compute_velocity(rnumber (*__restrict__ vorticity)[2]);
