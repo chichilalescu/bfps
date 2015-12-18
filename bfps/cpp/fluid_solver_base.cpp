@@ -298,17 +298,8 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->kM < this->kMy) this->kM = this->kMy; \
     if (this->kM < this->kMz) this->kM = this->kMz; \
     this->kM2 = this->kM * this->kM; \
-    switch(this->dealias_type) \
-    { \
-        case 1: \
-            this->kMspec = 4*this->kM/5; \
-            this->kMspec2 = this->kMspec*this->kMspec; \
-            break; \
-        default: \
-            this->kMspec = this->kM; \
-            this->kMspec2 = this->kM2; \
-            break; \
-    } \
+    this->kMspec = this->kM; \
+    this->kMspec2 = this->kM2; \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
