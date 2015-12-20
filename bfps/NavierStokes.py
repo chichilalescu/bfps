@@ -139,17 +139,25 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.stat_src += """
                 //begincpp
                     double *trS2_Q_R_moments  = new double[10*3];
+                    double *gradu_moments     = new double[10*9];
                     ptrdiff_t *hist_trS2_Q_R  = new ptrdiff_t[histogram_bins*3];
+                    ptrdiff_t *hist_gradu     = new ptrdiff_t[histogram_bins*9];
                     ptrdiff_t *hist_QR2D      = new ptrdiff_t[QR2D_histogram_bins*QR2D_histogram_bins];
-                    max_estimates[0] = max_trS2_estimate;
-                    max_estimates[1] = max_Q_estimate;
-                    max_estimates[2] = max_R_estimate;
+                    double trS2QR_max_estimates[3];
+                    double gradu_max_estimates[9];
+                    trS2QR_max_estimates[0] = max_trS2_estimate;
+                    trS2QR_max_estimates[1] = max_Q_estimate;
+                    trS2QR_max_estimates[2] = max_R_estimate;
+                    std::fill_n(gradu_max_estimates, 9, max_trS2_estimate);
                     fs->compute_gradient_statistics(
                         fs->cvelocity,
+                        gradu_moments,
                         trS2_Q_R_moments,
+                        hist_gradu,
                         hist_trS2_Q_R,
                         hist_QR2D,
                         max_estimates,
+                        gradu_max_estimates,
                         histogram_bins,
                         QR2D_histogram_bins);
                     //endcpp
@@ -161,7 +169,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     max_estimates[1] = max_estimates[0];
                     max_estimates[2] = max_estimates[0];
                     max_estimates[3] = max_velocity_estimate;
-                    fs->compute_rspace_stats(fs->rvelocity,
+                    fs->compute_rspace_stats4(fs->rvelocity,
                                              velocity_moments,
                                              hist_velocity,
                                              max_estimates,
@@ -171,7 +179,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     max_estimates[1] = max_estimates[0];
                     max_estimates[2] = max_estimates[0];
                     max_estimates[3] = max_vorticity_estimate;
-                    fs->compute_rspace_stats(fs->rvorticity,
+                    fs->compute_rspace_stats4(fs->rvorticity,
                                              vorticity_moments,
                                              hist_vorticity,
                                              max_estimates,
@@ -286,7 +294,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.stat_src += """
                 //begincpp
                     delete[] trS2_Q_R_moments;
+                    delete[] gradu_moments;
                     delete[] hist_trS2_Q_R;
+                    delete[] hist_gradu;
                     delete[] hist_QR2D;
                 //endcpp
                 """

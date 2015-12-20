@@ -562,7 +562,10 @@ int fluid_solver_base<R>::write_base(const char *fname, FFTW(complex) *data) \
     char full_name[512]; \
     sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
     return this->cd->write(full_name, (void*)data); \
-}
+} \
+ \
+/* finally, force generation of code                                         */ \
+template class fluid_solver_base<R>; \
 
 /*****************************************************************************/
 
@@ -580,13 +583,5 @@ FLUID_SOLVER_BASE_DEFINITIONS(
         double,
         MPI_DOUBLE,
         BFPS_MPICXX_DOUBLE_COMPLEX)
-/*****************************************************************************/
-
-
-
-/*****************************************************************************/
-/* finally, force generation of code for single precision                    */
-template class fluid_solver_base<float>;
-template class fluid_solver_base<double>;
 /*****************************************************************************/
 

@@ -82,6 +82,8 @@ def launch(
             fluid_precision = opt.precision,
             frozen_fields = opt.frozen,
             use_fftw_wisdom = False)
+    if code_class == bfps.NavierStokes:
+        c.QR_stats_on = True
     c.pars_from_namespace(opt)
     c.parameters['nx'] = opt.n
     c.parameters['ny'] = opt.n

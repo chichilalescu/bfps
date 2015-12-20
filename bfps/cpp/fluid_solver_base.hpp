@@ -97,6 +97,22 @@ class fluid_solver_base
                                   ptrdiff_t *__restrict__ hist,
                                   double max_estimate[nvals],
                                   const int nbins = 256);
+        inline void compute_rspace_stats3(rnumber *__restrict__ a,
+                                  double *__restrict__ moments,
+                                  ptrdiff_t *__restrict__ hist,
+                                  double max_estimate[3],
+                                  const int nbins = 256)
+        {
+            this->compute_rspace_stats<3>(a, moments, hist, max_estimate, nbins);
+        }
+        inline void compute_rspace_stats4(rnumber *__restrict__ a,
+                                  double *__restrict__ moments,
+                                  ptrdiff_t *__restrict__ hist,
+                                  double max_estimate[4],
+                                  const int nbins = 256)
+        {
+            this->compute_rspace_stats<4>(a, moments, hist, max_estimate, nbins);
+        }
         void compute_vector_gradient(rnumber (*__restrict__ A)[2], rnumber(*__restrict__ source)[2]);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);
