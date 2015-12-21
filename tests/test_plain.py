@@ -42,7 +42,7 @@ def plain(opt):
     print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))
     print ('Lint = {0:.4e}, etaK = {1:.4e}'.format(c0.statistics['Lint'], c0.statistics['etaK']))
     print ('Tint = {0:.4e}, tauK = {1:.4e}'.format(c0.statistics['Tint'], c0.statistics['tauK']))
-    print ('kMetaK = {0:.4e}'.format(c0.statistics['kM']*c0.statistics['etaK']))
+    print ('kMetaK = {0:.4e}'.format(c0.statistics['kMeta']))
     for s in range(c0.particle_species):
         acceleration_test(c0, species = s, m = 1)
     if not opt.multiplejob:

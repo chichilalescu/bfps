@@ -156,7 +156,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         hist_gradu,
                         hist_trS2_Q_R,
                         hist_QR2D,
-                        max_estimates,
+                        trS2QR_max_estimates,
                         gradu_max_estimates,
                         histogram_bins,
                         QR2D_histogram_bins);
