@@ -148,7 +148,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     trS2QR_max_estimates[0] = max_trS2_estimate;
                     trS2QR_max_estimates[1] = max_Q_estimate;
                     trS2QR_max_estimates[2] = max_R_estimate;
-                    std::fill_n(gradu_max_estimates, 9, max_trS2_estimate);
+                    std::fill_n(gradu_max_estimates, 9, sqrt(3*max_trS2_estimate));
                     fs->compute_gradient_statistics(
                         fs->cvelocity,
                         gradu_moments,
@@ -262,6 +262,15 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         count[2] = 3;
                         """)
             self.stat_src += self.create_stat_output(
+                    '/statistics/moments/velocity_gradient',
+                    'gradu_moments',
+                    size_setup ="""
+                        count[0] = 1;
+                        count[1] = 10;
+                        count[2] = 3;
+                        count[3] = 3;
+                        """)
+            self.stat_src += self.create_stat_output(
                     '/statistics/histograms/trS2_Q_R',
                     'hist_trS2_Q_R',
                     data_type = 'H5T_NATIVE_INT64',
@@ -269,6 +278,16 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         count[0] = 1;
                         count[1] = histogram_bins;
                         count[2] = 3;
+                        """)
+            self.stat_src += self.create_stat_output(
+                    '/statistics/histograms/velocity_gradient',
+                    'hist_gradu',
+                    data_type = 'H5T_NATIVE_INT64',
+                    size_setup = """
+                        count[0] = 1;
+                        count[1] = histogram_bins;
+                        count[2] = 3;
+                        count[3] = 3;
                         """)
             self.stat_src += self.create_stat_output(
                     '/statistics/histograms/QR2D',
@@ -664,12 +683,37 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                  3),
                                      dtype = np.int64,
                                      compression = 'gzip')
+                time_chunk = 2**20//(8*9*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/velocity_gradient',
+                                     (1,
+                                      self.parameters['histogram_bins'],
+                                      3,
+                                      3),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins'],
+                                               3,
+                                               3),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins'],
+                                                 3,
+                                                 3),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
                 time_chunk = 2**20//(8*3*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/trS2_Q_R',
                                      (1, 10, 3),
                                      chunks = (time_chunk, 10, 3),
                                      maxshape = (None, 10, 3),
+                                     dtype = np.float64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*9*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/velocity_gradient',
+                                     (1, 10, 3, 3),
+                                     chunks = (time_chunk, 10, 3, 3),
+                                     maxshape = (None, 10, 3, 3),
                                      dtype = np.float64,
                                      compression = 'gzip')
                 time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
