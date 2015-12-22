@@ -38,7 +38,11 @@ def plain(opt):
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt, dt = 0.2/opt.n)
     c0.compute_statistics()
-    df = c0.get_data_file()
+    print ('Re = {0:.0f}'.format(c0.statistics['Re']))
+    print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))
+    print ('Lint = {0:.4e}, etaK = {1:.4e}'.format(c0.statistics['Lint'], c0.statistics['etaK']))
+    print ('Tint = {0:.4e}, tauK = {1:.4e}'.format(c0.statistics['Tint'], c0.statistics['tauK']))
+    print ('kMetaK = {0:.4e}'.format(c0.statistics['kMeta']))
     for s in range(c0.particle_species):
         acceleration_test(c0, species = s, m = 1)
     if not opt.multiplejob:

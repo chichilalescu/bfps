@@ -553,10 +553,13 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
 template<> \
 void fluid_solver<R>::compute_gradient_statistics( \
         FFTW(complex) *vec, \
-        double *moments, \
-        ptrdiff_t *hist, \
+        double *gradu_moments, \
+        double *trS2QR_moments, \
+        ptrdiff_t *gradu_hist, \
+        ptrdiff_t *trS2QR_hist, \
         ptrdiff_t *QR2D_hist, \
-        double max_estimates[], \
+        double trS2QR_max_estimates[], \
+        double gradu_max_estimates[], \
         int nbins, \
         int QR2D_nbins) \
 { \
@@ -584,11 +587,10 @@ void fluid_solver<R>::compute_gradient_statistics( \
     dy_u = ra + 2*this->cd->local_size; \
     dz_u = ra + 4*this->cd->local_size; \
     double binsize[2]; \
-    double tmp_max_estimate[4]; \
-    tmp_max_estimate[0] = max_estimates[0]; \
-    tmp_max_estimate[1] = max_estimates[1]; \
-    tmp_max_estimate[2] = max_estimates[2]; \
-    tmp_max_estimate[3] = 1.0; /* 4th component is gonna be disregarded anyway... */ \
+    double tmp_max_estimate[3]; \
+    tmp_max_estimate[0] = trS2QR_max_estimates[0]; \
+    tmp_max_estimate[1] = trS2QR_max_estimates[1]; \
+    tmp_max_estimate[2] = trS2QR_max_estimates[2]; \
     binsize[0] = 2*tmp_max_estimate[2] / QR2D_nbins; \
     binsize[1] = 2*tmp_max_estimate[1] / QR2D_nbins; \
     ptrdiff_t *local_hist = new ptrdiff_t[QR2D_nbins*QR2D_nbins]; \
@@ -628,29 +630,45 @@ void fluid_solver<R>::compute_gradient_statistics( \
             this->rv[1][tindex] = (AxxAxx + AyyAyy + AzzAzz + \
                                    (Sxy*Sxy + Syz*Syz + Szx*Szx)/2); \
             ); \
-    FFTW(free)(ca); \
     MPI_Allreduce( \
             local_hist, \
             QR2D_hist, \
             QR2D_nbins * QR2D_nbins, \
             MPI_INT64_T, MPI_SUM, this->cd->comm); \
     delete[] local_hist; \
-    double *tmp_moments = new double[4*10]; \
-    ptrdiff_t *tmp_hist = new ptrdiff_t[4*nbins]; \
-    this->compute_rspace_stats( \
+    this->compute_rspace_stats3( \
             this->rv[1], \
-            tmp_moments, \
-            tmp_hist, \
+            trS2QR_moments, \
+            trS2QR_hist, \
             tmp_max_estimate, \
             nbins); \
-    for (int i=0; i<10; i++) \
-        for (int j=0; j<3; j++) \
-            moments[i*3+j] = tmp_moments[i*4+j]; \
+    double *tmp_moments = new double[10*3]; \
+    ptrdiff_t *tmp_hist = new ptrdiff_t[nbins*3]; \
+    for (int cc=0; cc<3; cc++) \
+    { \
+        tmp_max_estimate[0] = gradu_max_estimates[cc*3 + 0]; \
+        tmp_max_estimate[1] = gradu_max_estimates[cc*3 + 1]; \
+        tmp_max_estimate[2] = gradu_max_estimates[cc*3 + 2]; \
+        this->compute_rspace_stats3( \
+                dx_u, \
+                tmp_moments, \
+                tmp_hist, \
+                tmp_max_estimate, \
+                nbins); \
+        for (int n = 0; n < 10; n++) \
+        for (int i = 0; i < 3 ; i++) \
+        { \
+            gradu_moments[(n*3 + cc)*3 + i] = tmp_moments[n*3 + i]; \
+        } \
+        for (int n = 0; n < nbins; n++) \
+        for (int i = 0; i < 3; i++) \
+        { \
+            gradu_hist[(n*3 + cc)*3 + i] = tmp_hist[n*3 + i]; \
+        } \
+    } \
     delete[] tmp_moments; \
-    for (int i=0; i<nbins; i++) \
-        for (int j=0; j<3; j++) \
-            hist[i*3+j] = tmp_hist[i*4+j]; \
     delete[] tmp_hist; \
+    FFTW(free)(ca); \
 } \
  \
 template<> \

@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -70,7 +70,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     int tmp_int;
     CLOOP_K2_NXMODES(
             this,
-            if (k2 <= this->kM2)
+            if (k2 <= this->kMspec2)
             {
                 tmp_int = int(sqrt(k2)/this->dk)*9;
                 for (int i=0; i<3; i++)
@@ -99,7 +99,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     int tmp_int;
     CLOOP_K2_NXMODES(
             this,
-            if (k2 <= this->kM2)
+            if (k2 <= this->kMspec2)
             {
                 factor = nxmodes*pow(k2, k2exponent);
                 tmp_int = int(sqrt(k2)/this->dk)*9;
@@ -127,76 +127,80 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
+template<int nvals>
 void fluid_solver_base<rnumber>::compute_rspace_stats(
         rnumber *a,
         double *moments,
         ptrdiff_t *hist,
         double max_estimate[],
-        int nbins)
+        const int nbins)
 {
-    double *local_moments = fftw_alloc_real(10*4);
-    double val_tmp[4], binsize[4], pow_tmp[4];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*4];
+    double *local_moments = fftw_alloc_real(10*nvals);
+    double val_tmp[nvals], binsize[nvals], pow_tmp[nvals];
+    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
     int bin;
-    for (int i=0; i<4; i++)
+    for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*4, 0);
-    std::fill_n(local_moments, 10*4, 0);
-    local_moments[3] = max_estimate[3];
+    std::fill_n(local_hist, nbins*nvals, 0);
+    std::fill_n(local_moments, 10*nvals, 0);
+    if (nvals == 4) local_moments[3] = max_estimate[3];
     RLOOP(
         this,
-        std::fill_n(pow_tmp, 4, 1.0);
-        val_tmp[3] = 0.0;
+        std::fill_n(pow_tmp, nvals, 1.0);
+        if (nvals == 4) val_tmp[3] = 0.0;
         for (int i=0; i<3; i++)
         {
             val_tmp[i] = a[rindex*3+i];
-            val_tmp[3] += val_tmp[i]*val_tmp[i];
+            if (nvals == 4) val_tmp[3] += val_tmp[i]*val_tmp[i];
         }
-        val_tmp[3] = sqrt(val_tmp[3]);
-        if (val_tmp[3] < local_moments[0*4+3])
-            local_moments[0*4+3] = val_tmp[3];
-        if (val_tmp[3] > local_moments[9*4+3])
-            local_moments[9*4+3] = val_tmp[3];
-        bin = int(floor(val_tmp[3]*2/binsize[3]));
-        if (bin >= 0 && bin < nbins)
-            local_hist[bin*4+3]++;
+        if (nvals == 4)
+        {
+            val_tmp[3] = sqrt(val_tmp[3]);
+            if (val_tmp[3] < local_moments[0*nvals+3])
+                local_moments[0*nvals+3] = val_tmp[3];
+            if (val_tmp[3] > local_moments[9*nvals+3])
+                local_moments[9*nvals+3] = val_tmp[3];
+            bin = int(floor(val_tmp[3]*2/binsize[3]));
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*nvals+3]++;
+        }
         for (int i=0; i<3; i++)
         {
-            if (val_tmp[i] < local_moments[0*4+i])
-                local_moments[0*4+i] = val_tmp[i];
-            if (val_tmp[i] > local_moments[9*4+i])
-                local_moments[9*4+i] = val_tmp[i];
+            if (val_tmp[i] < local_moments[0*nvals+i])
+                local_moments[0*nvals+i] = val_tmp[i];
+            if (val_tmp[i] > local_moments[9*nvals+i])
+                local_moments[9*nvals+i] = val_tmp[i];
             bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
             if (bin >= 0 && bin < nbins)
-                local_hist[bin*4+i]++;
+                local_hist[bin*nvals+i]++;
         }
         for (int n=1; n<9; n++)
-            for (int i=0; i<4; i++)
-                local_moments[n*4 + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+            for (int i=0; i<nvals; i++)
+                local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
         );
     MPI_Allreduce(
             (void*)local_moments,
             (void*)moments,
-            4,
+            nvals,
             MPI_DOUBLE, MPI_MIN, this->cd->comm);
     MPI_Allreduce(
-            (void*)(local_moments + 4),
-            (void*)(moments+4),
-            8*4,
+            (void*)(local_moments + nvals),
+            (void*)(moments+nvals),
+            8*nvals,
             MPI_DOUBLE, MPI_SUM, this->cd->comm);
     MPI_Allreduce(
-            (void*)(local_moments + 9*4),
-            (void*)(moments+9*4),
-            4,
+            (void*)(local_moments + 9*nvals),
+            (void*)(moments+9*nvals),
+            nvals,
             MPI_DOUBLE, MPI_MAX, this->cd->comm);
     MPI_Allreduce(
             (void*)local_hist,
             (void*)hist,
-            nbins*4,
+            nbins*nvals,
             MPI_INT64_T, MPI_SUM, this->cd->comm);
     for (int n=1; n<9; n++)
-        for (int i=0; i<4; i++)
-            moments[n*4 + i] /= this->normalization_factor;
+        for (int i=0; i<nvals; i++)
+            moments[n*nvals + i] /= this->normalization_factor;
     fftw_free(local_moments);
     delete[] local_hist;
 }
@@ -267,9 +271,9 @@ fluid_solver_base<R>::fluid_solver_base( \
     { \
         /* HL07 smooth filter */ \
         case 1: \
-            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)); \
-            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)); \
-            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)); \
+            this->kMx = this->dkx*(int(this->rd->sizes[2] / 2)-1); \
+            this->kMy = this->dky*(int(this->rd->sizes[1] / 2)-1); \
+            this->kMz = this->dkz*(int(this->rd->sizes[0] / 2)-1); \
             break; \
         default: \
             this->kMx = this->dkx*(int(this->rd->sizes[2] / 3)-1); \
@@ -298,6 +302,8 @@ fluid_solver_base<R>::fluid_solver_base( \
     if (this->kM < this->kMy) this->kM = this->kMy; \
     if (this->kM < this->kMz) this->kM = this->kMz; \
     this->kM2 = this->kM * this->kM; \
+    this->kMspec = this->kM; \
+    this->kMspec2 = this->kM2; \
     this->dk = this->dkx; \
     if (this->dk > this->dky) this->dk = this->dky; \
     if (this->dk > this->dkz) this->dk = this->dkz; \
@@ -306,7 +312,10 @@ fluid_solver_base<R>::fluid_solver_base( \
             "kM = %g, kM2 = %g, dk = %g, dk2 = %g\n", \
             this->kM, this->kM2, this->dk, this->dk2); \
     /* spectra stuff */ \
-    this->nshells = int(this->kM / this->dk) + 2; \
+    this->nshells = int(this->kMspec / this->dk) + 2; \
+    DEBUG_MSG( \
+            "kMspec = %g, kMspec2 = %g, nshells = %ld\n", \
+            this->kMspec, this->kMspec2, this->nshells); \
     this->kshell = new double[this->nshells]; \
     std::fill_n(this->kshell, this->nshells, 0.0); \
     this->nshell = new int64_t[this->nshells]; \
@@ -348,7 +357,6 @@ fluid_solver_base<R>::fluid_solver_base( \
 template<> \
 fluid_solver_base<R>::~fluid_solver_base() \
 { \
-    DEBUG_MSG("entered ~fluid_solver_base\n"); \
     delete[] this->kshell; \
     delete[] this->nshell; \
  \
@@ -358,7 +366,6 @@ fluid_solver_base<R>::~fluid_solver_base() \
  \
     delete this->cd; \
     delete this->rd; \
-    DEBUG_MSG("exiting ~fluid_solver_base\n"); \
 } \
  \
 template<> \
@@ -483,7 +490,6 @@ void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
                         (*(data + howmany*((yy - this->cd->starts[0])*this->cd->sizes[1] + ii)*this->cd->sizes[2] + cc))[imag_comp]; \
         if (ranksrc != rankdst) \
         { \
-            DEBUG_MSG("inside fluid_solver_base::symmetrize, about to send/recv data\n"); \
             if (this->cd->myrank == ranksrc) \
                 MPI_Send((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, rankdst, yy, \
@@ -492,7 +498,6 @@ void fluid_solver_base<R>::symmetrize(FFTW(complex) *data, const int howmany) \
                 MPI_Recv((void*)buffer, \
                          howmany*this->cd->sizes[1], MPI_CNUM, ranksrc, yy, \
                          this->cd->comm, mpistatus); \
-            DEBUG_MSG("inside fluid_solver_base::symmetrize, after send/recv data\n"); \
         } \
         if (this->cd->myrank == rankdst) \
         { \
@@ -557,7 +562,10 @@ int fluid_solver_base<R>::write_base(const char *fname, FFTW(complex) *data) \
     char full_name[512]; \
     sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
     return this->cd->write(full_name, (void*)data); \
-}
+} \
+ \
+/* finally, force generation of code                                         */ \
+template class fluid_solver_base<R>; \
 
 /*****************************************************************************/
 
@@ -575,13 +583,5 @@ FLUID_SOLVER_BASE_DEFINITIONS(
         double,
         MPI_DOUBLE,
         BFPS_MPICXX_DOUBLE_COMPLEX)
-/*****************************************************************************/
-
-
-
-/*****************************************************************************/
-/* finally, force generation of code for single precision                    */
-template class fluid_solver_base<float>;
-template class fluid_solver_base<double>;
 /*****************************************************************************/
 

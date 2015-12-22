@@ -361,9 +361,9 @@ class fluid_particle_base(bfps.code):
     def get_kspace(self):
         kspace = {}
         if self.parameters['dealias_type'] == 1:
-            kMx = self.parameters['dkx']*(self.parameters['nx']//2)
-            kMy = self.parameters['dky']*(self.parameters['ny']//2)
-            kMz = self.parameters['dkz']*(self.parameters['nz']//2)
+            kMx = self.parameters['dkx']*(self.parameters['nx']//2 - 1)
+            kMy = self.parameters['dky']*(self.parameters['ny']//2 - 1)
+            kMz = self.parameters['dkz']*(self.parameters['nz']//2 - 1)
         else:
             kMx = self.parameters['dkx']*(self.parameters['nx']//3 - 1)
             kMy = self.parameters['dky']*(self.parameters['ny']//3 - 1)

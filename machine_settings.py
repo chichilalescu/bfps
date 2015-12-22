@@ -39,7 +39,7 @@ extra_libraries = ['hdf5']
 if hostname == 'chichi-G':
     include_dirs = ['/usr/local/include',
                     '/usr/include/mpich']
-    library_dirs = ['/usr/local/lib'
+    library_dirs = ['/usr/local/lib',
                     '/usr/lib/mpich']
     extra_libraries += ['mpich']
 
