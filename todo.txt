@@ -1,13 +1,14 @@
-(B) move get_grid coords to interpolator                    @optimization +rFFTW_particles +rFFTW_interpolator
-(B) get rid of temporal interpolation                       @optimization +rFFTW_particles +rFFTW_interpolator
-(B) FFTW interpolator doesn't need its own field            @optimization +rFFTW_interpolator
-(B) compute z polynomials only when needed                  @optimization +rFFTW_interpolator
+(B) move get_grid coords to interpolator                    @optimization +release0
+(B) get rid of temporal interpolation                       @optimization +release0
+(B) FFTW interpolator doesn't need its own field            @optimization +release0
+(B) compute z polynomials only when needed                  @optimization +release0
 (B) use less memory                                         @optimization
-(C) move stat I/O to cpp lib                                @design @HDF5
+(C) decide on versioning system                                           +release0
+(C) move stat I/O to cpp lib                                @design @HDF5 +release1
 (C) code overview                                           @documentation
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @design @HDF5 +I/O
-(C) set up mechanism for adding in new PDEs                 @design +alternate_algorithms
+(C) set up mechanism for adding in new PDEs                 @design +release1 +alternate_algorithms
 (D) test anisotropic grids                                  @tests
 (D) test non-cubic domains                                  @tests
 (E) add u-equation algorithm for testing purposes           @tests +alternate_algorithms
