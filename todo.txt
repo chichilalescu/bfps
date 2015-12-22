@@ -1,15 +1,17 @@
-(B) move get_grid coords to interpolator                    @optimization +release0
-(B) get rid of temporal interpolation                       @optimization +release0
-(B) FFTW interpolator doesn't need its own field            @optimization +release0
-(B) compute z polynomials only when needed                  @optimization +release0
+(B) FFTW interpolator doesn't need its own field            @optimization +merge0
+(B) compute z polynomials only when needed                  @optimization +merge0
+(B) get rid of temporal interpolation                       @optimization +merge0
+(B) move get_grid coords to interpolator                    @optimization +merge0
 (B) use less memory                                         @optimization
-(C) decide on versioning system                                           +release0
-(C) move stat I/O to cpp lib                                @design @HDF5 +release1
+(C) clean up machine_settings mess                          @design @documentation +merge1
 (C) code overview                                           @documentation
+(C) decide on versioning system                                           +merge0
+(C) move stat I/O to cpp lib                                @design @HDF5 +merge1
+(C) set up mechanism for adding in new PDEs                 @design +merge1 +alternate_algorithms
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @design @HDF5 +I/O
-(C) set up mechanism for adding in new PDEs                 @design +release1 +alternate_algorithms
 (D) test anisotropic grids                                  @tests
 (D) test non-cubic domains                                  @tests
 (E) add u-equation algorithm for testing purposes           @tests +alternate_algorithms
+(E) pure python DNS addon: pros and cons                    @tests +alternate_algorithms
 (F) add switch to turn off simulation
