@@ -46,17 +46,6 @@ class rFFTW_particles
         fluid_solver_base<rnumber> *fs;
         rnumber *data;
 
-        /* watching is an array of shape [nparticles], with
-         * watching[p] being true if particle p is in the domain of myrank
-         * or in the buffer regions.
-         * only used if multistep is false.
-         * */
-        bool *watching;
-        /* computing is an array of shape [nparticles], with
-         * computing[p] being the rank that is currently working on particle p
-         * */
-        int *computing;
-
         /* state will generally hold all the information about the particles.
          * in the beginning, we will only need to solve 3D ODEs, but I figured
          * a general ncomponents is better, since we may change our minds.
@@ -88,8 +77,6 @@ class rFFTW_particles
          *  this->rhs
          *  this->lbound
          *  this->ubound
-         *  this->computing
-         *  this->watching
          * */
         rFFTW_particles(
                 const char *NAME,
