@@ -39,15 +39,31 @@ from subprocess import CalledProcessError
 now = datetime.datetime.now()
 
 try:
+    git_branch = subprocess.check_output(['git',
+                                          'rev-parse',
+                                          '--abbrev-ref',
+                                          'HEAD']).strip().split()[-1].decode()
     git_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
     git_date = datetime.datetime.fromtimestamp(int(subprocess.check_output(['git', 'log', '-1', '--format=%ct']).strip()))
 except:
     git_revision = ''
+    git_branch = ''
     git_date = now
 
-VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>2}{4:0>2}{5:0>2}'.format(
-            git_date.year, git_date.month, git_date.day,
-            git_date.hour, git_date.minute, git_date.second)
+if git_branch == '':
+    # there's no git available or something
+    VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>2}{4:0>2}{5:0>2}'.format(
+                git_date.year, git_date.month, git_date.day,
+                git_date.hour, git_date.minute, git_date.second)
+else:
+    if (('develop' in git_branch) or
+        ('feature' in git_branch) or
+        ('bugfix'  in git_branch)):
+        VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode()
+    else:
+        VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode().split('-')[0]
+
+print(VERSION)
 
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
