@@ -6,3 +6,7 @@ meta/.ipynb_checkpoints/*
 dist
 build
 bfps.egg-info
+MANIFEST.in
+bfps/install_info.pickle
+bfps/lib*.a
+obj
