@@ -26,6 +26,7 @@
 
 #define NDEBUG
 
+#include <cmath>
 #include "rFFTW_interpolator.hpp"
 
 template <class rnumber, int interp_neighbours>
@@ -47,6 +48,41 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         this->f1 = (rnumber*)((void*)fftw_alloc_real(this->field_size));
     }
     this->temp = this->f1;
+
+    // compute dx, dy, dz;
+    this->dx = 4*acos(0) / (fs->dkx*fs->rd->sizes[2]);
+    this->dy = 4*acos(0) / (fs->dky*fs->rd->sizes[1]);
+    this->dz = 4*acos(0) / (fs->dkz*fs->rd->sizes[0]);
+
+    // compute lower and upper bounds
+    this->lbound = new double[nprocs];
+    this->ubound = new double[nprocs];
+    double *tbound = new double[nprocs];
+    std::fill_n(tbound, nprocs, 0.0);
+    tbound[this->descriptor->myrank] = fs->rd->starts[0]*this->dz;
+    MPI_Allreduce(
+            tbound,
+            this->lbound,
+            nprocs,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->descriptor->comm);
+    std::fill_n(tbound, this->descriptor->nprocs, 0.0);
+    tbound[this->descriptor->myrank] = (fs->rd->starts[0] + fs->rd->subsizes[0])*this->dz;
+    MPI_Allreduce(
+            tbound,
+            this->ubound,
+            nprocs,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->descriptor->comm);
+    delete[] tbound;
+    //for (int r = 0; r<nprocs; r++)
+    //    DEBUG_MSG(
+    //            "lbound[%d] = %lg, ubound[%d] = %lg\n",
+    //            r, this->lbound[r],
+    //            r, this->ubound[r]
+    //            );
 }
 
 template <class rnumber, int interp_neighbours>
@@ -62,6 +98,8 @@ rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
         fftw_free((double*)((void*)this->f0));
         fftw_free((double*)((void*)this->f1));
     }
+    delete[] this->lbound;
+    delete[] this->ubound;
 }
 
 template <class rnumber, int interp_neighbours>

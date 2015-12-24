@@ -24,7 +24,7 @@
 
 
 
-//#define NDEBUG
+#define NDEBUG
 
 #include <cmath>
 #include <cassert>
@@ -105,12 +105,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
             MPI_SUM,
             this->comm);
     delete[] tbound;
-    //for (int r = 0; r<nprocs; r++)
-    //    DEBUG_MSG(
-    //            "lbound[%d] = %lg, ubound[%d] = %lg\n",
-    //            r, this->lbound[r],
-    //            r, this->ubound[r]
-    //            );
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>

@@ -49,6 +49,13 @@ class rFFTW_interpolator
         field_descriptor<rnumber> *descriptor;
         rnumber *f0, *f1, *temp;
 
+        /* physical parameters of field */
+        double dx, dy, dz;
+
+        /* precomputed boundaries of process's domain */
+        double *lbound;
+        double *ubound;
+
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
                 base_polynomial_values BETA_POLYS);
