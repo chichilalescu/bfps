@@ -450,7 +450,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               double *velocity     = new double[ps{0}->array_size];
                               ps{0}->sample_vec_field(vel_{1}, velocity);
                               ps{0}->sample_vec_field(acc_{1}, acceleration);
-                              if (ps{0}->fs->rd->myrank == 0)
+                              if (ps{0}->myrank == 0)
                               {{
                                   //VELOCITY begin
                                   std::string temp_string = (std::string("/particles/") +
@@ -512,7 +512,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     neighbours,
                     self.particle_species)
             self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
-                                    'fname, fs, vel_{3},\n' +
+                                    'fname, vel_{3},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             self.particle_species, self.C_dtype, neighbours, fields_name)

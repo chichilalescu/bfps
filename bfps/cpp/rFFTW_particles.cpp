@@ -42,7 +42,6 @@ extern int myrank, nprocs;
 template <int particle_type, class rnumber, int interp_neighbours>
 rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
         const char *NAME,
-        fluid_solver_base<rnumber> *FSOLVER,
         rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
         const int NPARTICLES,
         const int TRAJ_SKIP,
@@ -60,7 +59,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
-    this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
     this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
@@ -76,35 +74,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
         this->rhs[i] = new double[this->array_size];
         std::fill_n(this->rhs[i], this->array_size, 0.0);
     }
-
-    // compute dx, dy, dz;
-    this->dx = 4*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
-    this->dy = 4*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
-    this->dz = 4*acos(0) / (this->fs->dkz*this->fs->rd->sizes[0]);
-
-    // compute lower and upper bounds
-    this->lbound = new double[nprocs];
-    this->ubound = new double[nprocs];
-    double *tbound = new double[nprocs];
-    std::fill_n(tbound, nprocs, 0.0);
-    tbound[this->myrank] = this->fs->rd->starts[0]*this->dz;
-    MPI_Allreduce(
-            tbound,
-            this->lbound,
-            nprocs,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    std::fill_n(tbound, nprocs, 0.0);
-    tbound[this->myrank] = (this->fs->rd->starts[0] + this->fs->rd->subsizes[0])*this->dz;
-    MPI_Allreduce(
-            tbound,
-            this->ubound,
-            nprocs,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] tbound;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -115,8 +84,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_particles()
     {
         delete[] this->rhs[i];
     }
-    delete[] this->lbound;
-    delete[] this->ubound;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>

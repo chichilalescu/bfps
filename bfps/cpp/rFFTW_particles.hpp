@@ -43,7 +43,6 @@ class rFFTW_particles
     public:
         int myrank, nprocs;
         MPI_Comm comm;
-        fluid_solver_base<rnumber> *fs;
         rnumber *data;
 
         /* state will generally hold all the information about the particles.
@@ -57,8 +56,6 @@ class rFFTW_particles
         int array_size;
         int integration_steps;
         int traj_skip;
-        double *lbound;
-        double *ubound;
         rFFTW_interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
@@ -66,21 +63,15 @@ class rFFTW_particles
         int iteration;
         double dt;
 
-        /* physical parameters of field */
-        double dx, dy, dz;
-
         /* methods */
 
         /* constructor and destructor.
          * allocate and deallocate:
          *  this->state
          *  this->rhs
-         *  this->lbound
-         *  this->ubound
          * */
         rFFTW_particles(
                 const char *NAME,
-                fluid_solver_base<rnumber> *FSOLVER,
                 rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
                 const int TRAJ_SKIP,
