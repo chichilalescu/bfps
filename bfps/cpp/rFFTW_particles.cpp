@@ -119,35 +119,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_particles()
     delete[] this->ubound;
 }
 
-template <int particle_type, class rnumber,  int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::sample_vec_field(
-        rFFTW_interpolator<rnumber, interp_neighbours> *vec,
-        double t,
-        double *x,
-        double *y,
-        int *deriv)
-{
-    /* get grid coordinates */
-    int *xg = new int[3*this->nparticles];
-    double *xx = new double[3*this->nparticles];
-    double *yy =  new double[3*this->nparticles];
-    std::fill_n(yy, 3*this->nparticles, 0.0);
-    vec->get_grid_coordinates(this->nparticles, this->ncomponents, x, xg, xx);
-    /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++)
-        (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
-    MPI_Allreduce(
-            yy,
-            y,
-            3*this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] yy;
-    delete[] xg;
-    delete[] xx;
-}
-
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double t, double *x, double *y)
 {

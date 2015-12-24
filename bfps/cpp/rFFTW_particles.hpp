@@ -90,15 +90,9 @@ class rFFTW_particles
         void get_rhs(double *__restrict__ x, double *__restrict__ rhs);
         void get_rhs(double t, double *__restrict__ x, double *__restrict__ rhs);
 
-        void sample_vec_field(
-            rFFTW_interpolator<rnumber, interp_neighbours> *vec,
-            double t,
-            double *__restrict__ x,
-            double *__restrict__ y,
-            int *deriv = NULL);
         inline void sample_vec_field(rFFTW_interpolator<rnumber, interp_neighbours> *field, double *vec_values)
         {
-            this->sample_vec_field(field, 1.0, this->state, vec_values, NULL);
+            field->sample(this->nparticles, this->ncomponents, 1.0, this->state, vec_values, NULL);
         }
 
         /* input/output */
