@@ -67,10 +67,9 @@ src_file_list = ['field_descriptor',
 
 header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
 
-#with open('MANIFEST.in', 'w') as manifest_in_file:
-#    manifest_in_file.write('include libbfps.a\n')
-#    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
-#        manifest_in_file.write('include {0}\n'.format(fname))
+with open('MANIFEST.in', 'w') as manifest_in_file:
+    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
+        manifest_in_file.write('include {0}\n'.format(fname))
 
 libraries = ['fftw3_mpi',
              'fftw3',
