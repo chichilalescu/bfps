@@ -55,7 +55,7 @@ class rFFTW_interpolator
 
         /* pointers to fields that are to be interpolated
          * */
-        rnumber *f0, *f1, *temp;
+        rnumber *field;
 
         /* physical parameters of field */
         double dx, dy, dz;
@@ -80,13 +80,11 @@ class rFFTW_interpolator
         void sample(
                 const int nparticles,
                 const int pdimension,
-                const double t,
                 const double *__restrict__ x,
                 double *__restrict__ y,
                 const int *deriv = NULL);
         /* interpolate 1 point */
         void operator()(
-                const double t,
                 const int *__restrict__ xg,
                 const double *__restrict__ xx,
                 double *__restrict__ dest,

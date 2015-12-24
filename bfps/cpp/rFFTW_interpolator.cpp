@@ -38,11 +38,9 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
     this->field_size = 2*fs->cd->local_size;
     this->compute_beta = BETA_POLYS;
     if (sizeof(rnumber) == 4)
-        this->f0 = (rnumber*)((void*)fftwf_alloc_real(this->field_size));
+        this->field = (rnumber*)((void*)fftwf_alloc_real(this->field_size));
     else if (sizeof(rnumber) == 8)
-        this->f0 = (rnumber*)((void*)fftw_alloc_real(this->field_size));
-    this->f1 = this->f0;
-    this->temp = this->f1;
+        this->field = (rnumber*)((void*)fftw_alloc_real(this->field_size));
 
     // compute dx, dy, dz;
     this->dx = 4*acos(0) / (fs->dkx*fs->rd->sizes[2]);
@@ -84,9 +82,9 @@ template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 {
     if (sizeof(rnumber) == 4)
-        fftwf_free((float*)((void*)this->f0));
+        fftwf_free((float*)((void*)this->field));
     else if (sizeof(rnumber) == 8)
-        fftw_free((double*)((void*)this->f0));
+        fftw_free((double*)((void*)this->field));
     delete[] this->lbound;
     delete[] this->ubound;
 }
@@ -95,11 +93,10 @@ template <class rnumber, int interp_neighbours>
 int rFFTW_interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 {
     rnumber *src = (rnumber*)void_src;
-    rnumber *dst = this->f1;
     /* do big copy of middle stuff */
     std::copy(src,
               src + this->field_size,
-              dst);
+              this->field);
     return EXIT_SUCCESS;
 }
 
@@ -130,7 +127,6 @@ template <class rnumber, int interp_neighbours>
 void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
         const int nparticles,
         const int pdimension,
-        const double t,
         const double *__restrict__ x,
         double *__restrict__ y,
         const int *deriv)
@@ -143,7 +139,7 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
     this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<nparticles; p++)
-        this->operator()(t, xg + p*3, xx + p*3, yy + p*3, deriv);
+        this->operator()(xg + p*3, xx + p*3, yy + p*3, deriv);
     MPI_Allreduce(
             yy,
             y,
@@ -158,7 +154,6 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
 
 template <class rnumber, int interp_neighbours>
 void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
-        const double t,
         const int *xg,
         const double *xx,
         double *dest,
@@ -194,9 +189,9 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                                          bigiy)*(this->descriptor->sizes[2]+2) +
                                          bigix)*3;
                     for (int c=0; c<3; c++)
-                        dest[c] += this->f1[tindex+c]*(bz[iz+interp_neighbours]*
-                                                       by[iy+interp_neighbours]*
-                                                       bx[ix+interp_neighbours]);
+                        dest[c] += this->field[tindex+c]*(bz[iz+interp_neighbours]*
+                                                          by[iy+interp_neighbours]*
+                                                          bx[ix+interp_neighbours]);
                 }
             }
         }

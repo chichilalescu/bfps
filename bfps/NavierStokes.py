@@ -408,8 +408,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
         update_fields += ('fs->ift_velocity();\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
-                          'fs->compute_Lagrangian_acceleration(acc_{0}->temp);\n' +
-                          'acc_{0}->read_rFFTW(acc_{0}->temp);\n').format(name)
+                          'fs->compute_Lagrangian_acceleration(acc_{0}->field);\n').format(name)
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
         return None

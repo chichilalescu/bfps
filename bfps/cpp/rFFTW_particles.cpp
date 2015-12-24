@@ -87,12 +87,12 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_particles()
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double t, double *x, double *y)
+void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double *x, double *y)
 {
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->vel->sample(this->nparticles, this->ncomponents, t, x, y);
+            this->vel->sample(this->nparticles, this->ncomponents, x, y);
             break;
     }
 }
@@ -112,7 +112,7 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
-    this->get_rhs(1, this->state, this->rhs[0]);
+    this->get_rhs(this->state, this->rhs[0]);
     switch(nsteps)
     {
         case 1:
