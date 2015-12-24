@@ -22,10 +22,9 @@
 *                                                                     *
 **********************************************************************/
 
-// code is generally compiled via setuptools, therefore NDEBUG is present
-//#ifdef NDEBUG
-//#undef NDEBUG
-//#endif//NDEBUG
+
+
+#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -71,8 +70,8 @@ fluid_solver<R>::fluid_solver( \
     this->cvorticity = FFTW(alloc_complex)(this->cd->local_size);\
     this->cvelocity  = FFTW(alloc_complex)(this->cd->local_size);\
     this->rvorticity = FFTW(alloc_real)(this->cd->local_size*2);\
-    this->rvelocity  = (R*)(this->cvelocity);\
-    /*this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);*/\
+    /*this->rvelocity  = (R*)(this->cvelocity);*/\
+    this->rvelocity  = FFTW(alloc_real)(this->cd->local_size*2);\
  \
     this->ru = this->rvelocity;\
     this->cu = this->cvelocity;\
@@ -156,6 +155,7 @@ fluid_solver<R>::fluid_solver( \
     /* initialization of fields must be done AFTER planning */ \
     std::fill_n((R*)this->cvorticity, this->cd->local_size*2, 0.0); \
     std::fill_n((R*)this->cvelocity, this->cd->local_size*2, 0.0); \
+    std::fill_n(this->rvelocity, this->cd->local_size*2, 0.0); \
     std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0); \
     std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
     std::fill_n(this->rv[1], this->cd->local_size*2, 0.0); \
@@ -191,6 +191,7 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->cvorticity);\
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
+    FFTW(free)(this->rvelocity);\
     DEBUG_MSG("freed arrays\n"); \
     DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
@@ -200,6 +201,7 @@ void fluid_solver<R>::compute_vorticity() \
 { \
     ptrdiff_t tindex; \
     CLOOP_K2( \
+            this, \
             tindex = 3*cindex; \
             if (k2 <= this->kM2) \
             { \
@@ -221,6 +223,7 @@ void fluid_solver<R>::compute_velocity(FFTW(complex) *vorticity) \
 { \
     ptrdiff_t tindex; \
     CLOOP_K2( \
+            this, \
             tindex = 3*cindex; \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
@@ -288,6 +291,7 @@ void fluid_solver<R>::add_forcing(\
     { \
         double knorm; \
         CLOOP( \
+                this, \
                 knorm = sqrt(this->kx[xindex]*this->kx[xindex] + \
                              this->ky[yindex]*this->ky[yindex] + \
                              this->kz[zindex]*this->kz[zindex]); \
@@ -328,6 +332,7 @@ void fluid_solver<R>::omega_nonlin( \
     this->dealias(this->cu, 3); \
     /* $\imath k \times Fourier(u \times \omega)$ */ \
     CLOOP( \
+            this, \
             tindex = 3*cindex; \
             { \
                 tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]); \
@@ -351,6 +356,7 @@ void fluid_solver<R>::step(double dt) \
     std::fill_n((R*)this->cv[1], this->cd->local_size*2, 0.0); \
     this->omega_nonlin(0); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt); \
@@ -362,6 +368,7 @@ void fluid_solver<R>::step(double dt) \
  \
     this->omega_nonlin(1); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt/2); \
@@ -375,6 +382,7 @@ void fluid_solver<R>::step(double dt) \
  \
     this->omega_nonlin(2); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 factor0 = exp(-this->nu * k2 * dt * 0.5); \
@@ -459,11 +467,13 @@ void fluid_solver<R>::compute_Eulerian_acceleration(R *acceleration) \
 { \
     this->omega_nonlin(0); \
     CLOOP_K2( \
+            this, \
             for (int cc=0; cc<3; cc++) \
                 for (int i=0; i<2; i++) \
                     this->cv[1][3*cindex+cc][i] = this->cu[3*cindex+cc][i] - this->nu*k2*this->cv[0][3*cindex+cc][i]; \
             ); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 this->cv[2][3*cindex+0][0] = -(this->ky[yindex]*this->cv[1][3*cindex+2][1] - this->kz[zindex]*this->cv[1][3*cindex+1][1]) / k2; \
@@ -500,6 +510,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     this->dealias(this->cv[1], 3); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
@@ -524,6 +535,7 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
     this->dealias(this->cv[1], 3); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2 && k2 > 0) \
             { \
                 tindex = 3*cindex; \
@@ -539,41 +551,23 @@ void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_vel_gradient(FFTW(complex) *A) \
+void fluid_solver<R>::compute_gradient_statistics( \
+        FFTW(complex) *vec, \
+        double *gradu_moments, \
+        double *trS2QR_moments, \
+        ptrdiff_t *gradu_hist, \
+        ptrdiff_t *trS2QR_hist, \
+        ptrdiff_t *QR2D_hist, \
+        double trS2QR_max_estimates[], \
+        double gradu_max_estimates[], \
+        int nbins, \
+        int QR2D_nbins) \
 { \
-    ptrdiff_t tindex; \
-    this->compute_velocity(this->cvorticity); \
-    std::fill_n((R*)A, 3*2*this->cd->local_size, 0.0); \
-    FFTW(complex) *dx_u, *dy_u, *dz_u; \
-    dx_u = A; \
-    dy_u = A + this->cd->local_size; \
-    dz_u = A + 2*this->cd->local_size; \
-    CLOOP_K2( \
-            if (k2 <= this->kM2) \
-            { \
-                tindex = 3*cindex; \
-                for (int cc=0; cc<3; cc++) \
-                { \
-                    dx_u[tindex + cc][0] = -this->kx[xindex]*this->cu[tindex+cc][1]; \
-                    dx_u[tindex + cc][1] =  this->kx[xindex]*this->cu[tindex+cc][0]; \
-                    dy_u[tindex + cc][0] = -this->ky[yindex]*this->cu[tindex+cc][1]; \
-                    dy_u[tindex + cc][1] =  this->ky[yindex]*this->cu[tindex+cc][0]; \
-                    dz_u[tindex + cc][0] = -this->kz[zindex]*this->cu[tindex+cc][1]; \
-                    dz_u[tindex + cc][1] =  this->kz[zindex]*this->cu[tindex+cc][0]; \
-                } \
-            } \
-            ); \
-} \
- \
-template<> \
-void fluid_solver<R>::compute_trS2(R *trS2) \
-{ \
-    ptrdiff_t tindex; \
     FFTW(complex) *ca; \
     R *ra; \
     ca = FFTW(alloc_complex)(this->cd->local_size*3); \
     ra = (R*)(ca); \
-    this->compute_vel_gradient(ca); \
+    this->compute_vector_gradient(ca, vec); \
     for (int cc=0; cc<3; cc++) \
     { \
         std::copy( \
@@ -587,20 +581,93 @@ void fluid_solver<R>::compute_trS2(R *trS2) \
                 ra + cc*this->cd->local_size*2); \
     } \
     /* velocity gradient is now stored, in real space, in ra */ \
+    std::fill_n(this->rv[1], 2*this->cd->local_size, 0.0); \
     R *dx_u, *dy_u, *dz_u; \
     dx_u = ra; \
     dy_u = ra + 2*this->cd->local_size; \
     dz_u = ra + 4*this->cd->local_size; \
+    double binsize[2]; \
+    double tmp_max_estimate[3]; \
+    tmp_max_estimate[0] = trS2QR_max_estimates[0]; \
+    tmp_max_estimate[1] = trS2QR_max_estimates[1]; \
+    tmp_max_estimate[2] = trS2QR_max_estimates[2]; \
+    binsize[0] = 2*tmp_max_estimate[2] / QR2D_nbins; \
+    binsize[1] = 2*tmp_max_estimate[1] / QR2D_nbins; \
+    ptrdiff_t *local_hist = new ptrdiff_t[QR2D_nbins*QR2D_nbins]; \
+    std::fill_n(local_hist, QR2D_nbins*QR2D_nbins, 0); \
     RLOOP( \
             this, \
-            tindex = 3*rindex; \
-            trS2[rindex] = (dx_u[tindex+0]*dx_u[tindex+0] + \
-                            dy_u[tindex+1]*dy_u[tindex+1] + \
-                            dz_u[tindex+2]*dz_u[tindex+2] + \
-                          ((dx_u[tindex+1]+dy_u[tindex+0])*(dx_u[tindex+1]+dy_u[tindex+0]) + \
-                           (dy_u[tindex+2]+dz_u[tindex+1])*(dy_u[tindex+2]+dz_u[tindex+1]) + \
-                           (dz_u[tindex+0]+dx_u[tindex+2])*(dz_u[tindex+0]+dx_u[tindex+2]))/2) / this->normalization_factor; \
+            R AxxAxx; \
+            R AyyAyy; \
+            R AzzAzz; \
+            R AxyAyx; \
+            R AyzAzy; \
+            R AzxAxz; \
+            R Sxy; \
+            R Syz; \
+            R Szx; \
+            ptrdiff_t tindex = 3*rindex; \
+            AxxAxx = dx_u[tindex+0]*dx_u[tindex+0]; \
+            AyyAyy = dy_u[tindex+1]*dy_u[tindex+1]; \
+            AzzAzz = dz_u[tindex+2]*dz_u[tindex+2]; \
+            AxyAyx = dx_u[tindex+1]*dy_u[tindex+0]; \
+            AyzAzy = dy_u[tindex+2]*dz_u[tindex+1]; \
+            AzxAxz = dz_u[tindex+0]*dx_u[tindex+2]; \
+            this->rv[1][tindex+1] = - (AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz; \
+            this->rv[1][tindex+2] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) + \
+                                       dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) + \
+                                       dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) + \
+                                       dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] + \
+                                       dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]); \
+            int bin0 = int(floor((this->rv[1][tindex+2] + tmp_max_estimate[2]) / binsize[0])); \
+            int bin1 = int(floor((this->rv[1][tindex+1] + tmp_max_estimate[1]) / binsize[1])); \
+            if ((bin0 >= 0 && bin0 < QR2D_nbins) && \
+                (bin1 >= 0 && bin1 < QR2D_nbins)) \
+                local_hist[bin1*QR2D_nbins + bin0]++; \
+            Sxy = dx_u[tindex+1]+dy_u[tindex+0]; \
+            Syz = dy_u[tindex+2]+dz_u[tindex+1]; \
+            Szx = dz_u[tindex+0]+dx_u[tindex+2]; \
+            this->rv[1][tindex] = (AxxAxx + AyyAyy + AzzAzz + \
+                                   (Sxy*Sxy + Syz*Syz + Szx*Szx)/2); \
             ); \
+    MPI_Allreduce( \
+            local_hist, \
+            QR2D_hist, \
+            QR2D_nbins * QR2D_nbins, \
+            MPI_INT64_T, MPI_SUM, this->cd->comm); \
+    delete[] local_hist; \
+    this->compute_rspace_stats3( \
+            this->rv[1], \
+            trS2QR_moments, \
+            trS2QR_hist, \
+            tmp_max_estimate, \
+            nbins); \
+    double *tmp_moments = new double[10*3]; \
+    ptrdiff_t *tmp_hist = new ptrdiff_t[nbins*3]; \
+    for (int cc=0; cc<3; cc++) \
+    { \
+        tmp_max_estimate[0] = gradu_max_estimates[cc*3 + 0]; \
+        tmp_max_estimate[1] = gradu_max_estimates[cc*3 + 1]; \
+        tmp_max_estimate[2] = gradu_max_estimates[cc*3 + 2]; \
+        this->compute_rspace_stats3( \
+                dx_u, \
+                tmp_moments, \
+                tmp_hist, \
+                tmp_max_estimate, \
+                nbins); \
+        for (int n = 0; n < 10; n++) \
+        for (int i = 0; i < 3 ; i++) \
+        { \
+            gradu_moments[(n*3 + cc)*3 + i] = tmp_moments[n*3 + i]; \
+        } \
+        for (int n = 0; n < nbins; n++) \
+        for (int i = 0; i < 3; i++) \
+        { \
+            gradu_hist[(n*3 + cc)*3 + i] = tmp_hist[n*3 + i]; \
+        } \
+    } \
+    delete[] tmp_moments; \
+    delete[] tmp_hist; \
     FFTW(free)(ca); \
 } \
  \
@@ -612,34 +679,11 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
     pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
     this->compute_velocity(this->cvorticity); \
     this->ift_velocity(); \
-    /*clip_zero_padding<R>(this->rd, this->rvelocity, 3); \
-    std::copy( \
-            this->rvelocity, \
-            this->rvelocity + this->rd->local_size, \
-            acceleration); \
-    return; */\
     this->compute_pressure(pressure); \
-    /*this->compute_trS2(this->ru); \
-    RLOOP( \
-            this, \
-            tindex = 3*rindex; \
-            this->rv[1][tindex+0] = this->ru[rindex]; \
-            this->rv[1][tindex+1] = (this->rv[0][tindex+0]*this->rv[0][tindex+0] + \
-                                     this->rv[0][tindex+1]*this->rv[0][tindex+1] + \
-                                     this->rv[0][tindex+2]*this->rv[0][tindex+2])/(2*this->normalization_factor); \
-             ); \
-    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
-    CLOOP_K2( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-            tindex = 3*cindex; \
-            pressure[cindex][0] = (this->cv[1][tindex+0][0] - this->cv[1][tindex+1][0]) / k2; \
-            pressure[cindex][1] = (this->cv[1][tindex+0][1] - this->cv[1][tindex+1][1]) / k2; \
-            } \
-            );*/ \
     this->compute_velocity(this->cvorticity); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
     CLOOP_K2( \
+            this, \
             if (k2 <= this->kM2) \
             { \
                 tindex = 3*cindex; \
@@ -668,51 +712,6 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             this->rv[1], \
             this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
-    /* ********* */ \
-    /* debugging */ \
-    /* check k2*p = -(trS2 - vorticity^2/2) */ \
-    /*this->compute_trS2(this->ru); \
-    RLOOP( \
-            this, \
-            tindex = 3*rindex; \
-            this->rv[1][tindex+0] = this->ru[rindex]; \
-            this->rv[1][tindex+1] = (this->rv[0][tindex+0]*this->rv[0][tindex+0] + \
-                                     this->rv[0][tindex+1]*this->rv[0][tindex+1] + \
-                                     this->rv[0][tindex+2]*this->rv[0][tindex+2])/(2*this->normalization_factor); \
-             ); \
-    this->dealias(this->cu, 3); \
-    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
-    CLOOP_K2( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-                tindex = 3*cindex; \
-                this->cv[1][tindex+2][0] = k2*pressure[cindex][0]; \
-                this->cv[1][tindex+2][1] = k2*pressure[cindex][1]; \
-            } \
-            );*/ \
-    /*char fname[256]; \
-    this->fill_up_filename("pressure_trS2_enstrophy", fname); \
-    this->cd->write(fname, this->cv[1]);*/ \
-    /*double difference = 0.0; \
-    double itval, rtval; \
-    CLOOP_K2_NXMODES( \
-            if (k2 < this->kM2 && k2 > 0) \
-            { \
-            tindex = 3*cindex; \
-            rtval = k2*pressure[cindex][0] - this->cv[1][tindex+0][0] + this->cv[1][tindex+1][0]; \
-            itval = k2*pressure[cindex][1] - this->cv[1][tindex+0][1] + this->cv[1][tindex+1][1]; \
-            difference += nxmodes*(itval*itval + rtval*rtval); \
-            } \
-            ); \
-    itval = difference; \
-    MPI_Allreduce( \
-            &itval, \
-            &difference, \
-            1, \
-            MPI_DOUBLE, MPI_SUM, this->cd->comm); \
-    if (myrank == 0) DEBUG_MSG("difference is %g\n", difference);*/ \
-    /* debugging */ \
-    /* ********* */ \
     FFTW(free)(pressure); \
 } \
 

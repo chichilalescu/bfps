@@ -30,17 +30,15 @@
 #include <hdf5.h>
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
-#include "interpolator.hpp"
+#include "rFFTW_interpolator.hpp"
+#include "particles.hpp"
 
-#ifndef PARTICLES
+#ifndef RFFTW_PARTICLES
 
-#define PARTICLES
+#define RFFTW_PARTICLES
 
-/* particle types */
-enum particle_types {VELOCITY_TRACER};
-
-template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
-class particles
+template <int particle_type, class rnumber, int interp_neighbours>
+class rFFTW_particles
 {
     public:
         int myrank, nprocs;
@@ -70,11 +68,9 @@ class particles
         int array_size;
         int integration_steps;
         int traj_skip;
-        int buffer_width;
-        ptrdiff_t buffer_size;
         double *lbound;
         double *ubound;
-        interpolator<rnumber, interp_neighbours> *vel;
+        rFFTW_interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
         char name[256];
@@ -95,36 +91,29 @@ class particles
          *  this->computing
          *  this->watching
          * */
-        particles(
+        rFFTW_particles(
                 const char *NAME,
                 fluid_solver_base<rnumber> *FSOLVER,
-                interpolator<rnumber, interp_neighbours> *FIELD,
+                rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
-        ~particles();
+        ~rFFTW_particles();
 
-        /* an Euler step is needed to compute an estimate of future positions,
-         * which is needed for synchronization.
-         * */
-        void jump_estimate(double *__restrict__ jump_length);
         void get_rhs(double *__restrict__ x, double *__restrict__ rhs);
         void get_rhs(double t, double *__restrict__ x, double *__restrict__ rhs);
 
         int get_rank(double z); // get rank for given value of z
-        void synchronize();
-        void synchronize_single_particle_state(int p, double *__restrict__ x, int source_id = -1);
         void get_grid_coordinates(double *__restrict__ x, int *__restrict__ xg, double *__restrict__ xx);
         void sample_vec_field(
-            interpolator<rnumber, interp_neighbours> *vec,
+            rFFTW_interpolator<rnumber, interp_neighbours> *vec,
             double t,
             double *__restrict__ x,
             double *__restrict__ y,
-            const bool synch = false,
             int *deriv = NULL);
-        inline void sample_vec_field(interpolator<rnumber, interp_neighbours> *field, double *vec_values)
+        inline void sample_vec_field(rFFTW_interpolator<rnumber, interp_neighbours> *field, double *vec_values)
         {
-            this->sample_vec_field(field, 1.0, this->state, vec_values, true, NULL);
+            this->sample_vec_field(field, 1.0, this->state, vec_values, NULL);
         }
 
         /* input/output */
@@ -135,9 +124,7 @@ class particles
         void step();
         void roll_rhs();
         void AdamsBashforth(int nsteps);
-        void Heun();
-        void cRK4();
 };
 
-#endif//PARTICLES
+#endif//RFFTW_PARTICLES
 

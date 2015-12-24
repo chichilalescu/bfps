@@ -62,6 +62,7 @@ class fluid_solver_base
         /* mode and dealiasing information */
         int dealias_type;
         double kMx, kMy, kMz, kM, kM2;
+        double kMspec, kMspec2;
         double *kx, *ky, *kz;
         std::unordered_map<int, double> Fourier_filter;
         double *kshell;
@@ -82,19 +83,37 @@ class fluid_solver_base
                 unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
         ~fluid_solver_base();
 
-        void low_pass_Fourier(cnumber *a, int howmany, double kmax);
-        void dealias(cnumber *a, int howmany);
-        void force_divfree(cnumber *a);
-        void symmetrize(cnumber *a, int howmany);
-        void clean_up_real_space(rnumber *a, int howmany);
-        void cospectrum(cnumber *a, cnumber *b, double *spec);
-        void cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent);
-        double autocorrel(cnumber *a);
-        void compute_rspace_stats(rnumber *a,
-                                  double *moments,
-                                  ptrdiff_t *hist,
-                                  double max_estimate = 1.0,
-                                  int nbins = 256);
+        void low_pass_Fourier(cnumber *__restrict__ a, int howmany, double kmax);
+        void dealias(cnumber *__restrict__ a, int howmany);
+        void force_divfree(cnumber *__restrict__ a);
+        void symmetrize(cnumber *__restrict__ a, int howmany);
+        void clean_up_real_space(rnumber *__restrict__ a, int howmany);
+        void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec);
+        void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec, const double k2exponent);
+        double autocorrel(cnumber *__restrict__ a);
+        template <int nvals>
+        void compute_rspace_stats(rnumber *__restrict__ a,
+                                  double *__restrict__ moments,
+                                  ptrdiff_t *__restrict__ hist,
+                                  double max_estimate[nvals],
+                                  const int nbins = 256);
+        inline void compute_rspace_stats3(rnumber *__restrict__ a,
+                                  double *__restrict__ moments,
+                                  ptrdiff_t *__restrict__ hist,
+                                  double max_estimate[3],
+                                  const int nbins = 256)
+        {
+            this->compute_rspace_stats<3>(a, moments, hist, max_estimate, nbins);
+        }
+        inline void compute_rspace_stats4(rnumber *__restrict__ a,
+                                  double *__restrict__ moments,
+                                  ptrdiff_t *__restrict__ hist,
+                                  double max_estimate[4],
+                                  const int nbins = 256)
+        {
+            this->compute_rspace_stats<4>(a, moments, hist, max_estimate, nbins);
+        }
+        void compute_vector_gradient(rnumber (*__restrict__ A)[2], rnumber(*__restrict__ source)[2]);
         void write_spectrum(const char *fname, cnumber *a, const double k2exponent = 0.0);
         void fill_up_filename(const char *base_name, char *full_name);
         int read_base(const char *fname, rnumber *data);
@@ -109,32 +128,32 @@ class fluid_solver_base
 /* macros for loops                                                          */
 
 /* Fourier space loop */
-#define CLOOP(expression) \
+#define CLOOP(obj, expression) \
  \
 { \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
-    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
             expression; \
             cindex++; \
         } \
 }
 
-#define CLOOP_NXMODES(expression) \
+#define CLOOP_NXMODES(obj, expression) \
  \
 { \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
     { \
         int nxmodes = 1; \
         ptrdiff_t xindex = 0; \
         expression; \
         cindex++; \
         nxmodes = 2; \
-    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
             expression; \
             cindex++; \
@@ -142,44 +161,44 @@ class fluid_solver_base
     } \
 }
 
-#define CLOOP_K2(expression) \
+#define CLOOP_K2(obj, expression) \
  \
 { \
     double k2; \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
-    for (ptrdiff_t xindex = 0; xindex < this->cd->subsizes[2]; xindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
             expression; \
             cindex++; \
         } \
 }
 
-#define CLOOP_K2_NXMODES(expression) \
+#define CLOOP_K2_NXMODES(obj, expression) \
  \
 { \
     double k2; \
     ptrdiff_t cindex = 0; \
-    for (ptrdiff_t yindex = 0; yindex < this->cd->subsizes[0]; yindex++) \
-    for (ptrdiff_t zindex = 0; zindex < this->cd->subsizes[1]; zindex++) \
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++) \
+    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++) \
     { \
         int nxmodes = 1; \
         ptrdiff_t xindex = 0; \
-        k2 = (this->kx[xindex]*this->kx[xindex] + \
-              this->ky[yindex]*this->ky[yindex] + \
-              this->kz[zindex]*this->kz[zindex]); \
+        k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+              obj->ky[yindex]*obj->ky[yindex] + \
+              obj->kz[zindex]*obj->kz[zindex]); \
         expression; \
         cindex++; \
         nxmodes = 2; \
-    for (xindex = 1; xindex < this->cd->subsizes[2]; xindex++) \
+    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++) \
         { \
-            k2 = (this->kx[xindex]*this->kx[xindex] + \
-                  this->ky[yindex]*this->ky[yindex] + \
-                  this->kz[zindex]*this->kz[zindex]); \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
             expression; \
             cindex++; \
         } \

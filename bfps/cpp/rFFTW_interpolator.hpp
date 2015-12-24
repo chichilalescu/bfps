@@ -24,17 +24,39 @@
 
 
 
-#ifndef SPLINE_N3
+#include "field_descriptor.hpp"
+#include "fftw_tools.hpp"
+#include "fluid_solver_base.hpp"
+#include "spline_n1.hpp"
+#include "spline_n2.hpp"
+#include "spline_n3.hpp"
+#include "spline_n4.hpp"
+#include "spline_n5.hpp"
+#include "spline_n6.hpp"
+#include "Lagrange_polys.hpp"
+#include "interpolator.hpp"
 
-#define SPLINE_N3
+#ifndef RFFTW_INTERPOLATOR
 
-void beta_n3_m0(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m1(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m2(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m3(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m4(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m5(const int deriv, const double x, double *__restrict__ poly_val);
-void beta_n3_m6(const int deriv, const double x, double *__restrict__ poly_val);
+#define RFFTW_INTERPOLATOR
 
-#endif//SPLINE_N3
+template <class rnumber, int interp_neighbours>
+class rFFTW_interpolator
+{
+    public:
+        ptrdiff_t field_size;
+        base_polynomial_values compute_beta;
+        field_descriptor<rnumber> *descriptor;
+        rnumber *f0, *f1, *temp;
+
+        rFFTW_interpolator(
+                fluid_solver_base<rnumber> *FSOLVER,
+                base_polynomial_values BETA_POLYS);
+        ~rFFTW_interpolator();
+
+        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
+        int read_rFFTW(void *src);
+};
+
+#endif//RFFTW_INTERPOLATOR
 

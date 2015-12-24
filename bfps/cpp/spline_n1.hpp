@@ -28,9 +28,9 @@
 
 #define SPLINE_N1
 
-void beta_n1_m0(int deriv, double x, double *poly_val);
-void beta_n1_m1(int deriv, double x, double *poly_val);
-void beta_n1_m2(int deriv, double x, double *poly_val);
+void beta_n1_m0(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n1_m1(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n1_m2(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//SPLINE_N1
 

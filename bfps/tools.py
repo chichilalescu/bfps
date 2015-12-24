@@ -30,13 +30,14 @@ import numpy as np
 def generate_data_3D(
         n0, n1, n2,
         dtype = np.complex128,
-        p = 1.5):
+        p = 1.5,
+        amplitude = 0.5):
     """
     generate something that has the proper shape
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
-    a[:] = np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape)
+    a[:] = amplitude*(np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape))
     k, j, i = np.mgrid[-n1/2+1:n1/2+1, -n0/2+1:n0/2+1, 0:n2/2+1]
     k = (k**2 + j**2 + i**2)**.5
     k = np.roll(k, n1//2+1, axis = 0)
@@ -54,6 +55,18 @@ def generate_data_3D(
     ii = np.where(k > min(n0, n1, n2)/3.)
     a[ii] = 0
     return a
+
+def randomize_phases(v):
+    phi = np.random.random(v.shape[:3])*(2*np.pi)
+    phi[0, 0, 0] = 0.0
+    for ky in range(1, phi.shape[0]//2):
+        phi[phi.shape[0] - ky, 0, 0] = - phi[ky, 0, 0]
+    for kz in range(1, phi.shape[1]//2):
+        phi[0, phi.shape[1] - kz, 0] = - phi[0, kz, 0]
+    for ky in range(1, phi.shape[0]//2):
+        for kz in range(1, phi.shape[1]):
+            phi[phi.shape[0] - ky, phi.shape[1] - kz, 0] = - phi[ky, kz, 0]
+    return v*(np.exp(1j*phi)[:, :, :, None]).astype(v.dtype)
 
 def padd_with_zeros(
         a,
@@ -82,8 +95,8 @@ def get_kindices(
     kvals = []
     radii = set([])
     index = []
-    for iz in range(kx.shape[0]):
-        for ix in range(0, kx.shape[0]):
+    for iz in range(1, kx.shape[0]):
+        for ix in range(1, kx.shape[0]):
             kval = (kx[iz]**2+kx[ix]**2)**.5
             tmp = math.modf(kval)
             if (tmp[0] == 0 and tmp[1] <= nx//2):

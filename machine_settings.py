@@ -39,7 +39,7 @@ extra_libraries = ['hdf5']
 if hostname == 'chichi-G':
     include_dirs = ['/usr/local/include',
                     '/usr/include/mpich']
-    library_dirs = ['/usr/local/lib'
+    library_dirs = ['/usr/local/lib',
                     '/usr/lib/mpich']
     extra_libraries += ['mpich']
 
@@ -71,7 +71,7 @@ if hostname in ['frontend01', 'frontend02']:
                           '-mhard-float',
                           '-mieee-fp',
                           '-ffast-math',
-                          '-mlarge-data-threshold=65536',
+#                          '-mlarge-data-threshold=65536',
                           '-mno-sse4',
                           '-mpush-args',
                           '-mred-zone',

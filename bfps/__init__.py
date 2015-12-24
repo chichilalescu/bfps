@@ -28,28 +28,20 @@ import os
 import subprocess
 import pickle
 
-from pkg_resources import get_distribution, DistributionNotFound
+import pkg_resources
 
-try:
-    _dist = get_distribution('bfps')
-    # Normalize case for Windows systems
-    dist_loc = os.path.normcase(os.path.realpath(_dist.location))
-    here = os.path.normcase(__file__)
-    if not here.startswith(os.path.join(dist_loc, 'bfps')):
-        # not installed, but there is another version that *is*
-        header_dir = os.path.join(os.path.dirname(here), 'cpp')
-        lib_dir = os.path.join(os.path.dirname(here), os.pardir)
-        raise DistributionNotFound
-    header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
-    lib_dir = _dist.location
-    __version__ = _dist.version
-except DistributionNotFound:
-    __version__ = ''
+__version__ = pkg_resources.require('bfps')[0].version
+
+_dist = pkg_resources.get_distribution('bfps')
+dist_loc = os.path.realpath(_dist.location)
+here = os.path.normcase(__file__)
+header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
+lib_dir = os.path.join(dist_loc, 'bfps')
 
 install_info = pickle.load(
         open(os.path.join(os.path.dirname(here),
                           'install_info.pickle'),
-             'r'))
+             'rb'))
 
 from .code import code
 from .fluid_converter import fluid_converter
@@ -85,7 +77,7 @@ def get_parser(base_class = NavierStokes,
     parser.add_argument('--njobs',
             type = int, dest = 'njobs',
             default = njobs)
-    c = base_class()
+    c = base_class(simname = simname)
     for k in sorted(c.parameters.keys()):
         parser.add_argument(
                 '--{0}'.format(k),

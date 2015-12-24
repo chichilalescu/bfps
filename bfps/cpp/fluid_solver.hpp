@@ -82,13 +82,23 @@ class fluid_solver:public fluid_solver_base<rnumber>
                 unsigned FFTW_PLAN_RIGOR = FFTW_MEASURE);
         ~fluid_solver(void);
 
+        void compute_gradient_statistics(
+                rnumber (*__restrict__ vec)[2],
+                double *__restrict__ gradu_moments,
+                double *__restrict__ trS2_Q_R_moments,
+                ptrdiff_t *__restrict__ gradu_histograms,
+                ptrdiff_t *__restrict__ trS2_Q_R_histograms,
+                ptrdiff_t *__restrict__ QR2D_histogram,
+                double trS2_Q_R_max_estimates[3],
+                double gradu_max_estimates[9],
+                const int nbins_1D = 256,
+                const int nbins_2D = 64);
+
         void compute_vorticity(void);
-        void compute_velocity(rnumber (*vorticity)[2]);
-        void compute_pressure(rnumber (*pressure)[2]);
-        void compute_vel_gradient(rnumber (*A)[2]);
-        void compute_trS2(rnumber *trS2);
-        void compute_Eulerian_acceleration(rnumber *dst);
-        void compute_Lagrangian_acceleration(rnumber *dst);
+        void compute_velocity(rnumber (*__restrict__ vorticity)[2]);
+        void compute_pressure(rnumber (*__restrict__ pressure)[2]);
+        void compute_Eulerian_acceleration(rnumber *__restrict__ dst);
+        void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
         void ift_velocity();
         void dft_velocity();
         void ift_vorticity();
@@ -96,7 +106,7 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
-        void add_forcing(rnumber (*acc_field)[2], rnumber (*vort_field)[2], rnumber factor);
+        void add_forcing(rnumber (*__restrict__ acc_field)[2], rnumber (*__restrict__ vort_field)[2], rnumber factor);
 
         int read(char field, char representation);
         int write(char field, char representation);

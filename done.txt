@@ -1,0 +1,2 @@
+x 2015-12-04 make code py3 compatible                                @python3
+x 2015-12-23 decide on versioning system                                           +merge0

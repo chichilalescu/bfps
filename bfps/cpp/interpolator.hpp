@@ -40,9 +40,9 @@
 #define INTERPOLATOR
 
 typedef void (*base_polynomial_values)(
-        int derivative,
-        double fraction,
-        double *destination);
+        const int derivative,
+        const double fraction,
+        double *__restrict__ destination);
 
 template <class rnumber, int interp_neighbours>
 class interpolator
@@ -59,7 +59,7 @@ class interpolator
                 base_polynomial_values BETA_POLYS);
         ~interpolator();
 
-        void operator()(double t, int *xg, double *xx, double *dest, int *deriv = NULL);
+        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
         /* destroys input */
         int read_rFFTW(void *src);
 };
