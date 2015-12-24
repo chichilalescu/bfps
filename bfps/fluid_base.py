@@ -90,13 +90,14 @@ class fluid_particle_base(bfps.code):
         self.fluid_loop = ''
         self.fluid_end  = ''
         self.fluid_output = ''
+        self.stat_src = ''
         self.particle_includes = ''
         self.particle_variables = ''
         self.particle_definitions = ''
         self.particle_start = ''
         self.particle_loop = ''
         self.particle_end  = ''
-        self.stat_src = ''
+        self.particle_stat_src = ''
         self.file_datasets_grow   = ''
         return None
     def finalize_code(self):
@@ -144,6 +145,7 @@ class fluid_particle_base(bfps.code):
                              'return file_problems;\n'
                              '}\n')
         self.definitions += 'void do_stats()\n{\n' + self.stat_src + '}\n'
+        self.definitions += 'void do_particle_stats()\n{\n' + self.particle_stat_src + '}\n'
         # take care of wisdom
         if self.use_fftw_wisdom:
             if self.dtype == np.float32:
@@ -191,6 +193,7 @@ class fluid_particle_base(bfps.code):
                                return EXIT_SUCCESS;
                            }
                            do_stats();
+                           do_particle_stats();
                            //endcpp
                            """
         output_time_difference = ('time1 = clock();\n' +
@@ -202,16 +205,21 @@ class fluid_particle_base(bfps.code):
                                       '<< iteration << " took " ' +
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
-        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n{\n'
+        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
+        self.main       += '{\n'
         self.main       += output_time_difference
-        self.main       += self.fluid_loop
         if self.particle_species > 0:
             self.main   += self.particle_loop
-        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n}\n'
+        self.main       += self.fluid_loop
+        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
+        if self.particle_species > 0:
+            self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
+        self.main       += '}\n'
         self.main       += output_time_difference
+        self.main       += 'do_stats();\n'
+        self.main       += 'do_particle_stats();\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
-        self.main       += 'do_stats();\n'
         self.main       += self.fluid_end
         return None
     def read_rfield(

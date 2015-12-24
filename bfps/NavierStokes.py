@@ -536,10 +536,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
             elif particle_class == 'rFFTW_particles':
                 self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
-        self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
-                                '{{\n' +
-                                'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
-                               output_vel_acc + '}\n')
+        self.particle_stat_src += (
+                ('if (ps{0}->iteration % niter_part == 0)\n' +
+                 '{{\n' +
+                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
+                output_vel_acc + '}\n')
         self.particle_species += 1
         return None
     def get_data_file(self):

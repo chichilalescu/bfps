@@ -112,7 +112,7 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
-    this->get_rhs(0, this->state, this->rhs[0]);
+    this->get_rhs(1, this->state, this->rhs[0]);
     switch(nsteps)
     {
         case 1:
