@@ -79,6 +79,7 @@ class rFFTW_interpolator
         /* interpolate field at an array of locations */
         void sample(
                 const int nparticles,
+                const int pdimension,
                 const double t,
                 const double *__restrict__ x,
                 double *__restrict__ y,

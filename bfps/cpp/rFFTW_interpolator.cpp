@@ -144,6 +144,36 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::get_grid_coordinates(
 }
 
 template <class rnumber, int interp_neighbours>
+void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
+        const int nparticles,
+        const int pdimension,
+        const double t,
+        const double *__restrict__ x,
+        double *__restrict__ y,
+        const int *deriv)
+{
+    /* get grid coordinates */
+    int *xg = new int[3*nparticles];
+    double *xx = new double[3*nparticles];
+    double *yy =  new double[3*nparticles];
+    std::fill_n(yy, 3*nparticles, 0.0);
+    this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
+    /* perform interpolation */
+    for (int p=0; p<nparticles; p++)
+        this->operator()(t, xg + p*3, xx + p*3, yy + p*3, deriv);
+    MPI_Allreduce(
+            yy,
+            y,
+            3*nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->descriptor->comm);
+    delete[] yy;
+    delete[] xg;
+    delete[] xx;
+}
+
+template <class rnumber, int interp_neighbours>
 void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
         const double t,
         const int *xg,

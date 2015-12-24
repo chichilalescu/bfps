@@ -90,7 +90,6 @@ class rFFTW_particles
         void get_rhs(double *__restrict__ x, double *__restrict__ rhs);
         void get_rhs(double t, double *__restrict__ x, double *__restrict__ rhs);
 
-        void get_grid_coordinates(double *__restrict__ x, int *__restrict__ xg, double *__restrict__ xx);
         void sample_vec_field(
             rFFTW_interpolator<rnumber, interp_neighbours> *vec,
             double t,

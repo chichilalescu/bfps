@@ -154,7 +154,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double 
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->sample_vec_field(this->vel, t, x, y);
+            this->vel->sample(this->nparticles, this->ncomponents, t, x, y);
             break;
     }
 }
@@ -254,29 +254,6 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::step()
     this->iteration++;
 }
 
-
-
-template <int particle_type, class rnumber, int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_grid_coordinates(double *x, int *xg, double *xx)
-{
-    static double grid_size[] = {this->dx, this->dy, this->dz};
-    double tval;
-    std::fill_n(xg, this->nparticles*3, 0);
-    std::fill_n(xx, this->nparticles*3, 0.0);
-    for (int p=0; p<this->nparticles; p++)
-    {
-        for (int c=0; c<3; c++)
-        {
-            tval = floor(x[p*this->ncomponents+c]/grid_size[c]);
-            xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
-            xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
-        }
-        /*xg[p*3+2] -= this->fs->rd->starts[0];
-        if (this->myrank == this->fs->rd->rank[0] &&
-            xg[p*3+2] > this->fs->rd->subsizes[0])
-            xg[p*3+2] -= this->fs->rd->sizes[0];*/
-    }
-}
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::read(hid_t data_file_id)
