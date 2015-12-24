@@ -38,15 +38,10 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
     this->field_size = 2*fs->cd->local_size;
     this->compute_beta = BETA_POLYS;
     if (sizeof(rnumber) == 4)
-    {
         this->f0 = (rnumber*)((void*)fftwf_alloc_real(this->field_size));
-        this->f1 = (rnumber*)((void*)fftwf_alloc_real(this->field_size));
-    }
     else if (sizeof(rnumber) == 8)
-    {
         this->f0 = (rnumber*)((void*)fftw_alloc_real(this->field_size));
-        this->f1 = (rnumber*)((void*)fftw_alloc_real(this->field_size));
-    }
+    this->f1 = this->f0;
     this->temp = this->f1;
 
     // compute dx, dy, dz;
@@ -89,15 +84,9 @@ template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 {
     if (sizeof(rnumber) == 4)
-    {
         fftwf_free((float*)((void*)this->f0));
-        fftwf_free((float*)((void*)this->f1));
-    }
     else if (sizeof(rnumber) == 8)
-    {
         fftw_free((double*)((void*)this->f0));
-        fftw_free((double*)((void*)this->f1));
-    }
     delete[] this->lbound;
     delete[] this->ubound;
 }
@@ -105,12 +94,6 @@ rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 template <class rnumber, int interp_neighbours>
 int rFFTW_interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 {
-    /* first, roll fields */
-    rnumber *tmp = this->f0;
-    this->f0 = this->f1;
-    this->f1 = tmp;
-    this->temp = this->f0;
-    /* now do regular things */
     rnumber *src = (rnumber*)void_src;
     rnumber *dst = this->f1;
     /* do big copy of middle stuff */
@@ -214,12 +197,12 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                                          bigix)*3;
                     for (int c=0; c<3; c++)
                     {
-                        dest[c] += (this->f0[tindex+c]*(1-t) + t*this->f1[tindex+c])*(bz[iz+interp_neighbours]*
-                                                                                      by[iy+interp_neighbours]*
-                                                                                      bx[ix+interp_neighbours]);
-                        tval[c] += (this->f0[tindex+c]*(1-t) + t*this->f1[tindex+c])*(bz[iz+interp_neighbours]*
-                                                                                      by[iy+interp_neighbours]*
-                                                                                      bx[ix+interp_neighbours]);
+                        dest[c] += this->f1[tindex+c]*(bz[iz+interp_neighbours]*
+                                                       by[iy+interp_neighbours]*
+                                                       bx[ix+interp_neighbours]);
+                        tval[c] += this->f1[tindex+c]*(bz[iz+interp_neighbours]*
+                                                       by[iy+interp_neighbours]*
+                                                       bx[ix+interp_neighbours]);
                     }
                 }
             }
