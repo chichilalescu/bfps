@@ -1,7 +1,6 @@
 (B) FFTW interpolator doesn't need its own field            @optimization +v1.0
 (B) compute z polynomials only when needed                  @optimization +v1.0
 (B) get rid of temporal interpolation                       @optimization +v1.0
-(B) move get_grid coords to interpolator                    @optimization +v1.0
 (B) use less memory                                         @optimization
 (C) clean up machine_settings mess                          @design @documentation +v2.0
 (C) code overview                                           @documentation

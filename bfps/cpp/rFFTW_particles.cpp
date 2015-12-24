@@ -132,7 +132,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::sample_vec_fiel
     double *xx = new double[3*this->nparticles];
     double *yy =  new double[3*this->nparticles];
     std::fill_n(yy, 3*this->nparticles, 0.0);
-    this->get_grid_coordinates(x, xg, xx);
+    vec->get_grid_coordinates(this->nparticles, this->ncomponents, x, xg, xx);
     /* perform interpolation */
     for (int p=0; p<this->nparticles; p++)
         (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);

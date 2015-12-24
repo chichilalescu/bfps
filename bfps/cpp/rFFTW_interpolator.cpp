@@ -121,12 +121,35 @@ int rFFTW_interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 }
 
 template <class rnumber, int interp_neighbours>
-void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
-        double t,
+void rFFTW_interpolator<rnumber, interp_neighbours>::get_grid_coordinates(
+        const int nparticles,
+        const int pdimension,
+        const double *x,
         int *xg,
-        double *xx,
+        double *xx)
+{
+    static double grid_size[] = {this->dx, this->dy, this->dz};
+    double tval;
+    std::fill_n(xg, nparticles*3, 0);
+    std::fill_n(xx, nparticles*3, 0.0);
+    for (int p=0; p<nparticles; p++)
+    {
+        for (int c=0; c<3; c++)
+        {
+            tval = floor(x[p*pdimension+c]/grid_size[c]);
+            xg[p*3+c] = MOD(int(tval), this->descriptor->sizes[2-c]);
+            xx[p*3+c] = (x[p*pdimension+c] - tval*grid_size[c]) / grid_size[c];
+        }
+    }
+}
+
+template <class rnumber, int interp_neighbours>
+void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
+        const double t,
+        const int *xg,
+        const double *xx,
         double *dest,
-        int *deriv)
+        const int *deriv)
 {
     double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
     if (deriv == NULL)

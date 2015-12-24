@@ -71,22 +71,24 @@ class rFFTW_interpolator
 
         /* map real locations to grid coordinates */
         void get_grid_coordinates(
+                const int nparticles,
+                const int pdimension,
                 const double *__restrict__ x,
-                const int *__restrict__ xg,
-                const double *__restrict__ xx);
+                int *__restrict__ xg,
+                double *__restrict__ xx);
         /* interpolate field at an array of locations */
         void sample(
                 const int nparticles,
                 const double t,
                 const double *__restrict__ x,
-                const double *__restrict__ y,
+                double *__restrict__ y,
                 const int *deriv = NULL);
         /* interpolate 1 point */
         void operator()(
                 const double t,
                 const int *__restrict__ xg,
                 const double *__restrict__ xx,
-                const double *__restrict__ dest,
+                double *__restrict__ dest,
                 const int *deriv = NULL);
         int read_rFFTW(void *src);
 };
