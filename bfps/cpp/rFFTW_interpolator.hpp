@@ -44,9 +44,17 @@ template <class rnumber, int interp_neighbours>
 class rFFTW_interpolator
 {
     public:
+        /* size of field to interpolate */
         ptrdiff_t field_size;
+
+        /* pointer to polynomial function */
         base_polynomial_values compute_beta;
+
+        /* descriptor of field to interpolate */
         field_descriptor<rnumber> *descriptor;
+
+        /* pointers to fields that are to be interpolated
+         * */
         rnumber *f0, *f1, *temp;
 
         /* physical parameters of field */
@@ -61,7 +69,25 @@ class rFFTW_interpolator
                 base_polynomial_values BETA_POLYS);
         ~rFFTW_interpolator();
 
-        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
+        /* map real locations to grid coordinates */
+        void get_grid_coordinates(
+                const double *__restrict__ x,
+                const int *__restrict__ xg,
+                const double *__restrict__ xx);
+        /* interpolate field at an array of locations */
+        void sample(
+                const int nparticles,
+                const double t,
+                const double *__restrict__ x,
+                const double *__restrict__ y,
+                const int *deriv = NULL);
+        /* interpolate 1 point */
+        void operator()(
+                const double t,
+                const int *__restrict__ xg,
+                const double *__restrict__ xx,
+                const double *__restrict__ dest,
+                const int *deriv = NULL);
         int read_rFFTW(void *src);
 };
 
