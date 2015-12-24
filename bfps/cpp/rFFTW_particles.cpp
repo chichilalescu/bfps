@@ -165,15 +165,6 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double 
     }
 }
 
-
-template <int particle_type, class rnumber, int interp_neighbours>
-int rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rank(double z)
-{
-    int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
-    assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
-    return tmp;
-}
-
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
