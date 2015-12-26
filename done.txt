@@ -1,3 +1,5 @@
 x 2015-12-04 make code py3 compatible                                @python3
 x 2015-12-23 decide on versioning system                                           +merge0
 x 2015-12-24 move get_grid coords to interpolator                    @optimization +v1.0
+x 2015-12-25 get rid of temporal interpolation                       @optimization +v1.0
+x 2015-12-26 call interpolation only when needed                     @optimization +v1.0

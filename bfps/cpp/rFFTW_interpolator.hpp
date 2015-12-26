@@ -60,9 +60,10 @@ class rFFTW_interpolator
         /* physical parameters of field */
         double dx, dy, dz;
 
-        /* precomputed boundaries of process's domain */
-        double *lbound;
-        double *ubound;
+        /* compute[iz] is true if .
+         * local_zstart - neighbours <= iz <= local_zend + 1 + neighbours
+         * */
+        bool *compute;
 
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
