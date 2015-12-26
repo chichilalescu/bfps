@@ -1,4 +1,3 @@
-#! /usr/bin/env python2
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -25,7 +24,7 @@
 
 
 
-from test_base import *
+from base import *
 
 class FrozenFieldParticles(bfps.NavierStokes):
     def __init__(
@@ -33,12 +32,16 @@ class FrozenFieldParticles(bfps.NavierStokes):
             name = 'FrozenFieldParticles',
             work_dir = './',
             simname = 'test',
-            fluid_precision = 'single'):
+            frozen_fields = True,
+            fluid_precision = 'single',
+            use_fftw_wisdom = False):
         super(FrozenFieldParticles, self).__init__(
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                fluid_precision = fluid_precision)
+                fluid_precision = fluid_precision,
+                frozen_fields = frozen_fields,
+                use_fftw_wisdom = use_fftw_wisdom)
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += 'fluid_solver<{0}> *fs;\n'.format(self.C_dtype)

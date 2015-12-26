@@ -28,7 +28,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from test_base import *
+from base import *
 
 from test_frozen_field import FrozenFieldParticles
 from test_convergence import convergence_test
@@ -147,7 +147,17 @@ class err_finder:
         return errlist
 
 if __name__ == '__main__':
-    opt = parser.parse_args()
+    opt = parser.parse_args(
+            ['-n', '16',
+             '--run',
+             '--initialize',
+             '--frozen',
+             '--ncpu', '2',
+             '--nparticles', '128',
+             '--niter_todo', '16',
+             '--precision', 'single',
+             '--wd', 'data/single'] +
+            sys.argv[1:])
     if opt.precision == 'single':
         dtype = np.complex64
     elif opt.precision == 'double':
