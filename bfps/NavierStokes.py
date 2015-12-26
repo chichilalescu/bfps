@@ -408,8 +408,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
         update_fields += ('fs->ift_velocity();\n' +
                           'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
-                          'fs->compute_Lagrangian_acceleration(acc_{0}->temp);\n' +
-                          'acc_{0}->read_rFFTW(acc_{0}->temp);\n').format(name)
+                          'fs->compute_Lagrangian_acceleration(acc_{0}->field);\n').format(name)
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
         return None
@@ -450,7 +449,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                               double *velocity     = new double[ps{0}->array_size];
                               ps{0}->sample_vec_field(vel_{1}, velocity);
                               ps{0}->sample_vec_field(acc_{1}, acceleration);
-                              if (ps{0}->fs->rd->myrank == 0)
+                              if (ps{0}->myrank == 0)
                               {{
                                   //VELOCITY begin
                                   std::string temp_string = (std::string("/particles/") +
@@ -512,7 +511,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     neighbours,
                     self.particle_species)
             self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
-                                    'fname, fs, vel_{3},\n' +
+                                    'fname, vel_{3},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             self.particle_species, self.C_dtype, neighbours, fields_name)
@@ -536,10 +535,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
             elif particle_class == 'rFFTW_particles':
                 self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
-        self.particle_loop += (('if (ps{0}->iteration % niter_part == 0)\n' +
-                                '{{\n' +
-                                'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
-                               output_vel_acc + '}\n')
+        self.particle_stat_src += (
+                ('if (ps{0}->iteration % niter_part == 0)\n' +
+                 '{{\n' +
+                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
+                output_vel_acc + '}\n')
         self.particle_species += 1
         return None
     def get_data_file(self):
