@@ -8,6 +8,8 @@
 (C) set up mechanism for adding in new PDEs                 @design +v2.0 +alternate_algorithms
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @design @HDF5 +I/O
+(D) tests should not overwrite other tests (tox_full)       @tests
+(D) generalize interpolation comparison test                @tests
 (D) test anisotropic grids                                  @tests
 (D) test non-cubic domains                                  @tests
 (E) add u-equation algorithm for testing purposes           @tests +alternate_algorithms
