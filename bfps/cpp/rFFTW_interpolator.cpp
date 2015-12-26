@@ -51,7 +51,7 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
     this->compute = new bool[this->descriptor->sizes[0]];
     std::fill_n(this->compute, this->descriptor->sizes[0], false);
     for (int iz = this->descriptor->starts[0]-interp_neighbours-1;
-            iz <= this->descriptor->starts[0]+this->descriptor->subsizes[0]+interp_neighbours+1;
+            iz <= this->descriptor->starts[0]+this->descriptor->subsizes[0]+interp_neighbours;
             iz++)
         this->compute[((iz + this->descriptor->sizes[0]) % this->descriptor->sizes[0])] = true;
 }

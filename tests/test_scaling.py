@@ -54,8 +54,8 @@ if __name__ == '__main__':
             ['-n', '32',
              '--run',
              '--initialize',
-             '--ncpu', '2',
-             '--nparticles', '1000',
+             '--ncpu', '4',
+             '--nparticles', '10000',
              '--niter_todo', '32',
              '--precision', 'single',
              '--wd', 'data/single'] +
