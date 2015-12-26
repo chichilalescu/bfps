@@ -1,5 +1,4 @@
 (B) FFTW interpolator doesn't need its own field            @optimization +v1.0
-(B) clean up tox files, make sure all tests run             @tests        +v1.0
 (B) compute z polynomials only when needed                  @optimization +v1.0
 (B) use less memory                                         @optimization
 (B) split library into core and extra                       @optimization +v1.0
