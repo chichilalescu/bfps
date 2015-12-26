@@ -24,7 +24,7 @@
 
 
 
-//#define NDEBUG
+#define NDEBUG
 
 #include <cmath>
 #include <cassert>
@@ -42,7 +42,6 @@ extern int myrank, nprocs;
 template <int particle_type, class rnumber, int interp_neighbours>
 rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
         const char *NAME,
-        fluid_solver_base<rnumber> *FSOLVER,
         rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
         const int NPARTICLES,
         const int TRAJ_SKIP,
@@ -60,7 +59,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
     strncpy(this->name, NAME, 256);
-    this->fs = FSOLVER;
     this->nparticles = NPARTICLES;
     this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
@@ -76,41 +74,6 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::rFFTW_particles(
         this->rhs[i] = new double[this->array_size];
         std::fill_n(this->rhs[i], this->array_size, 0.0);
     }
-
-    // compute dx, dy, dz;
-    this->dx = 4*acos(0) / (this->fs->dkx*this->fs->rd->sizes[2]);
-    this->dy = 4*acos(0) / (this->fs->dky*this->fs->rd->sizes[1]);
-    this->dz = 4*acos(0) / (this->fs->dkz*this->fs->rd->sizes[0]);
-
-    // compute lower and upper bounds
-    this->lbound = new double[nprocs];
-    this->ubound = new double[nprocs];
-    double *tbound = new double[nprocs];
-    std::fill_n(tbound, nprocs, 0.0);
-    tbound[this->myrank] = this->fs->rd->starts[0]*this->dz;
-    MPI_Allreduce(
-            tbound,
-            this->lbound,
-            nprocs,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    std::fill_n(tbound, nprocs, 0.0);
-    tbound[this->myrank] = (this->fs->rd->starts[0] + this->fs->rd->subsizes[0])*this->dz;
-    MPI_Allreduce(
-            tbound,
-            this->ubound,
-            nprocs,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] tbound;
-    //for (int r = 0; r<nprocs; r++)
-    //    DEBUG_MSG(
-    //            "lbound[%d] = %lg, ubound[%d] = %lg\n",
-    //            r, this->lbound[r],
-    //            r, this->ubound[r]
-    //            );
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -121,57 +84,17 @@ rFFTW_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_particles()
     {
         delete[] this->rhs[i];
     }
-    delete[] this->lbound;
-    delete[] this->ubound;
-}
-
-template <int particle_type, class rnumber,  int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::sample_vec_field(
-        rFFTW_interpolator<rnumber, interp_neighbours> *vec,
-        double t,
-        double *x,
-        double *y,
-        int *deriv)
-{
-    /* get grid coordinates */
-    int *xg = new int[3*this->nparticles];
-    double *xx = new double[3*this->nparticles];
-    double *yy =  new double[3*this->nparticles];
-    std::fill_n(yy, 3*this->nparticles, 0.0);
-    this->get_grid_coordinates(x, xg, xx);
-    /* perform interpolation */
-    for (int p=0; p<this->nparticles; p++)
-        (*vec)(t, xg + p*3, xx + p*3, yy + p*3, deriv);
-    MPI_Allreduce(
-            yy,
-            y,
-            3*this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] yy;
-    delete[] xg;
-    delete[] xx;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double t, double *x, double *y)
+void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rhs(double *x, double *y)
 {
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->sample_vec_field(this->vel, t, x, y);
+            this->vel->sample(this->nparticles, this->ncomponents, x, y);
             break;
     }
-}
-
-
-template <int particle_type, class rnumber, int interp_neighbours>
-int rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_rank(double z)
-{
-    int tmp = this->fs->rd->rank[MOD(int(floor(z/this->dz)), this->fs->rd->sizes[0])];
-    assert(tmp >= 0 && tmp < this->fs->rd->nprocs);
-    return tmp;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -189,7 +112,7 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(int nsteps)
 {
     ptrdiff_t ii;
-    this->get_rhs(0, this->state, this->rhs[0]);
+    this->get_rhs(this->state, this->rhs[0]);
     switch(nsteps)
     {
         case 1:
@@ -269,29 +192,6 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::step()
     this->iteration++;
 }
 
-
-
-template <int particle_type, class rnumber, int interp_neighbours>
-void rFFTW_particles<particle_type, rnumber, interp_neighbours>::get_grid_coordinates(double *x, int *xg, double *xx)
-{
-    static double grid_size[] = {this->dx, this->dy, this->dz};
-    double tval;
-    std::fill_n(xg, this->nparticles*3, 0);
-    std::fill_n(xx, this->nparticles*3, 0.0);
-    for (int p=0; p<this->nparticles; p++)
-    {
-        for (int c=0; c<3; c++)
-        {
-            tval = floor(x[p*this->ncomponents+c]/grid_size[c]);
-            xg[p*3+c] = MOD(int(tval), this->fs->rd->sizes[2-c]);
-            xx[p*3+c] = (x[p*this->ncomponents+c] - tval*grid_size[c]) / grid_size[c];
-        }
-        /*xg[p*3+2] -= this->fs->rd->starts[0];
-        if (this->myrank == this->fs->rd->rank[0] &&
-            xg[p*3+2] > this->fs->rd->subsizes[0])
-            xg[p*3+2] -= this->fs->rd->sizes[0];*/
-    }
-}
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_particles<particle_type, rnumber, interp_neighbours>::read(hid_t data_file_id)

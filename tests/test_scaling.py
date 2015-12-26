@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -30,10 +30,7 @@ from base import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-parser.add_argument('--multiplejob',
-        dest = 'multiplejob', action = 'store_true')
-
-def plain(opt):
+def scaling(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt, dt = 0.2/opt.n)
@@ -45,19 +42,10 @@ def plain(opt):
     print ('kMetaK = {0:.4e}'.format(c0.statistics['kMeta']))
     for s in range(c0.particle_species):
         acceleration_test(c0, species = s, m = 1)
-    if not opt.multiplejob:
-        return None
-    assert(opt.niter_todo % 3 == 0)
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
-    opt.njobs *= 2
-    opt.niter_todo = opt.niter_todo//2
+    opt.ncpu *= 2
     c1 = launch(opt, dt = c0.parameters['dt'])
     c1.compute_statistics()
-    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
-    opt.njobs = 3*opt.njobs//2
-    opt.niter_todo = 2*opt.niter_todo//3
-    c2 = launch(opt, dt = c0.parameters['dt'])
-    c2.compute_statistics()
     compare_stats(opt, c0, c1)
     return None
 
@@ -65,12 +53,12 @@ if __name__ == '__main__':
     opt = parser.parse_args(
             ['-n', '32',
              '--run',
-             '--ncpu', '2',
-             '--nparticles', '1000',
-             '--niter_todo', '48',
+             '--initialize',
+             '--ncpu', '4',
+             '--nparticles', '10000',
+             '--niter_todo', '32',
              '--precision', 'single',
-             '--multiplejob',
              '--wd', 'data/single'] +
             sys.argv[1:])
-    plain(opt)
+    scaling(opt)
 
