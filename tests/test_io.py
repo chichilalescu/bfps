@@ -1,4 +1,3 @@
-#! /usr/bin/env python2
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -25,7 +24,7 @@
 
 
 
-from test_base import *
+from base import *
 
 class test_io(bfps.code):
     def __init__(
@@ -43,7 +42,12 @@ class test_io(bfps.code):
         return None
 
 if __name__ == '__main__':
-    opt = parser.parse_args()
+    opt = parser.parse_args(
+            ['-n', '32',
+             '--run',
+             '--initialize',
+             '--ncpu', '2'] +
+            sys.argv[1:])
     c = test_io(work_dir = opt.work_dir + '/io')
     c.write_src()
     c.write_par()
