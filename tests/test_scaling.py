@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -57,7 +57,7 @@ if __name__ == '__main__':
              '--nparticles', '1000',
              '--niter_todo', '32',
              '--precision', 'single',
-             '--wd', '"data/single"'] +
+             '--wd', 'data/single'] +
             sys.argv[1:])
     scaling(opt)
 
