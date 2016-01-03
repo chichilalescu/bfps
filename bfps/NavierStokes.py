@@ -639,11 +639,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.statistics['Rlambda' + suffix] = (self.statistics['Uint' + suffix] *
                                                    self.statistics['lambda' + suffix] /
                                                    self.parameters['nu'])
+            self.statistics['kMeta' + suffix] = self.statistics['kM']*self.statistics['etaK' + suffix]
+            if self.parameters['dealias_type'] == 1:
+                self.statistics['kMeta' + suffix] *= 0.8
         self.statistics['Tint'] = self.statistics['Lint'] / self.statistics['Uint']
         self.statistics['Taylor_microscale'] = self.statistics['lambda']
-        self.statistics['kMeta'] = self.statistics['kM']*self.statistics['etaK']
-        if self.parameters['dealias_type'] == 1:
-            self.statistics['kMeta'] *= 0.8
         return None
     def set_plt_style(
             self,

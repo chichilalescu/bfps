@@ -5,3 +5,4 @@ x 2015-12-25 get rid of temporal interpolation                       @optimizati
 x 2015-12-26 call interpolation only when needed                     @optimization +v1.0
 x 2015-12-26 clean up tox files, make sure all tests run             @tests        +v1.0
 x 2016-01-03 check divfree function
+x 2016-01-03 compute kMeta(t) as well
