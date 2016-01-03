@@ -27,22 +27,11 @@
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
-#include "spline_n4.hpp"
-#include "spline_n5.hpp"
-#include "spline_n6.hpp"
-#include "Lagrange_polys.hpp"
+#include "interpolator_base.hpp"
 
 #ifndef INTERPOLATOR
 
 #define INTERPOLATOR
-
-typedef void (*base_polynomial_values)(
-        const int derivative,
-        const double fraction,
-        double *__restrict__ destination);
 
 template <class rnumber, int interp_neighbours>
 class interpolator

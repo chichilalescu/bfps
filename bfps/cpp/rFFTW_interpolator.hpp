@@ -27,14 +27,7 @@
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
-#include "spline_n4.hpp"
-#include "spline_n5.hpp"
-#include "spline_n6.hpp"
-#include "Lagrange_polys.hpp"
-#include "interpolator.hpp"
+#include "interpolator_base.hpp"
 
 #ifndef RFFTW_INTERPOLATOR
 
