@@ -1,7 +1,7 @@
-(A) check divfree function
 (B) FFTW interpolator doesn't need its own field            @optimization +v1.0
 (B) compute z polynomials only when needed                  @optimization +v1.0
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
+(B) set up mechanism for adding in new PDEs                 @design +v2.0 +alternate_algorithms
 (B) split library into core and extra                       @optimization +v1.0
 (B) tweak HDF5 settings                                     @optimization @HDF5 +I/O
 (B) use less memory                                         @optimization
@@ -9,7 +9,6 @@
 (C) code overview                                           @documentation
 (C) compute kMeta(t) as well
 (C) move stat I/O to cpp lib                                @design @HDF5
-(C) set up mechanism for adding in new PDEs                 @design +v2.0 +alternate_algorithms
 (C) test involving hydrodynamic similarity                  @tests
 (C) use HDF5 io for fields                                  @design @HDF5 +I/O
 (D) generalize interpolation comparison test                @tests
