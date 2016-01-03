@@ -68,9 +68,7 @@ print(VERSION)
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
                  'fluid_solver',
-                 'interpolator',
                  'rFFTW_interpolator',
-                 'particles',
                  'rFFTW_particles',
                  'fftw_tools',
                  'spline_n1',
@@ -82,6 +80,7 @@ src_file_list = ['field_descriptor',
                  'Lagrange_polys']
 
 header_list = (['cpp/base.hpp',
+                'cpp/particles_base.hpp',
                 'cpp/interpolator_base.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list])

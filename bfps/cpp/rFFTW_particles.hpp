@@ -29,9 +29,9 @@
 #include <iostream>
 #include <hdf5.h>
 #include "base.hpp"
+#include "particles_base.hpp"
 #include "fluid_solver_base.hpp"
 #include "rFFTW_interpolator.hpp"
-#include "particles.hpp"
 
 #ifndef RFFTW_PARTICLES
 
