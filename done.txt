@@ -6,3 +6,4 @@ x 2015-12-26 call interpolation only when needed                     @optimizati
 x 2015-12-26 clean up tox files, make sure all tests run             @tests        +v1.0
 x 2016-01-03 check divfree function
 x 2016-01-03 compute kMeta(t) as well
+x 2016-01-03 split library into core and extra                                       @optimization +v1.0

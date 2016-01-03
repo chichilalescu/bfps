@@ -1,19 +1,21 @@
-(B) FFTW interpolator doesn't need its own field            @optimization +v1.0
-(B) compute z polynomials only when needed                  @optimization +v1.0
+(B) FFTW interpolator doesn't need its own field                            @optimization +v1.0 +particle_api
+(B) add stat choice parameter to add_particles                              @design +v1.0 +particle_api
+(B) simplify tracer/field addition mechanism                                @design +v1.0 +particle_api
+(B) compute z polynomials only when needed                                  @optimization +v1.0
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
-(B) set up mechanism for adding in new PDEs                 @design +v2.0 +alternate_algorithms
-(B) split library into core and extra                       @optimization +v1.0
-(B) tweak HDF5 settings                                     @optimization @HDF5 +I/O
-(B) use less memory                                         @optimization
-(C) clean up machine_settings mess                          @design @documentation +v2.0
-(C) code overview                                           @documentation
-(C) move stat I/O to cpp lib                                @design @HDF5
-(C) test involving hydrodynamic similarity                  @tests
-(C) use HDF5 io for fields                                  @design @HDF5 +I/O
-(D) generalize interpolation comparison test                @tests
-(D) test anisotropic grids                                  @tests
-(D) test non-cubic domains                                  @tests
-(D) tests should not overwrite other tests (tox_full)       @tests
-(E) add u-equation algorithm for testing purposes           @tests +alternate_algorithms
-(E) pure python DNS addon: pros and cons                    @tests +alternate_algorithms
+(B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
+(B) tweak HDF5 settings                                                     @optimization @HDF5 +I/O
+(B) use less memory                                                         @optimization
+(C) clean up machine_settings mess                                          @design @documentation +v2.0
+(C) code overview                                                           @documentation
+(C) move stat I/O to cpp lib                                                @design @HDF5
+(C) test involving hydrodynamic similarity                                  @tests
+(C) use HDF5 io for fields                                                  @design @HDF5 +I/O
+(D) generalize interpolation comparison test                                @tests
+(D) generate separate lib(s) with extra classes                             @tests +alternate_algorithms
+(D) test anisotropic grids                                                  @tests
+(D) test non-cubic domains                                                  @tests
+(D) tests should not overwrite other tests (tox_full)                       @tests
+(E) add u-equation algorithm for testing purposes                           @tests +alternate_algorithms
+(E) pure python DNS addon: pros and cons                                    @tests +alternate_algorithms
 (F) add switch to turn off simulation
