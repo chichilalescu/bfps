@@ -32,15 +32,13 @@
 template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         fluid_solver_base<rnumber> *fs,
-        base_polynomial_values BETA_POLYS)
+        base_polynomial_values BETA_POLYS,
+        rnumber *FIELD)
 {
     this->descriptor = fs->rd;
     this->field_size = 2*fs->cd->local_size;
     this->compute_beta = BETA_POLYS;
-    if (sizeof(rnumber) == 4)
-        this->field = (rnumber*)((void*)fftwf_alloc_real(this->field_size));
-    else if (sizeof(rnumber) == 8)
-        this->field = (rnumber*)((void*)fftw_alloc_real(this->field_size));
+    this->field = FIELD;
 
     // compute dx, dy, dz;
     this->dx = 4*acos(0) / (fs->dkx*this->descriptor->sizes[2]);
@@ -59,22 +57,7 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
 template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 {
-    if (sizeof(rnumber) == 4)
-        fftwf_free((float*)((void*)this->field));
-    else if (sizeof(rnumber) == 8)
-        fftw_free((double*)((void*)this->field));
     delete[] this->compute;
-}
-
-template <class rnumber, int interp_neighbours>
-int rFFTW_interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
-{
-    rnumber *src = (rnumber*)void_src;
-    /* do big copy of middle stuff */
-    std::copy(src,
-              src + this->field_size,
-              this->field);
-    return EXIT_SUCCESS;
 }
 
 template <class rnumber, int interp_neighbours>

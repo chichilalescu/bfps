@@ -378,6 +378,52 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                           '}\n' +
                           'delete fs;\n')
         return None
+    def add_3D_rFFTW_field(
+            self,
+            name = 'rFFTW_acc'):
+        if self.dtype == np.float32:
+            FFTW = 'fftwf'
+        elif self.dtype == np.float64:
+            FFTW = 'fftw'
+        self.fluid_variables += '{0} *{1};\n'.format(self.C_dtype, name)
+        self.fluid_start += '{0} = {1}_alloc_real(2*fs->cd->local_size);\n'.format(name, FFTW)
+        self.fluid_end   += '{0}_free({1});\n'.format(FFTW, name)
+        return None
+    def add_interpolator(
+            self,
+            interp_type = 'spline',
+            kcut = None,
+            neighbours = 1,
+            smoothness = 1,
+            name = 'field_interpolator',
+            field_name = 'fs->rvelocity'):
+        name = quantity + '_' + name
+        self.fluid_includes += '#include "rFFTW_interpolator.hpp"\n'
+        self.fluid_variables += 'rFFTW_interpolator <{0}, {1}> *{2};\n'.format(self.C_dtype, neighbours, name)
+        self.parameters[name + '_type'] = interp_type
+        self.parameters[name + '_neighbours'] = neighbours
+        if interp_type == 'spline':
+            self.parameters[name + '_smoothness'] = smoothness
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
+        self.fluid_start += '{0} = new rFFTW_interpolator<{1}, {2}>(fs, {3});\n'.format(
+                name,
+                self.C_dtype,
+                neighbours,
+                beta_name)
+        self.fluid_end += 'delete {0};\n'.format(name)
+        update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
+        if not type(kcut) == type(None):
+            update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
+        if quantity == 'vel':
+            update_fields += ('fs->ift_velocity();\n' +
+                              '{0}->read_rFFTW(fs->rvelocity);\n').format(name)
+        elif quantity == 'acc':
+            update_fields += 'fs->compute_Lagrangian_acceleration({0}->field);\n'.format(name)
+        self.fluid_start += update_fields
+        self.fluid_loop += update_fields
+        return None
     def add_particle_fields(
             self,
             interp_type = 'spline',
@@ -385,7 +431,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'particle_field',
-            field_class = 'rFFTW_interpolator'):
+            field_class = 'rFFTW_interpolator',
+            acc_field_name = 'rFFTW_acc'):
         self.fluid_includes += '#include "{0}.hpp"\n'.format(field_class)
         self.fluid_variables += field_class + '<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
@@ -395,19 +442,19 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4});\n' +
-                             'acc_{0} = new {1}<{2}, {3}>(fs, {4});\n').format(name,
+        self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4}, fs->rvelocity);\n' +
+                             'acc_{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n').format(name,
                                                                                field_class,
                                                                                self.C_dtype,
                                                                                neighbours,
-                                                                               beta_name)
+                                                                               beta_name,
+                                                                               acc_field_name)
         self.fluid_end += ('delete vel_{0};\n' +
                            'delete acc_{0};\n').format(name)
         update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == type(None):
             update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
         update_fields += ('fs->ift_velocity();\n' +
-                          'vel_{0}->read_rFFTW(fs->rvelocity);\n' +
                           'fs->compute_Lagrangian_acceleration(acc_{0}->field);\n').format(name)
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
@@ -419,7 +466,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             kcut = 'fs->kM',
             frozen_particles = False,
             fields_name = None,
-            particle_class = 'rFFTW_particles'):
+            particle_class = 'rFFTW_particles',
+            acc_stats = False):
         if integration_method == 'cRK4':
             integration_steps = 4
         elif integration_method == 'Heun':

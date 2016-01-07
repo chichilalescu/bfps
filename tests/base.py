@@ -102,6 +102,7 @@ def launch(
     c.parameters['famplitude'] = 0.2
     c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:
+        c.add_3D_rFFTW_field()
         c.add_particle_fields(
                 name = 'regular',
                 neighbours = opt.neighbours,
