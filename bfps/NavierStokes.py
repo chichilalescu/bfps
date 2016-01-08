@@ -393,7 +393,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             smoothness = 1,
             name = 'field_interpolator',
             field_name = 'fs->rvelocity'):
-        name = quantity + '_' + name
         self.fluid_includes += '#include "rFFTW_interpolator.hpp"\n'
         self.fluid_variables += 'rFFTW_interpolator <{0}, {1}> *{2};\n'.format(
                 self.C_dtype, neighbours, name)
@@ -404,89 +403,31 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.fluid_start += '{0} = new rFFTW_interpolator<{1}, {2}>(fs, {3});\n'.format(
+        self.fluid_start += '{0} = new rFFTW_interpolator<{1}, {2}>(fs, {3}, {4});\n'.format(
                 name,
                 self.C_dtype,
                 neighbours,
-                beta_name)
+                beta_name,
+                field_name)
         self.fluid_end += 'delete {0};\n'.format(name)
-        update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
-        if not type(kcut) == type(None):
-            update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
-        if quantity == 'vel':
-            update_fields += ('fs->ift_velocity();\n' +
-                              '{0}->read_rFFTW(fs->rvelocity);\n').format(name)
-        elif quantity == 'acc':
-            update_fields += 'fs->compute_Lagrangian_acceleration({0}->field);\n'.format(name)
-        self.fluid_start += update_fields
-        self.fluid_loop += update_fields
-        return None
-    def add_particle_fields(
-            self,
-            interp_type = 'spline',
-            kcut = None,
-            neighbours = 1,
-            smoothness = 1,
-            name = 'particle_field',
-            field_class = 'rFFTW_interpolator',
-            acc_field_name = 'rFFTW_acc'):
-        self.fluid_includes += '#include "{0}.hpp"\n'.format(field_class)
-        self.fluid_variables += field_class + '<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(
-                self.C_dtype, neighbours, name)
-        self.parameters[name + '_type'] = interp_type
-        self.parameters[name + '_neighbours'] = neighbours
-        if interp_type == 'spline':
-            self.parameters[name + '_smoothness'] = smoothness
-            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
-        elif interp_type == 'Lagrange':
-            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        if field_class == 'rFFTW_interpolator':
-            self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4}, fs->rvelocity);\n' +
-                                 'acc_{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n').format(name,
-                                                                                   field_class,
-                                                                                   self.C_dtype,
-                                                                                   neighbours,
-                                                                                   beta_name,
-                                                                                   acc_field_name)
-        elif field_class == 'interpolator':
-            self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4});\n' +
-                                 'acc_{0} = new {1}<{2}, {3}>(fs, {4});\n').format(name,
-                                                                                   field_class,
-                                                                                   self.C_dtype,
-                                                                                   neighbours,
-                                                                                   beta_name,
-                                                                                   acc_field_name)
-        self.fluid_end += ('delete vel_{0};\n' +
-                           'delete acc_{0};\n').format(name)
-        update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
-        if not type(kcut) == type(None):
-            update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
-        update_fields += ('fs->ift_velocity();\n' +
-                          'fs->compute_Lagrangian_acceleration(acc_{0}->field);\n').format(name)
-        self.fluid_start += update_fields
-        self.fluid_loop += update_fields
         return None
     def add_particles(
             self,
-            integration_method = 'AdamsBashforth',
-            integration_steps = 2,
-            kcut = 'fs->kM',
+            integration_steps = [2],
+            kcut = None,
             frozen_particles = False,
-            fields_name = None,
-            particle_class = 'rFFTW_particles',
-            acc_stats = False):
-        if integration_method == 'cRK4':
-            integration_steps = 4
-        elif integration_method == 'Heun':
-            integration_steps = 2
-        neighbours = self.parameters[fields_name + '_neighbours']
-        self.parameters['tracers{0}_field'.format(self.particle_species)] = fields_name
-        self.parameters['tracers{0}_integration_method'.format(
-            self.particle_species)] = integration_method
-        self.parameters['tracers{0}_kcut'.format(self.particle_species)] = kcut
-        self.parameters['tracers{0}_integration_steps'.format(
-            self.particle_species)] = integration_steps
-        self.file_datasets_grow += """
+            interpolator = ['field_interpolator'],
+            acc_name = None):
+        if self.dtype == np.float32:
+            FFTW = 'fftwf'
+        elif self.dtype == np.float64:
+            FFTW = 'fftw'
+        s0 = self.particle_species
+        for s in range(len(integration_steps)):
+            neighbours = self.parameters[interpolator[s] + '_neighbours']
+            self.parameters['tracers{0}_interpolator'.format(s0 + s)] = interpolator[s]
+            self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
+            self.file_datasets_grow += """
                         //begincpp
                         temp_string = (std::string("/particles/") +
                                        std::string(ps{0}->name));
@@ -494,117 +435,109 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                         grow_particle_datasets(group, temp_string.c_str(), NULL, NULL);
                         H5Gclose(group);
                         //endcpp
-                        """.format(self.particle_species)
-        if self.dtype == np.float32:
-            FFTW = 'fftwf'
-        elif self.dtype == np.float64:
-            FFTW = 'fftw'
-        output_vel_acc =  """
-                //begincpp
+                        """.format(s0 + s)
+
+        #### code that outputs statistics
+        output_vel_acc = '{\n'
+        # array for putting sampled velocity in
+        # must compute velocity, just in case it was messed up by some
+        # other particle species before the stats
+        output_vel_acc += ('double *velocity = new double[3*nparticles];\n' +
+                           'fs->compute_velocity(fs->cvorticity);\n' +
+                           'fs->ift_velocity();\n')
+        if not type(acc_name) == type(None):
+            # array for putting sampled acceleration in
+            # must compute acceleration
+            output_vel_acc += 'double *acceleration = new double[3*nparticles];\n'
+            output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
+        for s in range(len(integration_steps)):
+            output_vel_acc += """
+                {0}->field = fs->rvelocity;
+                ps{1}->sample_vec_field({0}, velocity);
+                """.format(interpolator[s], s0 + s)
+            if not type(acc_name) == type(None):
+                output_vel_acc += """
+                    {0}->field = {1};
+                    ps{2}->sample_vec_field({0}, acceleration);
+                    """.format(interpolator[s], acc_name, s0 + s)
+            output_vel_acc += """
+                if (myrank == 0)
                 {{
-                    double *acceleration = new double[ps{0}->array_size];
-                    double *velocity     = new double[ps{0}->array_size];
-                    ps{0}->sample_vec_field(vel_{1}, velocity);
-                    ps{0}->sample_vec_field(acc_{1}, acceleration);
-                    if (ps{0}->myrank == 0)
-                    {{
-                        //VELOCITY begin
-                        std::string temp_string = (std::string("/particles/") +
-                                                   std::string(ps{0}->name) +
-                                                   std::string("/velocity"));
-                        hid_t Cdset = H5Dopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
-                        hid_t mspace, wspace;
-                        int ndims;
-                        hsize_t count[3], offset[3];
-                        wspace = H5Dget_space(Cdset);
-                        ndims = H5Sget_simple_extent_dims(wspace, count, NULL);
-                        count[0] = 1;
-                        offset[0] = ps{0}->iteration / ps{0}->traj_skip;
-                        offset[1] = 0;
-                        offset[2] = 0;
-                        mspace = H5Screate_simple(ndims, count, NULL);
-                        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                        H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
-                        H5Dclose(Cdset);
-                        //VELOCITY end
-                        //ACCELERATION begin
-                        temp_string = (std::string("/particles/") +
-                                       std::string(ps{0}->name) +
-                                       std::string("/acceleration"));
-                        Cdset = H5Dopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
-                        H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, acceleration);
-                        H5Sclose(mspace);
-                        H5Sclose(wspace);
-                        H5Dclose(Cdset);
-                        //ACCELERATION end
-                    }}
-                    delete[] acceleration;
-                    delete[] velocity;
-                }}
-                //endcpp
-                          """.format(self.particle_species, fields_name)
-        self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(self.particle_species)
-        self.particle_end += ('ps{0}->write(stat_file);\n' +
-                              'delete ps{0};\n').format(self.particle_species)
-        self.particle_includes += '#include "{0}.hpp"\n'.format(particle_class)
-        if particle_class == 'particles':
-            if integration_method == 'AdamsBashforth':
-                multistep = 'true'
-            else:
-                multistep = 'false'
-            self.particle_variables += 'particles<VELOCITY_TRACER, {0}, {1}, {2}> *ps{3};\n'.format(
-                    self.C_dtype,
-                    multistep,
-                    neighbours,
-                    self.particle_species)
-            self.particle_start += ('ps{0} = new particles<VELOCITY_TRACER, {1}, {2},{3}>(\n' +
-                                    'fname, fs, vel_{4},\n' +
-                                    'nparticles,\n' +
-                                    'niter_part, tracers{0}_integration_steps);\n').format(
-                                            self.particle_species,
-                                            self.C_dtype,
-                                            multistep,
-                                            neighbours,
-                                            fields_name)
-        else:
+                //VELOCITY begin
+                std::string temp_string = (std::string("/particles/") +
+                                           std::string(ps{0}->name) +
+                                           std::string("/velocity"));
+                hid_t Cdset = H5Dopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
+                hid_t mspace, wspace;
+                int ndims;
+                hsize_t count[3], offset[3];
+                wspace = H5Dget_space(Cdset);
+                ndims = H5Sget_simple_extent_dims(wspace, count, NULL);
+                count[0] = 1;
+                offset[0] = ps{0}->iteration / ps{0}->traj_skip;
+                offset[1] = 0;
+                offset[2] = 0;
+                mspace = H5Screate_simple(ndims, count, NULL);
+                H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
+                H5Dclose(Cdset);
+                //VELOCITY end
+                """.format(s0 + s)
+            if not type(acc_name) == type(None):
+                output_vel_acc += """
+                    //ACCELERATION begin
+                    temp_string = (std::string("/particles/") +
+                                   std::string(ps{0}->name) +
+                                   std::string("/acceleration"));
+                    Cdset = H5Dopen(stat_file, temp_string.c_str(), H5P_DEFAULT);
+                    H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, acceleration);
+                    H5Sclose(mspace);
+                    H5Sclose(wspace);
+                    H5Dclose(Cdset);
+                    //ACCELERATION end
+                    """.format(s0 + s)
+            output_vel_acc += '}\n'
+        output_vel_acc += 'delete[] velocity;\n'
+        if not type(acc_name) == type(None):
+            output_vel_acc += 'delete[] acceleration;\n'
+        output_vel_acc += '}\n'
+
+        #### initialize, stepping and finalize code
+        update_fields = ('fs->compute_velocity(fs->cvorticity);\n' +
+                         'fs->ift_velocity();\n')
+        self.fluid_start += update_fields
+        self.fluid_loop += update_fields
+        self.particle_includes += '#include "rFFTW_particles.hpp"\n'
+        self.particle_stat_src += (
+                'if (ps0->iteration % niter_part == 0)\n' +
+                '{\n')
+        for s in range(len(integration_steps)):
+            self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
+            self.particle_end += ('ps{0}->write(stat_file);\n' +
+                                  'delete ps{0};\n').format(s0 + s)
             self.particle_variables += 'rFFTW_particles<VELOCITY_TRACER, {0}, {1}> *ps{2};\n'.format(
                     self.C_dtype,
                     neighbours,
-                    self.particle_species)
+                    s0 + s)
             self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
-                                    'fname, vel_{3},\n' +
+                                    'fname, {3},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
-                                            self.particle_species,
+                                            s0 + s,
                                             self.C_dtype,
                                             neighbours,
-                                            fields_name)
-        self.particle_start += ('ps{0}->dt = dt;\n' +
-                                'ps{0}->iteration = iteration;\n' +
-                                'ps{0}->read(stat_file);\n').format(self.particle_species)
-        self.particle_start += output_vel_acc
-        if not frozen_particles:
-            if particle_class == 'particles':
-                if integration_method == 'AdamsBashforth':
-                    self.particle_loop += 'ps{0}->AdamsBashforth((ps{0}->iteration < ps{0}->integration_steps) ? ps{0}->iteration+1 : ps{0}->integration_steps);\n'.format(self.particle_species)
-                elif integration_method == 'Euler':
-                    self.particle_loop += 'ps{0}->Euler();\n'.format(self.particle_species)
-                elif integration_method == 'Heun':
-                    assert(integration_steps == 2)
-                    self.particle_loop += 'ps{0}->Heun();\n'.format(self.particle_species)
-                elif integration_method == 'cRK4':
-                    assert(integration_steps == 4)
-                    self.particle_loop += 'ps{0}->cRK4();\n'.format(self.particle_species)
-                self.particle_loop += 'ps{0}->iteration++;\n'.format(self.particle_species)
-                self.particle_loop += 'ps{0}->synchronize();\n'.format(self.particle_species)
-            elif particle_class == 'rFFTW_particles':
-                self.particle_loop += 'ps{0}->step();\n'.format(self.particle_species)
-        self.particle_stat_src += (
-                ('if (ps{0}->iteration % niter_part == 0)\n' +
-                 '{{\n' +
-                 'ps{0}->write(stat_file, false);\n').format(self.particle_species) +
-                output_vel_acc + '}\n')
-        self.particle_species += 1
+                                            interpolator[s])
+            self.particle_start += ('ps{0}->dt = dt;\n' +
+                                    'ps{0}->iteration = iteration;\n' +
+                                    'ps{0}->read(stat_file);\n').format(s0 + s)
+            self.particle_start += output_vel_acc
+            if not frozen_particles:
+                self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
+                self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
+            self.particle_stat_src += 'ps{0}->write(stat_file, false);\n'.format(s0 + s)
+        self.particle_stat_src += output_vel_acc
+        self.particle_stat_src += '}\n'
+        self.particle_species += len(integration_steps)
         return None
     def get_data_file(self):
         return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
@@ -797,6 +730,51 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                                  self.parameters['QR2D_histogram_bins']),
                                      dtype = np.int64,
                                      compression = 'gzip')
+        return None
+    def add_particle_fields(
+            self,
+            interp_type = 'spline',
+            kcut = None,
+            neighbours = 1,
+            smoothness = 1,
+            name = 'particle_field',
+            field_class = 'rFFTW_interpolator',
+            acc_field_name = 'rFFTW_acc'):
+        self.fluid_includes += '#include "{0}.hpp"\n'.format(field_class)
+        self.fluid_variables += field_class + '<{0}, {1}> *vel_{2}, *acc_{2};\n'.format(
+                self.C_dtype, neighbours, name)
+        self.parameters[name + '_type'] = interp_type
+        self.parameters[name + '_neighbours'] = neighbours
+        if interp_type == 'spline':
+            self.parameters[name + '_smoothness'] = smoothness
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
+        if field_class == 'rFFTW_interpolator':
+            self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4}, fs->rvelocity);\n' +
+                                 'acc_{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n').format(name,
+                                                                                   field_class,
+                                                                                   self.C_dtype,
+                                                                                   neighbours,
+                                                                                   beta_name,
+                                                                                   acc_field_name)
+        elif field_class == 'interpolator':
+            self.fluid_start += ('vel_{0} = new {1}<{2}, {3}>(fs, {4});\n' +
+                                 'acc_{0} = new {1}<{2}, {3}>(fs, {4});\n').format(name,
+                                                                                   field_class,
+                                                                                   self.C_dtype,
+                                                                                   neighbours,
+                                                                                   beta_name,
+                                                                                   acc_field_name)
+        self.fluid_end += ('delete vel_{0};\n' +
+                           'delete acc_{0};\n').format(name)
+        update_fields = 'fs->compute_velocity(fs->cvorticity);\n'
+        if not type(kcut) == type(None):
+            update_fields += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut)
+        update_fields += ('fs->ift_velocity();\n' +
+                          'fs->compute_Lagrangian_acceleration(acc_{0}->field);\n').format(name)
+        self.fluid_start += update_fields
+        self.fluid_loop += update_fields
         return None
 
 def launch(
