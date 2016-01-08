@@ -108,14 +108,13 @@ def launch(
                 neighbours = opt.neighbours,
                 smoothness = opt.smoothness)
         c.add_particles(
+                kcut = ['fs->kM/2', 'fs->kM/3'],
+                integration_steps = 3,
+                interpolator = 'spline')
+        c.add_particles(
                 integration_steps = [2, 3, 4, 6],
                 interpolator = 'spline',
                 acc_name = 'rFFTW_acc')
-        #c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
-        #c.add_particles(
-        #        kcut = 'fs->kM/2',
-        #        integration_steps = 1,
-        #        fields_name = 'filtered')
     c.finalize_code()
     c.write_src()
     c.write_par()

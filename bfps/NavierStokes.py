@@ -388,7 +388,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
     def add_interpolator(
             self,
             interp_type = 'spline',
-            kcut = None,
             neighbours = 1,
             smoothness = 1,
             name = 'field_interpolator',
@@ -418,12 +417,17 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             interpolator = 'field_interpolator',
             frozen_particles = False,
             acc_name = None):
-        """
-            :type integration_steps: int, list of int
-            :type kcut: None (default), str, list of str
-            :type interpolator: str, list of str
-            :type frozen_particles: bool
-            :type acc_name: str
+        """Adds code for tracking a series of particle species, each
+        consisting of `nparticles` particles.
+
+        :type integration_steps: int, list of int
+        :type kcut: None (default), str, list of str
+        :type interpolator: str, list of str
+        :type frozen_particles: bool
+        :type acc_name: str
+
+        .. warning :: if not None, kcut must be a list of decreasing
+        wavenumbers, since filtering is done on the same field...
         """
         if self.dtype == np.float32:
             FFTW = 'fftwf'
@@ -452,6 +456,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             assert(len(kcut) == nspecies)
         for s in range(nspecies):
             neighbours = self.parameters[interpolator[s] + '_neighbours']
+            if type(kcut) == list:
+                self.parameters['tracers{0}_kcut'.format(s0 + s)] = kcut[s]
             self.parameters['tracers{0}_interpolator'.format(s0 + s)] = interpolator[s]
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
@@ -470,14 +476,18 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         # must compute velocity, just in case it was messed up by some
         # other particle species before the stats
         output_vel_acc += ('double *velocity = new double[3*nparticles];\n' +
-                           'fs->compute_velocity(fs->cvorticity);\n' +
-                           'fs->ift_velocity();\n')
+                           'fs->compute_velocity(fs->cvorticity);\n')
+        if not type(kcut) == list:
+            output_vel_acc += 'fs->ift_velocity();\n'
         if not type(acc_name) == type(None):
             # array for putting sampled acceleration in
             # must compute acceleration
             output_vel_acc += 'double *acceleration = new double[3*nparticles];\n'
             output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
         for s in range(nspecies):
+            if type(kcut) == list:
+                output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
+                output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
                 {0}->field = fs->rvelocity;
                 ps{1}->sample_vec_field({0}, velocity);
@@ -528,10 +538,13 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         output_vel_acc += '}\n'
 
         #### initialize, stepping and finalize code
-        update_fields = ('fs->compute_velocity(fs->cvorticity);\n' +
-                         'fs->ift_velocity();\n')
-        self.fluid_start += update_fields
-        self.fluid_loop += update_fields
+        if not type(kcut) == list:
+            update_fields = ('fs->compute_velocity(fs->cvorticity);\n' +
+                             'fs->ift_velocity();\n')
+            self.particle_start += update_fields
+            self.particle_loop  += update_fields
+        else:
+            self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
         self.particle_includes += '#include "rFFTW_particles.hpp"\n'
         self.particle_stat_src += (
                 'if (ps0->iteration % niter_part == 0)\n' +
@@ -556,6 +569,10 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                                     'ps{0}->iteration = iteration;\n' +
                                     'ps{0}->read(stat_file);\n').format(s0 + s)
             if not frozen_particles:
+                if type(kcut) == list:
+                    update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
+                                    'fs->ift_velocity();\n')
+                    self.particle_loop += update_field
                 self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(stat_file, false);\n'.format(s0 + s)
