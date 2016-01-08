@@ -107,10 +107,9 @@ def launch(
                 name = 'spline',
                 neighbours = opt.neighbours,
                 smoothness = opt.smoothness)
-        intsteps = [2, 3, 4, 6]
         c.add_particles(
-                integration_steps = intsteps,
-                interpolator = ['spline' for i in range(len(intsteps))],
+                integration_steps = [2, 3, 4, 6],
+                interpolator = 'spline',
                 acc_name = 'rFFTW_acc')
         #c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
         #c.add_particles(
