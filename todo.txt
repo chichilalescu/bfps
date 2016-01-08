@@ -1,4 +1,3 @@
-(B) add stat choice parameter to add_particles                              @design +v1.0 +particle_api
 (B) compute z polynomials only when needed                                  @optimization +v1.0
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
