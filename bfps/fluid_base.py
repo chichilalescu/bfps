@@ -130,9 +130,10 @@ class fluid_particle_base(bfps.code):
                              'hsize_t dset;\n')
         for key in ['state', 'velocity', 'acceleration']:
             self.definitions += ('full_name = (std::string(name) + std::string("/{0}"));\n'.format(key) +
+                                 'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
                                  'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
                                  'grow_single_dataset(dset, niter_todo/niter_part);\n' +
-                                 'H5Dclose(dset);\n')
+                                 'H5Dclose(dset);\n}\n')
         self.definitions += ('full_name = (std::string(name) + std::string("/rhs"));\n' +
                              'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
                              'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
@@ -445,25 +446,24 @@ class fluid_particle_base(bfps.code):
                                      dtype = np.int64,
                                      compression = 'gzip')
             for s in range(self.particle_species):
-                if self.parameters['tracers{0}_integration_method'.format(s)] == 'AdamsBashforth':
-                    time_chunk = 2**20 // (8*3*
-                                           self.parameters['nparticles']*
-                                           self.parameters['tracers{0}_integration_steps'.format(s)])
-                    time_chunk = max(time_chunk, 1)
-                    ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
-                                         (1,
-                                          self.parameters['tracers{0}_integration_steps'.format(s)],
-                                          self.parameters['nparticles'],
-                                          3),
-                                         maxshape = (None,
-                                                     self.parameters['tracers{0}_integration_steps'.format(s)],
-                                                     self.parameters['nparticles'],
-                                                     3),
-                                         chunks =  (time_chunk,
-                                                    self.parameters['tracers{0}_integration_steps'.format(s)],
-                                                    self.parameters['nparticles'],
-                                                    3),
-                                         dtype = np.float64)
+                time_chunk = 2**20 // (8*3*
+                                       self.parameters['nparticles']*
+                                       self.parameters['tracers{0}_integration_steps'.format(s)])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
+                                     (1,
+                                      self.parameters['tracers{0}_integration_steps'.format(s)],
+                                      self.parameters['nparticles'],
+                                      3),
+                                     maxshape = (None,
+                                                 self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                 self.parameters['nparticles'],
+                                                 3),
+                                     chunks =  (time_chunk,
+                                                self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                self.parameters['nparticles'],
+                                                3),
+                                     dtype = np.float64)
                 time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset(
@@ -474,14 +474,15 @@ class fluid_particle_base(bfps.code):
                     chunks = (time_chunk, self.parameters['nparticles'], 3),
                     maxshape = (None, self.parameters['nparticles'], 3),
                     dtype = np.float64)
-                ofile.create_dataset(
-                    '/particles/tracers{0}/acceleration'.format(s),
-                    (1,
-                     self.parameters['nparticles'],
-                     3),
-                    chunks = (time_chunk, self.parameters['nparticles'], 3),
-                    maxshape = (None, self.parameters['nparticles'], 3),
-                    dtype = np.float64)
+                if self.parameters['tracers{0}_acc_on'.format(s)]:
+                    ofile.create_dataset(
+                        '/particles/tracers{0}/acceleration'.format(s),
+                        (1,
+                         self.parameters['nparticles'],
+                         3),
+                        chunks = (time_chunk, self.parameters['nparticles'], 3),
+                        maxshape = (None, self.parameters['nparticles'], 3),
+                        dtype = np.float64)
             ofile.close()
         return None
 

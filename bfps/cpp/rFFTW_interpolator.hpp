@@ -60,7 +60,8 @@ class rFFTW_interpolator
 
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
+                base_polynomial_values BETA_POLYS,
+                rnumber *FIELD_DATA);
         ~rFFTW_interpolator();
 
         /* map real locations to grid coordinates */
@@ -83,7 +84,6 @@ class rFFTW_interpolator
                 const double *__restrict__ xx,
                 double *__restrict__ dest,
                 const int *deriv = NULL);
-        int read_rFFTW(void *src);
 };
 
 #endif//RFFTW_INTERPOLATOR
