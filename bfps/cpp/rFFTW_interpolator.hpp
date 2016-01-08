@@ -27,14 +27,7 @@
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
-#include "spline_n1.hpp"
-#include "spline_n2.hpp"
-#include "spline_n3.hpp"
-#include "spline_n4.hpp"
-#include "spline_n5.hpp"
-#include "spline_n6.hpp"
-#include "Lagrange_polys.hpp"
-#include "interpolator.hpp"
+#include "interpolator_base.hpp"
 
 #ifndef RFFTW_INTERPOLATOR
 
@@ -67,7 +60,8 @@ class rFFTW_interpolator
 
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
+                base_polynomial_values BETA_POLYS,
+                rnumber *FIELD_DATA);
         ~rFFTW_interpolator();
 
         /* map real locations to grid coordinates */
@@ -90,7 +84,6 @@ class rFFTW_interpolator
                 const double *__restrict__ xx,
                 double *__restrict__ dest,
                 const int *deriv = NULL);
-        int read_rFFTW(void *src);
 };
 
 #endif//RFFTW_INTERPOLATOR

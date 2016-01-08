@@ -102,29 +102,19 @@ def launch(
     c.parameters['famplitude'] = 0.2
     c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:
-        c.add_particle_fields(
-                name = 'regular',
+        c.add_3D_rFFTW_field(name = 'rFFTW_acc')
+        c.add_interpolator(
+                name = 'spline',
                 neighbours = opt.neighbours,
                 smoothness = opt.smoothness)
-        c.add_particle_fields(kcut = 'fs->kM/2', name = 'filtered', neighbours = opt.neighbours)
         c.add_particles(
-                kcut = 'fs->kM/2',
-                integration_steps = 1,
-                fields_name = 'filtered')
-        #for integr_steps in range(1, 7):
-        #    c.add_particles(
-        #            integration_steps = integr_steps,
-        #            neighbours = opt.neighbours,
-        #            smoothness = opt.smoothness,
-        #            fields_name = 'regular')
-        for info in [(2, 'AdamsBashforth'),
-                     (3, 'AdamsBashforth'),
-                     (4, 'AdamsBashforth'),
-                     (6, 'AdamsBashforth')]:
-            c.add_particles(
-                    integration_steps = info[0],
-                    integration_method = info[1],
-                    fields_name = 'regular')
+                kcut = ['fs->kM/2', 'fs->kM/3'],
+                integration_steps = 3,
+                interpolator = 'spline')
+        c.add_particles(
+                integration_steps = [2, 3, 4, 6],
+                interpolator = 'spline',
+                acc_name = 'rFFTW_acc')
     c.finalize_code()
     c.write_src()
     c.write_par()
@@ -158,6 +148,8 @@ def launch(
 
 
 def acceleration_test(c, m = 3, species = 0):
+    if not c.parameters['tracers{0}_acc_on'.format(species)]:
+        return None
     import numpy as np
     import matplotlib.pyplot as plt
     from bfps.tools import get_fornberg_coeffs
@@ -182,13 +174,12 @@ def acceleration_test(c, m = 3, species = 0):
     pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
     pars = d['parameters']
     to_print = (
-            'integration={0}, steps={1}, interp={2}, neighbours={3}, '.format(
-                pars['tracers{0}_integration_method'.format(species)].value,
+            'steps={0}, interp={1}, neighbours={2}, '.format(
                 pars['tracers{0}_integration_steps'.format(species)].value,
-                pars[str(pars['tracers{0}_field'.format(species)].value) + '_type'].value,
-                pars[str(pars['tracers{0}_field'.format(species)].value) + '_neighbours'].value))
-    if 'spline' in pars['tracers{0}_field'.format(species)].value:
-        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_field'.format(species)].value) + '_smoothness'].value)
+                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_type'].value,
+                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_neighbours'].value))
+    if 'spline' in pars['tracers{0}_interpolator'.format(species)].value:
+        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_smoothness'].value)
     to_print += (
             'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
                 np.mean(SNR(num_vel1, vel[n+1:-n-1])),

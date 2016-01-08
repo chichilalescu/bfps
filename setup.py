@@ -68,9 +68,7 @@ print(VERSION)
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
                  'fluid_solver',
-                 'interpolator',
                  'rFFTW_interpolator',
-                 'particles',
                  'rFFTW_particles',
                  'fftw_tools',
                  'spline_n1',
@@ -81,7 +79,11 @@ src_file_list = ['field_descriptor',
                  'spline_n6',
                  'Lagrange_polys']
 
-header_list = ['cpp/base.hpp'] + ['cpp/' + fname + '.hpp' for fname in src_file_list]
+header_list = (['cpp/base.hpp',
+                'cpp/particles_base.hpp',
+                'cpp/interpolator_base.hpp'] +
+               ['cpp/' + fname + '.hpp'
+                for fname in src_file_list])
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:

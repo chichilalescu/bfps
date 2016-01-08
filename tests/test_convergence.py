@@ -1,4 +1,3 @@
-#! /usr/bin/env python2
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -30,7 +29,7 @@ import h5py
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 
-from test_base import *
+from base import *
 
 def convergence_test(
         opt,
@@ -224,6 +223,15 @@ def convergence_test(
     return c0, c1, c2
 
 if __name__ == '__main__':
-    opt = parser.parse_args()
+    opt = parser.parse_args(
+            ['-n', '16',
+             '--run',
+             '--initialize',
+             '--ncpu', '2',
+             '--nparticles', '1000',
+             '--niter_todo', '32',
+             '--precision', 'single',
+             '--wd', 'data/single'] +
+            sys.argv[1:])
     convergence_test(opt, launch)
 

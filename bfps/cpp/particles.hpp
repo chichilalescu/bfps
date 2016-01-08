@@ -29,15 +29,13 @@
 #include <iostream>
 #include <hdf5.h>
 #include "base.hpp"
+#include "particles_base.hpp"
 #include "fluid_solver_base.hpp"
 #include "interpolator.hpp"
 
 #ifndef PARTICLES
 
 #define PARTICLES
-
-/* particle types */
-enum particle_types {VELOCITY_TRACER};
 
 template <int particle_type, class rnumber, bool multistep, int interp_neighbours>
 class particles

@@ -1,4 +1,3 @@
-#! /usr/bin/env python2
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -30,7 +29,7 @@ import h5py
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 
-from test_base import *
+from base import *
 
 def convergence_test(
         opt,
@@ -93,10 +92,19 @@ def convergence_test(
     a.set_xscale('log')
     a.set_yscale('log')
     a.set_xlabel('$\\|u\\|_\\infty \\frac{\\Delta t}{\\Delta x}$')
-    fig.savefig('spec_err_vs_dt_{0}.pdf'.format(opt.precision))
+    fig.savefig('vel_err_vs_dt_{0}.pdf'.format(opt.precision))
     return None
 
 if __name__ == '__main__':
-    opt = parser.parse_args()
+    opt = parser.parse_args(
+            ['-n', '32',
+             '--run',
+             '--initialize',
+             '--ncpu', '2',
+             '--nparticles', '1000',
+             '--niter_todo', '16',
+             '--precision', 'single',
+             '--wd', 'data/single'] +
+            sys.argv[1:])
     convergence_test(opt, launch)
 

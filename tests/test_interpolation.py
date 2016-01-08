@@ -1,4 +1,3 @@
-#! /usr/bin/env python2
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -26,35 +25,44 @@
 
 
 import numpy as np
-from test_base import *
+from base import *
 import matplotlib.pyplot as plt
 
-class test_interpolation(bfps.NavierStokes):
-    def __init__(
-            self,
-            name = 'test_interpolation',
-            work_dir = './',
-            simname = 'test'):
-        super(test_interpolation, self).__init__(
-                work_dir = work_dir,
-                simname = simname,
-                name = name,
-                frozen_fields = True)
-        return None
-
 if __name__ == '__main__':
-    opt = parser.parse_args()
-    c = test_interpolation(work_dir = opt.work_dir + '/io')
+    opt = parser.parse_args(
+            ['-n', '32',
+             '--run',
+             '--ncpu', '2',
+             '--initialize',
+             '--neighbours', '4',
+             '--smoothness', '1',
+             '--nparticles', '4225',
+             '--niter_todo', '1',
+             '--niter_stat', '1',
+             '--niter_part', '1',
+             '--niter_out', '1',
+             '--wd', 'interp'] +
+            sys.argv[1:])
+    c = bfps.NavierStokes(
+            name = 'test_interpolation',
+            use_fftw_wisdom = False,
+            frozen_fields = True)
     c.pars_from_namespace(opt)
-    c.add_particles(
-            integration_steps = 1,
-            neighbours = 4,
-            smoothness = 1)
-    c.add_particles(
-            integration_steps = 1,
-            neighbours = 4,
-            interp_type = 'Lagrange')
     c.fill_up_fluid_code()
+    c.add_particle_fields(
+            name = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness),
+            neighbours = opt.neighbours,
+            smoothness = opt.smoothness)
+    c.add_particle_fields(
+            name = 'n{0}'.format(opt.neighbours),
+            neighbours = opt.neighbours,
+            interp_type = 'Lagrange')
+    c.add_particles(
+            integration_steps = 1,
+            fields_name = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness))
+    c.add_particles(
+            integration_steps = 1,
+            fields_name = 'n{0}'.format(opt.neighbours))
     c.finalize_code()
     c.write_src()
     c.write_par()

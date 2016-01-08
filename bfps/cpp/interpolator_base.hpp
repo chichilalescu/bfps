@@ -24,34 +24,22 @@
 
 
 
-#include "field_descriptor.hpp"
-#include "fftw_tools.hpp"
-#include "fluid_solver_base.hpp"
-#include "interpolator_base.hpp"
+#include "spline_n1.hpp"
+#include "spline_n2.hpp"
+#include "spline_n3.hpp"
+#include "spline_n4.hpp"
+#include "spline_n5.hpp"
+#include "spline_n6.hpp"
+#include "Lagrange_polys.hpp"
 
-#ifndef INTERPOLATOR
+#ifndef INTERPOLATOR_BASE
 
-#define INTERPOLATOR
+#define INTERPOLATOR_BASE
 
-template <class rnumber, int interp_neighbours>
-class interpolator
-{
-    public:
-        ptrdiff_t buffer_size;
-        base_polynomial_values compute_beta;
-        field_descriptor<rnumber> *descriptor;
-        field_descriptor<rnumber> *unbuffered_descriptor;
-        rnumber *f0, *f1, *temp;
+typedef void (*base_polynomial_values)(
+        const int derivative,
+        const double fraction,
+        double *__restrict__ destination);
 
-        interpolator(
-                fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
-        ~interpolator();
-
-        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
-        /* destroys input */
-        int read_rFFTW(void *src);
-};
-
-#endif//INTERPOLATOR
+#endif//INTERPOLATOR_BASE
 
