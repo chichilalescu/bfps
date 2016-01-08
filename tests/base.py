@@ -148,6 +148,8 @@ def launch(
 
 
 def acceleration_test(c, m = 3, species = 0):
+    if not c.parameters['tracers{0}_acc_on'.format(species)]:
+        return None
     import numpy as np
     import matplotlib.pyplot as plt
     from bfps.tools import get_fornberg_coeffs
