@@ -481,8 +481,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
                 H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
                 H5Dclose(Cdset);
-                //VELOCITY end
-                """.format(s0 + s)
+                //VELOCITY end\n""".format(s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
                     //ACCELERATION begin
@@ -494,8 +493,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                     H5Sclose(mspace);
                     H5Sclose(wspace);
                     H5Dclose(Cdset);
-                    //ACCELERATION end
-                    """.format(s0 + s)
+                    //ACCELERATION end\n""".format(s0 + s)
             output_vel_acc += '}\n'
         output_vel_acc += 'delete[] velocity;\n'
         if not type(acc_name) == type(None):
@@ -530,11 +528,11 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self.particle_start += ('ps{0}->dt = dt;\n' +
                                     'ps{0}->iteration = iteration;\n' +
                                     'ps{0}->read(stat_file);\n').format(s0 + s)
-            self.particle_start += output_vel_acc
             if not frozen_particles:
                 self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(stat_file, false);\n'.format(s0 + s)
+        self.particle_start += output_vel_acc
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
         self.particle_species += len(integration_steps)

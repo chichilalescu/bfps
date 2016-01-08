@@ -107,7 +107,7 @@ def launch(
                 name = 'spline',
                 neighbours = opt.neighbours,
                 smoothness = opt.smoothness)
-        intsteps = [2] #[2, 3, 4, 6]
+        intsteps = [2, 3, 4, 6]
         c.add_particles(
                 integration_steps = intsteps,
                 interpolator = ['spline' for i in range(len(intsteps))],
