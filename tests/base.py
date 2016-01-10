@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 
 import bfps
 from bfps import fluid_resize
-from bfps.tools import acceleration_test
+from bfps.tools import particle_finite_diff_test as acceleration_test
 
 parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')

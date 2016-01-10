@@ -164,7 +164,7 @@ def get_fornberg_coeffs(
             coeffs[-1].append(d[m][N][j])
     return np.array(coeffs).astype(np.float)
 
-def acceleration_test(
+def particle_finite_diff_test(
         c,
         m = 3,
         species = 0,
