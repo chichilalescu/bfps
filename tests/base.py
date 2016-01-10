@@ -34,6 +34,7 @@ import matplotlib.pyplot as plt
 
 import bfps
 from bfps import fluid_resize
+from bfps.tools import acceleration_test
 
 parser = bfps.get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
@@ -145,66 +146,6 @@ def launch(
         c.run(ncpu = opt.ncpu,
               njobs = opt.njobs)
     return c
-
-
-def acceleration_test(c, m = 3, species = 0):
-    if not c.parameters['tracers{0}_acc_on'.format(species)]:
-        return None
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from bfps.tools import get_fornberg_coeffs
-    d = c.get_data_file()
-    group = d['particles/tracers{0}'.format(species)]
-    pos = group['state'].value
-    vel = group['velocity'].value
-    acc = group['acceleration'].value
-    fig = plt.figure()
-    a = fig.add_subplot(111)
-    col = ['red', 'green', 'blue']
-    n = m
-    fc = get_fornberg_coeffs(0, range(-n, n+1))
-    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
-
-    num_acc1 = sum(fc[1, n-i]*vel[1+n-i:vel.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
-    num_acc2 = sum(fc[2, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt**2
-    num_vel1 = sum(fc[1, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
-
-    def SNR(a, b):
-        return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
-    pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
-    pars = d['parameters']
-    to_print = (
-            'steps={0}, interp={1}, neighbours={2}, '.format(
-                pars['tracers{0}_integration_steps'.format(species)].value,
-                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_type'].value,
-                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_neighbours'].value))
-    if 'spline' in pars['tracers{0}_interpolator'.format(species)].value:
-        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_smoothness'].value)
-    to_print += (
-            'SNR d1p-vel={0:.3f}, d1v-acc={1:.3f}, d2p-acc={2:.3f}'.format(
-                np.mean(SNR(num_vel1, vel[n+1:-n-1])),
-                np.mean(SNR(num_acc1, acc[n+1:-n-1])),
-                np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
-    print(to_print)
-    for cc in range(3):
-        a.plot(num_acc1[:, pid, cc], color = col[cc])
-        a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
-        a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
-
-    for n in range(1, m):
-        fc = get_fornberg_coeffs(0, range(-n, n+1))
-        dt = d['parameters/dt'].value*d['parameters/niter_part'].value
-
-        num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
-        num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
-
-        for cc in range(3):
-            a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
-            a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
-    fig.tight_layout()
-    fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
-    plt.close(fig)
-    return pid
 
 def compare_stats(
         opt,

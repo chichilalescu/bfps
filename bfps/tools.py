@@ -164,3 +164,69 @@ def get_fornberg_coeffs(
             coeffs[-1].append(d[m][N][j])
     return np.array(coeffs).astype(np.float)
 
+def acceleration_test(
+        c,
+        m = 3,
+        species = 0,
+        plot_on = False):
+    d = c.get_data_file()
+    group = d['particles/tracers{0}'.format(species)]
+    acc_on = 'acceleration' in group.keys()
+    pos = group['state'].value
+    vel = group['velocity'].value
+    if acc_on:
+        acc = group['acceleration'].value
+    n = m
+    fc = get_fornberg_coeffs(0, range(-n, n+1))
+    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+    num_vel1 = sum(fc[1, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
+    if acc_on:
+        num_acc1 = sum(fc[1, n-i]*vel[1+n-i:vel.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
+        num_acc2 = sum(fc[2, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt**2
+
+    def SNR(a, b):
+        return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
+    if acc_on:
+        pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
+    else:
+        pid = np.argmin(SNR(num_vel1, vel[n+1:-n-1]))
+    pars = d['parameters']
+    to_print = (
+            'steps={0}, interp={1}, neighbours={2}, '.format(
+                pars['tracers{0}_integration_steps'.format(species)].value,
+                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_type'].value,
+                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_neighbours'].value))
+    if 'spline' in pars['tracers{0}_interpolator'.format(species)].value:
+        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_smoothness'].value)
+    to_print += (
+            'SNR d1p-vel={0:.3f}'.format(np.mean(SNR(num_vel1, vel[n+1:-n-1]))))
+    if acc_on:
+        to_print += (', d1v-acc={0:.3f}, d2p-acc={1:.3f}'.format(
+                np.mean(SNR(num_acc1, acc[n+1:-n-1])),
+                np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+    print(to_print)
+    if plot_on and acc_on:
+        col = ['red', 'green', 'blue']
+        fig = plt.figure()
+        a = fig.add_subplot(111)
+        for cc in range(3):
+            a.plot(num_acc1[:, pid, cc], color = col[cc])
+            a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
+            a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
+
+        for n in range(1, m):
+            fc = get_fornberg_coeffs(0, range(-n, n+1))
+            dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+
+            num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+            num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+
+            for cc in range(3):
+                a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
+                a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
+        fig.tight_layout()
+        fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+        plt.close(fig)
+    return pid
+
