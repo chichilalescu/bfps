@@ -551,6 +551,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 'if (ps0->iteration % niter_part == 0)\n' +
                 '{\n')
         for s in range(nspecies):
+            neighbours = self.parameters[interpolator[s] + '_neighbours']
             self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
             self.particle_end += ('ps{0}->write(stat_file);\n' +
                                   'delete ps{0};\n').format(s0 + s)
