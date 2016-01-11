@@ -59,7 +59,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 hid_t group;
                 hid_t Cspace, Cdset;
                 int ndims;
-                DEBUG_MSG("about to grow datasets\\n");
                 // store kspace information
                 Cdset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
                 Cspace = H5Dget_space(Cdset);
@@ -86,7 +85,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 group = H5Gopen(stat_file, "/statistics", H5P_DEFAULT);
                 H5Ovisit(group, H5_INDEX_NAME, H5_ITER_NATIVE, grow_statistics_dataset, NULL);
                 H5Gclose(group);
-                DEBUG_MSG("finished growing datasets\\n");
                 //endcpp
                 """
         self.style = {}
@@ -335,7 +333,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_start += """
                 //begincpp
                 char fname[512];
-                DEBUG_MSG("about to allocate fluid_solver\\n");
                 fs = new fluid_solver<{0}>(
                         simname,
                         nx, ny, nz,
@@ -350,7 +347,6 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 fs->read('v', 'c');
-                DEBUG_MSG("finished reading initial condition\\n");
                 if (fs->cd->myrank == 0)
                 {{
                     H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
