@@ -63,7 +63,7 @@ else:
     else:
         VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode().split('-')[0]
 
-print(VERSION)
+print('This is bfps version ' + VERSION)
 
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
@@ -102,6 +102,7 @@ pickle.dump(
          'extra_compile_args' : extra_compile_args,
          'libraries' : libraries,
          'install_date' : now,
+         'VERSION' : VERSION,
          'git_revision' : git_revision},
         open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
