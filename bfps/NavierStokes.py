@@ -459,6 +459,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             if type(kcut) == list:
                 self.parameters['tracers{0}_kcut'.format(s0 + s)] = kcut[s]
             self.parameters['tracers{0}_interpolator'.format(s0 + s)] = interpolator[s]
+            self.parameters['tracers{0}_acc_on'.format(s0 + s)] = int(not type(acc_name) == type(None))
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
                         //begincpp
