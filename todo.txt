@@ -1,3 +1,4 @@
+(A) particle output is broken when niter_part != 1                          @bugfix
 (B) compute z polynomials only when needed                                  @optimization +v1.0
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
