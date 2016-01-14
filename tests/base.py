@@ -99,7 +99,6 @@ def launch(
     else:
         c.parameters['dt'] = dt
     c.parameters['niter_out'] = c.parameters['niter_todo']
-    c.parameters['niter_part'] = 1
     c.parameters['famplitude'] = 0.2
     c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:

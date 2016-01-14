@@ -193,8 +193,6 @@ class fluid_particle_base(bfps.code):
                                MPI_Finalize();
                                return EXIT_SUCCESS;
                            }
-                           do_stats();
-                           do_particle_stats();
                            //endcpp
                            """
         output_time_difference = ('time1 = clock();\n' +
@@ -209,12 +207,11 @@ class fluid_particle_base(bfps.code):
         self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
         self.main       += '{\n'
         self.main       += output_time_difference
-        if self.particle_species > 0:
-            self.main   += self.particle_loop
-        self.main       += self.fluid_loop
         self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
         if self.particle_species > 0:
             self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
+            self.main   += self.particle_loop
+        self.main       += self.fluid_loop
         self.main       += '}\n'
         self.main       += output_time_difference
         self.main       += 'do_stats();\n'
