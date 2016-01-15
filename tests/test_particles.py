@@ -138,7 +138,7 @@ class err_finder:
         errlist = []
         for i in range(len(self.clist)):
             self.xx.append(cRK(
-                traj_list[i][self.clist[i].parameters['niter_todo']//2],
+                traj_list[i][self.clist[i].parameters['niter_todo']//(2*self.clist[i].parameters['niter_part'])],
                 self.clist[i].parameters['dt'],
                 self.clist[i].parameters['niter_todo']//2,
                 ABC_flow))
