@@ -37,14 +37,20 @@ Installation
 
 If you want to run simulations on the machine where you're installing,
 you will need to call `build` before installing.
+Before executing any command, please modify `machine_settings_py.py`
+appropriately for your machine (otherwise the `build` command will most
+likely fail).
+This file will be copied the first time you run `setup.py` into
+`$HOME/.config/bfps/machine_settings.py`, where it will be imported from
+afterwards.
+You may, obviously, edit it afterwards and rerun the build command as
+needed.
 
 .. code:: bash
 
     python setup.py build
     python setup.py install
 
-The `build` command will most likely fail unless you modify
-`machine_settings.py` appropriately for your machine.
 Also, in order to run the C++ code you need to have an MPI compiler
 installed, the HDF5 C library as well as FFTW 3 (at least 3.3 I think).
 

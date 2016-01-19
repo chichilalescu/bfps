@@ -24,20 +24,36 @@
 
 
 
-from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
-import pickle
-
-
 AUTHOR = 'Cristian C Lalescu'
 AUTHOR_EMAIL = 'Cristian.Lalescu@ds.mpg.de'
 
 import os
+import shutil
 import datetime
+import sys
 import subprocess
-from subprocess import CalledProcessError
+import pickle
 
+
+
+### compiler configuration
+# check if .config/bfps/machine_settings.py file exists, create it if not
+homefolder = os.path.expanduser('~')
+bfpsfolder = os.path.join(homefolder, '.config/', 'bfps')
+if not os.path.exists(os.path.join(bfpsfolder, 'machine_settings.py')):
+    if not os.path.isdir(bfpsfolder):
+        os.mkdir(bfpsfolder)
+    shutil.copyfile('./machine_settings_py.py', os.path.join(bfpsfolder, 'machine_settings.py'))
+sys.path.append(bfpsfolder)
+# import stuff required for compilation of static library
+from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
+
+
+
+### package versioning
+# get current time
 now = datetime.datetime.now()
-
+# obtain version
 try:
     git_branch = subprocess.check_output(['git',
                                           'rev-parse',
@@ -49,7 +65,6 @@ except:
     git_revision = ''
     git_branch = ''
     git_date = now
-
 if git_branch == '':
     # there's no git available or something
     VERSION = '{0:0>4}{1:0>2}{2:0>2}.{3:0>2}{4:0>2}{5:0>2}'.format(
@@ -62,9 +77,11 @@ else:
         VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode()
     else:
         VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode().split('-')[0]
-
 print('This is bfps version ' + VERSION)
 
+
+
+### lists of files and MANIFEST.in
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
                  'fluid_solver',
@@ -89,13 +106,18 @@ with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
         manifest_in_file.write('include {0}\n'.format(fname))
 
+
+
+### libraries
 libraries = ['fftw3_mpi',
              'fftw3',
              'fftw3f_mpi',
              'fftw3f']
-
 libraries += extra_libraries
 
+
+
+### save compiling information
 pickle.dump(
         {'include_dirs' : include_dirs,
          'library_dirs' : library_dirs,
@@ -106,6 +128,8 @@ pickle.dump(
          'git_revision' : git_revision},
         open('bfps/install_info.pickle', 'wb'),
         protocol = 2)
+
+
 
 def compile_bfps_library():
     if not os.path.isdir('obj'):
@@ -164,9 +188,9 @@ setup(
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
         cmdclass={'build' : CustomBuild},
-        package_data = {'bfps': header_list + ['../machine_settings.py',
-                                               'libbfps.a',
+        package_data = {'bfps': header_list + ['libbfps.a',
                                                'install_info.pickle']},
+        version = VERSION,
 ########################################################################
 # useless stuff folows
 ########################################################################
@@ -174,6 +198,5 @@ setup(
         long_description = open('README.rst', 'r').read(),
         author = AUTHOR,
         author_email = AUTHOR_EMAIL,
-        version = VERSION,
         license = 'GPL version 3.0')
 

@@ -4,7 +4,6 @@
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
 (B) tweak HDF5 settings                                                     @optimization @HDF5 +I/O
 (B) use less memory                                                         @optimization
-(C) clean up machine_settings mess                                          @design @documentation +v2.0
 (C) code overview                                                           @documentation
 (C) move stat I/O to cpp lib                                                @design @HDF5
 (C) test involving hydrodynamic similarity                                  @tests
