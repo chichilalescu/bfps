@@ -25,7 +25,7 @@
 
 
 import os
-import subprocess
+import sys
 import pickle
 
 import pkg_resources
@@ -42,6 +42,11 @@ install_info = pickle.load(
         open(os.path.join(os.path.dirname(here),
                           'install_info.pickle'),
              'rb'))
+
+homefolder = os.path.expanduser('~')
+bfpsfolder = os.path.join(homefolder, '.config/', 'bfps')
+sys.path.append(bfpsfolder)
+from host_information import host_info
 
 from .code import code
 from .fluid_converter import fluid_converter

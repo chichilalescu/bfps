@@ -44,6 +44,13 @@ if not os.path.exists(os.path.join(bfpsfolder, 'machine_settings.py')):
     if not os.path.isdir(bfpsfolder):
         os.mkdir(bfpsfolder)
     shutil.copyfile('./machine_settings_py.py', os.path.join(bfpsfolder, 'machine_settings.py'))
+# check if .config/bfps/host_information.py file exists, create it if not
+if not os.path.exists(os.path.join(bfpsfolder, 'host_information.py')):
+    if not os.path.isdir(bfpsfolder):
+        os.mkdir(bfpsfolder)
+    open(os.path.join(bfpsfolder, 'host_information.py'),
+         'w').write('host_info = {\'type\' : \'none\'}\n')
+    shutil.copyfile('./machine_settings_py.py', os.path.join(bfpsfolder, 'machine_settings.py'))
 sys.path.append(bfpsfolder)
 # import stuff required for compilation of static library
 from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
@@ -190,6 +197,10 @@ setup(
         cmdclass={'build' : CustomBuild},
         package_data = {'bfps': header_list + ['libbfps.a',
                                                'install_info.pickle']},
+        entry_points = {
+            'console_scripts': [
+                'bfps = bfps.__main__:main'],
+            },
         version = VERSION,
 ########################################################################
 # useless stuff folows

@@ -71,9 +71,9 @@ class fluid_particle_base(bfps.code):
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
         self.parameters['nu'] = 0.1
-        self.parameters['famplitude'] = 1.0
         self.parameters['fmode'] = 1
-        self.parameters['fk0'] = 0.0
+        self.parameters['famplitude'] = 0.5
+        self.parameters['fk0'] = 1.5
         self.parameters['fk1'] = 3.0
         self.parameters['forcing_type'] = 'linear'
         self.parameters['histogram_bins'] = 256
