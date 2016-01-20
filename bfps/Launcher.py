@@ -96,6 +96,7 @@ class Launcher:
                 os.path.realpath(opt.work_dir),
                 'N{0:0>4}'.format(opt.n))
         c = self.base_class(
+                work_dir = opt.work_dir,
                 fluid_precision = opt.precision,
                 simname = opt.simname,
                 QR_stats_on = opt.QR_stats)
@@ -121,7 +122,7 @@ class Launcher:
                 cmd_line_pars[k] = opt.n
         for k in c.parameters.keys():
             if k in cmd_line_pars.keys():
-                if not type(cmd_lines_pars[k]) == type(None):
+                if not type(cmd_line_pars[k]) == type(None):
                     c.parameters[k] = cmd_line_pars[k]
         c.fill_up_fluid_code()
         c.finalize_code()
