@@ -579,10 +579,14 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
         return None
+    def get_data_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '.h5')
     def get_data_file(self):
-        return h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r')
+        return h5py.File(self.get_data_file_name(), 'r')
     def get_postprocess_file_name(self):
         return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
+    def get_postprocess_file(self):
+        return h5py.File(self.get_postprocess_file_name(), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
         if len(list(self.statistics.keys())) > 0:
             return None
