@@ -6,10 +6,12 @@
 Welcome to bfps's documentation!
 ================================
 
-Contents:
-
 .. toctree::
    :maxdepth: 2
+
+   /_static/README
+   /_static/overview
+   /_static/development
 
 
 
