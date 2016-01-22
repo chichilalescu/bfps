@@ -32,8 +32,27 @@ def generate_data_3D(
         dtype = np.complex128,
         p = 1.5,
         amplitude = 0.5):
-    """
-    generate something that has the proper shape
+    """returns the Fourier representation of a Gaussian random field.
+
+    The generated field is scalar (single component), in practice a
+    3D `numpy` complex-valued array.
+    The field will use the FFTW representation, with the slowest
+    direction corresponding to :math:`y`, the intermediate to :math:`z`
+    and the fastest direction to :math:`x`.
+
+    :param n0: number of :math:`z` nodes on real-space grid
+    :param n1: number of :math:`y` nodes on real-space grid
+    :param n2: number of :math:`x` nodes on real-space grid
+    :param dtype: data type to use, (default=numpy.complex128)
+    :param p: exponent for powerlaw to use in spectrum
+    :param amplitude: prefactor that field is multiplied with
+    :type n0: int
+    :type n1: int
+    :type n2: int
+    :type dtype: numpy.dtype
+    :type p: float
+    :type amplitude: float
+
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)

@@ -13,6 +13,7 @@ Welcome to bfps's documentation!
    /_static/README
    /_static/overview
    /_static/development
+   /_static/api
 
 
 Indices and tables
