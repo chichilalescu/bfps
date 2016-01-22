@@ -53,6 +53,8 @@ def generate_data_3D(
     :type p: float
     :type amplitude: float
 
+    :returns: `a`, a complex valued 3D `numpy.array` that uses the FFTW
+             layout.
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
@@ -76,6 +78,17 @@ def generate_data_3D(
     return a
 
 def randomize_phases(v):
+    """randomize the phases of an FFTW complex field.
+
+    Given some `numpy.array` of dimension at least 3, with values
+    corresponding to the FFTW layout for the Fourier representation,
+    randomize the phases (assuming that the initial field is complex
+    valued; otherwise I'm not sure what will come out).
+
+    :param v: `numpy.array` of dimension at least 3.
+
+    :returns: `v` with randomized phases (i.e. a Gaussian random field).
+    """
     phi = np.random.random(v.shape[:3])*(2*np.pi)
     phi[0, 0, 0] = 0.0
     for ky in range(1, phi.shape[0]//2):
