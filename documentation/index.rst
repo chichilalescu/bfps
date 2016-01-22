@@ -8,12 +8,12 @@ Welcome to bfps's documentation!
 ================================
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-   /_static/README
-   /_static/overview
-   /_static/development
-   /_static/api
+    /_static/README
+    /_static/overview
+    /_static/development
+    /_static/api
 
 
 Indices and tables

@@ -85,9 +85,9 @@ def randomize_phases(v):
     randomize the phases (assuming that the initial field is complex
     valued; otherwise I'm not sure what will come out).
 
-    :param v: `numpy.array` of dimension at least 3.
+    :param v: ``numpy.array`` of dimension at least 3.
 
-    :returns: `v` with randomized phases (i.e. a Gaussian random field).
+    :returns: ``v`` with randomized phases (i.e. a Gaussian random field).
     """
     phi = np.random.random(v.shape[:3])*(2*np.pi)
     phi[0, 0, 0] = 0.0
