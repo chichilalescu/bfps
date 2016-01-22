@@ -422,8 +422,9 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         :type frozen_particles: bool
         :type acc_name: str
 
-        .. warning :: if not None, kcut must be a list of decreasing
-        wavenumbers, since filtering is done on the same field...
+        .. warning:: if not None, kcut must be a list of decreasing
+                     wavenumbers, since filtering is done sequentially
+                     on the same complex FFTW field.
         """
         if self.dtype == np.float32:
             FFTW = 'fftwf'
