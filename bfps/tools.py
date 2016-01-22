@@ -35,7 +35,7 @@ def generate_data_3D(
     """returns the Fourier representation of a Gaussian random field.
 
     The generated field is scalar (single component), in practice a
-    3D `numpy` complex-valued array.
+    3D ``numpy`` complex-valued array.
     The field will use the FFTW representation, with the slowest
     direction corresponding to :math:`y`, the intermediate to :math:`z`
     and the fastest direction to :math:`x`.
@@ -53,8 +53,8 @@ def generate_data_3D(
     :type p: float
     :type amplitude: float
 
-    :returns: `a`, a complex valued 3D `numpy.array` that uses the FFTW
-             layout.
+    :returns: ``a``, a complex valued 3D ``numpy.array`` that uses the
+             FFTW layout.
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
@@ -80,7 +80,7 @@ def generate_data_3D(
 def randomize_phases(v):
     """randomize the phases of an FFTW complex field.
 
-    Given some `numpy.array` of dimension at least 3, with values
+    Given some ``numpy.array`` of dimension at least 3, with values
     corresponding to the FFTW layout for the Fourier representation,
     randomize the phases (assuming that the initial field is complex
     valued; otherwise I'm not sure what will come out).
@@ -104,19 +104,36 @@ def padd_with_zeros(
         a,
         n0, n1, n2,
         odtype = None):
+    """"grows" a complex FFTW field by adding modes with 0 amplitude
+
+    :param a: ``numpy.array`` of dimension at least 3
+    :param n0: number of :math:`z` nodes on desired real-space grid
+    :param n1: number of :math:`y` nodes on desired real-space grid
+    :param n2: number of :math:`x` nodes on desired real-space grid
+    :param odtype: data type to use --- in principle conversion between
+                  single and double precision can be performed with this
+                  function as well.
+    :type n0: int
+    :type n1: int
+    :type n2: int
+    :type odtype: numpy.dtype
+    :returns: ``b``, a ``numpy.array`` of size
+             ``(n1, n0, n2//2+1) + a.shape[3:]``, with all modes
+             not present in ``a`` set to 0.
+    """
     if (type(odtype) == type(None)):
         odtype = a.dtype
     assert(a.shape[0] <= n0 and
            a.shape[1] <= n1 and
-           a.shape[2] <= n2)
+           a.shape[2] <= n2//2+1)
     b = np.zeros((n0, n1, n2/2 + 1) + a.shape[3:], dtype = odtype)
-    m0 = a.shape[0]
-    m1 = a.shape[1]
+    m0 = a.shape[1]
+    m1 = a.shape[0]
     m2 = a.shape[2]
-    b[       :m0/2,        :m1/2, :m2/2+1] = a[       :m0/2,        :m1/2, :m2/2+1]
-    b[       :m0/2, n1-m1/2:    , :m2/2+1] = a[       :m0/2, m1-m1/2:    , :m2/2+1]
-    b[n0-m0/2:    ,        :m1/2, :m2/2+1] = a[m0-m0/2:    ,        :m1/2, :m2/2+1]
-    b[n0-m0/2:    , n1-m1/2:    , :m2/2+1] = a[m0-m0/2:    , m1-m1/2:    , :m2/2+1]
+    b[        :m1//2,         :m0//2, :m2//2+1] = a[        :m1//2,         :m0//2, :m2//2+1]
+    b[        :m1//2, n0-m0//2:     , :m2//2+1] = a[        :m1//2, m0-m0//2:     , :m2//2+1]
+    b[n1-m1//2:     ,         :m0//2, :m2//2+1] = a[m1-m1//2:     ,         :m0//2, :m2//2+1]
+    b[n1-m1//2:     , n0-m0//2:     , :m2//2+1] = a[m1-m1//2:     , m0-m0//2:     , :m2//2+1]
     return b
 
 def get_kindices(
@@ -169,6 +186,17 @@ except ImportError:
 def get_fornberg_coeffs(
         x = None,
         a = None):
+    """compute finite difference coefficients
+
+    Compute finite difference coefficients for a generic grid specified
+    by ``x``, according to [Fornberg]_.
+    The function is used by :func:`particle_finite_diff_test`.
+
+    .. [Fornberg] B. Fornberg,
+                  *Generation of Finite Difference Formulas on Arbitrarily Spaced Grids*.
+                  Mathematics of Computation,
+                  **51:184**, 699-706, 1988
+    """
     N = len(a) - 1
     d = []
     for m in range(N+1):
@@ -201,6 +229,13 @@ def particle_finite_diff_test(
         m = 3,
         species = 0,
         plot_on = False):
+    """sanity test for particle data.
+
+    Compare finite differences of particle positions with sampled
+    velocities and accelerations.
+
+    .. seealso:: :func:`get_fornberg_coeffs`
+    """
     d = c.get_data_file()
     group = d['particles/tracers{0}'.format(species)]
     acc_on = 'acceleration' in group.keys()
