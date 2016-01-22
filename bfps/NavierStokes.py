@@ -699,6 +699,12 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
             self,
             field_name = 'vorticity',
             iteration = 0):
+        """read the Fourier representation of a vector field.
+
+        Read the binary file containing iteration ``iteration`` of the
+        field ``field_name``, and return it as a properly shaped
+        ``numpy.memmap`` object.
+        """
         return np.memmap(
                 os.path.join(self.work_dir,
                              self.simname + '_{0}_i{1:0>5x}'.format('c' + field_name, iteration)),

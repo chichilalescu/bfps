@@ -1,3 +1,4 @@
+================================
 Big Fluid and Particle Simulator
 ================================
 
@@ -20,6 +21,9 @@ I plan on adding documentation on the procedure as when other people
 show interest in using the code, or when time permits.
 
 
+.. _sec-installation:
+
+------------
 Installation
 ------------
 
@@ -54,6 +58,7 @@ Also, in order to run the C++ code you need to have an MPI compiler
 installed, the HDF5 C library as well as FFTW 3 (at least 3.3 I think).
 
 
+--------
 Comments
 --------
 

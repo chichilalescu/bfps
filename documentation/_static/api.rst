@@ -1,19 +1,23 @@
+===
 API
 ===
 
-bfps.NavierStokes
------------------
+----------
+bfps.tools
+----------
 
-.. autoclass:: NavierStokes.NavierStokes
+.. automodule:: tools
     :members:
     :undoc-members:
     :inherited-members:
     :show-inheritance:
 
-bfps.tools
-----------
 
-.. automodule:: tools
+-----------------
+bfps.NavierStokes
+-----------------
+
+.. autoclass:: NavierStokes.NavierStokes
     :members:
     :undoc-members:
     :inherited-members:

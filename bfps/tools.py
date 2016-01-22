@@ -113,6 +113,7 @@ def padd_with_zeros(
     :param odtype: data type to use --- in principle conversion between
                   single and double precision can be performed with this
                   function as well.
+                  If ``None``, then use ``a.dtype``.
     :type n0: int
     :type n1: int
     :type n2: int

@@ -1,7 +1,9 @@
+===========
 Development
 ===========
 
 
+---------------------
 Versioning guidelines
 ---------------------
 
@@ -47,6 +49,7 @@ projects, these may change.
    forked from `vX.Y`, and then rule 3 is adapted accordingly.
 
 
+------------
 Code testing
 ------------
 
