@@ -136,7 +136,7 @@ def padd_with_zeros(
     b[n1-m1//2:     , n0-m0//2:     , :m2//2+1] = a[m1-m1//2:     , m0-m0//2:     , :m2//2+1]
     return b
 
-def get_kindices(
+def _get_kindices(
         n = 64):
     nx = n
     nz = n
