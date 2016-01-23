@@ -33,7 +33,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import bfps
-from bfps import fluid_resize
+from bfps import FluidResize
 from bfps.tools import particle_finite_diff_test as acceleration_test
 
 parser = bfps.get_parser()
@@ -54,7 +54,7 @@ parser.add_argument(
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = fluid_resize(
+    c = FluidResize(
             work_dir = opt.work_dir,
             simname = old_simname + '_double',
             dtype = opt.precision)

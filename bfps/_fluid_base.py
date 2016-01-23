@@ -24,15 +24,14 @@
 
 
 
-import bfps
-import bfps.code
-import bfps.tools
+from ._code import _code
+from bfps import tools
 
 import os
 import numpy as np
 import h5py
 
-class fluid_particle_base(bfps.code):
+class _fluid_particle_base(_code):
     def __init__(
             self,
             name = 'solver',
@@ -40,7 +39,8 @@ class fluid_particle_base(bfps.code):
             simname = 'test',
             dtype = np.float32,
             use_fftw_wisdom = True):
-        super(fluid_particle_base, self).__init__(
+        _code.__init__(
+                self,
                 work_dir = work_dir,
                 simname = simname)
         self.use_fftw_wisdom = use_fftw_wisdom
@@ -284,19 +284,19 @@ class fluid_particle_base(bfps.code):
             field_name = 'vorticity',
             write_to_file = False):
         np.random.seed(rseed)
-        Kdata00 = bfps.tools.generate_data_3D(
+        Kdata00 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata01 = bfps.tools.generate_data_3D(
+        Kdata01 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata02 = bfps.tools.generate_data_3D(
+        Kdata02 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
@@ -308,7 +308,7 @@ class fluid_particle_base(bfps.code):
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
-        Kdata1 = bfps.tools.padd_with_zeros(
+        Kdata1 = tools.padd_with_zeros(
                 Kdata0,
                 self.parameters['nz'],
                 self.parameters['ny'],
@@ -396,7 +396,7 @@ class fluid_particle_base(bfps.code):
         assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
-        super(fluid_particle_base, self).write_par(iter0 = iter0)
+        _code.write_par(self, iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             ofile['field_dtype'] = np.dtype(self.dtype).str
             kspace = self.get_kspace()

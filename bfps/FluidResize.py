@@ -24,66 +24,80 @@
 
 
 
-import bfps
-import bfps.fluid_base
-import bfps.tools
-import numpy as np
-import pickle
-import os
+from ._fluid_base import _fluid_particle_base
 
-class fluid_converter(bfps.fluid_base.fluid_particle_base):
+import numpy as np
+
+class FluidResize(_fluid_particle_base):
     def __init__(
             self,
-            name = 'fluid_converter',
+            name = 'FluidResize',
             work_dir = './',
             simname = 'test',
-            fluid_precision = 'single',
-            use_fftw_wisdom = True):
-        super(fluid_converter, self).__init__(
+            dtype = np.float32,
+            use_fftw_wisdom = False):
+        _fluid_particle_base.__init__(
+                self,
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = fluid_precision,
+                dtype = dtype,
                 use_fftw_wisdom = use_fftw_wisdom)
-        self.parameters['write_rvelocity']  = 1
-        self.parameters['write_rvorticity'] = 1
-        self.parameters['fluid_name'] = 'test'
+        self.parameters['src_simname'] = 'test'
+        self.parameters['dst_iter'] = 0
+        self.parameters['dst_nx'] = 32
+        self.parameters['dst_ny'] = 32
+        self.parameters['dst_nz'] = 32
+        self.parameters['dst_simname'] = 'new_test'
+        self.parameters['dst_dkx'] = 1.0
+        self.parameters['dst_dky'] = 1.0
+        self.parameters['dst_dkz'] = 1.0
         self.fill_up_fluid_code()
         self.finalize_code()
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
+        self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_variables += ('double t;\n' +
-                                 'fluid_solver<{0}> *fs;\n').format(self.C_dtype)
-        self.fluid_definitions += """
-                //begincpp
-                void do_conversion(fluid_solver<{0}> *bla)
-                {{
-                    bla->read('v', 'c');
-                    if (write_rvelocity)
-                        bla->write('u', 'r');
-                    if (write_rvorticity)
-                        bla->write('v', 'r');
-                }}
-                //endcpp
-                """.format(self.C_dtype)
+                                 'fluid_solver<' + self.C_dtype + '> *fs0, *fs1;\n')
         self.fluid_start += """
                 //begincpp
-                fs = new fluid_solver<{0}>(
-                        fluid_name,
+                char fname[512];
+                fs0 = new fluid_solver<{0}>(
+                        src_simname,
                         nx, ny, nz,
                         dkx, dky, dkz);
-                fs->iteration = iteration;
-                do_conversion(fs);
+                fs1 = new fluid_solver<{0}>(
+                        dst_simname,
+                        dst_nx, dst_ny, dst_nz,
+                        dst_dkx, dst_dky, dst_dkz);
+                fs0->iteration = iteration;
+                fs1->iteration = 0;
+                DEBUG_MSG("about to read field\\n");
+                fs0->read('v', 'c');
+                DEBUG_MSG("field read, about to copy data\\n");
+                double a, b;
+                fs0->compute_velocity(fs0->cvorticity);
+                a = 0.5*fs0->autocorrel(fs0->cvelocity);
+                b = 0.5*fs0->autocorrel(fs0->cvorticity);
+                DEBUG_MSG("old field %d %g %g\\n", fs0->iteration, a, b);
+                copy_complex_array<{0}>(fs0->cd, fs0->cvorticity,
+                                        fs1->cd, fs1->cvorticity,
+                                        3);
+                DEBUG_MSG("data copied, about to write new field\\n");
+                fs1->write('v', 'c');
+                DEBUG_MSG("finished writing\\n");
+                fs1->compute_velocity(fs1->cvorticity);
+                a = 0.5*fs1->autocorrel(fs1->cvelocity);
+                b = 0.5*fs1->autocorrel(fs1->cvorticity);
+                DEBUG_MSG("new field %d %g %g\\n", fs1->iteration, a, b);
                 //endcpp
                 """.format(self.C_dtype)
-        self.fluid_loop += """
+        self.fluid_end += """
                 //begincpp
-                fs->iteration++;
-                if (fs->iteration % niter_out == 0)
-                    do_conversion(fs);
+                delete fs0;
+                delete fs1;
                 //endcpp
                 """
-        self.fluid_end += 'delete fs;\n'
         return None
 

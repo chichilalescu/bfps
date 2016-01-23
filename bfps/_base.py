@@ -28,9 +28,9 @@ import os
 import sys
 import numpy as np
 import h5py
-import bfps
+from bfps import install_info
 
-class base(object):
+class _base(object):
     """
         This class contains simulation parameters, and handles parameter related
         functionalities of both python objects and C++ codes.
@@ -109,8 +109,8 @@ class base(object):
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
-        for k in bfps.install_info.keys():
-            ofile['install_info/' + k] = str(bfps.install_info[k])
+        for k in install_info.keys():
+            ofile['install_info/' + k] = str(install_info[k])
         ofile.close()
         return None
     def read_parameters(self):

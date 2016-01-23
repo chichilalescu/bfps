@@ -28,11 +28,9 @@ import os
 import numpy as np
 import h5py
 
-import bfps
-import bfps.fluid_base
-import bfps.tools
+from ._fluid_base import _fluid_particle_base
 
-class NavierStokes(bfps.fluid_base.fluid_particle_base):
+class NavierStokes(_fluid_particle_base):
     def __init__(
             self,
             name = 'NavierStokes',
@@ -46,7 +44,8 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.QR_stats_on = QR_stats_on
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
-        super(NavierStokes, self).__init__(
+        _fluid_particle_base.__init__(
+                self,
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
@@ -715,7 +714,7 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                          self.parameters['nx']//2+1,
                          3))
     def write_par(self, iter0 = 0):
-        super(NavierStokes, self).write_par(iter0 = iter0)
+        _fluid_particle_base.write_par(self, iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]

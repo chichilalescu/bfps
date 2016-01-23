@@ -26,7 +26,10 @@
 
 from base import *
 
-class test_io(bfps.code):
+import bfps
+from bfps._code import _code
+
+class test_io(_code):
     def __init__(
             self,
             name = 'test_io',

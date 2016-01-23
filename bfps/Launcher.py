@@ -1,11 +1,17 @@
 import os
 
 import argparse
-import bfps
+
+import .__init__ as bfps
+from .NavierStokes import NavierStokes
+from .FluidResize import FluidResize
+from .FluidConvert import FluidConvert
 
 class Launcher:
-    def __init__(self):
-        self.base_class = bfps.NavierStokes
+    def __init__(
+            self,
+            base_class = NavierStokes):
+        self.base_class = base_class
         self.parser = argparse.ArgumentParser(prog = 'bfps')
         self.parser.add_argument(
                 '-v', '--version',
@@ -18,10 +24,6 @@ class Launcher:
                 default = 32,
                 metavar = 'N',
                 help = 'code is run by default in a grid of NxNxN')
-        self.parser.add_argument(
-                '--run',
-                dest = 'run',
-                action = 'store_true')
         self.parser.add_argument(
                 '--ncpu',
                 type = int, dest = 'ncpu',
@@ -128,29 +130,28 @@ class Launcher:
         c.finalize_code()
         c.write_src()
         c.set_host_info(bfps.host_info)
-        if opt.run:
-            if not os.path.exists(os.path.join(c.work_dir, c.simname + '.h5')):
-                c.write_par()
-                if c.parameters['nparticles'] > 0:
-                    data = c.generate_tracer_state(species = 0, rseed = opt.particle_rand_seed)
-                    for s in range(1, c.particle_species):
-                        c.generate_tracer_state(species = s, data = data)
-                init_condition_file = os.path.join(
-                        c.work_dir,
-                        c.simname + '_cvorticity_i{0:0>5x}'.format(0))
-                if not os.path.exists(init_condition_file):
-                    if len(opt.src_simname) > 0:
-                        src_file = os.path.join(
-                                c.work_dir,
-                                opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
-                        os.symlink(src_file, init_condition_file)
-                    else:
-                       c.generate_vector_field(
-                               write_to_file = True,
-                               spectra_slope = 2.0,
-                               amplitude = 0.25)
-            c.run(ncpu = opt.ncpu,
-                  njobs = opt.njobs)
+        if not os.path.exists(os.path.join(c.work_dir, c.simname + '.h5')):
+            c.write_par()
+            if c.parameters['nparticles'] > 0:
+                data = c.generate_tracer_state(species = 0, rseed = opt.particle_rand_seed)
+                for s in range(1, c.particle_species):
+                    c.generate_tracer_state(species = s, data = data)
+            init_condition_file = os.path.join(
+                    c.work_dir,
+                    c.simname + '_cvorticity_i{0:0>5x}'.format(0))
+            if not os.path.exists(init_condition_file):
+                if len(opt.src_simname) > 0:
+                    src_file = os.path.join(
+                            c.work_dir,
+                            opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+                    os.symlink(src_file, init_condition_file)
+                else:
+                   c.generate_vector_field(
+                           write_to_file = True,
+                           spectra_slope = 2.0,
+                           amplitude = 0.25)
+        c.run(ncpu = opt.ncpu,
+              njobs = opt.njobs)
         return c
 
 
