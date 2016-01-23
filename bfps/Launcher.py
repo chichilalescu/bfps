@@ -38,80 +38,107 @@ class Launcher:
             self,
             base_class = NavierStokes):
         self.base_class = base_class
-        self.parser = argparse.ArgumentParser(prog = 'bfps ' + self.base_class.__name__)
+        self.parser = argparse.ArgumentParser(prog = 'bfps-' + self.base_class.__name__)
+        # generic arguments, all classes may use these
         self.parser.add_argument(
                 '-v', '--version',
                 action = 'version',
                 version = '%(prog)s ' + bfps.__version__)
         self.parser.add_argument(
-                '-n',
-                type = int,
-                dest = 'n',
-                default = 32,
-                metavar = 'N',
-                help = 'code is run by default in a grid of NxNxN')
-        self.parser.add_argument(
                 '--ncpu',
                 type = int, dest = 'ncpu',
                 default = 2)
         self.parser.add_argument(
-                '--precision',
-                type = str, dest = 'precision',
-                default = 'single')
-        self.parser.add_argument(
                 '--simname',
                 type = str, dest = 'simname',
                 default = 'test')
-        self.parser.add_argument(
-                '--wd',
-                type = str, dest = 'work_dir',
-                default = './')
-        self.parser.add_argument(
-                '--njobs',
-                type = int, dest = 'njobs',
-                default = 1)
-        self.parser.add_argument(
-                '--QR-stats',
-                action = 'store_true',
-                dest = 'QR_stats',
-                help = 'add this option if you want to compute velocity gradient and QR stats')
-        self.parser.add_argument(
-                '--kMeta',
-                type = float,
-                dest = 'kMeta',
-                default = 2.0)
-        self.parser.add_argument(
-                '--dtfactor',
-                type = float,
-                dest = 'dtfactor',
-                default = 0.5,
-                help = 'dt is computed as DTFACTOR / N')
         self.parser.add_argument(
                 '--environment',
                 type = str,
                 dest = 'environment',
                 default = '')
         self.parser.add_argument(
-                '--src-simname',
-                type = str,
-                dest = 'src_simname',
-                default = '')
-        self.parser.add_argument(
-                '--src-iteration',
-                type = int,
-                dest = 'src_iteration',
-                default = 0)
-        self.parser.add_argument(
-                '--particle-rand-seed',
-                type = int,
-                dest = 'particle_rand_seed',
-                default = None)
+                '--wd',
+                type = str, dest = 'work_dir',
+                default = './')
+        # now add class specific arguments
+        self.add_class_specific_arguments(self.base_class.__name__)
+        # now add code parameters
         c = self.base_class()
         for k in sorted(c.parameters.keys()):
             self.parser.add_argument(
                     '--{0}'.format(k),
                     type = type(c.parameters[k]),
                     dest = k,
+                    default = None)
+        return None
+    def add_class_specific_arguments(
+            self,
+            class_name):
+        """add arguments specific to different classes.
+
+        .. warning:: Reimplement this for custom classes.
+        """
+        if class_name in ['NavierStokes', 'FluidResize']:
+            self.parser.add_argument(
+                    '--src-wd',
+                    type = str,
+                    dest = 'src_work_dir',
+                    default = './')
+            self.parser.add_argument(
+                    '--src-simname',
+                    type = str,
+                    dest = 'src_simname',
+                    default = '')
+            self.parser.add_argument(
+                    '--src-iteration',
+                    type = int,
+                    dest = 'src_iteration',
+                    default = 0)
+        if class_name == 'FluidResize':
+            self.parser.add_argument(
+                    '-n',
+                    type = int,
+                    dest = 'n',
+                    default = 32,
+                    metavar = 'N',
+                    help = 'resize to N')
+        if class_name == 'NavierStokes':
+            self.parser.add_argument(
+                    '-n',
+                    type = int,
+                    dest = 'n',
+                    default = 32,
+                    metavar = 'N',
+                    help = 'code is run by default in a grid of NxNxN')
+            self.parser.add_argument(
+                    '--precision',
+                    type = str, dest = 'precision',
+                    default = 'single')
+            self.parser.add_argument(
+                    '--njobs',
+                    type = int, dest = 'njobs',
+                    default = 1)
+            self.parser.add_argument(
+                    '--QR-stats',
+                    action = 'store_true',
+                    dest = 'QR_stats',
+                    help = 'add this option if you want to compute velocity gradient and QR stats')
+            self.parser.add_argument(
+                    '--kMeta',
+                    type = float,
+                    dest = 'kMeta',
+                    default = 2.0)
+            self.parser.add_argument(
+                    '--dtfactor',
+                    type = float,
+                    dest = 'dtfactor',
+                    default = 0.5,
+                    help = 'dt is computed as DTFACTOR / N')
+            self.parser.add_argument(
+                    '--particle-rand-seed',
+                    type = int,
+                    dest = 'particle_rand_seed',
                     default = None)
         return None
     def __call__(

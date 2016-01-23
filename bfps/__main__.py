@@ -45,7 +45,11 @@ def main():
                        'FluidConvert',
                        'FluidResize'],
             type = str)
+    # first option is the choice of base class or -h or -v
+    # all other options are passed on to the Launcher instance
     opt = parser.parse_args(sys.argv[1:2])
+    # error is thrown if first option is not a base class, so Launcher
+    # cannot be executed by mistake.
     l = eval('Launcher(base_class = {0})'.format(opt.base_class))
     l(sys.argv[2:])
     return None
