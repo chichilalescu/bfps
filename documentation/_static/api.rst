@@ -13,6 +13,17 @@ bfps.tools
     :show-inheritance:
 
 
+-------------
+bfps.Launcher
+-------------
+
+.. autoclass:: Launcher.Launcher
+    :members:
+    :undoc-members:
+    :inherited-members:
+    :show-inheritance:
+
+
 -----------------
 bfps.NavierStokes
 -----------------

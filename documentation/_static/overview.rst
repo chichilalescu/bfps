@@ -107,6 +107,8 @@ this is just a :math:`32^3` simulation run for 8 iterations.
 First thing you can do afterwards is open up a python console, and type
 the following:
 
+.. _sec-first-postprocessing:
+
 .. code:: python
 
     import numpy as np
@@ -123,9 +125,10 @@ the following:
              (2*np.pi/c.parameters['nx']))))
     print ('Tint = {0:.4e}, tauK = {1:.4e}'.format(c.statistics['Tint'],
                                                    c.statistics['tauK']))
+    data_file = c.get_data_file()
     print ('total time simulated is = {0:.4e} Tint, {1:.4e} tauK'.format(
-            c.data_file['iteration'].value*c.parameters['dt'] / c.statistics['Tint'],
-            c.data_file['iteration'].value*c.parameters['dt'] / c.statistics['tauK']))
+            data_file['iteration'].value*c.parameters['dt'] / c.statistics['Tint'],
+            data_file['iteration'].value*c.parameters['dt'] / c.statistics['tauK']))
 
 :func:`compute_statistics <NavierStokes.NavierStokes.compute_statistics>`
 will read the data
@@ -143,7 +146,30 @@ it also saves some data into a ``<simname>_postprocess.h5`` file, and
 then it also performs some time averages, yielding the ``statistics``
 dictionary that is used in the above code.
 
-What happened
--------------
+Behind the scenes
+-----------------
 
-Behind the scenes, something more complicated took place.
+What happens, in brief, is the following:
+
+    1. An instance ``l`` of :class:`Launcher <Launcher.Launcher>` is created.
+       One of its members is an :class:`argparse.ArgumentParser`, and
+       it processes command line arguments given to the ``bfps`` script.
+    2. ``l`` generates a
+       :class:`NavierStokes <NavierStokes.NavierStokes>` object ``c``, with
+       reasonable DNS parameters constructed from the command line
+       arguments.
+    4. ``c`` generates a parameter file ``<simname>.h5``, into which the
+       various parameters are written.
+       ``c`` also generates the various datasets that the backend code
+       will write into (statistics and other stuff).
+    3. ``c`` writes a C++ file that is compiled and linked against
+       ``libbfps``.
+    4. ``c`` executes the C++ code using ``mpirun``.
+    5. the C++ code actually performs the DNS, and outputs various
+       results into the ``<simname>.h5`` file.
+
+After the simulation is done, things in :ref:`sec-first-postprocessing`
+are simpler.
+In fact, any ``HDF5`` capable software can be used to read the data
+file, and the dataset names should be reasonably easy to interpret.
+
