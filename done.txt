@@ -14,3 +14,4 @@ x 2016-01-15 particle output is broken when niter_part != 1                     
 x 2016-01-19 clean up machine_settings mess                                          @design @documentation +v2.0
 x 2016-01-24 clear delimitation of public API                                        @documentation +v1.0
 x 2016-01-24 document coordinate conventions                                         @documentation +v1.0
+x 2016-01-24 move parameters from _fluid_particle_base to NavierStokes etc           @design

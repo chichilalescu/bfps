@@ -1,5 +1,4 @@
 (B) compute z polynomials only when needed                                  @optimization +v1.0
-(B) move parameters from _fluid_particle_base to NavierStokes etc           @design
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
 (B) tweak HDF5 settings                                                     @optimization @HDF5 +I/O

@@ -922,32 +922,3 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_loop += update_fields
         return None
 
-def launch(
-        opt,
-        nu = None):
-    c = NavierStokes(work_dir = opt.work_dir)
-    assert((opt.nsteps % 4) == 0)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    if type(nu) == type(None):
-        c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    else:
-        c.parameters['nu'] = nu
-    c.parameters['dt'] = 5e-3 * (64. / opt.n)
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_part'] = 2
-    c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 32
-    if opt.particles:
-        c.add_particles()
-        c.add_particles(kcut = 'fs->kM/2')
-    c.finalize_code()
-    c.write_src()
-    c.write_par()
-    if opt.run:
-        if opt.iteration == 0 and opt.initialize:
-            c.generate_initial_condition()
-        c.run(ncpu = opt.ncpu, njobs = opt.njobs)
-    return c
-
