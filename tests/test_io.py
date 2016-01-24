@@ -47,8 +47,6 @@ class test_io(_code):
 if __name__ == '__main__':
     opt = parser.parse_args(
             ['-n', '32',
-             '--run',
-             '--initialize',
              '--ncpu', '2'] +
             sys.argv[1:])
     c = test_io(work_dir = opt.work_dir + '/io')

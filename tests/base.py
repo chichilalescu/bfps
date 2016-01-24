@@ -36,7 +36,45 @@ import bfps
 from bfps import FluidResize
 from bfps.tools import particle_finite_diff_test as acceleration_test
 
-parser = bfps.get_parser()
+import argparse
+
+def get_parser(base_class = bfps.NavierStokes,
+               n = 32,
+               ncpu = 2,
+               precision = 'single',
+               simname = 'test',
+               work_dir = './',
+               njobs = 1):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('-n',
+            type = int, dest = 'n',
+            default = n)
+    parser.add_argument('--ncpu',
+            type = int, dest = 'ncpu',
+            default = ncpu)
+    parser.add_argument('--precision',
+            type = str, dest = 'precision',
+            default = precision)
+    parser.add_argument('--simname',
+            type = str, dest = 'simname',
+            default = simname)
+    parser.add_argument('--wd',
+            type = str, dest = 'work_dir',
+            default = work_dir)
+    parser.add_argument('--njobs',
+            type = int, dest = 'njobs',
+            default = njobs)
+    c = base_class(simname = simname)
+    for k in sorted(c.parameters.keys()):
+        parser.add_argument(
+                '--{0}'.format(k),
+                type = type(c.parameters[k]),
+                dest = k,
+                default = c.parameters[k])
+    return parser
+
+parser = get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
 parser.add_argument('--frozen', dest = 'frozen', action = 'store_true')
 parser.add_argument('--iteration',
