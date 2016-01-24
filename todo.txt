@@ -6,7 +6,7 @@
 (C) code overview                                                           @documentation
 (C) move stat I/O to cpp lib                                                @design @HDF5
 (C) test involving hydrodynamic similarity                                  @tests
-(C) tests should use launch instead of bfps.get_parser                      @design @tests
+(C) tests should use launch instead of get_parser                           @design @tests
 (C) use HDF5 io for fields                                                  @design @HDF5 +I/O
 (D) generalize interpolation comparison test                                @tests
 (D) generate separate lib(s) with extra classes                             @tests +alternate_algorithms

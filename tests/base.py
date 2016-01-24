@@ -92,25 +92,21 @@ parser.add_argument(
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = FluidResize(
-            work_dir = opt.work_dir,
-            simname = old_simname + '_double',
-            dtype = opt.precision)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    c.parameters['dst_nx'] = 2*opt.n
-    c.parameters['dst_ny'] = 2*opt.n
-    c.parameters['dst_nz'] = 2*opt.n
-    c.parameters['dst_simname'] = new_simname
-    c.parameters['src_simname'] = old_simname
-    c.parameters['niter_todo'] = 0
-    c.write_src()
-    c.set_host_info({'type' : 'pc'})
-    c.write_par()
-    c.run(ncpu = opt.ncpu,
-          err_file = 'err_',
-          out_file = 'out_')
+    c = FluidResize(dtype = opt.precision)
+    c.launch(
+            args = ['--simname', old_simname + '_double',
+                    '--wd', opt.work_dir,
+                    '--nx', '{0}'.format(opt.n),
+                    '--ny', '{0}'.format(opt.n),
+                    '--nz', '{0}'.format(opt.n),
+                    '--dst_nx', '{0}'.format(2*opt.n),
+                    '--dst_ny', '{0}'.format(2*opt.n),
+                    '--dst_nz', '{0}'.format(2*opt.n),
+                    '--dst_simname', new_simname,
+                    '--src_simname', old_simname,
+                    '--src_iteration', '0',
+                    '--src_wd', './',
+                    '--niter_todo', '0'])
     return None
 
 def launch(
