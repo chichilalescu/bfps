@@ -921,9 +921,10 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
         return None
-    def add_parser_arguments(
+    def specific_parser_arguments(
             self,
             parser):
+        _fluid_particle_base.specific_parser_arguments(self, parser)
         parser.add_argument(
                 '--src-wd',
                 type = str,
@@ -939,13 +940,6 @@ class NavierStokes(_fluid_particle_base):
                 type = int,
                 dest = 'src_iteration',
                 default = 0)
-        parser.add_argument(
-               '-n', '--cube-size',
-               type = int,
-               dest = 'n',
-               default = 32,
-               metavar = 'N',
-               help = 'code is run by default in a grid of NxNxN')
         parser.add_argument(
                '--precision',
                type = str, dest = 'precision',

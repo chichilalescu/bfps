@@ -43,39 +43,9 @@ class Launcher:
             self,
             base_class = NavierStokes):
         self.base_class = base_class
-        self.parser = argparse.ArgumentParser(prog = 'bfps-' + self.base_class.__name__)
-        # generic arguments, all classes may use these
-        self.parser.add_argument(
-                '-v', '--version',
-                action = 'version',
-                version = '%(prog)s ' + bfps.__version__)
-        self.parser.add_argument(
-                '--ncpu',
-                type = int, dest = 'ncpu',
-                default = 2)
-        self.parser.add_argument(
-                '--simname',
-                type = str, dest = 'simname',
-                default = 'test')
-        self.parser.add_argument(
-                '--environment',
-                type = str,
-                dest = 'environment',
-                default = '')
-        self.parser.add_argument(
-                '--wd',
-                type = str, dest = 'work_dir',
-                default = './')
+        self.parser = argparse.ArgumentParser(prog = 'bfps ' + self.base_class.__name__)
         c = self.base_class()
-        # now add class specific arguments
         c.add_parser_arguments(self.parser)
-        # now add code parameters
-        for k in sorted(c.parameters.keys()):
-            self.parser.add_argument(
-                    '--{0}'.format(k),
-                    type = type(c.parameters[k]),
-                    dest = k,
-                    default = None)
         return None
     def __call__(
             self,
