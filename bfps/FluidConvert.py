@@ -90,4 +90,23 @@ class FluidConvert(_fluid_particle_base):
                 """
         self.fluid_end += 'delete fs;\n'
         return None
+    def add_parser_arguments(
+            self,
+            parser):
+        parser.add_argument(
+                '--src-wd',
+                type = str,
+                dest = 'src_work_dir',
+                default = './')
+        parser.add_argument(
+                '--src-simname',
+                type = str,
+                dest = 'src_simname',
+                default = '')
+        parser.add_argument(
+                '--src-iteration',
+                type = int,
+                dest = 'src_iteration',
+                default = 0)
+        return None
 

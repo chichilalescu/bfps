@@ -104,4 +104,15 @@ class FluidResize(_fluid_particle_base):
                 //endcpp
                 """
         return None
+    def add_parser_arguments(
+            self,
+            parser):
+        parser.add_argument(
+                '-n',
+                type = int,
+                dest = 'n',
+                default = 32,
+                metavar = 'N',
+                help = 'resize to N')
+        return None
 

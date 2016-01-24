@@ -921,4 +921,59 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
         return None
+    def add_parser_arguments(
+            self,
+            parser):
+        parser.add_argument(
+                '--src-wd',
+                type = str,
+                dest = 'src_work_dir',
+                default = './')
+        parser.add_argument(
+                '--src-simname',
+                type = str,
+                dest = 'src_simname',
+                default = '')
+        parser.add_argument(
+                '--src-iteration',
+                type = int,
+                dest = 'src_iteration',
+                default = 0)
+        parser.add_argument(
+               '-n', '--cube-size',
+               type = int,
+               dest = 'n',
+               default = 32,
+               metavar = 'N',
+               help = 'code is run by default in a grid of NxNxN')
+        parser.add_argument(
+               '--precision',
+               type = str, dest = 'precision',
+               default = 'single')
+        parser.add_argument(
+               '--njobs',
+               type = int, dest = 'njobs',
+               default = 1)
+        parser.add_argument(
+               '--QR-stats',
+               action = 'store_true',
+               dest = 'QR_stats',
+               help = 'add this option if you want to compute velocity gradient and QR stats')
+        parser.add_argument(
+               '--kMeta',
+               type = float,
+               dest = 'kMeta',
+               default = 2.0)
+        parser.add_argument(
+               '--dtfactor',
+               type = float,
+               dest = 'dtfactor',
+               default = 0.5,
+               help = 'dt is computed as DTFACTOR / N')
+        parser.add_argument(
+               '--particle-rand-seed',
+               type = int,
+               dest = 'particle_rand_seed',
+               default = None)
+        return None
 
