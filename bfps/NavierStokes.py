@@ -27,7 +27,9 @@
 import os
 import numpy as np
 import h5py
+import argparse
 
+import bfps
 from ._fluid_base import _fluid_particle_base
 
 class NavierStokes(_fluid_particle_base):
@@ -969,5 +971,59 @@ class NavierStokes(_fluid_particle_base):
                type = int,
                dest = 'particle_rand_seed',
                default = None)
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        # with the default Lundgren forcing, I can estimate the dissipation
+        # with nondefault forcing, figure out the amplitude for this viscosity
+        # yourself
+        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
+        self.add_parser_arguments(parser)
+        opt = parser.parse_args(args)
+        self.QR_stats_on = opt.QR_stats
+        self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
+        self.parameters['dt'] = (opt.dtfactor / opt.n)
+        if ((self.parameters['niter_todo'] % self.parameters['niter_out']) != 0):
+            self.parameters['niter_out'] = self.parameters['niter_todo']
+        if self.QR_stats_on:
+            # max_Q_estimate and max_R_estimate are just used for the 2D pdf
+            # therefore I just want them to be small multiples of mean trS2
+            # I'm already estimating the dissipation with kMeta...
+            meantrS2 = (opt.n//2 / opt.kMeta)**4 * self.parameters['nu']**2
+            self.parameters['max_Q_estimate'] = meantrS2
+            self.parameters['max_R_estimate'] = .4*meantrS2**1.5
+
+        self.pars_from_namespace(opt)
+        self.fill_up_fluid_code()
+        self.finalize_code()
+        self.write_src()
+        self.set_host_info(bfps.host_info)
+        if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
+            self.write_par()
+            if self.parameters['nparticles'] > 0:
+                data = self.generate_tracer_state(
+                        species = 0,
+                        rseed = opt.particle_rand_seed)
+                for s in range(1, self.particle_species):
+                    self.generate_tracer_state(species = s, data = data)
+            init_condition_file = os.path.join(
+                    self.work_dir,
+                    self.simname + '_cvorticity_i{0:0>5x}'.format(0))
+            if not os.path.exists(init_condition_file):
+                if len(opt.src_simname) > 0:
+                    src_file = os.path.join(
+                            self.work_dir,
+                            opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+                    os.symlink(src_file, init_condition_file)
+                else:
+                   self.generate_vector_field(
+                           write_to_file = True,
+                           spectra_slope = 2.0,
+                           amplitude = 0.25)
+        self.run(
+                ncpu = opt.ncpu,
+                njobs = opt.njobs)
         return None
 
