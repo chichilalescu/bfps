@@ -50,7 +50,7 @@ def main():
     # error is thrown if first option is not a base class, so Launcher
     # cannot be executed by mistake.
     c = eval('{0}()'.format(opt.base_class))
-    c.launch(sys.argv[2:])
+    c.launch(args = sys.argv[2:])
     return None
 
 if __name__ == '__main__':

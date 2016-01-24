@@ -398,6 +398,7 @@ class _fluid_particle_base(_code):
         return None
     def launch(
             self,
+            args = [],
             **kwargs):
         return None
 
