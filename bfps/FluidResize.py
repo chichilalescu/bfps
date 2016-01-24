@@ -29,6 +29,10 @@ from ._fluid_base import _fluid_particle_base
 import numpy as np
 
 class FluidResize(_fluid_particle_base):
+    """This class is meant to resize snapshots of DNS states to new grids.
+    Typical stuff for DNS of turbulence.
+    It will become superfluous when HDF5 is used for field I/O.
+    """
     def __init__(
             self,
             name = 'FluidResize',

@@ -30,6 +30,11 @@ import os
 from ._fluid_base import _fluid_particle_base
 
 class FluidConvert(_fluid_particle_base):
+    """This class is meant to be used for conversion of native DNS field
+    representations to real-space representations of velocity/vorticity
+    fields.
+    It may be superseeded by streamlined functionality in the future...
+    """
     def __init__(
             self,
             name = 'FluidConvert',

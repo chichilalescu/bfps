@@ -36,9 +36,8 @@ import bfps
 from ._base import _base
 
 class _code(_base):
-    """
-        This class is meant to stitch together the C++ code into a final source file,
-        compile it, and handle all job launching.
+    """This class is meant to stitch together the C++ code into a final source file,
+    compile it, and handle all job launching.
     """
     def __init__(
             self,

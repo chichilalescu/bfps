@@ -32,6 +32,10 @@ import numpy as np
 import h5py
 
 class _fluid_particle_base(_code):
+    """This class is meant to put together all common code between the
+    different C++ solvers/postprocessing tools, so that development of
+    specific functionalities is not overwhelming.
+    """
     def __init__(
             self,
             name = 'solver',

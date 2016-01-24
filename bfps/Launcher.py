@@ -34,6 +34,11 @@ from .FluidResize import FluidResize
 from .FluidConvert import FluidConvert
 
 class Launcher:
+    """Objects of this class are used in the executable bfps script.
+    It should work with any children of
+    :class:`NavierStokes <NavierStokes.NavierStokes>`;
+    failure to do so should be reported as a bug.
+    """
     def __init__(
             self,
             base_class = NavierStokes):

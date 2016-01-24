@@ -31,9 +31,8 @@ import h5py
 from bfps import install_info
 
 class _base(object):
-    """
-        This class contains simulation parameters, and handles parameter related
-        functionalities of both python objects and C++ codes.
+    """This class contains simulation parameters, and handles parameter related
+    functionalities of both python objects and C++ codes.
     """
     def __init__(
             self,

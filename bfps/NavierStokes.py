@@ -31,6 +31,11 @@ import h5py
 from ._fluid_base import _fluid_particle_base
 
 class NavierStokes(_fluid_particle_base):
+    """Objects of this class can be used to generate production DNS codes.
+    Any functionality that users require should be available through this class,
+    in the sense that they can implement whatever they need by simply inheriting
+    this class.
+    """
     def __init__(
             self,
             name = 'NavierStokes',
