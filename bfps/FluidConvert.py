@@ -24,22 +24,26 @@
 
 
 
-import bfps
-import bfps.fluid_base
-import bfps.tools
 import numpy as np
 import pickle
 import os
+from ._fluid_base import _fluid_particle_base
 
-class fluid_converter(bfps.fluid_base.fluid_particle_base):
+class FluidConvert(_fluid_particle_base):
+    """This class is meant to be used for conversion of native DNS field
+    representations to real-space representations of velocity/vorticity
+    fields.
+    It may be superseeded by streamlined functionality in the future...
+    """
     def __init__(
             self,
-            name = 'fluid_converter',
+            name = 'FluidConvert',
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
             use_fftw_wisdom = True):
-        super(fluid_converter, self).__init__(
+        _fluid_particle_base.__init__(
+                self,
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
@@ -85,5 +89,25 @@ class fluid_converter(bfps.fluid_base.fluid_particle_base):
                 //endcpp
                 """
         self.fluid_end += 'delete fs;\n'
+        return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        _fluid_particle_base.specific_parser_arguments(self, parser)
+        parser.add_argument(
+                '--src-wd',
+                type = str,
+                dest = 'src_work_dir',
+                default = './')
+        parser.add_argument(
+                '--src-simname',
+                type = str,
+                dest = 'src_simname',
+                default = '')
+        parser.add_argument(
+                '--src-iteration',
+                type = int,
+                dest = 'src_iteration',
+                default = 0)
         return None
 

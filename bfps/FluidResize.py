@@ -24,20 +24,27 @@
 
 
 
-import bfps
-import bfps.fluid_base
-
+import os
+import argparse
 import numpy as np
 
-class fluid_resize(bfps.fluid_base.fluid_particle_base):
+import bfps
+from ._fluid_base import _fluid_particle_base
+
+class FluidResize(_fluid_particle_base):
+    """This class is meant to resize snapshots of DNS states to new grids.
+    Typical stuff for DNS of turbulence.
+    It will become superfluous when HDF5 is used for field I/O.
+    """
     def __init__(
             self,
-            name = 'fluid_resize',
+            name = 'FluidResize',
             work_dir = './',
             simname = 'test',
             dtype = np.float32,
             use_fftw_wisdom = False):
-        super(fluid_resize, self).__init__(
+        _fluid_particle_base.__init__(
+                self,
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
@@ -99,5 +106,51 @@ class fluid_resize(bfps.fluid_base.fluid_particle_base):
                 delete fs1;
                 //endcpp
                 """
+        return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        _fluid_particle_base.specific_parser_arguments(self, parser)
+        parser.add_argument(
+                '-m',
+                type = int,
+                dest = 'm',
+                default = 32,
+                metavar = 'M',
+                help = 'resize from N to M')
+        parser.add_argument(
+                '--src_wd',
+                type = str,
+                dest = 'src_work_dir',
+                required = True)
+        parser.add_argument(
+                '--src_iteration',
+                type = int,
+                dest = 'src_iteration',
+                required = True)
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
+        self.add_parser_arguments(parser)
+        opt = parser.parse_args(args)
+        cmd_line_pars = vars(opt)
+        for k in ['dst_nx', 'dst_ny', 'dst_nz']:
+            if type(cmd_line_pars[k]) == type(None):
+                cmd_line_pars[k] = opt.m
+        self.pars_from_namespace(opt)
+        src_file = os.path.join(
+                opt.src_work_dir,
+                opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+        read_file = os.path.join(
+                self.work_dir,
+                opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+        if not os.path.exists(read_file):
+            os.symlink(src_file, read_file)
+        self.set_host_info(bfps.host_info)
+        self.write_par(iter0 = opt.src_iteration)
+        self.run(ncpu = opt.ncpu)
         return None
 

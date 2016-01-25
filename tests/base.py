@@ -33,10 +33,48 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import bfps
-from bfps import fluid_resize
+from bfps import FluidResize
 from bfps.tools import particle_finite_diff_test as acceleration_test
 
-parser = bfps.get_parser()
+import argparse
+
+def get_parser(base_class = bfps.NavierStokes,
+               n = 32,
+               ncpu = 2,
+               precision = 'single',
+               simname = 'test',
+               work_dir = './',
+               njobs = 1):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', dest = 'run', action = 'store_true')
+    parser.add_argument('-n',
+            type = int, dest = 'n',
+            default = n)
+    parser.add_argument('--ncpu',
+            type = int, dest = 'ncpu',
+            default = ncpu)
+    parser.add_argument('--precision',
+            type = str, dest = 'precision',
+            default = precision)
+    parser.add_argument('--simname',
+            type = str, dest = 'simname',
+            default = simname)
+    parser.add_argument('--wd',
+            type = str, dest = 'work_dir',
+            default = work_dir)
+    parser.add_argument('--njobs',
+            type = int, dest = 'njobs',
+            default = njobs)
+    c = base_class(simname = simname)
+    for k in sorted(c.parameters.keys()):
+        parser.add_argument(
+                '--{0}'.format(k),
+                type = type(c.parameters[k]),
+                dest = k,
+                default = c.parameters[k])
+    return parser
+
+parser = get_parser()
 parser.add_argument('--initialize', dest = 'initialize', action = 'store_true')
 parser.add_argument('--frozen', dest = 'frozen', action = 'store_true')
 parser.add_argument('--iteration',
@@ -54,25 +92,21 @@ parser.add_argument(
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = fluid_resize(
-            work_dir = opt.work_dir,
-            simname = old_simname + '_double',
-            dtype = opt.precision)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    c.parameters['dst_nx'] = 2*opt.n
-    c.parameters['dst_ny'] = 2*opt.n
-    c.parameters['dst_nz'] = 2*opt.n
-    c.parameters['dst_simname'] = new_simname
-    c.parameters['src_simname'] = old_simname
-    c.parameters['niter_todo'] = 0
-    c.write_src()
-    c.set_host_info({'type' : 'pc'})
-    c.write_par()
-    c.run(ncpu = opt.ncpu,
-          err_file = 'err_',
-          out_file = 'out_')
+    c = FluidResize(dtype = opt.precision)
+    c.launch(
+            args = ['--simname', old_simname + '_double',
+                    '--wd', opt.work_dir,
+                    '--nx', '{0}'.format(opt.n),
+                    '--ny', '{0}'.format(opt.n),
+                    '--nz', '{0}'.format(opt.n),
+                    '--dst_nx', '{0}'.format(2*opt.n),
+                    '--dst_ny', '{0}'.format(2*opt.n),
+                    '--dst_nz', '{0}'.format(2*opt.n),
+                    '--dst_simname', new_simname,
+                    '--src_simname', old_simname,
+                    '--src_iteration', '0',
+                    '--src_wd', './',
+                    '--niter_todo', '0'])
     return None
 
 def launch(

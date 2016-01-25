@@ -72,7 +72,7 @@ def convergence_test(
             code_class = code_class,
             tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
     # get real space fields
-    converter = bfps.fluid_converter(
+    converter = bfps.FluidConvert(
             fluid_precision = opt.precision,
             use_fftw_wisdom = False)
     converter.write_src()

@@ -24,15 +24,18 @@
 
 
 
-import bfps
-import bfps.code
-import bfps.tools
+from ._code import _code
+from bfps import tools
 
 import os
 import numpy as np
 import h5py
 
-class fluid_particle_base(bfps.code):
+class _fluid_particle_base(_code):
+    """This class is meant to put together all common code between the
+    different C++ solvers/postprocessing tools, so that development of
+    specific functionalities is not overwhelming.
+    """
     def __init__(
             self,
             name = 'solver',
@@ -40,7 +43,8 @@ class fluid_particle_base(bfps.code):
             simname = 'test',
             dtype = np.float32,
             use_fftw_wisdom = True):
-        super(fluid_particle_base, self).__init__(
+        _code.__init__(
+                self,
                 work_dir = work_dir,
                 simname = simname)
         self.use_fftw_wisdom = use_fftw_wisdom
@@ -70,19 +74,6 @@ class fluid_particle_base(bfps.code):
         self.parameters['niter_out'] = 1024
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
-        self.parameters['nu'] = 0.1
-        self.parameters['fmode'] = 1
-        self.parameters['famplitude'] = 0.5
-        self.parameters['fk0'] = 1.5
-        self.parameters['fk1'] = 3.0
-        self.parameters['forcing_type'] = 'linear'
-        self.parameters['histogram_bins'] = 256
-        self.parameters['max_velocity_estimate'] = 1.0
-        self.parameters['max_vorticity_estimate'] = 1.0
-        self.parameters['QR2D_histogram_bins'] = 64
-        self.parameters['max_trS2_estimate'] = 1.0
-        self.parameters['max_Q_estimate'] = 1.0
-        self.parameters['max_R_estimate'] = 1.0
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
@@ -284,19 +275,19 @@ class fluid_particle_base(bfps.code):
             field_name = 'vorticity',
             write_to_file = False):
         np.random.seed(rseed)
-        Kdata00 = bfps.tools.generate_data_3D(
+        Kdata00 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata01 = bfps.tools.generate_data_3D(
+        Kdata01 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata02 = bfps.tools.generate_data_3D(
+        Kdata02 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
@@ -308,7 +299,7 @@ class fluid_particle_base(bfps.code):
         Kdata0[..., 0] = Kdata00
         Kdata0[..., 1] = Kdata01
         Kdata0[..., 2] = Kdata02
-        Kdata1 = bfps.tools.padd_with_zeros(
+        Kdata1 = tools.padd_with_zeros(
                 Kdata0,
                 self.parameters['nz'],
                 self.parameters['ny'],
@@ -396,90 +387,18 @@ class fluid_particle_base(bfps.code):
         assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
-        super(fluid_particle_base, self).write_par(iter0 = iter0)
+        _code.write_par(self, iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             ofile['field_dtype'] = np.dtype(self.dtype).str
             kspace = self.get_kspace()
             for k in kspace.keys():
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
-            for k in ['velocity', 'vorticity']:
-                time_chunk = 2**20//(8*3*self.parameters['nx'])
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('statistics/xlines/' + k,
-                                     (1, self.parameters['nx'], 3),
-                                     chunks = (time_chunk, self.parameters['nx'], 3),
-                                     maxshape = (None, self.parameters['nx'], 3),
-                                     dtype = self.dtype,
-                                     compression = 'gzip')
-                time_chunk = 2**20//(8*3*3*nshells)
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('statistics/spectra/' + k + '_' + k,
-                                     (1, nshells, 3, 3),
-                                     chunks = (time_chunk, nshells, 3, 3),
-                                     maxshape = (None, nshells, 3, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
-                time_chunk = 2**20//(8*4*10)
-                time_chunk = max(time_chunk, 1)
-                a = ofile.create_dataset('statistics/moments/' + k,
-                                     (1, 10, 4),
-                                     chunks = (time_chunk, 10, 4),
-                                     maxshape = (None, 10, 4),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
-                time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('statistics/histograms/' + k,
-                                     (1,
-                                      self.parameters['histogram_bins'],
-                                      4),
-                                     chunks = (time_chunk,
-                                               self.parameters['histogram_bins'],
-                                               4),
-                                     maxshape = (None,
-                                                 self.parameters['histogram_bins'],
-                                                 4),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
-            for s in range(self.particle_species):
-                time_chunk = 2**20 // (8*3*
-                                       self.parameters['nparticles']*
-                                       self.parameters['tracers{0}_integration_steps'.format(s)])
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
-                                     (1,
-                                      self.parameters['tracers{0}_integration_steps'.format(s)],
-                                      self.parameters['nparticles'],
-                                      3),
-                                     maxshape = (None,
-                                                 self.parameters['tracers{0}_integration_steps'.format(s)],
-                                                 self.parameters['nparticles'],
-                                                 3),
-                                     chunks =  (time_chunk,
-                                                self.parameters['tracers{0}_integration_steps'.format(s)],
-                                                self.parameters['nparticles'],
-                                                3),
-                                     dtype = np.float64)
-                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
-                time_chunk = max(time_chunk, 1)
-                ofile.create_dataset(
-                    '/particles/tracers{0}/velocity'.format(s),
-                    (1,
-                     self.parameters['nparticles'],
-                     3),
-                    chunks = (time_chunk, self.parameters['nparticles'], 3),
-                    maxshape = (None, self.parameters['nparticles'], 3),
-                    dtype = np.float64)
-                if self.parameters['tracers{0}_acc_on'.format(s)]:
-                    ofile.create_dataset(
-                        '/particles/tracers{0}/acceleration'.format(s),
-                        (1,
-                         self.parameters['nparticles'],
-                         3),
-                        chunks = (time_chunk, self.parameters['nparticles'], 3),
-                        maxshape = (None, self.parameters['nparticles'], 3),
-                        dtype = np.float64)
             ofile.close()
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
         return None
 

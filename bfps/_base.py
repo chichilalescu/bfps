@@ -28,12 +28,12 @@ import os
 import sys
 import numpy as np
 import h5py
-import bfps
+from bfps import install_info
+from bfps import __version__
 
-class base(object):
-    """
-        This class contains simulation parameters, and handles parameter related
-        functionalities of both python objects and C++ codes.
+class _base(object):
+    """This class contains simulation parameters, and handles parameter related
+    functionalities of both python objects and C++ codes.
     """
     def __init__(
             self,
@@ -109,8 +109,8 @@ class base(object):
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
-        for k in bfps.install_info.keys():
-            ofile['install_info/' + k] = str(bfps.install_info[k])
+        for k in install_info.keys():
+            ofile['install_info/' + k] = str(install_info[k])
         ofile.close()
         return None
     def read_parameters(self):
@@ -120,13 +120,66 @@ class base(object):
                     self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
         return None
     def pars_from_namespace(self, opt):
-        new_pars = vars(opt)
+        cmd_line_pars = vars(opt)
+        for k in ['nx', 'ny', 'nz']:
+            if type(cmd_line_pars[k]) == type(None):
+                cmd_line_pars[k] = opt.n
+        for k in self.parameters.keys():
+            if k in cmd_line_pars.keys():
+                if not type(cmd_line_pars[k]) == type(None):
+                    self.parameters[k] = cmd_line_pars[k]
         self.simname = opt.simname
         self.work_dir = opt.work_dir
-        for k in self.parameters.keys():
-            self.parameters[k] = new_pars[k]
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')
         return np.arange(.0, self.parameters['n' + direction])*2*np.pi / self.parameters['n' + direction]
+    def add_parser_arguments(
+            self,
+            parser):
+        self.specific_parser_arguments(parser)
+        self.parameters_to_parser_arguments(parser)
+        return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        parser.add_argument(
+                '-v', '--version',
+                action = 'version',
+                version = '%(prog)s ' + __version__)
+        parser.add_argument(
+               '-n', '--cube-size',
+               type = int,
+               dest = 'n',
+               default = 32,
+               metavar = 'N',
+               help = 'code is run by default in a grid of NxNxN')
+        parser.add_argument(
+                '--ncpu',
+                type = int, dest = 'ncpu',
+                default = 2)
+        parser.add_argument(
+                '--simname',
+                type = str, dest = 'simname',
+                default = 'test')
+        parser.add_argument(
+                '--environment',
+                type = str,
+                dest = 'environment',
+                default = '')
+        parser.add_argument(
+                '--wd',
+                type = str, dest = 'work_dir',
+                default = './')
+        return None
+    def parameters_to_parser_arguments(
+            self,
+            parser):
+        for k in sorted(self.parameters.keys()):
+            parser.add_argument(
+                    '--{0}'.format(k),
+                    type = type(self.parameters[k]),
+                    dest = k,
+                    default = None)
+        return None
 

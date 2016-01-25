@@ -24,34 +24,9 @@
 
 
 
-from base import *
-
 import bfps
-from bfps._code import _code
-
-class test_io(_code):
-    def __init__(
-            self,
-            name = 'test_io',
-            work_dir = './',
-            simname = 'test'):
-        super(test_io, self).__init__(work_dir = work_dir, simname = simname)
-        self.name = name
-        self.parameters['string_parameter'] = 'test string'
-        self.parameters['other_string_parameter'] = 'another test string'
-        self.parameters['niter_todo'] = 0
-        self.parameters['real_number'] = 1.21
-        self.main_start += self.cprint_pars()
-        return None
+from bfps.__main__ import main
 
 if __name__ == '__main__':
-    opt = parser.parse_args(
-            ['-n', '32',
-             '--ncpu', '2'] +
-            sys.argv[1:])
-    c = test_io(work_dir = opt.work_dir + '/io')
-    c.write_src()
-    c.write_par()
-    c.set_host_info({'type' : 'pc'})
-    c.run(ncpu = opt.ncpu)
+    main()
 

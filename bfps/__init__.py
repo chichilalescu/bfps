@@ -48,8 +48,7 @@ bfpsfolder = os.path.join(homefolder, '.config/', 'bfps')
 sys.path.append(bfpsfolder)
 from host_information import host_info
 
-from .code import code
-from .fluid_converter import fluid_converter
-from .fluid_resize import fluid_resize
+from .FluidConvert import FluidConvert
+from .FluidResize import FluidResize
 from .NavierStokes import NavierStokes
 

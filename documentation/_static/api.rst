@@ -2,25 +2,14 @@
 API
 ===
 
+
 ----------
 bfps.tools
 ----------
 
-.. automodule:: tools
+.. automodule:: bfps.tools
     :members:
     :undoc-members:
-    :inherited-members:
-    :show-inheritance:
-
-
--------------
-bfps.Launcher
--------------
-
-.. autoclass:: Launcher.Launcher
-    :members:
-    :undoc-members:
-    :inherited-members:
     :show-inheritance:
 
 
@@ -28,9 +17,28 @@ bfps.Launcher
 bfps.NavierStokes
 -----------------
 
-.. autoclass:: NavierStokes.NavierStokes
+.. automodule:: bfps.NavierStokes
     :members:
     :undoc-members:
-    :inherited-members:
+    :show-inheritance:
+
+
+-----------------
+bfps.FluidConvert
+-----------------
+
+.. automodule:: bfps.FluidConvert
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+----------------
+bfps.FluidResize
+----------------
+
+.. automodule:: bfps.FluidResize
+    :members:
+    :undoc-members:
     :show-inheritance:
 

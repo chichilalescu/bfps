@@ -27,12 +27,17 @@
 import os
 import numpy as np
 import h5py
+import argparse
 
 import bfps
-import bfps.fluid_base
-import bfps.tools
+from ._fluid_base import _fluid_particle_base
 
-class NavierStokes(bfps.fluid_base.fluid_particle_base):
+class NavierStokes(_fluid_particle_base):
+    """Objects of this class can be used to generate production DNS codes.
+    Any functionality that users require should be available through this class,
+    in the sense that they can implement whatever they need by simply inheriting
+    this class.
+    """
     def __init__(
             self,
             name = 'NavierStokes',
@@ -46,12 +51,26 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.QR_stats_on = QR_stats_on
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
-        super(NavierStokes, self).__init__(
+        _fluid_particle_base.__init__(
+                self,
                 name = name,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision,
                 use_fftw_wisdom = use_fftw_wisdom)
+        self.parameters['nu'] = 0.1
+        self.parameters['fmode'] = 1
+        self.parameters['famplitude'] = 0.5
+        self.parameters['fk0'] = 1.5
+        self.parameters['fk1'] = 3.0
+        self.parameters['forcing_type'] = 'linear'
+        self.parameters['histogram_bins'] = 256
+        self.parameters['max_velocity_estimate'] = 1.0
+        self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['QR2D_histogram_bins'] = 64
+        self.parameters['max_trS2_estimate'] = 1.0
+        self.parameters['max_Q_estimate'] = 1.0
+        self.parameters['max_R_estimate'] = 1.0
         self.file_datasets_grow = """
                 //begincpp
                 std::string temp_string;
@@ -715,10 +734,87 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
                          self.parameters['nx']//2+1,
                          3))
     def write_par(self, iter0 = 0):
-        super(NavierStokes, self).write_par(iter0 = iter0)
+        _fluid_particle_base.write_par(self, iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
+            for k in ['velocity', 'vorticity']:
+                time_chunk = 2**20//(8*3*self.parameters['nx'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/xlines/' + k,
+                                     (1, self.parameters['nx'], 3),
+                                     chunks = (time_chunk, self.parameters['nx'], 3),
+                                     maxshape = (None, self.parameters['nx'], 3),
+                                     dtype = self.dtype,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*3*3*nshells)
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/spectra/' + k + '_' + k,
+                                     (1, nshells, 3, 3),
+                                     chunks = (time_chunk, nshells, 3, 3),
+                                     maxshape = (None, nshells, 3, 3),
+                                     dtype = np.float64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*4*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/' + k,
+                                     (1, 10, 4),
+                                     chunks = (time_chunk, 10, 4),
+                                     maxshape = (None, 10, 4),
+                                     dtype = np.float64,
+                                     compression = 'gzip')
+                time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/' + k,
+                                     (1,
+                                      self.parameters['histogram_bins'],
+                                      4),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins'],
+                                               4),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins'],
+                                                 4),
+                                     dtype = np.int64,
+                                     compression = 'gzip')
+            for s in range(self.particle_species):
+                time_chunk = 2**20 // (8*3*
+                                       self.parameters['nparticles']*
+                                       self.parameters['tracers{0}_integration_steps'.format(s)])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('particles/tracers{0}/rhs'.format(s),
+                                     (1,
+                                      self.parameters['tracers{0}_integration_steps'.format(s)],
+                                      self.parameters['nparticles'],
+                                      3),
+                                     maxshape = (None,
+                                                 self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                 self.parameters['nparticles'],
+                                                 3),
+                                     chunks =  (time_chunk,
+                                                self.parameters['tracers{0}_integration_steps'.format(s)],
+                                                self.parameters['nparticles'],
+                                                3),
+                                     dtype = np.float64)
+                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset(
+                    '/particles/tracers{0}/velocity'.format(s),
+                    (1,
+                     self.parameters['nparticles'],
+                     3),
+                    chunks = (time_chunk, self.parameters['nparticles'], 3),
+                    maxshape = (None, self.parameters['nparticles'], 3),
+                    dtype = np.float64)
+                if self.parameters['tracers{0}_acc_on'.format(s)]:
+                    ofile.create_dataset(
+                        '/particles/tracers{0}/acceleration'.format(s),
+                        (1,
+                         self.parameters['nparticles'],
+                         3),
+                        chunks = (time_chunk, self.parameters['nparticles'], 3),
+                        maxshape = (None, self.parameters['nparticles'], 3),
+                        dtype = np.float64)
             if self.QR_stats_on:
                 time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
@@ -827,33 +923,107 @@ class NavierStokes(bfps.fluid_base.fluid_particle_base):
         self.fluid_start += update_fields
         self.fluid_loop += update_fields
         return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        _fluid_particle_base.specific_parser_arguments(self, parser)
+        parser.add_argument(
+                '--src-wd',
+                type = str,
+                dest = 'src_work_dir',
+                default = './')
+        parser.add_argument(
+                '--src-simname',
+                type = str,
+                dest = 'src_simname',
+                default = '')
+        parser.add_argument(
+                '--src-iteration',
+                type = int,
+                dest = 'src_iteration',
+                default = 0)
+        parser.add_argument(
+               '--precision',
+               type = str, dest = 'precision',
+               default = 'single')
+        parser.add_argument(
+               '--njobs',
+               type = int, dest = 'njobs',
+               default = 1)
+        parser.add_argument(
+               '--QR-stats',
+               action = 'store_true',
+               dest = 'QR_stats',
+               help = 'add this option if you want to compute velocity gradient and QR stats')
+        parser.add_argument(
+               '--kMeta',
+               type = float,
+               dest = 'kMeta',
+               default = 2.0)
+        parser.add_argument(
+               '--dtfactor',
+               type = float,
+               dest = 'dtfactor',
+               default = 0.5,
+               help = 'dt is computed as DTFACTOR / N')
+        parser.add_argument(
+               '--particle-rand-seed',
+               type = int,
+               dest = 'particle_rand_seed',
+               default = None)
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        # with the default Lundgren forcing, I can estimate the dissipation
+        # with nondefault forcing, figure out the amplitude for this viscosity
+        # yourself
+        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
+        self.add_parser_arguments(parser)
+        opt = parser.parse_args(args)
+        self.QR_stats_on = opt.QR_stats
+        self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
+        self.parameters['dt'] = (opt.dtfactor / opt.n)
+        if ((self.parameters['niter_todo'] % self.parameters['niter_out']) != 0):
+            self.parameters['niter_out'] = self.parameters['niter_todo']
+        if self.QR_stats_on:
+            # max_Q_estimate and max_R_estimate are just used for the 2D pdf
+            # therefore I just want them to be small multiples of mean trS2
+            # I'm already estimating the dissipation with kMeta...
+            meantrS2 = (opt.n//2 / opt.kMeta)**4 * self.parameters['nu']**2
+            self.parameters['max_Q_estimate'] = meantrS2
+            self.parameters['max_R_estimate'] = .4*meantrS2**1.5
 
-def launch(
-        opt,
-        nu = None):
-    c = NavierStokes(work_dir = opt.work_dir)
-    assert((opt.nsteps % 4) == 0)
-    c.parameters['nx'] = opt.n
-    c.parameters['ny'] = opt.n
-    c.parameters['nz'] = opt.n
-    if type(nu) == type(None):
-        c.parameters['nu'] = 5.5*opt.n**(-4./3)
-    else:
-        c.parameters['nu'] = nu
-    c.parameters['dt'] = 5e-3 * (64. / opt.n)
-    c.parameters['niter_todo'] = opt.nsteps
-    c.parameters['niter_part'] = 2
-    c.parameters['famplitude'] = 0.2
-    c.parameters['nparticles'] = 32
-    if opt.particles:
-        c.add_particles()
-        c.add_particles(kcut = 'fs->kM/2')
-    c.finalize_code()
-    c.write_src()
-    c.write_par()
-    if opt.run:
-        if opt.iteration == 0 and opt.initialize:
-            c.generate_initial_condition()
-        c.run(ncpu = opt.ncpu, njobs = opt.njobs)
-    return c
+        self.pars_from_namespace(opt)
+        self.fill_up_fluid_code()
+        self.finalize_code()
+        self.write_src()
+        self.set_host_info(bfps.host_info)
+        if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
+            self.write_par()
+            if self.parameters['nparticles'] > 0:
+                data = self.generate_tracer_state(
+                        species = 0,
+                        rseed = opt.particle_rand_seed)
+                for s in range(1, self.particle_species):
+                    self.generate_tracer_state(species = s, data = data)
+            init_condition_file = os.path.join(
+                    self.work_dir,
+                    self.simname + '_cvorticity_i{0:0>5x}'.format(0))
+            if not os.path.exists(init_condition_file):
+                if len(opt.src_simname) > 0:
+                    src_file = os.path.join(
+                            self.work_dir,
+                            opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+                    os.symlink(src_file, init_condition_file)
+                else:
+                   self.generate_vector_field(
+                           write_to_file = True,
+                           spectra_slope = 2.0,
+                           amplitude = 0.25)
+        self.run(
+                ncpu = opt.ncpu,
+                njobs = opt.njobs)
+        return None
 
