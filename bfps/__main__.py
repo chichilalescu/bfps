@@ -41,7 +41,6 @@ def main():
     parser.add_argument(
             'base_class',
             choices = ['NavierStokes',
-                       'FluidConvert',
                        'FluidResize'],
             type = str)
     # first option is the choice of base class or -h or -v
