@@ -147,10 +147,10 @@ class FluidResize(_fluid_particle_base):
         read_file = os.path.join(
                 self.work_dir,
                 opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
-        if not os.path.exists(read_file):
-            os.symlink(src_file, read_file)
         self.set_host_info(bfps.host_info)
         self.write_par(iter0 = opt.src_iteration)
+        if not os.path.exists(read_file):
+            os.symlink(src_file, read_file)
         self.run(ncpu = opt.ncpu)
         return None
 
