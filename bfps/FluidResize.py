@@ -142,7 +142,7 @@ class FluidResize(_fluid_particle_base):
                 cmd_line_pars[k] = opt.m
         self.pars_from_namespace(opt)
         src_file = os.path.join(
-                opt.src_work_dir,
+                os.path.realpath(opt.src_work_dir),
                 opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
         read_file = os.path.join(
                 self.work_dir,
