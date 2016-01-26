@@ -931,7 +931,7 @@ class NavierStokes(_fluid_particle_base):
                 '--src-wd',
                 type = str,
                 dest = 'src_work_dir',
-                default = './')
+                default = '')
         parser.add_argument(
                 '--src-simname',
                 type = str,
@@ -995,6 +995,8 @@ class NavierStokes(_fluid_particle_base):
             self.parameters['max_Q_estimate'] = meantrS2
             self.parameters['max_R_estimate'] = .4*meantrS2**1.5
 
+        if len(opt.src_work_dir) == 0:
+            opt.src_work_dir = opt.work_dir
         self.pars_from_namespace(opt)
         self.fill_up_fluid_code()
         self.finalize_code()
@@ -1014,7 +1016,7 @@ class NavierStokes(_fluid_particle_base):
             if not os.path.exists(init_condition_file):
                 if len(opt.src_simname) > 0:
                     src_file = os.path.join(
-                            self.work_dir,
+                            os.path.realpath(opt.src_work_dir),
                             opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
                     os.symlink(src_file, init_condition_file)
                 else:
