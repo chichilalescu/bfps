@@ -45,7 +45,7 @@ class _base(object):
                            'ny' : 32,
                            'nz' : 32}
         self.string_length = 512
-        self.work_dir = work_dir
+        self.work_dir = os.path.realpath(work_dir)
         self.simname = simname
         return None
     def cdef_pars(self):
