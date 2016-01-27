@@ -41,14 +41,14 @@ class FluidResize(_fluid_particle_base):
             name = 'FluidResize-v' + bfps.__version__,
             work_dir = './',
             simname = 'test',
-            dtype = np.float32,
+            fluid_precision = 'single',
             use_fftw_wisdom = False):
         _fluid_particle_base.__init__(
                 self,
                 name = name + '-' + fluid_precision,
                 work_dir = work_dir,
                 simname = simname,
-                dtype = dtype,
+                dtype = fluid_precision,
                 use_fftw_wisdom = use_fftw_wisdom)
         self.parameters['src_simname'] = 'test'
         self.parameters['dst_iter'] = 0
