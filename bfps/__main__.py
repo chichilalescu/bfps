@@ -64,7 +64,7 @@ def main():
         precision = 'double'
     else:
         precision = 'single'
-    c = eval('{0}(fluid_precision = {1})'.format(opt.base_class, precision))
+    c = eval('{0}(fluid_precision = \'{1}\')'.format(opt.base_class, precision))
     c.launch(args = sys.argv[2:])
     return None
 
