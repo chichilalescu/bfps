@@ -944,10 +944,6 @@ class NavierStokes(_fluid_particle_base):
                 dest = 'src_iteration',
                 default = 0)
         parser.add_argument(
-               '--precision',
-               type = str, dest = 'precision',
-               default = 'single')
-        parser.add_argument(
                '--njobs',
                type = int, dest = 'njobs',
                default = 1)

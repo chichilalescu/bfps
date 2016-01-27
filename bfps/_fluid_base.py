@@ -395,4 +395,13 @@ class _fluid_particle_base(_code):
             nshells = kspace['nshell'].shape[0]
             ofile.close()
         return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        _code.specific_parser_arguments(self, parser)
+        parser.add_argument(
+               '--precision',
+               type = str, dest = 'precision',
+               default = 'single')
+        return None
 
