@@ -998,8 +998,7 @@ class NavierStokes(_fluid_particle_base):
             meantrS2 = (opt.n//2 / opt.kMeta)**4 * self.parameters['nu']**2
             self.parameters['max_Q_estimate'] = meantrS2
             self.parameters['max_R_estimate'] = .4*meantrS2**1.5
-            self.name += 'QR',
-
+            self.name += 'QR'
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = opt.work_dir
         self.pars_from_namespace(opt)
