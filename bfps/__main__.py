@@ -40,14 +40,31 @@ def main():
     parser.add_argument(
             'base_class',
             choices = ['NavierStokes',
-                       'FluidResize'],
+                       'NavierStokes-single',
+                       'NavierStokes-double',
+                       'NS',
+                       'NS-single',
+                       'NS-double',
+                       'FluidResize',
+                       'FluidResize-single',
+                       'FluidResize-double',
+                       'FR',
+                       'FR-single',
+                       'FR-double'],
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
     opt = parser.parse_args(sys.argv[1:2])
     # error is thrown if first option is not a base class, so launch
     # cannot be executed by mistake.
-    c = eval('{0}(fluid_precision = {1})'.format(opt.base_class, opt.precision))
+    if opt.base_class in ['NavierStokes-double',
+                          'NS-double',
+                          'FluidResize-double',
+                          'FR-double']:
+        precision = 'double'
+    else:
+        precision = 'single'
+    c = eval('{0}(fluid_precision = {1})'.format(opt.base_class, precision))
     c.launch(args = sys.argv[2:])
     return None
 
