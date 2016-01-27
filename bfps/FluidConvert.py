@@ -28,6 +28,7 @@ import numpy as np
 import pickle
 import os
 from ._fluid_base import _fluid_particle_base
+import bfps
 
 class FluidConvert(_fluid_particle_base):
     """This class is meant to be used for conversion of native DNS field
