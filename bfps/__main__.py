@@ -29,7 +29,6 @@ import argparse
 
 import bfps
 from .NavierStokes import NavierStokes
-from .FluidConvert import FluidConvert
 from .FluidResize import FluidResize
 
 def main():

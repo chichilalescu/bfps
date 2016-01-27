@@ -133,13 +133,12 @@ class FluidResize(_fluid_particle_base):
             self,
             args = [],
             **kwargs):
-        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
-        self.add_parser_arguments(parser)
-        opt = parser.parse_args(args)
+        opt = self.prepare_launch(args)
         cmd_line_pars = vars(opt)
         for k in ['dst_nx', 'dst_ny', 'dst_nz']:
             if type(cmd_line_pars[k]) == type(None):
                 cmd_line_pars[k] = opt.m
+        self.parameters['niter_todo'] = 0
         self.pars_from_namespace(opt)
         src_file = os.path.join(
                 os.path.realpath(opt.src_work_dir),
