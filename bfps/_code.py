@@ -198,7 +198,7 @@ class _code(_base):
                 self.write_sge_file(
                     file_name     = os.path.join(self.work_dir, qsub_script_name),
                     nprocesses    = ncpu,
-                    name_of_run   = self.name + '_' + suffix,
+                    name_of_run   = suffix,
                     command_atoms = command_atoms[3:],
                     hours         = hours,
                     minutes       = minutes,
@@ -210,7 +210,7 @@ class _code(_base):
                     qsub_atoms += ['-hold_jid', job_name_list[-1]]
                 subprocess.call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
-                job_name_list.append(self.name + '_' + suffix)
+                job_name_list.append(suffix)
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)

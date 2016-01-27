@@ -41,7 +41,7 @@ class NavierStokes(_fluid_particle_base):
     """
     def __init__(
             self,
-            name = 'NavierStokes',
+            name = 'NavierStokes-v' + bfps.__version__,
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
@@ -54,7 +54,7 @@ class NavierStokes(_fluid_particle_base):
         self.fftw_plan_rigor = fftw_plan_rigor
         _fluid_particle_base.__init__(
                 self,
-                name = name,
+                name = name + '-' + fluid_precision,
                 work_dir = work_dir,
                 simname = simname,
                 dtype = fluid_precision,
@@ -62,8 +62,8 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['nu'] = 0.1
         self.parameters['fmode'] = 1
         self.parameters['famplitude'] = 0.5
-        self.parameters['fk0'] = 1.5
-        self.parameters['fk1'] = 3.0
+        self.parameters['fk0'] = 2.0
+        self.parameters['fk1'] = 4.0
         self.parameters['forcing_type'] = 'linear'
         self.parameters['histogram_bins'] = 256
         self.parameters['max_velocity_estimate'] = 1.0
@@ -984,6 +984,11 @@ class NavierStokes(_fluid_particle_base):
         self.QR_stats_on = opt.QR_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
+        # custom famplitude for 288 and 576
+        if opt.n == 288:
+            self.parameters['famplitude'] = 0.45
+        elif opt.n == 576:
+            self.parameters['famplitude'] = 0.47
         if ((self.parameters['niter_todo'] % self.parameters['niter_out']) != 0):
             self.parameters['niter_out'] = self.parameters['niter_todo']
         if self.QR_stats_on:
@@ -993,6 +998,7 @@ class NavierStokes(_fluid_particle_base):
             meantrS2 = (opt.n//2 / opt.kMeta)**4 * self.parameters['nu']**2
             self.parameters['max_Q_estimate'] = meantrS2
             self.parameters['max_R_estimate'] = .4*meantrS2**1.5
+            self.name += 'QR',
 
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = opt.work_dir
