@@ -48,7 +48,7 @@ class _fluid_particle_base(_code):
                 work_dir = work_dir,
                 simname = simname)
         self.use_fftw_wisdom = use_fftw_wisdom
-        self.name = name + '_' + simname
+        self.name = name
         self.particle_species = 0
         if dtype in [np.float32, np.float64]:
             self.dtype = dtype
@@ -394,5 +394,10 @@ class _fluid_particle_base(_code):
                 ofile['kspace/' + k] = kspace[k]
             nshells = kspace['nshell'].shape[0]
             ofile.close()
+        return None
+    def specific_parser_arguments(
+            self,
+            parser):
+        _code.specific_parser_arguments(self, parser)
         return None
 

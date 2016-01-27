@@ -92,7 +92,7 @@ parser.add_argument(
 def double(opt):
     old_simname = 'N{0:0>3x}'.format(opt.n)
     new_simname = 'N{0:0>3x}'.format(opt.n*2)
-    c = FluidResize(dtype = opt.precision)
+    c = FluidResize(fluid_precision = opt.precision)
     c.launch(
             args = ['--simname', old_simname + '_double',
                     '--wd', opt.work_dir,
