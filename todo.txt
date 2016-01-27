@@ -8,8 +8,10 @@
 (C) test involving hydrodynamic similarity                                  @tests
 (C) tests should use launch instead of get_parser                           @design @tests
 (C) use HDF5 io for fields                                                  @design @HDF5 +I/O
+(D) executable should be compiled in a tmp folder
 (D) generalize interpolation comparison test                                @tests
 (D) generate separate lib(s) with extra classes                             @tests +alternate_algorithms
+(D) install_info should be renamed to bfps_info in data file
 (D) test anisotropic grids                                                  @tests
 (D) test non-cubic domains                                                  @tests
 (D) tests should not overwrite other tests (tox_full)                       @tests
