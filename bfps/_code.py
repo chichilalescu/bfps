@@ -28,6 +28,7 @@ import os
 import sys
 import shutil
 import subprocess
+import argparse
 import h5py
 from datetime import datetime
 import math
@@ -263,4 +264,15 @@ class _code(_base):
         script_file.write('exit 0\n')
         script_file.close()
         return None
+    def prepare_launch(
+            self,
+            args = [],
+            **kwargs):
+        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
+        self.add_parser_arguments(parser)
+        opt = parser.parse_args(args)
+        self.set_host_info(bfps.host_info)
+        if type(opt.environment) != type(None):
+            self.host_info['environment'] = opt.environment
+        return opt
 
