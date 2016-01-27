@@ -37,34 +37,36 @@ def main():
             '-v', '--version',
             action = 'version',
             version = '%(prog)s ' + bfps.__version__)
+    NSoptions = ['NavierStokes',
+                 'NavierStokes-single',
+                 'NavierStokes-double',
+                 'NS',
+                 'NS-single',
+                 'NS-double']
+    FRoptions = ['FluidResize',
+                 'FluidResize-single',
+                 'FluidResize-double',
+                 'FR',
+                 'FR-single',
+                 'FR-double']
     parser.add_argument(
             'base_class',
-            choices = ['NavierStokes',
-                       'NavierStokes-single',
-                       'NavierStokes-double',
-                       'NS',
-                       'NS-single',
-                       'NS-double',
-                       'FluidResize',
-                       'FluidResize-single',
-                       'FluidResize-double',
-                       'FR',
-                       'FR-single',
-                       'FR-double'],
+            choices = NSoptions + FRoptions,
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
     opt = parser.parse_args(sys.argv[1:2])
     # error is thrown if first option is not a base class, so launch
     # cannot be executed by mistake.
-    if opt.base_class in ['NavierStokes-double',
-                          'NS-double',
-                          'FluidResize-double',
-                          'FR-double']:
+    if 'double' in opt.base_class:
         precision = 'double'
     else:
         precision = 'single'
-    c = eval('{0}(fluid_precision = \'{1}\')'.format(opt.base_class, precision))
+    if opt.base_class in NSoptions:
+        base_class = NavierStokes
+    elif opt.base_class in FRoptions:
+        base_class = FluidResize
+    c = base_class(fluid_precision = precision)
     c.launch(args = sys.argv[2:])
     return None
 
