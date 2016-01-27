@@ -396,9 +396,4 @@ class _fluid_particle_base(_code):
             nshells = kspace['nshell'].shape[0]
             ofile.close()
         return None
-    def launch(
-            self,
-            args = [],
-            **kwargs):
-        return None
 

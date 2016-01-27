@@ -30,6 +30,7 @@ import h5py
 import argparse
 
 import bfps
+from ._code import _code
 from ._fluid_base import _fluid_particle_base
 
 class NavierStokes(_fluid_particle_base):
@@ -976,12 +977,10 @@ class NavierStokes(_fluid_particle_base):
             self,
             args = [],
             **kwargs):
+        opt = self.prepare_launch(args)
         # with the default Lundgren forcing, I can estimate the dissipation
         # with nondefault forcing, figure out the amplitude for this viscosity
         # yourself
-        parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
-        self.add_parser_arguments(parser)
-        opt = parser.parse_args(args)
         self.QR_stats_on = opt.QR_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
@@ -1001,7 +1000,6 @@ class NavierStokes(_fluid_particle_base):
         self.fill_up_fluid_code()
         self.finalize_code()
         self.write_src()
-        self.set_host_info(bfps.host_info)
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
             self.write_par()
             if self.parameters['nparticles'] > 0:

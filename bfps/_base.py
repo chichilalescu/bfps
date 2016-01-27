@@ -166,7 +166,7 @@ class _base(object):
                 '--environment',
                 type = str,
                 dest = 'environment',
-                default = '')
+                default = None)
         parser.add_argument(
                 '--wd',
                 type = str, dest = 'work_dir',
