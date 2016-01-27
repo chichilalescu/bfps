@@ -47,7 +47,7 @@ def main():
     opt = parser.parse_args(sys.argv[1:2])
     # error is thrown if first option is not a base class, so launch
     # cannot be executed by mistake.
-    c = eval('{0}()'.format(opt.base_class))
+    c = eval('{0}(fluid_precision = {1})'.format(opt.base_class, opt.precision))
     c.launch(args = sys.argv[2:])
     return None
 
