@@ -671,6 +671,16 @@ class NavierStokes(_fluid_particle_base):
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
+        """
+        Conventions for Uint and Tint are taken from [Ishihara]_.
+
+        .. [Ishihara] T. Ishihara et al,
+                      *Small-scale statistics in high-resolution direct numerical
+                      simulation of turbulence: Reynolds number dependence of
+                      one-point velocity gradient statistics*.
+                      J. Fluid Mech.,
+                      **592**, 335-366, 2007
+        """
         for key in ['energy', 'enstrophy']:
             self.statistics[key + '(t)'] = (self.statistics['dk'] *
                                             np.sum(self.statistics[key + '(t, k)'], axis = 1))
