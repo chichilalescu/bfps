@@ -979,11 +979,10 @@ class NavierStokes(_fluid_particle_base):
                dest = 'particle_rand_seed',
                default = None)
         return None
-    def launch(
+    def prepare_launch(
             self,
-            args = [],
-            **kwargs):
-        opt = self.prepare_launch(args)
+            args = []):
+        opt = _code.prepare_launch(self, args = args)
         # with the default Lundgren forcing, I can estimate the dissipation
         # with nondefault forcing, figure out the amplitude for this viscosity
         # yourself
@@ -1010,9 +1009,19 @@ class NavierStokes(_fluid_particle_base):
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = opt.work_dir
         self.pars_from_namespace(opt)
+        return opt
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        opt = self.prepare_launch(args = args)
         self.fill_up_fluid_code()
         self.finalize_code()
-        self.write_src()
+        self.launch_jobs(opt = opt)
+        return None
+    def launch_jobs(
+            self,
+            opt = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
             self.write_par()
             if self.parameters['nparticles'] > 0:
@@ -1034,7 +1043,7 @@ class NavierStokes(_fluid_particle_base):
                    self.generate_vector_field(
                            write_to_file = True,
                            spectra_slope = 2.0,
-                           amplitude = 0.25)
+                           amplitude = 0.05)
         self.run(
                 ncpu = opt.ncpu,
                 njobs = opt.njobs)
