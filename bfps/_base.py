@@ -109,8 +109,9 @@ class _base(object):
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
+        ofile['bfps_info/solver_class'] = type(self).__name__
         for k in install_info.keys():
-            ofile['install_info/' + k] = str(install_info[k])
+            ofile['bfps_info/' + k] = str(install_info[k])
         ofile.close()
         return None
     def read_parameters(self):
