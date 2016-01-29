@@ -388,6 +388,7 @@ class _fluid_particle_base(_code):
         assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
         _code.write_par(self, iter0 = iter0)
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as ofile:
+            ofile['bfps_info/exec_name'] = self.name
             ofile['field_dtype'] = np.dtype(self.dtype).str
             kspace = self.get_kspace()
             for k in kspace.keys():
