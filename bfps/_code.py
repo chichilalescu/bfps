@@ -93,7 +93,13 @@ class _code(_base):
                     read_parameters(parameter_file);
                     H5Fclose(parameter_file);
                     if (myrank == 0)
-                        stat_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
+                    {
+                        // set caching parameters
+                        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                        herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                        DEBUG_MSG("when setting cache I got %d\\n", cache_err);
+                        stat_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                    }
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
