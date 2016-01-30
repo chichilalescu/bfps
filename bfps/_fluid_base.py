@@ -328,19 +328,8 @@ class _fluid_particle_base(_code):
         if testing:
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
-        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
-            time_chunk = 2**20 // (8*ncomponents*
-                                   self.parameters['nparticles'])
-            time_chunk = max(time_chunk, 1)
-            dset = data_file.create_dataset(
-                    '/particles/tracers{0}/state'.format(species),
-                    (1,
-                     self.parameters['nparticles'],
-                     ncomponents),
-                    chunks = (time_chunk, self.parameters['nparticles'], ncomponents),
-                    maxshape = (None, self.parameters['nparticles'], ncomponents),
-                    dtype = np.float64)
-            dset[0] = data
+        with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
+            data_file['tracers{0}/state'.format(species)][0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(

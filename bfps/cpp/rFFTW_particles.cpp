@@ -198,7 +198,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::read(hid_t data
 {
     if (this->myrank == 0)
     {
-        std::string temp_string = (std::string("/particles/") +
+        std::string temp_string = (std::string("/") +
                                    std::string(this->name) +
                                    std::string("/state"));
         hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
@@ -218,7 +218,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::read(hid_t data
         H5Dclose(dset);
         if (this->iteration > 0)
         {
-            temp_string = (std::string("/particles/") +
+            temp_string = (std::string("/") +
                            std::string(this->name) +
                            std::string("/rhs"));
             dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
@@ -261,7 +261,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::write(hid_t dat
 {
     if (this->myrank == 0)
     {
-        std::string temp_string = (std::string("/particles/") +
+        std::string temp_string = (std::string("/") +
                                    std::string(this->name) +
                                    std::string("/state"));
         hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
@@ -281,7 +281,7 @@ void rFFTW_particles<particle_type, rnumber, interp_neighbours>::write(hid_t dat
         H5Dclose(dset);
         if (write_rhs)
         {
-            temp_string = (std::string("/particles/") +
+            temp_string = (std::string("/") +
                            std::string(this->name) +
                            std::string("/rhs"));
             dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);

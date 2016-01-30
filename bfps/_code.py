@@ -97,7 +97,7 @@ class _code(_base):
                         // set caching parameters
                         hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
                         herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
-                        DEBUG_MSG("when setting cache I got %d\\n", cache_err);
+                        DEBUG_MSG("when setting stat_file cache I got %d\\n", cache_err);
                         stat_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
                     }
                 //endcpp
@@ -113,6 +113,7 @@ class _code(_base):
                         H5Dwrite(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
                         H5Dclose(Cdset);
                         H5Fclose(stat_file);
+                        H5Fclose(particle_file);
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
