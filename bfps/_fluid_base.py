@@ -206,6 +206,7 @@ class _fluid_particle_base(_code):
         self.main       += '}\n'
         self.main       += 'do_stats();\n'
         self.main       += 'do_particle_stats();\n'
+        self.main       += output_time_difference
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
