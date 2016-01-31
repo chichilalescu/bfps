@@ -579,7 +579,6 @@ class NavierStokes(_fluid_particle_base):
                 self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(particle_file, false);\n'.format(s0 + s)
-        self.particle_start += output_vel_acc
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
@@ -615,11 +614,6 @@ class NavierStokes(_fluid_particle_base):
             self.statistics['kshell'] = data_file['kspace/kshell'].value
             self.statistics['kM'] = data_file['kspace/kM'].value
             self.statistics['dk'] = data_file['kspace/dk'].value
-            #if self.particle_species > 0:
-            #    self.trajectories = [data_file['particles/' + key + '/state'][
-            #                            iter0//self.parameters['niter_part'] :
-            #                            iter1//self.parameters['niter_part']+1]
-            #                         for key in data_file['particles'].keys()]
             computation_needed = True
             pp_file = h5py.File(self.get_postprocess_file_name(), 'a')
             if 'ii0' in pp_file.keys():
