@@ -117,17 +117,15 @@ class _fluid_particle_base(_code):
                              'H5Dclose(dset);\n}\n' +
                              'return 0;\n}\n')
         self.definitions += ('herr_t grow_particle_datasets(hid_t g_id, const char *name, const H5L_info_t *info, void *op_data)\n{\n' +
-                             'std::string full_name;\n' +
                              'hsize_t dset;\n')
         for key in ['state', 'velocity', 'acceleration']:
-            self.definitions += ('full_name = (std::string(name) + std::string("/{0}"));\n'.format(key) +
-                                 'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
-                                 'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+            self.definitions += ('if (H5Lexists(g_id, "{0}", H5P_DEFAULT))\n'.format(key) +
+                                 '{\n' +
+                                 'dset = H5Dopen(g_id, "{0}", H5P_DEFAULT);\n'.format(key) +
                                  'grow_single_dataset(dset, niter_todo/niter_part);\n' +
                                  'H5Dclose(dset);\n}\n')
-        self.definitions += ('full_name = (std::string(name) + std::string("/rhs"));\n' +
-                             'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
-                             'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+        self.definitions += ('if (H5Lexists(g_id, "rhs", H5P_DEFAULT))\n{\n' +
+                             'dset = H5Dopen(g_id, "rhs", H5P_DEFAULT);\n' +
                              'grow_single_dataset(dset, 1);\n' +
                              'H5Dclose(dset);\n}\n' +
                              'return 0;\n}\n')

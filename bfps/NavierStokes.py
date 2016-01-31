@@ -75,7 +75,6 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['max_R_estimate'] = 1.0
         self.file_datasets_grow = """
                 //begincpp
-                std::string temp_string;
                 hsize_t dims[4];
                 hid_t group;
                 hid_t Cspace, Cdset;
@@ -491,10 +490,8 @@ class NavierStokes(_fluid_particle_base):
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
                         //begincpp
-                        temp_string = (std::string("/") +
-                                       std::string(ps{0}->name));
-                        group = H5Gopen(particle_file, temp_string.c_str(), H5P_DEFAULT);
-                        grow_particle_datasets(group, temp_string.c_str(), NULL, NULL);
+                        group = H5Gopen(particle_file, ps{0}->name, H5P_DEFAULT);
+                        grow_particle_datasets(group, "", NULL, NULL);
                         H5Gclose(group);
                         //endcpp
                         """.format(s0 + s)
