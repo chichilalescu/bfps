@@ -526,40 +526,13 @@ class NavierStokes(_fluid_particle_base):
                     {0}->field = {1};
                     ps{2}->sample_vec_field({0}, acceleration);
                     """.format(interpolator[s], acc_name, s0 + s)
-            output_vel_acc += """
-                if (myrank == 0)
-                {{
-                //VELOCITY begin
-                std::string temp_string = (std::string("/") +
-                                           std::string(ps{0}->name) +
-                                           std::string("/velocity"));
-                hid_t Cdset = H5Dopen(particle_file, temp_string.c_str(), H5P_DEFAULT);
-                hid_t mspace, wspace;
-                int ndims;
-                hsize_t count[3], offset[3];
-                wspace = H5Dget_space(Cdset);
-                ndims = H5Sget_simple_extent_dims(wspace, count, NULL);
-                count[0] = 1;
-                offset[0] = ps{0}->iteration / ps{0}->traj_skip;
-                offset[1] = 0;
-                offset[2] = 0;
-                mspace = H5Screate_simple(ndims, count, NULL);
-                H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, velocity);
-                H5Dclose(Cdset);
-                //VELOCITY end\n""".format(s0 + s)
+            output_vel_acc += (
+                    'if (myrank == 0)\n' +
+                    '{\n' +
+                    'ps{0}->write(particle_file, "velocity", velocity);\n'.format(s0 + s))
             if not type(acc_name) == type(None):
-                output_vel_acc += """
-                    //ACCELERATION begin
-                    temp_string = (std::string("/") +
-                                   std::string(ps{0}->name) +
-                                   std::string("/acceleration"));
-                    Cdset = H5Dopen(particle_file, temp_string.c_str(), H5P_DEFAULT);
-                    H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, acceleration);
-                    H5Sclose(mspace);
-                    H5Sclose(wspace);
-                    H5Dclose(Cdset);
-                    //ACCELERATION end\n""".format(s0 + s)
+                output_vel_acc += (
+                        'ps{0}->write(particle_file, "acceleration", acceleration);\n'.format(s0 + s))
             output_vel_acc += '}\n'
         output_vel_acc += 'delete[] velocity;\n'
         if not type(acc_name) == type(None):

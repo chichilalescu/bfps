@@ -78,21 +78,26 @@ class rFFTW_particles
                 const int INTEGRATION_STEPS = 2);
         ~rFFTW_particles();
 
-        void get_rhs(double *__restrict__ x, double *__restrict__ rhs);
+        void get_rhs(
+                double *__restrict__ x,
+                double *__restrict__ rhs);
 
-        inline void sample_vec_field(rFFTW_interpolator<rnumber, interp_neighbours> *field, double *vec_values)
+        inline void sample_vec_field(
+                rFFTW_interpolator<rnumber, interp_neighbours> *field,
+                double *vec_values)
         {
             field->sample(this->nparticles, this->ncomponents, this->state, vec_values, NULL);
         }
 
         /* input/output */
-        void read(hid_t data_file_id);
-        void write(hid_t data_file_id, bool write_rhs = true);
+        void read(const hid_t data_file_id);
+        void write(const hid_t data_file_id, const char *dset_name, const double *data);
+        void write(const hid_t data_file_id, const bool write_rhs = true);
 
         /* solvers */
         void step();
         void roll_rhs();
-        void AdamsBashforth(int nsteps);
+        void AdamsBashforth(const int nsteps);
 };
 
 #endif//RFFTW_PARTICLES
