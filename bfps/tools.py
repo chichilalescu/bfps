@@ -198,8 +198,12 @@ def particle_finite_diff_test(
 
     .. seealso:: :func:`get_fornberg_coeffs`
     """
-    d = c.get_data_file()
-    group = d['particles/tracers{0}'.format(species)]
+    df = c.get_data_file()
+    if 'particles' in df.keys():
+        group = df['particles/tracers{0}'.format(species)]
+    else:
+        pf = c.get_particle_file()
+        group = pf['tracers{0}'.format(species)]
     acc_on = 'acceleration' in group.keys()
     pos = group['state'].value
     vel = group['velocity'].value
@@ -207,7 +211,7 @@ def particle_finite_diff_test(
         acc = group['acceleration'].value
     n = m
     fc = get_fornberg_coeffs(0, range(-n, n+1))
-    dt = d['parameters/dt'].value*d['parameters/niter_part'].value
+    dt = c.parameters['dt']*c.parameters['niter_part']
 
     num_vel1 = sum(fc[1, n-i]*pos[1+n-i:pos.shape[0]-i-n-1] for i in range(-n, n+1)) / dt
     if acc_on:
@@ -220,7 +224,7 @@ def particle_finite_diff_test(
         pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
     else:
         pid = np.argmin(SNR(num_vel1, vel[n+1:-n-1]))
-    pars = d['parameters']
+    pars = df['parameters']
     to_print = (
             'steps={0}, interp={1}, neighbours={2}, '.format(
                 pars['tracers{0}_integration_steps'.format(species)].value,
@@ -246,7 +250,6 @@ def particle_finite_diff_test(
 
         for n in range(1, m):
             fc = get_fornberg_coeffs(0, range(-n, n+1))
-            dt = d['parameters/dt'].value*d['parameters/niter_part'].value
 
             num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
             num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2

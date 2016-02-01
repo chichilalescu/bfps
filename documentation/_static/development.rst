@@ -57,3 +57,30 @@ Code testing
 ------------
 
 Testing for :mod:`bfps` is done with ``tox``.
+
+----------------
+Work in progress
+----------------
+
+HDF5 field I/O
+--------------
+
+As you can tell from the ``todo.txt`` file, in the future the code will
+use HDF5 for input/output of fields.
+For now, field I/O is done with binary files, and the field data type is
+stored in the parameter file.
+
+HDF5 particle I/O
+-----------------
+
+Particle I/O seems to be very slow, no idea why.
+Relevant links:
+
+    1. http://api.h5py.org/index.html
+    2. https://www.hdfgroup.org/ftp/HDF5/examples/python/hdf5examples-py/low_level/h5ex_d_alloc.py
+
+Code flexibility
+----------------
+
+Version 2.0 will be designed so that new fluid equations can be coded in
+from python classes, rather than as new C++ files.
