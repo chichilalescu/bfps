@@ -240,9 +240,29 @@ def particle_finite_diff_test(
                 np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
     print(to_print)
     if plot_on and acc_on:
+        import matplotlib.pyplot as plt
         col = ['red', 'green', 'blue']
-        fig = plt.figure()
-        a = fig.add_subplot(111)
+        fig = plt.figure(figsize = (12, 6))
+        a = fig.add_subplot(121)
+        a.hist(num_acc1.ravel(),
+               histtype = 'step',
+               normed = True,
+               bins = 100,
+               label = 'd1vel')
+        a.hist(num_acc2.ravel(),
+               histtype = 'step',
+               normed = True,
+               bins = 100,
+               label = 'd2pos')
+        a.hist(acc.ravel(),
+               histtype = 'step',
+               normed = True,
+               bins = 100,
+               label = 'acc')
+        a.set_yscale('log')
+        a.legend(loc = 'best')
+        a.set_title('acceleration histogram')
+        a = fig.add_subplot(122)
         for cc in range(3):
             a.plot(num_acc1[:, pid, cc], color = col[cc])
             a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
@@ -257,6 +277,7 @@ def particle_finite_diff_test(
             for cc in range(3):
                 a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
                 a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
+        a.set_title('acceleration for trajectory with min SNR')
         fig.tight_layout()
         fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
         plt.close(fig)
