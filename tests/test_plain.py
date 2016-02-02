@@ -70,7 +70,6 @@ if __name__ == '__main__':
              '--nparticles', '1000',
              '--niter_todo', '48',
              '--precision', 'single',
-             '--multiplejob',
              '--wd', 'data/single'] +
             sys.argv[1:])
     plain(opt)

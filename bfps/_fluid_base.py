@@ -117,17 +117,15 @@ class _fluid_particle_base(_code):
                              'H5Dclose(dset);\n}\n' +
                              'return 0;\n}\n')
         self.definitions += ('herr_t grow_particle_datasets(hid_t g_id, const char *name, const H5L_info_t *info, void *op_data)\n{\n' +
-                             'std::string full_name;\n' +
                              'hsize_t dset;\n')
         for key in ['state', 'velocity', 'acceleration']:
-            self.definitions += ('full_name = (std::string(name) + std::string("/{0}"));\n'.format(key) +
-                                 'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
-                                 'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+            self.definitions += ('if (H5Lexists(g_id, "{0}", H5P_DEFAULT))\n'.format(key) +
+                                 '{\n' +
+                                 'dset = H5Dopen(g_id, "{0}", H5P_DEFAULT);\n'.format(key) +
                                  'grow_single_dataset(dset, niter_todo/niter_part);\n' +
                                  'H5Dclose(dset);\n}\n')
-        self.definitions += ('full_name = (std::string(name) + std::string("/rhs"));\n' +
-                             'if (H5Lexists(g_id, full_name.c_str(), H5P_DEFAULT))\n{\n' +
-                             'dset = H5Dopen(g_id, full_name.c_str(), H5P_DEFAULT);\n' +
+        self.definitions += ('if (H5Lexists(g_id, "rhs", H5P_DEFAULT))\n{\n' +
+                             'dset = H5Dopen(g_id, "rhs", H5P_DEFAULT);\n' +
                              'grow_single_dataset(dset, 1);\n' +
                              'H5Dclose(dset);\n}\n' +
                              'return 0;\n}\n')
@@ -206,6 +204,7 @@ class _fluid_particle_base(_code):
         self.main       += '}\n'
         self.main       += 'do_stats();\n'
         self.main       += 'do_particle_stats();\n'
+        self.main       += output_time_difference
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
@@ -328,19 +327,8 @@ class _fluid_particle_base(_code):
         if testing:
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
-        with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+') as data_file:
-            time_chunk = 2**20 // (8*ncomponents*
-                                   self.parameters['nparticles'])
-            time_chunk = max(time_chunk, 1)
-            dset = data_file.create_dataset(
-                    '/particles/tracers{0}/state'.format(species),
-                    (1,
-                     self.parameters['nparticles'],
-                     ncomponents),
-                    chunks = (time_chunk, self.parameters['nparticles'], ncomponents),
-                    maxshape = (None, self.parameters['nparticles'], ncomponents),
-                    dtype = np.float64)
-            dset[0] = data
+        with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
+            data_file['tracers{0}/state'.format(species)][0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(
