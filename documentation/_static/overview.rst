@@ -24,6 +24,16 @@ In fact, the code solves the vorticity formulation of these equations:
     \mathbf{\omega} \cdot \nabla \mathbf{u} +
     \nu \Delta \mathbf{\omega} + \nabla \times \mathbf{f}
 
+Turbulence cheat sheet
+----------------------
+
+Basic quantities that can be computed in a pseudospectral code are the
+following:
+
+.. math::
+
+    E = \frac{1}{2} \sum_{\mathbf{k}} \hat{\mathbf{u}} \cdot \hat{\mathbf{u}}^*
+
 -----------
 Conventions
 -----------
