@@ -337,7 +337,6 @@ class NavierStokes(_fluid_particle_base):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
-                                 'int *kindices;\n' +
                                  'hid_t particle_file;\n' +
                                  'hid_t H5T_field_complex;\n')
         self.fluid_definitions += """
@@ -395,7 +394,6 @@ class NavierStokes(_fluid_particle_base):
                           self.fluid_output + '\n}\n' +
                           'if (fs->cd->myrank == 0)\n' +
                           '{\n' +
-                          'delete[] kindices;\n' +
                           'H5Tclose(H5T_field_complex);\n' +
                           '}\n' +
                           'delete fs;\n')
