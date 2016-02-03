@@ -593,6 +593,20 @@ class NavierStokes(_fluid_particle_base):
     def get_postprocess_file(self):
         return h5py.File(self.get_postprocess_file_name(), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
+        """Run basic postprocessing on raw data.
+        The energy spectrum :math:`E(t, k)` and the enstrophy spectrum
+        :math:`\\frac{1}{2}\omega^2(t, k)` are computed from the
+
+        .. math::
+
+            \sum_{k \\leq \\|\\mathbf{k}\\| \\leq k+dk}\\hat{u_i} \\hat{u_j}^*, \\hskip .5cm
+            \sum_{k \\leq \\|\\mathbf{k}\\| \\leq k+dk}\\hat{\omega_i} \\hat{\\omega_j}^*
+
+        tensors, and the enstrophy spectrum is also used to
+        compute the dissipation :math:`\\varepsilon(t)`.
+        These basic quantities are stored in a newly created HDF5 file,
+        ``simname_postprocess.h5``.
+        """
         if len(list(self.statistics.keys())) > 0:
             return None
         self.read_parameters()
@@ -650,8 +664,27 @@ class NavierStokes(_fluid_particle_base):
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
-        """
-        Conventions for Uint and Tint are taken from [Ishihara]_.
+        """Compute easy stats.
+
+        Further computation of statistics based on the contents of
+        ``simname_postprocess.h5``.
+        Standard quantities are as follows
+        (consistent with [Ishihara]_):
+
+        .. math::
+
+            U_{\\textrm{int}}(t) = \\sqrt{\\frac{2E(t)}{3}}, \\hskip .5cm
+            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
+            T_{\\textrm{int}}(t) =
+            \\frac{L_{\\textrm{int}}(t)}{U_{\\textrm{int}}(t)}
+
+            \\eta_K = \\left(\\frac{\\nu^3}{\\varepsilon}\\right)^{1/4}, \\hskip .5cm
+            \\tau_K = \\left(\\frac{\\nu}{\\varepsilon}\\right)^{1/2}, \\hskip .5cm
+            \\lambda = \\sqrt{\\frac{15 \\nu U_{\\textrm{int}}^2}{\\varepsilon}}
+
+            Re = \\frac{U_{\\textrm{int}} L_{\\textrm{int}}}{\\nu}, \\hskip
+            .5cm
+            R_{\\lambda} = \\frac{U_{\\textrm{int}} \\lambda}{\\nu}
 
         .. [Ishihara] T. Ishihara et al,
                       *Small-scale statistics in high-resolution direct numerical
@@ -997,10 +1030,34 @@ class NavierStokes(_fluid_particle_base):
     def prepare_launch(
             self,
             args = []):
+        """Set up reasonable parameters.
+
+        With the default Lundgren forcing applied in the band [2, 4],
+        we can estimate the dissipation, therefore we can estimate
+        :math:`k_M \\eta_K` and constrain the viscosity.
+        Also, if velocity gradient statistics are computed, the
+        dissipation is used for estimating the bins of the QR histogram.
+
+        In brief, the command line parameter :math:`k_M \\eta_K` is
+        used in the following formula for :math:`\\nu` (:math:`N` is the
+        number of real space grid points per coordinate):
+
+        .. math::
+
+            \\nu = \\left(\\frac{2 k_M \\eta_K}{N} \\right)^{4/3}
+
+        With this choice, the average dissipation :math:`\\varepsilon`
+        will be close to 0.4, and the integral scale velocity will be
+        close to 0.77, yielding the approximate value for the Taylor
+        microscale and corresponding Reynolds number:
+
+        .. math::
+
+            \\lambda \\approx 4.75\\left(\\frac{2 k_M \\eta_K}{N} \\right)^{4/6}, \\hskip .5in
+            R_\\lambda \\approx 3.7 \\left(\\frac{N}{2 k_M \\eta_K} \\right)^{4/6}
+
+        """
         opt = _code.prepare_launch(self, args = args)
-        # with the default Lundgren forcing, I can estimate the dissipation
-        # with nondefault forcing, figure out the amplitude for this viscosity
-        # yourself
         self.QR_stats_on = opt.QR_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
