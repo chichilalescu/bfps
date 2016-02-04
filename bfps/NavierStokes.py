@@ -374,17 +374,20 @@ class NavierStokes(_fluid_particle_base):
                     H5Tinsert(H5T_field_complex, "r", HOFFSET(tmp_complex_type, re), {2});
                     H5Tinsert(H5T_field_complex, "i", HOFFSET(tmp_complex_type, im), {2});
                 }}
+                //endcpp
+                """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
+        if self.parameters['nparticles'] > 0:
+            self.fluid_start += """
                 if (myrank == 0)
-                {{
+                {
                     // set caching parameters
                     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
                     herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
                     DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
                     sprintf(fname, "%s_particles.h5", simname);
                     particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
-                }}
-                //endcpp
-                """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
+                }
+                """
         if not self.frozen_fields:
             self.fluid_loop = 'fs->step(dt);\n'
         else:
@@ -399,6 +402,8 @@ class NavierStokes(_fluid_particle_base):
                           'H5Tclose(H5T_field_complex);\n' +
                           '}\n' +
                           'delete fs;\n')
+        if self.parameters['nparticles'] > 0:
+            self.fluid_end += 'H5Fclose(particle_file);\n'
         return None
     def add_3D_rFFTW_field(
             self,
