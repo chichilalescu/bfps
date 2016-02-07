@@ -82,13 +82,6 @@ class rFFTW_particles
                 double *__restrict__ x,
                 double *__restrict__ rhs);
 
-        inline void sample_vec_field(
-                rFFTW_interpolator<rnumber, interp_neighbours> *field,
-                double *vec_values)
-        {
-            field->sample(this->nparticles, this->ncomponents, this->state, vec_values, NULL);
-        }
-
         /* input/output */
         void read(const hid_t data_file_id);
         void write(const hid_t data_file_id, const char *dset_name, const double *data);
