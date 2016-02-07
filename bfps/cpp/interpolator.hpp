@@ -38,19 +38,51 @@ class interpolator
 {
     public:
         ptrdiff_t buffer_size;
+
+        /* pointer to polynomial function */
         base_polynomial_values compute_beta;
+
+        /* descriptor of field to interpolate */
         field_descriptor<rnumber> *descriptor;
+
+        /* descriptor for buffered field */
         field_descriptor<rnumber> *unbuffered_descriptor;
-        rnumber *f0, *f1, *temp;
+
+        /* pointer to buffered field */
+        rnumber *field;
+
+        /* physical parameters of field */
+        double dx, dy, dz;
 
         interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
+                base_polynomial_values BETA_POLYS,
+                rnumber *FIELD_DATA);
         ~interpolator();
 
-        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
-        /* destroys input */
+        k/* destroys input */
         int read_rFFTW(void *src);
+
+        /* map real locations to grid coordinates */
+        void get_grid_coordinates(
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                int *__restrict__ xg,
+                double *__restrict__ xx);
+        /* interpolate field at an array of locations */
+        void sample(
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                double *__restrict__ y,
+                const int *deriv = NULL);
+        /* interpolate 1 point */
+        void operator()(
+                const int *__restrict__ xg,
+                const double *__restrict__ xx,
+                double *__restrict__ dest,
+                const int *deriv = NULL);
 };
 
 #endif//INTERPOLATOR
