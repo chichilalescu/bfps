@@ -34,42 +34,25 @@
 #define INTERPOLATOR
 
 template <class rnumber, int interp_neighbours>
-class interpolator
+class interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
     public:
         ptrdiff_t buffer_size;
 
-        /* pointer to polynomial function */
-        base_polynomial_values compute_beta;
-
-        /* descriptor of field to interpolate */
-        field_descriptor<rnumber> *descriptor;
-
         /* descriptor for buffered field */
-        field_descriptor<rnumber> *unbuffered_descriptor;
+        field_descriptor<rnumber> *buffered_descriptor;
 
         /* pointer to buffered field */
         rnumber *field;
 
-        /* physical parameters of field */
-        double dx, dy, dz;
-
         interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS,
-                rnumber *FIELD_DATA);
+                base_polynomial_values BETA_POLYS);
         ~interpolator();
 
         /* destroys input */
         int read_rFFTW(void *src);
 
-        /* map real locations to grid coordinates */
-        void get_grid_coordinates(
-                const int nparticles,
-                const int pdimension,
-                const double *__restrict__ x,
-                int *__restrict__ xg,
-                double *__restrict__ xx);
         /* interpolate field at an array of locations */
         void sample(
                 const int nparticles,

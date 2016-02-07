@@ -24,36 +24,34 @@
 
 
 
+#define NDEBUG
+
 #include "interpolator.hpp"
 
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::interpolator(
         fluid_solver_base<rnumber> *fs,
-        base_polynomial_values BETA_POLYS)
+        base_polynomial_values BETA_POLYS) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
     int tdims[4];
-    this->unbuffered_descriptor = fs->rd;
-    this->buffer_size = (interp_neighbours+1)*this->unbuffered_descriptor->slice_size;
+    this->buffer_size = (interp_neighbours+1)*this->descriptor->slice_size;
     this->compute_beta = BETA_POLYS;
-    tdims[0] = (interp_neighbours+1)*2*this->unbuffered_descriptor->nprocs + this->unbuffered_descriptor->sizes[0];
-    tdims[1] = this->unbuffered_descriptor->sizes[1];
-    tdims[2] = this->unbuffered_descriptor->sizes[2];
-    tdims[3] = this->unbuffered_descriptor->sizes[3];
-    this->descriptor = new field_descriptor<rnumber>(
+    tdims[0] = (interp_neighbours+1)*2*this->descriptor->nprocs + this->descriptor->sizes[0];
+    tdims[1] = this->descriptor->sizes[1];
+    tdims[2] = this->descriptor->sizes[2];
+    tdims[3] = this->descriptor->sizes[3];
+    this->buffered_descriptor = new field_descriptor<rnumber>(
             4, tdims,
-            this->unbuffered_descriptor->mpi_dtype,
-            this->unbuffered_descriptor->comm);
+            this->descriptor->mpi_dtype,
+            this->descriptor->comm);
     if (sizeof(rnumber) == 4)
     {
-        this->f0 = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
-        this->f1 = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
+        this->field = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
     }
     else if (sizeof(rnumber) == 8)
     {
-        this->f0 = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
-        this->f1 = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
+        this->field = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
     }
-    this->temp = this->f1 + this->buffer_size;
 }
 
 template <class rnumber, int interp_neighbours>
@@ -61,80 +59,73 @@ interpolator<rnumber, interp_neighbours>::~interpolator()
 {
     if (sizeof(rnumber) == 4)
     {
-        fftwf_free((float*)((void*)this->f0));
-        fftwf_free((float*)((void*)this->f1));
+        fftwf_free((float*)((void*)this->field));
     }
     else if (sizeof(rnumber) == 8)
     {
-        fftw_free((double*)((void*)this->f0));
-        fftw_free((double*)((void*)this->f1));
+        fftw_free((double*)((void*)this->field));
     }
-    delete this->descriptor;
+    delete this->buffered_descriptor;
 }
 
 template <class rnumber, int interp_neighbours>
 int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 {
-    /* first, roll fields */
-    rnumber *tmp = this->f0;
-    this->f0 = this->f1;
-    this->f1 = tmp;
-    this->temp = this->f0 + this->buffer_size;
     /* now do regular things */
     rnumber *src = (rnumber*)void_src;
-    rnumber *dst = this->f1;
+    rnumber *dst = this->field;
     /* do big copy of middle stuff */
-    clip_zero_padding<rnumber>(this->unbuffered_descriptor, src, 3);
+    clip_zero_padding<rnumber>(this->descriptor, src, 3);
     std::copy(src,
-              src + this->unbuffered_descriptor->local_size,
+              src + this->descriptor->local_size,
               dst + this->buffer_size);
     MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
     int rsrc;
     /* get upper slices */
-    for (int rdst = 0; rdst < this->unbuffered_descriptor->nprocs; rdst++)
+    for (int rdst = 0; rdst < this->descriptor->nprocs; rdst++)
     {
-        rsrc = this->unbuffered_descriptor->rank[(this->unbuffered_descriptor->all_start0[rdst] +
-                                           this->unbuffered_descriptor->all_size0[rdst]) %
-                                           this->unbuffered_descriptor->sizes[0]];
-        if (this->unbuffered_descriptor->myrank == rsrc)
+        rsrc = this->descriptor->rank[(this->descriptor->all_start0[rdst] +
+                                       this->descriptor->all_size0[rdst]) %
+                                       this->descriptor->sizes[0]];
+        if (this->descriptor->myrank == rsrc)
             MPI_Send(
                     src,
                     this->buffer_size,
                     MPI_RNUM,
                     rdst,
-                    2*(rsrc*this->unbuffered_descriptor->nprocs + rdst),
-                    this->descriptor->comm);
-        if (this->unbuffered_descriptor->myrank == rdst)
+                    2*(rsrc*this->descriptor->nprocs + rdst),
+                    this->buffered_descriptor->comm);
+        if (this->descriptor->myrank == rdst)
             MPI_Recv(
-                    dst + this->buffer_size + this->unbuffered_descriptor->local_size,
+                    dst + this->buffer_size + this->descriptor->local_size,
                     this->buffer_size,
                     MPI_RNUM,
                     rsrc,
-                    2*(rsrc*this->unbuffered_descriptor->nprocs + rdst),
-                    this->descriptor->comm,
+                    2*(rsrc*this->descriptor->nprocs + rdst),
+                    this->buffered_descriptor->comm,
                     MPI_STATUS_IGNORE);
     }
     /* get lower slices */
-    for (int rdst = 0; rdst < this->unbuffered_descriptor->nprocs; rdst++)
+    for (int rdst = 0; rdst < this->descriptor->nprocs; rdst++)
     {
-        rsrc = this->unbuffered_descriptor->rank[MOD(this->unbuffered_descriptor->all_start0[rdst] - 1,
-                                              this->unbuffered_descriptor->sizes[0])];
-        if (this->unbuffered_descriptor->myrank == rsrc)
+        rsrc = this->descriptor->rank[MOD(this->descriptor->all_start0[rdst] - 1,
+                                          this->descriptor->sizes[0])];
+        if (this->descriptor->myrank == rsrc)
             MPI_Send(
-                    src + this->unbuffered_descriptor->local_size - this->buffer_size,
+                    src + this->descriptor->local_size - this->buffer_size,
                     this->buffer_size,
                     MPI_RNUM,
                     rdst,
-                    2*(rsrc*this->unbuffered_descriptor->nprocs + rdst)+1,
-                    this->unbuffered_descriptor->comm);
-        if (this->unbuffered_descriptor->myrank == rdst)
+                    2*(rsrc*this->descriptor->nprocs + rdst)+1,
+                    this->descriptor->comm);
+        if (this->descriptor->myrank == rdst)
             MPI_Recv(
                     dst,
                     this->buffer_size,
                     MPI_RNUM,
                     rsrc,
-                    2*(rsrc*this->unbuffered_descriptor->nprocs + rdst)+1,
-                    this->unbuffered_descriptor->comm,
+                    2*(rsrc*this->descriptor->nprocs + rdst)+1,
+                    this->descriptor->comm,
                     MPI_STATUS_IGNORE);
     }
     return EXIT_SUCCESS;
@@ -170,14 +161,14 @@ void interpolator<rnumber, interp_neighbours>::operator()(
         std::fill_n(tval, 3, 0);
         for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
         {
-            bigiy = ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1]));
+            bigiy = ptrdiff_t(MOD(xg[1]+iy, this->buffered_descriptor->sizes[1]));
             for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
             {
-                bigix = ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2]));
+                bigix = ptrdiff_t(MOD(xg[0]+ix, this->buffered_descriptor->sizes[2]));
                 for (int c=0; c<3; c++)
                 {
-                    ptrdiff_t tindex = ((bigiz *this->descriptor->sizes[1] +
-                                         bigiy)*this->descriptor->sizes[2] +
+                    ptrdiff_t tindex = ((bigiz *this->buffered_descriptor->sizes[1] +
+                                         bigiy)*this->buffered_descriptor->sizes[2] +
                                          bigix)*3+c + this->buffer_size;
                     dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
                                                                               by[iy+interp_neighbours]*
@@ -190,6 +181,29 @@ void interpolator<rnumber, interp_neighbours>::operator()(
         }
         DEBUG_MSG("%ld %d %d %g %g %g\n", bigiz, xg[1], xg[0], tval[0], tval[1], tval[2]);
     }
+}
+
+template <class rnumber, int interp_neighbours>
+void interpolator<rnumber, interp_neighbours>::sample(
+        const int nparticles,
+        const int pdimension,
+        const double *__restrict__ x,
+        double *__restrict__ y,
+        const int *deriv)
+{
+    /* get grid coordinates */
+    int *xg = new int[3*nparticles];
+    double *xx = new double[3*nparticles];
+    double *yy =  new double[3*nparticles];
+    std::fill_n(yy, 3*nparticles, 0.0);
+    this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
+    /* perform interpolation */
+    for (int p=0; p<nparticles; p++)
+        if (this->descriptor->zrank[MOD(xg[p*3+2], this->descriptor->sizes[0])] == this->descriptor->myrank)
+            this->operator()(xg + p*3, xx + p*3, yy + p*3, deriv);
+    delete[] yy;
+    delete[] xg;
+    delete[] xx;
 }
 
 template class interpolator<float, 1>;
