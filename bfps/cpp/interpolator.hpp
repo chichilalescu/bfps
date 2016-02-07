@@ -60,7 +60,7 @@ class interpolator
                 rnumber *FIELD_DATA);
         ~interpolator();
 
-        k/* destroys input */
+        /* destroys input */
         int read_rFFTW(void *src);
 
         /* map real locations to grid coordinates */
