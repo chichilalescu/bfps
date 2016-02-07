@@ -58,7 +58,7 @@ class interpolator_base
         interpolator_base(
                 fluid_solver_base<rnumber> *FSOLVER,
                 base_polynomial_values BETA_POLYS);
-        ~interpolator_base();
+        ~interpolator_base(){}
 
         /* map real locations to grid coordinates */
         void get_grid_coordinates(

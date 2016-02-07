@@ -34,24 +34,15 @@
 #define RFFTW_INTERPOLATOR
 
 template <class rnumber, int interp_neighbours>
-class rFFTW_interpolator
+class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
     public:
         /* size of field to interpolate */
         ptrdiff_t field_size;
 
-        /* pointer to polynomial function */
-        base_polynomial_values compute_beta;
-
-        /* descriptor of field to interpolate */
-        field_descriptor<rnumber> *descriptor;
-
         /* pointers to fields that are to be interpolated
          * */
         rnumber *field;
-
-        /* physical parameters of field */
-        double dx, dy, dz;
 
         /* compute[iz] is true if .
          * local_zstart - neighbours <= iz <= local_zend + 1 + neighbours
@@ -64,13 +55,6 @@ class rFFTW_interpolator
                 rnumber *FIELD_DATA);
         ~rFFTW_interpolator();
 
-        /* map real locations to grid coordinates */
-        void get_grid_coordinates(
-                const int nparticles,
-                const int pdimension,
-                const double *__restrict__ x,
-                int *__restrict__ xg,
-                double *__restrict__ xx);
         /* interpolate field at an array of locations */
         void sample(
                 const int nparticles,

@@ -33,17 +33,11 @@ template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         fluid_solver_base<rnumber> *fs,
         base_polynomial_values BETA_POLYS,
-        rnumber *FIELD)
+        rnumber *FIELD) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
-    this->descriptor = fs->rd;
     this->field_size = 2*fs->cd->local_size;
-    this->compute_beta = BETA_POLYS;
     this->field = FIELD;
 
-    // compute dx, dy, dz;
-    this->dx = 4*acos(0) / (fs->dkx*this->descriptor->sizes[2]);
-    this->dy = 4*acos(0) / (fs->dky*this->descriptor->sizes[1]);
-    this->dz = 4*acos(0) / (fs->dkz*this->descriptor->sizes[0]);
 
     // generate compute array
     this->compute = new bool[this->descriptor->sizes[0]];
@@ -58,29 +52,6 @@ template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 {
     delete[] this->compute;
-}
-
-template <class rnumber, int interp_neighbours>
-void rFFTW_interpolator<rnumber, interp_neighbours>::get_grid_coordinates(
-        const int nparticles,
-        const int pdimension,
-        const double *x,
-        int *xg,
-        double *xx)
-{
-    static double grid_size[] = {this->dx, this->dy, this->dz};
-    double tval;
-    std::fill_n(xg, nparticles*3, 0);
-    std::fill_n(xx, nparticles*3, 0.0);
-    for (int p=0; p<nparticles; p++)
-    {
-        for (int c=0; c<3; c++)
-        {
-            tval = floor(x[p*pdimension+c]/grid_size[c]);
-            xg[p*3+c] = MOD(int(tval), this->descriptor->sizes[2-c]);
-            xx[p*3+c] = (x[p*pdimension+c] - tval*grid_size[c]) / grid_size[c];
-        }
-    }
 }
 
 template <class rnumber, int interp_neighbours>

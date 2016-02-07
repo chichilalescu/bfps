@@ -66,3 +66,16 @@ void interpolator_base<rnumber, interp_neighbours>::get_grid_coordinates(
     }
 }
 
+template class interpolator_base<float, 1>;
+template class interpolator_base<float, 2>;
+template class interpolator_base<float, 3>;
+template class interpolator_base<float, 4>;
+template class interpolator_base<float, 5>;
+template class interpolator_base<float, 6>;
+template class interpolator_base<double, 1>;
+template class interpolator_base<double, 2>;
+template class interpolator_base<double, 3>;
+template class interpolator_base<double, 4>;
+template class interpolator_base<double, 5>;
+template class interpolator_base<double, 6>;
+
