@@ -519,12 +519,12 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
                 {0}->field = fs->rvelocity;
-                ps{1}->sample_vec_field({0}, velocity);
+                {0}->sample(ps{1}->nparticles, ps{1}->ncomponents, ps{1}->state, velocity);
                 """.format(interpolator[s], s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
                     {0}->field = {1};
-                    ps{2}->sample_vec_field({0}, acceleration);
+                    {0}->sample(ps{2}->nparticles, ps{2}->ncomponents, ps{2}->state, acceleration);
                     """.format(interpolator[s], acc_name, s0 + s)
             output_vel_acc += (
                     'if (myrank == 0)\n' +
