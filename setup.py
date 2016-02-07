@@ -92,8 +92,11 @@ print('This is bfps version ' + VERSION)
 src_file_list = ['field_descriptor',
                  'fluid_solver_base',
                  'fluid_solver',
+                 'interpolator_base',
                  'rFFTW_interpolator',
                  'rFFTW_particles',
+                 #'interpolator',
+                 #'particles',
                  'fftw_tools',
                  'spline_n1',
                  'spline_n2',
@@ -104,8 +107,7 @@ src_file_list = ['field_descriptor',
                  'Lagrange_polys']
 
 header_list = (['cpp/base.hpp',
-                'cpp/particles_base.hpp',
-                'cpp/interpolator_base.hpp'] +
+                'cpp/particles_base.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list])
 
