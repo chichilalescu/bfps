@@ -132,12 +132,41 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
 }
 
 template <class rnumber, int interp_neighbours>
+void interpolator<rnumber, interp_neighbours>::sample(
+        const int nparticles,
+        const int pdimension,
+        const double *__restrict__ x,
+        double *__restrict__ y,
+        const int *deriv)
+{
+    /* get grid coordinates */
+    int *xg = new int[3*nparticles];
+    double *xx = new double[3*nparticles];
+    double *yy =  new double[3*nparticles];
+    std::fill_n(yy, 3*nparticles, 0.0);
+    this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
+    /* perform interpolation */
+    for (int p=0; p<nparticles; p++)
+        if (this->descriptor->rank[MOD(xg[p*3+2], this->descriptor->sizes[0])] == this->descriptor->myrank)
+            this->operator()(xg + p*3, xx + p*3, yy + p*3, deriv);
+    MPI_Allreduce(
+            yy,
+            y,
+            3*nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->descriptor->comm);
+    delete[] yy;
+    delete[] xg;
+    delete[] xx;
+}
+
+template <class rnumber, int interp_neighbours>
 void interpolator<rnumber, interp_neighbours>::operator()(
-        double t,
-        int *xg,
-        double *xx,
+        const int *xg,
+        const double *xx,
         double *dest,
-        int *deriv)
+        const int *deriv)
 {
     double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
     if (deriv == NULL)
@@ -154,56 +183,27 @@ void interpolator<rnumber, interp_neighbours>::operator()(
     }
     std::fill_n(dest, 3, 0);
     ptrdiff_t bigiz, bigiy, bigix;
-    double tval[3];
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
     {
         bigiz = ptrdiff_t(xg[2]+iz);
-        std::fill_n(tval, 3, 0);
         for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
         {
             bigiy = ptrdiff_t(MOD(xg[1]+iy, this->buffered_descriptor->sizes[1]));
             for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
             {
                 bigix = ptrdiff_t(MOD(xg[0]+ix, this->buffered_descriptor->sizes[2]));
+                ptrdiff_t tindex = ((bigiz *this->buffered_descriptor->sizes[1] +
+                                     bigiy)*this->buffered_descriptor->sizes[2] +
+                                     bigix)*3 + this->buffer_size;
                 for (int c=0; c<3; c++)
                 {
-                    ptrdiff_t tindex = ((bigiz *this->buffered_descriptor->sizes[1] +
-                                         bigiy)*this->buffered_descriptor->sizes[2] +
-                                         bigix)*3+c + this->buffer_size;
-                    dest[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
-                                                                              by[iy+interp_neighbours]*
-                                                                              bx[ix+interp_neighbours]);
-                    tval[c] += (this->f0[tindex]*(1-t) + t*this->f1[tindex])*(bz[iz+interp_neighbours]*
-                                                                              by[iy+interp_neighbours]*
-                                                                              bx[ix+interp_neighbours]);
+                    dest[c] += this->field[tindex+c]*(bz[iz+interp_neighbours]*
+                                                      by[iy+interp_neighbours]*
+                                                      bx[ix+interp_neighbours]);
                 }
             }
         }
-        DEBUG_MSG("%ld %d %d %g %g %g\n", bigiz, xg[1], xg[0], tval[0], tval[1], tval[2]);
     }
-}
-
-template <class rnumber, int interp_neighbours>
-void interpolator<rnumber, interp_neighbours>::sample(
-        const int nparticles,
-        const int pdimension,
-        const double *__restrict__ x,
-        double *__restrict__ y,
-        const int *deriv)
-{
-    /* get grid coordinates */
-    int *xg = new int[3*nparticles];
-    double *xx = new double[3*nparticles];
-    double *yy =  new double[3*nparticles];
-    std::fill_n(yy, 3*nparticles, 0.0);
-    this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
-    /* perform interpolation */
-    for (int p=0; p<nparticles; p++)
-        if (this->descriptor->zrank[MOD(xg[p*3+2], this->descriptor->sizes[0])] == this->descriptor->myrank)
-            this->operator()(xg + p*3, xx + p*3, yy + p*3, deriv);
-    delete[] yy;
-    delete[] xg;
-    delete[] xx;
 }
 
 template class interpolator<float, 1>;
