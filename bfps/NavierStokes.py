@@ -445,7 +445,8 @@ class NavierStokes(_fluid_particle_base):
             kcut = None,
             interpolator = 'field_interpolator',
             frozen_particles = False,
-            acc_name = None):
+            acc_name = None,
+            class_name = 'rFFTW_particles'):
         """Adds code for tracking a series of particle species, each
         consisting of `nparticles` particles.
 
@@ -547,7 +548,7 @@ class NavierStokes(_fluid_particle_base):
             self.particle_loop  += update_fields
         else:
             self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
-        self.particle_includes += '#include "rFFTW_particles.hpp"\n'
+        self.particle_includes += '#include "{0}.hpp"\n'.format(class_name)
         self.particle_stat_src += (
                 'if (ps0->iteration % niter_part == 0)\n' +
                 '{\n')
@@ -556,15 +557,17 @@ class NavierStokes(_fluid_particle_base):
             self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
             self.particle_end += ('ps{0}->write(particle_file);\n' +
                                   'delete ps{0};\n').format(s0 + s)
-            self.particle_variables += 'rFFTW_particles<VELOCITY_TRACER, {0}, {1}> *ps{2};\n'.format(
+            self.particle_variables += '{0}<VELOCITY_TRACER, {1}, {2}> *ps{3};\n'.format(
+                    class_name,
                     self.C_dtype,
                     neighbours,
                     s0 + s)
-            self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
-                                    'fname, {3},\n' +
+            self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
+                                    'fname, {4},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             s0 + s,
+                                            class_name,
                                             self.C_dtype,
                                             neighbours,
                                             interpolator[s])

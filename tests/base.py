@@ -115,7 +115,8 @@ def launch(
         dt = None,
         tracer_state_file = None,
         vorticity_field = None,
-        code_class = bfps.NavierStokes):
+        code_class = bfps.NavierStokes,
+        particle_class = 'rFFTW_particles'):
     c = code_class(
             work_dir = opt.work_dir,
             fluid_precision = opt.precision,
@@ -136,6 +137,7 @@ def launch(
     c.parameters['famplitude'] = 0.2
     c.fill_up_fluid_code()
     if c.parameters['nparticles'] > 0:
+        c.name += '-' + particle_class
         c.add_3D_rFFTW_field(name = 'rFFTW_acc')
         c.add_interpolator(
                 name = 'spline',
@@ -144,11 +146,13 @@ def launch(
         c.add_particles(
                 kcut = ['fs->kM/2', 'fs->kM/3'],
                 integration_steps = 3,
-                interpolator = 'spline')
+                interpolator = 'spline',
+                class_name = particle_class)
         c.add_particles(
                 integration_steps = [2, 3, 4, 6],
                 interpolator = 'spline',
-                acc_name = 'rFFTW_acc')
+                acc_name = 'rFFTW_acc',
+                class_name = particle_class)
     c.finalize_code()
     c.write_src()
     c.write_par()

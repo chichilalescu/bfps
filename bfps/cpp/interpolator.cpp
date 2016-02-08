@@ -44,28 +44,13 @@ interpolator<rnumber, interp_neighbours>::interpolator(
             4, tdims,
             this->descriptor->mpi_dtype,
             this->descriptor->comm);
-    if (sizeof(rnumber) == 4)
-    {
-        this->field = (rnumber*)((void*)fftwf_alloc_real(this->descriptor->local_size));
-    }
-    else if (sizeof(rnumber) == 8)
-    {
-        this->field = (rnumber*)((void*)fftw_alloc_real(this->descriptor->local_size));
-    }
+    this->field = new rnumber[this->buffered_descriptor->local_size];
 }
 
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::~interpolator()
 {
-    if (sizeof(rnumber) == 4)
-    {
-        fftwf_free((float*)((void*)this->field));
-    }
-    else if (sizeof(rnumber) == 8)
-    {
-        fftw_free((double*)((void*)this->field));
-    }
-    delete this->buffered_descriptor;
+    delete[] this->field;
 }
 
 template <class rnumber, int interp_neighbours>
