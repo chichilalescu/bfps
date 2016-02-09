@@ -260,20 +260,21 @@ def particle_finite_diff_test(
         fig.tight_layout()
         fig.savefig('snr_histogram_{0}_{1}.pdf'.format(c.simname, species))
         if acc_on:
+            acc_rms = np.mean(acc.ravel()**2)**.5
             col = ['red', 'green', 'blue']
             fig = plt.figure(figsize = (12, 6))
             a = fig.add_subplot(121)
-            a.hist(num_acc1.ravel(),
+            a.hist(num_acc1.ravel() / acc_rms,
                    histtype = 'step',
                    normed = True,
                    bins = 100,
                    label = 'd1vel')
-            a.hist(num_acc2.ravel(),
+            a.hist(num_acc2.ravel() / acc_rms,
                    histtype = 'step',
                    normed = True,
                    bins = 100,
                    label = 'd2pos')
-            a.hist(acc.ravel(),
+            a.hist(acc.ravel() / acc_rms,
                    histtype = 'step',
                    normed = True,
                    bins = 100,
@@ -281,6 +282,7 @@ def particle_finite_diff_test(
             a.set_yscale('log')
             a.legend(loc = 'best')
             a.set_title('acceleration histogram')
+            a.set_xlabel('$ a / \\langle a^2 \\rangle^{1/2}$')
             a = fig.add_subplot(122)
             for cc in range(3):
                 a.plot(num_acc1[:, pid, cc], color = col[cc])
