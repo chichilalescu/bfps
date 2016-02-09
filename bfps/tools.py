@@ -220,66 +220,85 @@ def particle_finite_diff_test(
 
     def SNR(a, b):
         return -10*np.log10(np.mean((a - b)**2, axis = (0, 2)) / np.mean(a**2, axis = (0, 2)))
+    snr_vel1 = SNR(num_vel1, vel[n+1:-n-1])
     if acc_on:
-        pid = np.argmin(SNR(num_acc1, acc[n+1:-n-1]))
+        snr_acc1 = SNR(num_acc1, acc[n+1:-n-1])
+        snr_acc2 = SNR(num_acc2, acc[n+1:-n-1])
+        pid = np.argmin(snr_acc2)
     else:
-        pid = np.argmin(SNR(num_vel1, vel[n+1:-n-1]))
+        pid = np.argmin(snr_vel1)
     pars = df['parameters']
+    interp_name = 'tracers{0}_interpolator'.format(species)
+    if interp_name not in pars.keys():
+        # old format
+        interp_name = 'tracers{0}_field'.format(species)
     to_print = (
             'steps={0}, interp={1}, neighbours={2}, '.format(
                 pars['tracers{0}_integration_steps'.format(species)].value,
-                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_type'].value,
-                pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_neighbours'].value))
-    if 'spline' in pars['tracers{0}_interpolator'.format(species)].value:
-        to_print += 'smoothness = {0}, '.format(pars[str(pars['tracers{0}_interpolator'.format(species)].value) + '_smoothness'].value)
+                pars[str(pars[interp_name].value, 'ASCII') + '_type'].value,
+                pars[str(pars[interp_name].value, 'ASCII') + '_neighbours'].value))
+    if 'spline' in str(pars[interp_name].value, 'ASCII'):
+        to_print += 'smoothness = {0}, '.format(pars[str(pars[interp_name].value, 'ASCII') + '_smoothness'].value)
     to_print += (
-            'SNR d1p-vel={0:.3f}'.format(np.mean(SNR(num_vel1, vel[n+1:-n-1]))))
+            'SNR d1p-vel={0:.3f}'.format(np.mean(snr_vel1)))
     if acc_on:
         to_print += (', d1v-acc={0:.3f}, d2p-acc={1:.3f}'.format(
-                np.mean(SNR(num_acc1, acc[n+1:-n-1])),
-                np.mean(SNR(num_acc2, acc[n+1:-n-1]))))
+                np.mean(snr_acc1),
+                np.mean(snr_acc2)))
     print(to_print)
-    if plot_on and acc_on:
+    if plot_on:
         import matplotlib.pyplot as plt
-        col = ['red', 'green', 'blue']
-        fig = plt.figure(figsize = (12, 6))
-        a = fig.add_subplot(121)
-        a.hist(num_acc1.ravel(),
-               histtype = 'step',
-               normed = True,
-               bins = 100,
-               label = 'd1vel')
-        a.hist(num_acc2.ravel(),
-               histtype = 'step',
-               normed = True,
-               bins = 100,
-               label = 'd2pos')
-        a.hist(acc.ravel(),
-               histtype = 'step',
-               normed = True,
-               bins = 100,
-               label = 'acc')
+        fig = plt.figure()
+        a = fig.add_subplot(111)
+        a.hist(snr_vel1, bins = 100, label = 'd1p-vel', histtype = 'step')
+        if acc_on:
+            a.hist(snr_acc1, bins = 100, label = 'd1v-acc', histtype = 'step')
+            a.hist(snr_acc2, bins = 100, label = 'd2p-acc', histtype = 'step')
         a.set_yscale('log')
         a.legend(loc = 'best')
-        a.set_title('acceleration histogram')
-        a = fig.add_subplot(122)
-        for cc in range(3):
-            a.plot(num_acc1[:, pid, cc], color = col[cc])
-            a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
-            a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
-
-        for n in range(1, m):
-            fc = get_fornberg_coeffs(0, range(-n, n+1))
-
-            num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
-            num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
-
-            for cc in range(3):
-                a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
-                a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
-        a.set_title('acceleration for trajectory with min SNR')
+        a.set_title(to_print)
         fig.tight_layout()
-        fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
-        plt.close(fig)
+        fig.savefig('snr_histogram_{0}_{1}.pdf'.format(c.simname, species))
+        if acc_on:
+            col = ['red', 'green', 'blue']
+            fig = plt.figure(figsize = (12, 6))
+            a = fig.add_subplot(121)
+            a.hist(num_acc1.ravel(),
+                   histtype = 'step',
+                   normed = True,
+                   bins = 100,
+                   label = 'd1vel')
+            a.hist(num_acc2.ravel(),
+                   histtype = 'step',
+                   normed = True,
+                   bins = 100,
+                   label = 'd2pos')
+            a.hist(acc.ravel(),
+                   histtype = 'step',
+                   normed = True,
+                   bins = 100,
+                   label = 'acc')
+            a.set_yscale('log')
+            a.legend(loc = 'best')
+            a.set_title('acceleration histogram')
+            a = fig.add_subplot(122)
+            for cc in range(3):
+                a.plot(num_acc1[:, pid, cc], color = col[cc])
+                a.plot(num_acc2[:, pid, cc], color = col[cc], dashes = (2, 2))
+                a.plot(acc[m+1:, pid, cc], color = col[cc], dashes = (1, 1))
+
+            for n in range(1, m):
+                fc = get_fornberg_coeffs(0, range(-n, n+1))
+
+                num_acc1 = sum(fc[1, n-i]*vel[n-i:vel.shape[0]-i-n] for i in range(-n, n+1)) / dt
+                num_acc2 = sum(fc[2, n-i]*pos[n-i:pos.shape[0]-i-n] for i in range(-n, n+1)) / dt**2
+
+                for cc in range(3):
+                    a.plot(num_acc1[m-n:, pid, cc], color = col[cc])
+                    a.plot(num_acc2[m-n:, pid, cc], color = col[cc], dashes = (2, 2))
+            a.set_title('acceleration for trajectory with min SNR')
+            fig.tight_layout()
+            fig.savefig('acc_test_{0}_{1}.pdf'.format(c.simname, species))
+            plt.close(fig)
     return pid
 
