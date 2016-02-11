@@ -49,20 +49,24 @@ if __name__ == '__main__':
             frozen_fields = True)
     c.pars_from_namespace(opt)
     c.fill_up_fluid_code()
-    c.add_particle_fields(
+    c.add_interpolator(
             name = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness),
             neighbours = opt.neighbours,
-            smoothness = opt.smoothness)
-    c.add_particle_fields(
+            smoothness = opt.smoothness,
+            class_name = 'interpolator')
+    c.add_interpolator(
             name = 'n{0}'.format(opt.neighbours),
             neighbours = opt.neighbours,
-            interp_type = 'Lagrange')
+            interp_type = 'Lagrange',
+            class_name = 'interpolator')
     c.add_particles(
             integration_steps = 1,
-            fields_name = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness))
+            interpolator = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness),
+            class_name = 'particles')
     c.add_particles(
             integration_steps = 1,
-            fields_name = 'n{0}'.format(opt.neighbours))
+            interpolator = 'n{0}'.format(opt.neighbours),
+            class_name = 'particles')
     c.finalize_code()
     c.write_src()
     c.write_par()
@@ -84,17 +88,17 @@ if __name__ == '__main__':
     c.set_host_info({'type' : 'pc'})
     if opt.run:
         c.run(ncpu = opt.ncpu)
-    df = c.get_data_file()
+    df = c.get_particle_file()
     fig = plt.figure(figsize=(10,5))
     a = fig.add_subplot(121)
     a.contour(
-            df['particles/tracers0/state'][0, :, 0].reshape(nn, nn),
-            df['particles/tracers0/state'][0, :, 2].reshape(nn, nn),
-            df['particles/tracers0/velocity'][1, :, 0].reshape(nn, nn))
+            df['tracers0/state'][0, :, 0].reshape(nn, nn),
+            df['tracers0/state'][0, :, 2].reshape(nn, nn),
+            df['tracers0/velocity'][1, :, 0].reshape(nn, nn))
     a = fig.add_subplot(122)
     a.contour(
-            df['particles/tracers1/state'][0, :, 0].reshape(nn, nn),
-            df['particles/tracers1/state'][0, :, 2].reshape(nn, nn),
-            df['particles/tracers1/velocity'][1, :, 0].reshape(nn, nn))
+            df['tracers1/state'][0, :, 0].reshape(nn, nn),
+            df['tracers1/state'][0, :, 2].reshape(nn, nn),
+            df['tracers1/velocity'][1, :, 0].reshape(nn, nn))
     fig.savefig('interp.pdf')
 
