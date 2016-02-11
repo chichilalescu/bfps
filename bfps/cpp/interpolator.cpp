@@ -31,7 +31,8 @@
 template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::interpolator(
         fluid_solver_base<rnumber> *fs,
-        base_polynomial_values BETA_POLYS) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
+        base_polynomial_values BETA_POLYS,
+        ...) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
     int tdims[4];
     this->buffer_size = (interp_neighbours+1)*this->descriptor->slice_size;

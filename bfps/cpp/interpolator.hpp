@@ -47,7 +47,8 @@ class interpolator:public interpolator_base<rnumber, interp_neighbours>
 
         interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
+                base_polynomial_values BETA_POLYS,
+                ...);
         ~interpolator();
 
         /* destroys input */

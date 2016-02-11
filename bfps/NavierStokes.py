@@ -420,10 +420,11 @@ class NavierStokes(_fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'field_interpolator',
-            field_name = 'fs->rvelocity'):
-        self.fluid_includes += '#include "rFFTW_interpolator.hpp"\n'
-        self.fluid_variables += 'rFFTW_interpolator <{0}, {1}> *{2};\n'.format(
-                self.C_dtype, neighbours, name)
+            field_name = 'fs->rvelocity',
+            class_name = 'rFFTW_interpolator'):
+        self.fluid_includes += '#include "{0}.hpp"\n'.format(class_name)
+        self.fluid_variables += '{0} <{1}, {2}> *{3};\n'.format(
+                class_name, self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
         self.parameters[name + '_neighbours'] = neighbours
         if interp_type == 'spline':
@@ -431,8 +432,9 @@ class NavierStokes(_fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.fluid_start += '{0} = new rFFTW_interpolator<{1}, {2}>(fs, {3}, {4});\n'.format(
+        self.fluid_start += '{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n'.format(
                 name,
+                class_name,
                 self.C_dtype,
                 neighbours,
                 beta_name,
@@ -519,12 +521,12 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
-                {0}->field = fs->rvelocity;
+                {0}->read_rFFTW(fs->rvelocity);
                 {0}->sample(ps{1}->nparticles, ps{1}->ncomponents, ps{1}->state, velocity);
                 """.format(interpolator[s], s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
-                    {0}->field = {1};
+                    {0}->read_rFFTW({1});
                     {0}->sample(ps{2}->nparticles, ps{2}->ncomponents, ps{2}->state, acceleration);
                     """.format(interpolator[s], acc_name, s0 + s)
             output_vel_acc += (
@@ -579,7 +581,7 @@ class NavierStokes(_fluid_particle_base):
                     update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
-                self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
+                self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(particle_file, false);\n'.format(s0 + s)
         self.particle_stat_src += output_vel_acc

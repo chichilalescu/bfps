@@ -46,6 +46,10 @@ def scaling(opt):
     c1 = launch(opt, dt = c0.parameters['dt'], particle_class = 'particles')
     c1.compute_statistics()
     compare_stats(opt, c0, c1)
+    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
+    c2 = launch(opt, dt = c0.parameters['dt'], particle_class = 'particles', interpolator_class = 'interpolator')
+    c2.compute_statistics()
+    compare_stats(opt, c1, c2)
     return None
 
 if __name__ == '__main__':
@@ -54,8 +58,8 @@ if __name__ == '__main__':
              '--run',
              '--initialize',
              '--ncpu', '4',
-             '--nparticles', '10000',
-             '--niter_todo', '32',
+             '--nparticles', '100',
+             '--niter_todo', '8',
              '--precision', 'single',
              '--wd', 'data/single'] +
             sys.argv[1:])

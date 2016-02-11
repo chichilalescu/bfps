@@ -55,6 +55,13 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
                 rnumber *FIELD_DATA);
         ~rFFTW_interpolator();
 
+        /* does not destroy input */
+        inline int read_rFFTW(void *src)
+        {
+            this->field = (rnumber*)src;
+            return EXIT_SUCCESS;
+        }
+
         /* interpolate field at an array of locations */
         void sample(
                 const int nparticles,

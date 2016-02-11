@@ -60,6 +60,9 @@ class interpolator_base
                 base_polynomial_values BETA_POLYS);
         ~interpolator_base(){}
 
+        /* may destroy input */
+        virtual int read_rFFTW(void *src) = 0;
+
         /* map real locations to grid coordinates */
         void get_grid_coordinates(
                 const int nparticles,
