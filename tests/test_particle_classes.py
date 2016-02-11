@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 def scaling(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = launch(opt, dt = 0.2/opt.n, particle_class = 'rFFTW_particles')
+    c0 = launch(opt, dt = 0.2/opt.n)
     c0.compute_statistics()
     print ('Re = {0:.0f}'.format(c0.statistics['Re']))
     print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))

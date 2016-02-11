@@ -337,8 +337,7 @@ class NavierStokes(_fluid_particle_base):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
-                                 'hid_t particle_file;\n' +
-                                 'hid_t H5T_field_complex;\n')
+                                 'hid_t particle_file;\n')
         self.fluid_definitions += """
                     typedef struct {{
                         {0} re;
@@ -367,12 +366,6 @@ class NavierStokes(_fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 fs->read('v', 'c');
-                if (fs->cd->myrank == 0)
-                {{
-                    H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
-                    H5Tinsert(H5T_field_complex, "r", HOFFSET(tmp_complex_type, re), {2});
-                    H5Tinsert(H5T_field_complex, "i", HOFFSET(tmp_complex_type, im), {2});
-                }}
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         if self.parameters['nparticles'] > 0:
@@ -395,13 +388,12 @@ class NavierStokes(_fluid_particle_base):
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
-                          'if (fs->cd->myrank == 0)\n' +
-                          '{\n' +
-                          'H5Tclose(H5T_field_complex);\n' +
-                          '}\n' +
                           'delete fs;\n')
         if self.parameters['nparticles'] > 0:
-            self.fluid_end += 'H5Fclose(particle_file);\n'
+            self.fluid_end += ('if (myrank == 0)\n' +
+                               '{\n' +
+                               'H5Fclose(particle_file);\n' +
+                               '}\n')
         return None
     def add_3D_rFFTW_field(
             self,
@@ -521,6 +513,7 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
+                fs->ift_velocity();
                 {0}->read_rFFTW(fs->rvelocity);
                 {0}->sample(ps{1}->nparticles, ps{1}->ncomponents, ps{1}->state, velocity);
                 """.format(interpolator[s], s0 + s)
@@ -581,6 +574,7 @@ class NavierStokes(_fluid_particle_base):
                     update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
+                self.particle_loop += 'fs->ift_velocity();\n'
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(particle_file, false);\n'.format(s0 + s)
