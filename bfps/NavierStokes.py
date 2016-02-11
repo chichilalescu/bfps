@@ -513,6 +513,7 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
+                fs->compute_velocity(fs->cvorticity);
                 fs->ift_velocity();
                 {0}->read_rFFTW(fs->rvelocity);
                 {0}->sample(ps{1}->nparticles, ps{1}->ncomponents, ps{1}->state, velocity);
@@ -574,6 +575,7 @@ class NavierStokes(_fluid_particle_base):
                     update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
+                self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
                 self.particle_loop += 'fs->ift_velocity();\n'
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)

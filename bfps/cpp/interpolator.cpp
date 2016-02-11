@@ -128,7 +128,7 @@ void interpolator<rnumber, interp_neighbours>::sample(
     /* get grid coordinates */
     int *xg = new int[3*nparticles];
     double *xx = new double[3*nparticles];
-    double *yy =  new double[3*nparticles];
+    double *yy = new double[3*nparticles];
     std::fill_n(yy, 3*nparticles, 0.0);
     this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
     /* perform interpolation */
@@ -171,7 +171,7 @@ void interpolator<rnumber, interp_neighbours>::operator()(
     ptrdiff_t bigiz, bigiy, bigix;
     for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
     {
-        bigiz = ptrdiff_t(xg[2]+iz);
+        bigiz = ptrdiff_t(xg[2]+iz)-this->descriptor->starts[0];
         for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
         {
             bigiy = ptrdiff_t(MOD(xg[1]+iy, this->buffered_descriptor->sizes[1]));
