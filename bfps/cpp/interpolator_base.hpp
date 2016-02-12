@@ -70,6 +70,10 @@ class interpolator_base
                 const double *__restrict__ x,
                 int *__restrict__ xg,
                 double *__restrict__ xx);
+        void get_grid_coordinates(
+                const double *__restrict__ x,
+                int *__restrict__ xg,
+                double *__restrict__ xx);
         /* interpolate field at an array of locations */
         virtual void sample(
                 const int nparticles,

@@ -51,20 +51,30 @@ void interpolator_base<rnumber, interp_neighbours>::get_grid_coordinates(
         int *xg,
         double *xx)
 {
+    for (int p=0; p<nparticles; p++)
+        this->get_grid_coordinates(
+                x + p*pdimension,
+                xg + p*3,
+                xx + p*3);
+}
+
+template <class rnumber, int interp_neighbours>
+void interpolator_base<rnumber, interp_neighbours>::get_grid_coordinates(
+        const double *x,
+        int *xg,
+        double *xx)
+{
     static double grid_size[] = {this->dx, this->dy, this->dz};
     double tval;
-    std::fill_n(xg, nparticles*3, 0);
-    std::fill_n(xx, nparticles*3, 0.0);
-    for (int p=0; p<nparticles; p++)
+    for (int c=0; c<3; c++)
     {
-        for (int c=0; c<3; c++)
-        {
-            tval = floor(x[p*pdimension+c]/grid_size[c]);
-            xg[p*3+c] = MOD(int(tval), this->descriptor->sizes[2-c]);
-            xx[p*3+c] = (x[p*pdimension+c] - tval*grid_size[c]) / grid_size[c];
-        }
+        tval = floor(x[c]/grid_size[c]);
+        xg[c] = MOD(int(tval), this->descriptor->sizes[2-c]);
+        xx[c] = (x[c] - tval*grid_size[c]) / grid_size[c];
     }
 }
+
+
 
 template class interpolator_base<float, 1>;
 template class interpolator_base<float, 2>;
