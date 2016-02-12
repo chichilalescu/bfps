@@ -77,6 +77,11 @@ class particles
                 const int INTEGRATION_STEPS = 2);
         ~particles();
 
+        inline void sample(interpolator_base<rnumber, interp_neighbours> *field, double *y)
+        {
+            field->sample(this->nparticles, this->ncomponents, this->state, y);
+        }
+
         void get_rhs(
                 double *__restrict__ x,
                 double *__restrict__ rhs);
