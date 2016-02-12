@@ -43,9 +43,11 @@ class single_particle_state
 
         single_particle_state();
         single_particle_state(const single_particle_state &src);
+        single_particle_state(const double *src);
         ~single_particle_state();
 
         single_particle_state<particle_type> &operator=(const single_particle_state &src);
+        single_particle_state<particle_type> &operator=(const double *src);
 };
 
 #endif//PARTICLES_BASE

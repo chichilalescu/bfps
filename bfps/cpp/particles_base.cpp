@@ -53,6 +53,19 @@ single_particle_state<particle_type>::single_particle_state(
 }
 
 template <int particle_type>
+single_particle_state<particle_type>::single_particle_state(
+        const double *src)
+{
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            this->data = new double[3];
+            std::copy(src, src + 3, this->data);
+            break;
+    }
+}
+
+template <int particle_type>
 single_particle_state<particle_type>::~single_particle_state()
 {
     switch(particle_type)
@@ -71,6 +84,19 @@ single_particle_state<particle_type> &single_particle_state<particle_type>::oper
     {
         case VELOCITY_TRACER:
             std::copy(src.data, src.data + 3, this->data);
+            break;
+    }
+    return *this;
+}
+
+template <int particle_type>
+single_particle_state<particle_type> &single_particle_state<particle_type>::operator=(
+        const double *src)
+{
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            std::copy(src, src + 3, this->data);
             break;
     }
     return *this;
