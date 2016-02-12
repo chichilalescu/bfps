@@ -24,29 +24,60 @@
 
 
 
-#include "interpolator_base.hpp"
-
-#ifndef PARTICLES_BASE
-
-#define PARTICLES_BASE
-
-/* particle types */
-enum particle_types {VELOCITY_TRACER};
-
-/* 1 particle state type */
+#include <algorithm>
+#include "particles_base.hpp"
 
 template <int particle_type>
-class single_particle_state
+single_particle_state<particle_type>::single_particle_state()
 {
-    public:
-        double *data;
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            this->data = new double[3];
+            std::fill_n(this->data, 3, 0);
+            break;
+    }
+}
 
-        single_particle_state();
-        single_particle_state(const single_particle_state &src);
-        ~single_particle_state();
+template <int particle_type>
+single_particle_state<particle_type>::single_particle_state(
+        const single_particle_state<particle_type> &src)
+{
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            this->data = new double[3];
+            std::copy(src.data, src.data + 3, this->data);
+            break;
+    }
+}
 
-        single_particle_state<particle_type> &operator=(const single_particle_state &src);
-};
+template <int particle_type>
+single_particle_state<particle_type>::~single_particle_state()
+{
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            delete[] this->data;
+            break;
+    }
+}
 
-#endif//PARTICLES_BASE
+template <int particle_type>
+single_particle_state<particle_type> &single_particle_state<particle_type>::operator=(
+        const single_particle_state &src)
+{
+    switch(particle_type)
+    {
+        case VELOCITY_TRACER:
+            std::copy(src.data, src.data + 3, this->data);
+            break;
+    }
+    return *this;
+}
 
+
+
+/*****************************************************************************/
+template class single_particle_state<VELOCITY_TRACER>;
+/*****************************************************************************/
