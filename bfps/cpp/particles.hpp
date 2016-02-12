@@ -43,7 +43,6 @@ class particles
     public:
         int myrank, nprocs;
         MPI_Comm comm;
-        rnumber *data;
 
         /* state will generally hold all the information about the particles.
          * in the beginning, we will only need to solve 3D ODEs, but I figured
