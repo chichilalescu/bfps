@@ -51,8 +51,7 @@ class interpolator:public interpolator_base<rnumber, interp_neighbours>
                 ...);
         ~interpolator();
 
-        /* destroys input */
-        int read_rFFTW(void *src);
+        int read_rFFTW(const void *src);
 
         /* interpolate field at an array of locations */
         void sample(

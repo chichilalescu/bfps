@@ -58,7 +58,7 @@ if __name__ == '__main__':
              '--run',
              '--initialize',
              '--ncpu', '4',
-             '--nparticles', '100',
+             '--nparticles', '10000',
              '--niter_todo', '8',
              '--precision', 'single',
              '--wd', 'data/single'] +

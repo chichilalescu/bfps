@@ -35,16 +35,16 @@ interpolator<rnumber, interp_neighbours>::interpolator(
         ...) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
     int tdims[4];
-    this->buffer_size = (interp_neighbours+1)*this->descriptor->slice_size;
     this->compute_beta = BETA_POLYS;
     tdims[0] = (interp_neighbours+1)*2*this->descriptor->nprocs + this->descriptor->sizes[0];
     tdims[1] = this->descriptor->sizes[1];
-    tdims[2] = this->descriptor->sizes[2];
+    tdims[2] = this->descriptor->sizes[2]+2;
     tdims[3] = this->descriptor->sizes[3];
     this->buffered_descriptor = new field_descriptor<rnumber>(
             4, tdims,
             this->descriptor->mpi_dtype,
             this->descriptor->comm);
+    this->buffer_size = (interp_neighbours+1)*this->buffered_descriptor->slice_size;
     this->field = new rnumber[this->buffered_descriptor->local_size];
 }
 
@@ -52,18 +52,17 @@ template <class rnumber, int interp_neighbours>
 interpolator<rnumber, interp_neighbours>::~interpolator()
 {
     delete[] this->field;
+    delete this->buffered_descriptor;
 }
 
 template <class rnumber, int interp_neighbours>
-int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
+int interpolator<rnumber, interp_neighbours>::read_rFFTW(const void *void_src)
 {
-    /* now do regular things */
     rnumber *src = (rnumber*)void_src;
     rnumber *dst = this->field;
     /* do big copy of middle stuff */
-    clip_zero_padding<rnumber>(this->descriptor, src, 3);
     std::copy(src,
-              src + this->descriptor->local_size,
+              src + this->buffered_descriptor->slice_size*this->descriptor->subsizes[0],
               dst + this->buffer_size);
     MPI_Datatype MPI_RNUM = (sizeof(rnumber) == 4) ? MPI_FLOAT : MPI_DOUBLE;
     int rsrc;
@@ -83,7 +82,7 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
                     this->buffered_descriptor->comm);
         if (this->descriptor->myrank == rdst)
             MPI_Recv(
-                    dst + this->buffer_size + this->descriptor->local_size,
+                    dst + this->buffer_size + this->buffered_descriptor->slice_size*this->descriptor->subsizes[0],
                     this->buffer_size,
                     MPI_RNUM,
                     rsrc,
@@ -98,7 +97,7 @@ int interpolator<rnumber, interp_neighbours>::read_rFFTW(void *void_src)
                                           this->descriptor->sizes[0])];
         if (this->descriptor->myrank == rsrc)
             MPI_Send(
-                    src + this->descriptor->local_size - this->buffer_size,
+                    src + this->buffered_descriptor->slice_size*this->descriptor->subsizes[0] - this->buffer_size,
                     this->buffer_size,
                     MPI_RNUM,
                     rdst,
@@ -174,10 +173,10 @@ void interpolator<rnumber, interp_neighbours>::operator()(
         bigiz = ptrdiff_t(xg[2]+iz)-this->descriptor->starts[0];
         for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
         {
-            bigiy = ptrdiff_t(MOD(xg[1]+iy, this->buffered_descriptor->sizes[1]));
+            bigiy = ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1]));
             for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
             {
-                bigix = ptrdiff_t(MOD(xg[0]+ix, this->buffered_descriptor->sizes[2]));
+                bigix = ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2]));
                 ptrdiff_t tindex = ((bigiz *this->buffered_descriptor->sizes[1] +
                                      bigiy)*this->buffered_descriptor->sizes[2] +
                                      bigix)*3 + this->buffer_size;

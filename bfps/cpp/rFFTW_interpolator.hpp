@@ -56,7 +56,7 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
         ~rFFTW_interpolator();
 
         /* does not destroy input */
-        inline int read_rFFTW(void *src)
+        inline int read_rFFTW(const void *src)
         {
             this->field = (rnumber*)src;
             return EXIT_SUCCESS;
