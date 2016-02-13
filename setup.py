@@ -81,7 +81,8 @@ else:
     if (('develop' in git_branch) or
         ('feature' in git_branch) or
         ('bugfix'  in git_branch)):
-        VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode()
+        VERSION = subprocess.check_output(
+                ['git', 'describe', '--tags', '--dirty']).strip().decode().replace('-g', '+g').replace('-dirty', '.dirty').replace('-', '.post')
     else:
         VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode().split('-')[0]
 print('This is bfps version ' + VERSION)
