@@ -82,6 +82,17 @@ class particles
             field->sample(this->nparticles, this->ncomponents, this->state, y);
         }
 
+        inline void sample(
+                interpolator_base<rnumber, interp_neighbours> *field,
+                const hid_t data_file_id,
+                const char *dset_name)
+        {
+            double *y = new double[this->nparticles*this->ncomponents];
+            field->sample(this->nparticles, this->ncomponents, this->state, y);
+            this->write(data_file_id, dset_name, y);
+            delete[] y;
+        }
+
         void get_rhs(
                 double *__restrict__ x,
                 double *__restrict__ rhs);

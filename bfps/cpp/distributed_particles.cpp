@@ -75,29 +75,30 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::~distributed_p
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
-        interpolator<rnumber, interp_neighbours> *field, double *y)
+        interpolator<rnumber, interp_neighbours> *field,
+        std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
-    double *yy = new double[this->nparticles*3];
-    std::fill_n(yy, this->nparticles*3, 0);
     int xg[3];
     double xx[3];
-    for (int p=0; p<this->nparticles; p++)
+    double yy[3];
+    y.clear();
+    for (auto &pp: this->state)
     {
-        auto pp = this->state.find(p);
-        if (pp != this->state.end())
-        {
-            field->get_grid_coordinates(pp->second.data, xg, xx);
-            (*field)(xg, xx, yy+pp->first*3);
-        }
+        field->get_grid_coordinates(pp.second.data, xg, xx);
+        (*field)(xg, xx, yy);
+        y[pp.first] = yy;
     }
-    MPI_Allreduce(
-            yy,
-            y,
-            3*nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] yy;
+}
+
+template <int particle_type, class rnumber, int interp_neighbours>
+void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
+        interpolator<rnumber, interp_neighbours> *field,
+        const hid_t data_file_id,
+        const char *dset_name)
+{
+    std::unordered_map<int, single_particle_state<particle_type>> y;
+    this->sample(field, y);
+    this->write(data_file_id, dset_name, y);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -113,20 +114,7 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
-    this->rhs[0].clear();
-    double yy[3];
-    int xg[3];
-    double xx[3];
-    for (int p=0; p<this->nparticles; p++)
-    {
-        auto pp = this->state.find(p);
-        if (pp != this->state.end())
-        {
-            this->vel->get_grid_coordinates(pp->second.data, xg, xx);
-            (*this->vel)(xg, xx, yy);
-            this->rhs[0][pp->first] = yy;
-        }
-    }
+    this->sample(this->vel, this->rhs[0]);
     for (auto &pp: this->state)
         for (int i=0; i<this->ncomponents; i++)
             switch(nsteps)
@@ -264,26 +252,46 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const hid_t data_file_id,
         const char *dset_name,
-        const double *data)
+        std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
-    //std::string temp_string = (std::string(this->name) +
-    //                           std::string("/") +
-    //                           std::string(dset_name));
-    //hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-    //hid_t mspace, wspace;
-    //hsize_t count[3], offset[3];
-    //wspace = H5Dget_space(dset);
-    //H5Sget_simple_extent_dims(wspace, count, NULL);
-    //count[0] = 1;
-    //offset[0] = this->iteration / this->traj_skip;
-    //offset[1] = 0;
-    //offset[2] = 0;
-    //mspace = H5Screate_simple(3, count, NULL);
-    //H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-    //H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, data);
-    //H5Sclose(mspace);
-    //H5Sclose(wspace);
-    //H5Dclose(dset);
+    double *data = new double[this->nparticles*this->ncomponents];
+    double *yy = new double[this->nparticles*this->ncomponents];
+    std::fill_n(yy, this->nparticles*this->ncomponents, 0);
+    for (int p=0; p<this->nparticles; p++)
+    {
+        auto pp = y.find(p);
+        if (pp != y.end())
+            std::copy(pp->second.data,
+                      pp->second.data + this->ncomponents,
+                      yy + pp->first*this->ncomponents);
+    }
+    MPI_Allreduce(
+            yy,
+            data,
+            this->ncomponents*nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->comm);
+    delete[] yy;
+    std::string temp_string = (std::string(this->name) +
+                               std::string("/") +
+                               std::string(dset_name));
+    hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+    hid_t mspace, wspace;
+    hsize_t count[3], offset[3];
+    wspace = H5Dget_space(dset);
+    H5Sget_simple_extent_dims(wspace, count, NULL);
+    count[0] = 1;
+    offset[0] = this->iteration / this->traj_skip;
+    offset[1] = 0;
+    offset[2] = 0;
+    mspace = H5Screate_simple(3, count, NULL);
+    H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, data);
+    delete[] data;
+    H5Sclose(mspace);
+    H5Sclose(wspace);
+    H5Dclose(dset);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -291,9 +299,9 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const hid_t data_file_id,
         const bool write_rhs)
 {
+    this->write(data_file_id, "state", this->state);
     //if (this->myrank == 0)
     //{
-    //    this->write(data_file_id, "state", this->state);
     //    if (write_rhs)
     //    {
     //        std::string temp_string = (

@@ -499,14 +499,12 @@ class NavierStokes(_fluid_particle_base):
         # array for putting sampled velocity in
         # must compute velocity, just in case it was messed up by some
         # other particle species before the stats
-        output_vel_acc += ('double *velocity = new double[3*nparticles];\n' +
-                           'fs->compute_velocity(fs->cvorticity);\n')
+        output_vel_acc += 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == list:
             output_vel_acc += 'fs->ift_velocity();\n'
         if not type(acc_name) == type(None):
             # array for putting sampled acceleration in
             # must compute acceleration
-            output_vel_acc += 'double *acceleration = new double[3*nparticles];\n'
             output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
         for s in range(nspecies):
             if type(kcut) == list:
@@ -514,24 +512,13 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
                 {0}->read_rFFTW(fs->rvelocity);
-                ps{1}->sample({0}, velocity);
+                ps{1}->sample({0}, particle_file, "velocity");
                 """.format(interpolator[s], s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
                     {0}->read_rFFTW({1});
-                    ps{2}->sample({0}, acceleration);
+                    ps{2}->sample({0}, particle_file, "acceleration");
                     """.format(interpolator[s], acc_name, s0 + s)
-            output_vel_acc += (
-                    'if (myrank == 0)\n' +
-                    '{\n' +
-                    'ps{0}->write(particle_file, "velocity", velocity);\n'.format(s0 + s))
-            if not type(acc_name) == type(None):
-                output_vel_acc += (
-                        'ps{0}->write(particle_file, "acceleration", acceleration);\n'.format(s0 + s))
-            output_vel_acc += '}\n'
-        output_vel_acc += 'delete[] velocity;\n'
-        if not type(acc_name) == type(None):
-            output_vel_acc += 'delete[] acceleration;\n'
         output_vel_acc += '}\n'
 
         #### initialize, stepping and finalize code

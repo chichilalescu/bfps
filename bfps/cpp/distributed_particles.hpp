@@ -74,11 +74,20 @@ class distributed_particles
                 const int INTEGRATION_STEPS = 2);
         ~distributed_particles();
 
-        void sample(interpolator<rnumber, interp_neighbours> *field, double *y);
+        void sample(
+                interpolator<rnumber, interp_neighbours> *field,
+                const hid_t data_file_id,
+                const char *dset_name);
+        void sample(
+                interpolator<rnumber, interp_neighbours> *field,
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
 
         /* input/output */
         void read(const hid_t data_file_id);
-        void write(const hid_t data_file_id, const char *dset_name, const double *data);
+        void write(
+                const hid_t data_file_id,
+                const char *dset_name,
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
         void write(const hid_t data_file_id, const bool write_rhs = true);
 
         /* solvers */
