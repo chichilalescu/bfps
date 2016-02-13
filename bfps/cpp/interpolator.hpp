@@ -24,6 +24,7 @@
 
 
 
+#include <cmath>
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
@@ -52,6 +53,12 @@ class interpolator:public interpolator_base<rnumber, interp_neighbours>
         ~interpolator();
 
         int read_rFFTW(const void *src);
+
+        inline bool z_is_here(double z)
+        {
+            return (this->descriptor->rank[MOD(int(floor(z/this->dz)), this->descriptor->sizes[0])] ==
+                    this->descriptor->myrank);
+        }
 
         /* interpolate field at an array of locations */
         void sample(

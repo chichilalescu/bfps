@@ -132,6 +132,11 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
             MPI_DOUBLE,
             0,
             this->comm);
+    for (int p=0; p<this->nparticles; p++)
+    {
+        if (this->vel->z_is_here(temp[this->ncomponents*p+2]))
+            this->state[p] = temp + this->ncomponents*p;
+    }
     //if (this->myrank == 0)
     //{
     //    if (this->iteration > 0)
