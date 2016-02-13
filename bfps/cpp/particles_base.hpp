@@ -49,7 +49,7 @@ class single_particle_state
         single_particle_state<particle_type> &operator=(const single_particle_state &src);
         single_particle_state<particle_type> &operator=(const double *src);
 
-        inline double operator[](const int i)
+        inline double &operator[](const int i)
         {
             return this->data[i];
         }

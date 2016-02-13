@@ -74,6 +74,33 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::~distributed_p
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
+void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
+        interpolator<rnumber, interp_neighbours> *field, double *y)
+{
+    double *yy = new double[this->nparticles*3];
+    std::fill_n(yy, this->nparticles*3, 0);
+    int xg[3];
+    double xx[3];
+    for (int p=0; p<this->nparticles; p++)
+    {
+        auto pp = this->state.find(p);
+        if (pp != this->state.end())
+        {
+            field->get_grid_coordinates(pp->second.data, xg, xx);
+            (*field)(xg, xx, yy+pp->first*3);
+        }
+    }
+    MPI_Allreduce(
+            yy,
+            y,
+            3*nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->comm);
+    delete[] yy;
+}
+
+template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
@@ -86,6 +113,58 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
+    this->rhs[0].clear();
+    double yy[3];
+    int xg[3];
+    double xx[3];
+    for (int p=0; p<this->nparticles; p++)
+    {
+        auto pp = this->state.find(p);
+        if (pp != this->state.end())
+        {
+            this->vel->get_grid_coordinates(pp->second.data, xg, xx);
+            (*this->vel)(xg, xx, yy);
+            this->rhs[0][pp->first] = yy;
+        }
+    }
+    for (auto &pp: this->state)
+        for (int i=0; i<this->ncomponents; i++)
+            switch(nsteps)
+            {
+                case 1:
+                    pp.second[i] += this->dt*this->rhs[0][pp.first][i];
+                    break;
+                case 2:
+                    pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
+                                            -   this->rhs[1][pp.first][i])/2;
+                    break;
+                case 3:
+                    pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
+                                            - 16*this->rhs[1][pp.first][i]
+                                            +  5*this->rhs[2][pp.first][i])/12;
+                    break;
+                case 4:
+                    pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
+                                            - 59*this->rhs[1][pp.first][i]
+                                            + 37*this->rhs[2][pp.first][i]
+                                            -  9*this->rhs[1][pp.first][i])/24;
+                    break;
+                case 5:
+                    pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
+                                            - 2774*this->rhs[1][pp.first][i]
+                                            + 2616*this->rhs[2][pp.first][i]
+                                            - 1274*this->rhs[3][pp.first][i]
+                                            +  251*this->rhs[4][pp.first][i])/720;
+                    break;
+                case 6:
+                    pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
+                                            - 7923*this->rhs[1][pp.first][i]
+                                            + 9982*this->rhs[2][pp.first][i]
+                                            - 7298*this->rhs[3][pp.first][i]
+                                            + 2877*this->rhs[4][pp.first][i]
+                                            -  475*this->rhs[5][pp.first][i])/1440;
+                    break;
+    }
     this->roll_rhs();
 }
 
@@ -137,6 +216,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
         if (this->vel->z_is_here(temp[this->ncomponents*p+2]))
             this->state[p] = temp + this->ncomponents*p;
     }
+    DEBUG_MSG("size of %s->state is %ld\n", this->name, this->state.size());
     //if (this->myrank == 0)
     //{
     //    if (this->iteration > 0)
