@@ -131,17 +131,125 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
 {
-    std::vector<int> particles_to_send, particles_to_receive;
-    /* get list of id-s to send to myrank-1 */
+    /* neighbouring rank offsets */
+    int ro[2];
+    ro[0] = -1;
+    ro[1] = 1;
+    /* neighbouring ranks */
+    int nr[2];
+    nr[0] = MOD(this->myrank+ro[0], this->nprocs);
+    nr[1] = MOD(this->myrank+ro[1], this->nprocs);
+    /* particles to send, particles to receive */
+    std::vector<int> ps[2], pr[2];
+    /* number of particles to send, number of particles to receive */
+    int nps[2], npr[2];
+    int rsrc, rdst;
+    /* get list of id-s to send */
+    for (auto &pp: x)
+        for (int i=0; i<2; i++)
+            if (this->vel->get_rank(pp.second.data[2]) == nr[i])
+                ps[i].push_back(pp.first);
     /* prepare data for send recv */
-    /* send recv */
-    /* get list of id-s to send to myrank+1 */
-    /* prepare data for send recv */
-    /* send recv */
+    for (int i=0; i<2; i++)
+        nps[i] = ps[i].size();
+    for (rsrc = 0; rsrc<this->nprocs; rsrc++)
+        for (int i=0; i<2; i++)
+        {
+            rdst = MOD(rsrc+ro[i], this->nprocs);
+            if (this->myrank == rsrc)
+                MPI_Send(
+                        nps+i,
+                        1,
+                        MPI_INTEGER,
+                        rdst,
+                        2*(rsrc*this->nprocs + rdst)+i,
+                        this->comm);
+            if (this->myrank == rdst)
+                MPI_Recv(
+                        npr+1-i,
+                        1,
+                        MPI_INTEGER,
+                        rsrc,
+                        2*(rsrc*this->nprocs + rdst)+i,
+                        this->comm,
+                        MPI_STATUS_IGNORE);
+        }
+    DEBUG_MSG("I have to send %d %d particles\n", nps[0], nps[1]);
+    DEBUG_MSG("I have to recv %d %d particles\n", npr[0], npr[1]);
+    for (int i=0; i<2; i++)
+        pr[i].resize(npr[i]);
+
+    double *buffer;
+    for (rsrc = 0; rsrc<this->nprocs; rsrc++)
+        for (int i=0; i<2; i++)
+        {
+            rdst = MOD(rsrc+ro[i], this->nprocs);
+            if (this->myrank == rsrc && nps[i] > 0)
+            {
+                MPI_Send(
+                        &ps[i].front(),
+                        nps[i],
+                        MPI_INTEGER,
+                        rdst,
+                        2*(rsrc*this->nprocs + rdst),
+                        this->comm);
+                buffer = new double[nps[i]*(1+vals.size())*this->ncomponents];
+                for (int p: ps[i])
+                {
+                    std::copy(x[p].data,
+                              x[p].data + this->ncomponents,
+                              buffer + p*(1+vals.size())*this->ncomponents);
+                    x.erase(p);
+                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    {
+                        std::copy(vals[tindex][p].data,
+                                  vals[tindex][p].data + this->ncomponents,
+                                  buffer + (p*(1+vals.size()) + tindex+1)*this->ncomponents);
+                        vals[tindex].erase(p);
+                    }
+                }
+                MPI_Send(
+                        buffer,
+                        nps[i],
+                        MPI_DOUBLE,
+                        rdst,
+                        2*(rsrc*this->nprocs + rdst),
+                        this->comm);
+                delete[] buffer;
+            }
+            if (this->myrank == rdst && npr[1-i] > 0)
+                MPI_Recv(
+                        &pr[1-i].front(),
+                        npr[1-i],
+                        MPI_INTEGER,
+                        rsrc,
+                        2*(rsrc*this->nprocs + rdst),
+                        this->comm,
+                        MPI_STATUS_IGNORE);
+                buffer = new double[npr[i-1]*(1+vals.size())*this->ncomponents];
+                MPI_Recv(
+                        buffer,
+                        npr[1-i],
+                        MPI_DOUBLE,
+                        rsrc,
+                        2*(rsrc*this->nprocs + rdst),
+                        this->comm,
+                        MPI_STATUS_IGNORE);
+                for (int p: pr[1-i])
+                {
+                    x[p] = buffer + (p*(1+vals.size()))*this->ncomponents;
+                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    {
+                        vals[tindex][p] = buffer + (p*(1+vals.size()) + tindex+1)*this->ncomponents;
+                    }
+                }
+                delete[] buffer;
+        }
+
 
 #ifndef NDEBUG
     /* check that all particles at x are local */
-    for (auto &pp: this->state)
+    for (auto &pp: x)
         assert(this->vel->get_rank(pp.second.data[2]) == this->myrank);
 #endif
 }
