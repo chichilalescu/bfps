@@ -37,14 +37,15 @@
 template <class rnumber, int interp_neighbours>
 class interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
+    private:
+        /* pointer to buffered field */
+        rnumber *field;
+
     public:
         ptrdiff_t buffer_size;
 
         /* descriptor for buffered field */
         field_descriptor<rnumber> *buffered_descriptor;
-
-        /* pointer to buffered field */
-        rnumber *field;
 
         interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,

@@ -42,12 +42,13 @@
 template <int particle_type, class rnumber, int interp_neighbours>
 class distributed_particles
 {
+    private:
+        std::unordered_map<int, single_particle_state<particle_type> > state;
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
+
     public:
         int myrank, nprocs;
         MPI_Comm comm;
-
-        std::unordered_map<int, single_particle_state<particle_type> > state;
-        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
         int nparticles;
         int ncomponents;
         int integration_steps;
