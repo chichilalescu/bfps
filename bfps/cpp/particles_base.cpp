@@ -32,7 +32,7 @@ single_particle_state<particle_type>::single_particle_state()
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             this->data = new double[3];
             std::fill_n(this->data, 3, 0);
             break;
@@ -45,7 +45,7 @@ single_particle_state<particle_type>::single_particle_state(
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             this->data = new double[3];
             std::copy(src.data, src.data + 3, this->data);
             break;
@@ -58,7 +58,7 @@ single_particle_state<particle_type>::single_particle_state(
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             this->data = new double[3];
             std::copy(src, src + 3, this->data);
             break;
@@ -70,7 +70,7 @@ single_particle_state<particle_type>::~single_particle_state()
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             delete[] this->data;
             break;
     }
@@ -82,7 +82,7 @@ single_particle_state<particle_type> &single_particle_state<particle_type>::oper
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             std::copy(src.data, src.data + 3, this->data);
             break;
     }
@@ -95,7 +95,7 @@ single_particle_state<particle_type> &single_particle_state<particle_type>::oper
 {
     switch(particle_type)
     {
-        case VELOCITY_TRACER:
+        default:
             std::copy(src, src + 3, this->data);
             break;
     }
@@ -105,5 +105,7 @@ single_particle_state<particle_type> &single_particle_state<particle_type>::oper
 
 
 /*****************************************************************************/
+template class single_particle_state<POINT3D>;
 template class single_particle_state<VELOCITY_TRACER>;
 /*****************************************************************************/
+

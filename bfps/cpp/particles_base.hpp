@@ -31,7 +31,7 @@
 #define PARTICLES_BASE
 
 /* particle types */
-enum particle_types {VELOCITY_TRACER};
+enum particle_types {POINT3D, VELOCITY_TRACER};
 
 /* 1 particle state type */
 
