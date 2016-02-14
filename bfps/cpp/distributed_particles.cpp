@@ -79,16 +79,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator<rnumber, interp_neighbours> *field,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
-    int xg[3];
-    double xx[3];
-    double yy[3];
+    double *yy = new double[3];
     y.clear();
     for (auto &pp: this->state)
     {
-        field->get_grid_coordinates(pp.second.data, xg, xx);
-        (*field)(xg, xx, yy);
+        (*field)(pp.second.data, yy);
         y[pp.first] = yy;
     }
+    delete[] yy;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -96,16 +94,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
-    int xg[3];
-    double xx[3];
-    double yy[this->ncomponents];
+    double *yy = new double[this->ncomponents];
     y.clear();
     for (auto &pp: x)
     {
-        this->vel->get_grid_coordinates(pp.second.data, xg, xx);
-        (*this->vel)(xg, xx, yy);
+        (*this->vel)(pp.second.data, yy);
         y[pp.first] = yy;
     }
+    delete[] yy;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -293,7 +289,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
                     pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
                                             - 59*this->rhs[1][pp.first][i]
                                             + 37*this->rhs[2][pp.first][i]
-                                            -  9*this->rhs[1][pp.first][i])/24;
+                                            -  9*this->rhs[3][pp.first][i])/24;
                     break;
                 case 5:
                     pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]

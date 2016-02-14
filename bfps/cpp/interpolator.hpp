@@ -67,6 +67,16 @@ class interpolator:public interpolator_base<rnumber, interp_neighbours>
                 double *__restrict__ y,
                 const int *deriv = NULL);
         /* interpolate 1 point */
+        inline void operator()(
+                const double *__restrict__ x,
+                double *__restrict__ dest,
+                const int *deriv = NULL)
+        {
+            int xg[3];
+            double xx[3];
+            this->get_grid_coordinates(x, xg, xx);
+            (*this)(xg, xx, dest, deriv);
+        }
         void operator()(
                 const int *__restrict__ xg,
                 const double *__restrict__ xx,
