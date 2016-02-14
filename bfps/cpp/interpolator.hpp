@@ -54,10 +54,9 @@ class interpolator:public interpolator_base<rnumber, interp_neighbours>
 
         int read_rFFTW(const void *src);
 
-        inline bool z_is_here(double z)
+        inline int get_rank(double z)
         {
-            return (this->descriptor->rank[MOD(int(floor(z/this->dz)), this->descriptor->sizes[0])] ==
-                    this->descriptor->myrank);
+            return this->descriptor->rank[MOD(int(floor(z/this->dz)), this->descriptor->sizes[0])];
         }
 
         /* interpolate field at an array of locations */

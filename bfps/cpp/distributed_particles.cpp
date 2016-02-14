@@ -61,6 +61,7 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
     strncpy(this->name, NAME, 256);
     this->nparticles = NPARTICLES;
     this->vel = FIELD;
+    this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
     this->traj_skip = TRAJ_SKIP;
     this->myrank = this->vel->descriptor->myrank;
@@ -125,6 +126,26 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs(
         rhs[i+1] = rhs[i];
 }
 
+template <int particle_type, class rnumber, int interp_neighbours>
+void distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
+        std::unordered_map<int, single_particle_state<particle_type>> &x,
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
+{
+    std::vector<int> particles_to_send, particles_to_receive;
+    /* get list of id-s to send to myrank-1 */
+    /* prepare data for send recv */
+    /* send recv */
+    /* get list of id-s to send to myrank+1 */
+    /* prepare data for send recv */
+    /* send recv */
+
+#ifndef NDEBUG
+    /* check that all particles at x are local */
+    for (auto &pp: this->state)
+        assert(this->vel->get_rank(pp.second.data[2]) == this->myrank);
+#endif
+}
+
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -169,7 +190,8 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
                                             + 2877*this->rhs[4][pp.first][i]
                                             -  475*this->rhs[5][pp.first][i])/1440;
                     break;
-    }
+            }
+    this->redistribute(this->state, this->rhs);
     this->roll_rhs();
 }
 
@@ -218,7 +240,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
             this->comm);
     for (int p=0; p<this->nparticles; p++)
     {
-        if (this->vel->z_is_here(temp[this->ncomponents*p+2]))
+        if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
             this->state[p] = temp + this->ncomponents*p;
     }
     DEBUG_MSG("size of %s->state is %ld\n", this->name, this->state.size());

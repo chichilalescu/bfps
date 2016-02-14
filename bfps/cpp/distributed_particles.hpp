@@ -28,15 +28,16 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unordered_map>
+#include <vector>
 #include <hdf5.h>
 #include "base.hpp"
 #include "particles_base.hpp"
 #include "fluid_solver_base.hpp"
 #include "interpolator.hpp"
 
-#ifndef PARTICLES
+#ifndef DISTRIBUTED_PARTICLES
 
-#define PARTICLES
+#define DISTRIBUTED_PARTICLES
 
 template <int particle_type, class rnumber, int interp_neighbours>
 class distributed_particles
@@ -46,7 +47,7 @@ class distributed_particles
         MPI_Comm comm;
 
         std::unordered_map<int, single_particle_state<particle_type> > state;
-        std::unordered_map<int, single_particle_state<particle_type> > rhs[6];
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
         int nparticles;
         int ncomponents;
         int integration_steps;
@@ -85,6 +86,11 @@ class distributed_particles
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, single_particle_state<particle_type>> &y);
 
+        void redistribute(
+                std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals);
+
+
         /* input/output */
         void read(const hid_t data_file_id);
         void write(
@@ -103,5 +109,5 @@ class distributed_particles
         void AdamsBashforth(const int nsteps);
 };
 
-#endif//PARTICLES
+#endif//DISTRIBUTED_PARTICLES
 
