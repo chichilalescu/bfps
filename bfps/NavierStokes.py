@@ -488,7 +488,7 @@ class NavierStokes(_fluid_particle_base):
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
                         //begincpp
-                        group = H5Gopen(particle_file, ps{0}->name, H5P_DEFAULT);
+                        group = H5Gopen(particle_file, ps{0}->get_name(), H5P_DEFAULT);
                         grow_particle_datasets(group, "", NULL, NULL);
                         H5Gclose(group);
                         //endcpp
@@ -544,7 +544,7 @@ class NavierStokes(_fluid_particle_base):
                     neighbours,
                     s0 + s)
             self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
-                                    'fname, {4},\n' +
+                                    'fname, particle_file, {4},\n' +
                                     'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             s0 + s,

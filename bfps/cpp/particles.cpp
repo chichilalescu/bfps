@@ -42,6 +42,7 @@ extern int myrank, nprocs;
 template <int particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::particles(
         const char *NAME,
+        const hid_t data_file_id,
         interpolator_base<rnumber, interp_neighbours> *FIELD,
         const int NPARTICLES,
         const int TRAJ_SKIP,

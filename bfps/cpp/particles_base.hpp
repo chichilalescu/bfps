@@ -24,6 +24,8 @@
 
 
 
+#include <vector>
+#include <hdf5.h>
 #include "interpolator_base.hpp"
 
 #ifndef PARTICLES_BASE
@@ -53,6 +55,55 @@ class single_particle_state
         {
             return this->data[i];
         }
+};
+
+template <int particle_type>
+class particles_io_base
+{
+    protected:
+        int myrank, nprocs;
+        MPI_Comm comm;
+
+        int nparticles;
+        int ncomponents;
+
+        std::string name;
+        int chunk_size;
+        int traj_skip;
+
+        hid_t hdf5_group_id;
+        std::vector<hsize_t> hdf5_state_dims, hdf5_state_chunks;
+        std::vector<hsize_t> hdf5_rhs_dims, hdf5_rhs_chunks;
+
+        std::vector<std::vector<hsize_t>> state_chunk_offsets;
+        std::vector<std::vector<hsize_t>> rhs_chunk_offsets;
+
+        particles_io_base(
+                const char *NAME,
+                const int TRAJ_SKIP,
+                const hid_t data_file_id,
+                MPI_Comm COMM);
+        ~particles_io_base();
+
+        void read_state_chunk(const int cindex, double *__restrict__ data);
+        void read_rhs_chunk(  const int cindex, double *__restrict__ data);
+        void write_state_chunk(const int cindex, const double *data);
+        void write_rhs_chunk(  const int cindex, const double *data);
+
+        void write_point3D_chunk(
+                const std::string dset_name,
+                const int cindex,
+                const double *data);
+
+    public:
+        int iteration;
+
+        inline const char *get_name()
+        {
+            return this->name.c_str();
+        }
+        virtual void read( const hid_t data_file_id) = 0;
+        virtual void write(const hid_t data_file_id, const bool write_rhs = true) = 0;
 };
 
 #endif//PARTICLES_BASE

@@ -71,11 +71,18 @@ class particles
          * */
         particles(
                 const char *NAME,
+                const hid_t data_file_id,
                 interpolator_base<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();
+
+
+        inline const char *get_name()
+        {
+            return this->name;
+        }
 
         inline void sample(interpolator_base<rnumber, interp_neighbours> *field, double *y)
         {

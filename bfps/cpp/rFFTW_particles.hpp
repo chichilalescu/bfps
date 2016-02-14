@@ -72,6 +72,7 @@ class rFFTW_particles
          * */
         rFFTW_particles(
                 const char *NAME,
+                const hid_t data_file_id,
                 rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
                 const int NPARTICLES,
                 const int TRAJ_SKIP,

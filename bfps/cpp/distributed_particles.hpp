@@ -40,25 +40,18 @@
 #define DISTRIBUTED_PARTICLES
 
 template <int particle_type, class rnumber, int interp_neighbours>
-class distributed_particles
+class distributed_particles: public particles_io_base<particle_type>
 {
     private:
         std::unordered_map<int, single_particle_state<particle_type> > state;
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
 
     public:
-        int myrank, nprocs;
-        MPI_Comm comm;
-        int nparticles;
-        int ncomponents;
         int integration_steps;
-        int traj_skip;
         // this class only works with buffered interpolator
         interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
-        char name[256];
-        int iteration;
         double dt;
 
         /* methods */
@@ -70,8 +63,8 @@ class distributed_particles
          * */
         distributed_particles(
                 const char *NAME,
+                const hid_t data_file_id,
                 interpolator<rnumber, interp_neighbours> *FIELD,
-                const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~distributed_particles();

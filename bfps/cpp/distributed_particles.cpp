@@ -42,31 +42,20 @@ extern int myrank, nprocs;
 template <int particle_type, class rnumber, int interp_neighbours>
 distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_particles(
         const char *NAME,
+        const hid_t data_file_id,
         interpolator<rnumber, interp_neighbours> *FIELD,
-        const int NPARTICLES,
         const int TRAJ_SKIP,
-        const int INTEGRATION_STEPS)
+        const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
+            NAME,
+            TRAJ_SKIP,
+            data_file_id,
+            FIELD->descriptor->comm)
 {
-    switch(particle_type)
-    {
-        case VELOCITY_TRACER:
-            this->ncomponents = 3;
-            break;
-        default:
-            this->ncomponents = 3;
-            break;
-    }
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
-    strncpy(this->name, NAME, 256);
-    this->nparticles = NPARTICLES;
     this->vel = FIELD;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
-    this->traj_skip = TRAJ_SKIP;
-    this->myrank = this->vel->descriptor->myrank;
-    this->nprocs = this->vel->descriptor->nprocs;
-    this->comm = this->vel->descriptor->comm;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -359,7 +348,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
         if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
             this->state[p] = temp + this->ncomponents*p;
     }
-    DEBUG_MSG("size of %s->state is %ld\n", this->name, this->state.size());
+    DEBUG_MSG("size of %s->state is %ld\n", this->name.c_str(), this->state.size());
     //if (this->myrank == 0)
     //{
     //    if (this->iteration > 0)
@@ -473,7 +462,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
     MPI_Allreduce(
             yy,
             data,
-            this->ncomponents*nparticles,
+            this->ncomponents*this->nparticles,
             MPI_DOUBLE,
             MPI_SUM,
             this->comm);
