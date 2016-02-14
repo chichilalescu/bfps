@@ -194,23 +194,25 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         2*(rsrc*this->nprocs + rdst),
                         this->comm);
                 buffer = new double[nps[i]*(1+vals.size())*this->ncomponents];
+                int pcounter = 0;
                 for (int p: ps[i])
                 {
                     std::copy(x[p].data,
                               x[p].data + this->ncomponents,
-                              buffer + p*(1+vals.size())*this->ncomponents);
+                              buffer + pcounter*(1+vals.size())*this->ncomponents);
                     x.erase(p);
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
                         std::copy(vals[tindex][p].data,
                                   vals[tindex][p].data + this->ncomponents,
-                                  buffer + (p*(1+vals.size()) + tindex+1)*this->ncomponents);
+                                  buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents);
                         vals[tindex].erase(p);
                     }
+                    pcounter++;
                 }
                 MPI_Send(
                         buffer,
-                        nps[i],
+                        nps[i]*(1+vals.size())*this->ncomponents,
                         MPI_DOUBLE,
                         rdst,
                         2*(rsrc*this->nprocs + rdst),
@@ -218,6 +220,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                 delete[] buffer;
             }
             if (this->myrank == rdst && npr[1-i] > 0)
+            {
                 MPI_Recv(
                         &pr[1-i].front(),
                         npr[1-i],
@@ -229,28 +232,37 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                 buffer = new double[npr[i-1]*(1+vals.size())*this->ncomponents];
                 MPI_Recv(
                         buffer,
-                        npr[1-i],
+                        npr[1-i]*(1+vals.size())*this->ncomponents,
                         MPI_DOUBLE,
                         rsrc,
                         2*(rsrc*this->nprocs + rdst),
                         this->comm,
                         MPI_STATUS_IGNORE);
+                int pcounter = 0;
                 for (int p: pr[1-i])
                 {
-                    x[p] = buffer + (p*(1+vals.size()))*this->ncomponents;
+                    x[p] = buffer + (pcounter*(1+vals.size()))*this->ncomponents;
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
-                        vals[tindex][p] = buffer + (p*(1+vals.size()) + tindex+1)*this->ncomponents;
+                        vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents;
                     }
+                    pcounter++;
                 }
                 delete[] buffer;
+            }
         }
 
 
 #ifndef NDEBUG
     /* check that all particles at x are local */
     for (auto &pp: x)
-        assert(this->vel->get_rank(pp.second.data[2]) == this->myrank);
+        if (this->vel->get_rank(pp.second.data[2]) != this->myrank)
+        {
+            DEBUG_MSG("found particle %d with rank %d\n",
+                    pp.first,
+                    this->vel->get_rank(pp.second.data[2]));
+            assert(false);
+        }
 #endif
 }
 
