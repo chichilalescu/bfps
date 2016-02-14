@@ -80,10 +80,17 @@ class distributed_particles
                 const char *dset_name);
         void sample(
                 interpolator<rnumber, interp_neighbours> *field,
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
+        void get_rhs(
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, single_particle_state<particle_type>> &y);
 
         /* input/output */
         void read(const hid_t data_file_id);
+        void write(
+                const hid_t data_file_id,
+                const char *dset_name,
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void write(
                 const hid_t data_file_id,
                 const char *dset_name,
