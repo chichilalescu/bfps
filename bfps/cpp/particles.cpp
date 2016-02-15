@@ -190,63 +190,27 @@ void particles<particle_type, rnumber, interp_neighbours>::read(
         const hid_t data_file_id)
 {
     if (this->myrank == 0)
-    {
-        std::string temp_string = (std::string("/") +
-                                   std::string(this->name) +
-                                   std::string("/state"));
-        hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-        hid_t mspace, rspace;
-        hsize_t count[4], offset[4];
-        rspace = H5Dget_space(dset);
-        H5Sget_simple_extent_dims(rspace, count, NULL);
-        count[0] = 1;
-        offset[0] = this->iteration / this->traj_skip;
-        offset[1] = 0;
-        offset[2] = 0;
-        mspace = H5Screate_simple(3, count, NULL);
-        H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->state);
-        H5Sclose(mspace);
-        H5Sclose(rspace);
-        H5Dclose(dset);
-        if (this->iteration > 0)
+        for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
         {
-            temp_string = (std::string("/") +
-                           std::string(this->name) +
-                           std::string("/rhs"));
-            dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-            rspace = H5Dget_space(dset);
-            H5Sget_simple_extent_dims(rspace, count, NULL);
-            //reading from last available position
-            offset[0] = count[0] - 1;
-            offset[3] = 0;
-            count[0] = 1;
-            count[1] = 1;
-            mspace = H5Screate_simple(4, count, NULL);
-            for (int i=0; i<this->integration_steps; i++)
-            {
-                offset[1] = i;
-                H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->rhs[i]);
-            }
-            H5Sclose(mspace);
-            H5Sclose(rspace);
-            H5Dclose(dset);
+            this->read_state_chunk(cindex, this->state+cindex*this->chunk_size*this->ncomponents);
+            if (this->iteration > 0)
+                for (int i=0; i<this->integration_steps; i++)
+                    this->read_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*this->ncomponents);
         }
-    }
     MPI_Bcast(
             this->state,
             this->array_size,
             MPI_DOUBLE,
             0,
             this->comm);
-    for (int i = 0; i<this->integration_steps; i++)
-        MPI_Bcast(
-                this->rhs[i],
-                this->array_size,
-                MPI_DOUBLE,
-                0,
-                this->comm);
+    if (this->iteration > 0)
+        for (int i = 0; i<this->integration_steps; i++)
+            MPI_Bcast(
+                    this->rhs[i],
+                    this->array_size,
+                    MPI_DOUBLE,
+                    0,
+                    this->comm);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -270,11 +234,11 @@ void particles<particle_type, rnumber, interp_neighbours>::sample(
         const hid_t data_file_id,
         const char *dset_name)
 {
-    double *y = new double[this->nparticles*this->ncomponents];
+    double *y = new double[this->nparticles*3];
     field->sample(this->nparticles, this->ncomponents, this->state, y);
     if (this->myrank == 0)
         for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
-            this->write_point3D_chunk(dset_name, cindex, y+cindex*this->chunk_size*this->ncomponents);
+            this->write_point3D_chunk(dset_name, cindex, y+cindex*this->chunk_size*3);
     delete[] y;
 }
 
