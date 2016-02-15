@@ -49,6 +49,7 @@ def scaling(opt):
     opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
     c2 = launch(opt, dt = c0.parameters['dt'], particle_class = 'particles', interpolator_class = 'interpolator')
     c2.compute_statistics()
+    compare_stats(opt, c0, c2)
     compare_stats(opt, c1, c2)
     return None
 

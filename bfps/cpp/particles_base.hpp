@@ -86,7 +86,7 @@ class particles_io_base
                 const int TRAJ_SKIP,
                 const hid_t data_file_id,
                 MPI_Comm COMM);
-        ~particles_io_base();
+        virtual ~particles_io_base();
 
         void read_state_chunk(
                 const int cindex,

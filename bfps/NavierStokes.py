@@ -78,7 +78,6 @@ class NavierStokes(_fluid_particle_base):
                 hsize_t dims[4];
                 hid_t group;
                 hid_t Cspace, Cdset;
-                int ndims;
                 // store kspace information
                 Cdset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
                 Cspace = H5Dget_space(Cdset);

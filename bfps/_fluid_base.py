@@ -102,13 +102,15 @@ class _fluid_particle_base(_code):
             self.definitions += self.particle_definitions
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
-                             'hsize_t dims[5];\n' +
                              'hsize_t space;\n' +
                              'space = H5Dget_space(dset);\n' +
-                             'ndims = H5Sget_simple_extent_dims(space, dims, NULL);\n' +
+                             'ndims = H5Sget_simple_extent_ndims(space);\n' +
+                             'hsize_t *dims = new hsize_t[ndims];\n' +
+                             'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
                              'dims[0] += tincrement;\n' +
                              'H5Dset_extent(dset, dims);\n' +
                              'H5Sclose(space);\n' +
+                             'delete[] dims;\n' +
                              'return EXIT_SUCCESS;\n}\n')
         self.definitions += ('herr_t grow_statistics_dataset(hid_t o_id, const char *name, const H5O_info_t *info, void *op_data)\n{\n' +
                              'if (info->type == H5O_TYPE_DATASET)\n{\n' +

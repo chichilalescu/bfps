@@ -346,7 +346,7 @@ fluid_solver_base<R>::fluid_solver_base( \
             (void*)(this->kshell), \
             this->nshells, \
             MPI_DOUBLE, MPI_SUM, this->cd->comm); \
-    for (int n=0; n<this->nshells; n++) \
+    for (unsigned int n=0; n<this->nshells; n++) \
     { \
         this->kshell[n] /= this->nshell[n]; \
     } \

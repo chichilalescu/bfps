@@ -58,7 +58,7 @@ class interpolator_base
         interpolator_base(
                 fluid_solver_base<rnumber> *FSOLVER,
                 base_polynomial_values BETA_POLYS);
-        ~interpolator_base(){}
+        virtual ~interpolator_base(){}
 
         /* may not destroy input */
         virtual int read_rFFTW(const void *src) = 0;
