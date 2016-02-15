@@ -24,6 +24,7 @@
 
 
 
+#include "fluid_solver_base.hpp"
 #include "spline_n1.hpp"
 #include "spline_n2.hpp"
 #include "spline_n3.hpp"
@@ -40,6 +41,53 @@ typedef void (*base_polynomial_values)(
         const int derivative,
         const double fraction,
         double *__restrict__ destination);
+
+template <class rnumber, int interp_neighbours>
+class interpolator_base
+{
+    public:
+        /* pointer to polynomial function */
+        base_polynomial_values compute_beta;
+
+        /* descriptor of field to interpolate */
+        field_descriptor<rnumber> *descriptor;
+
+        /* physical parameters of field */
+        double dx, dy, dz;
+
+        interpolator_base(
+                fluid_solver_base<rnumber> *FSOLVER,
+                base_polynomial_values BETA_POLYS);
+        virtual ~interpolator_base(){}
+
+        /* may not destroy input */
+        virtual int read_rFFTW(const void *src) = 0;
+
+        /* map real locations to grid coordinates */
+        void get_grid_coordinates(
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                int *__restrict__ xg,
+                double *__restrict__ xx);
+        void get_grid_coordinates(
+                const double *__restrict__ x,
+                int *__restrict__ xg,
+                double *__restrict__ xx);
+        /* interpolate field at an array of locations */
+        virtual void sample(
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                double *__restrict__ y,
+                const int *deriv = NULL) = 0;
+        /* interpolate 1 point */
+        virtual void operator()(
+                const int *__restrict__ xg,
+                const double *__restrict__ xx,
+                double *__restrict__ dest,
+                const int *deriv = NULL) = 0;
+};
 
 #endif//INTERPOLATOR_BASE
 

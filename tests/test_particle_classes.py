@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 #######################################################################
 #                                                                     #
 #  Copyright 2015 Max Planck Institute                                #
@@ -30,27 +30,10 @@ from base import *
 import numpy as np
 import matplotlib.pyplot as plt
 
-parser.add_argument('--multiplejob',
-        dest = 'multiplejob', action = 'store_true')
-
-parser.add_argument(
-        '--particle-class',
-        default = 'particles',
-        dest = 'particle_class',
-        type = str)
-
-parser.add_argument(
-        '--interpolator-class',
-        default = 'interpolator',
-        dest = 'interpolator_class',
-        type = str)
-
-def plain(opt):
+def scaling(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = launch(opt, dt = 0.2/opt.n,
-            particle_class = opt.particle_class,
-            interpolator_class = opt.interpolator_class)
+    c0 = launch(opt, dt = 0.2/opt.n, particle_class = 'distributed_particles', interpolator_class = 'interpolator')
     c0.compute_statistics()
     print ('Re = {0:.0f}'.format(c0.statistics['Re']))
     print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))
@@ -59,25 +42,15 @@ def plain(opt):
     print ('kMetaK = {0:.4e}'.format(c0.statistics['kMeta']))
     for s in range(c0.particle_species):
         acceleration_test(c0, species = s, m = 1)
-    if not opt.multiplejob:
-        return None
-    assert(opt.niter_todo % 3 == 0)
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
-    opt.njobs *= 2
-    opt.niter_todo = opt.niter_todo//2
-    c1 = launch(opt, dt = c0.parameters['dt'],
-            particle_class = opt.particle_class,
-            interpolator_class = opt.interpolator_class)
+    c1 = launch(opt, dt = c0.parameters['dt'], particle_class = 'particles')
     c1.compute_statistics()
-    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
-    opt.njobs = 3*opt.njobs//2
-    opt.niter_todo = 2*opt.niter_todo//3
-    c2 = launch(opt, dt = c0.parameters['dt'],
-            particle_class = opt.particle_class,
-            interpolator_class = opt.interpolator_class)
-    c2.compute_statistics()
     compare_stats(opt, c0, c1)
+    opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
+    c2 = launch(opt, dt = c0.parameters['dt'], particle_class = 'particles', interpolator_class = 'interpolator')
+    c2.compute_statistics()
     compare_stats(opt, c0, c2)
+    compare_stats(opt, c1, c2)
     return None
 
 if __name__ == '__main__':
@@ -86,10 +59,10 @@ if __name__ == '__main__':
              '--run',
              '--initialize',
              '--ncpu', '4',
-             '--nparticles', '1000',
-             '--niter_todo', '48',
+             '--nparticles', '10000',
+             '--niter_todo', '8',
              '--precision', 'single',
              '--wd', 'data/single'] +
             sys.argv[1:])
-    plain(opt)
+    scaling(opt)
 
