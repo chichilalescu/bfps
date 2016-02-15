@@ -79,6 +79,11 @@ class rFFTW_particles
                 const int INTEGRATION_STEPS = 2);
         ~rFFTW_particles();
 
+        inline const char *get_name()
+        {
+            return this->name;
+        }
+
         inline void sample(interpolator_base<rnumber, interp_neighbours> *field, double *y)
         {
             field->sample(this->nparticles, this->ncomponents, this->state, y);
