@@ -118,7 +118,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
 {
-    DEBUG_MSG("entered redistribute\n");
+    //DEBUG_MSG("entered redistribute\n");
     /* neighbouring rank offsets */
     int ro[2];
     ro[0] = -1;
@@ -162,15 +162,15 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         this->comm,
                         MPI_STATUS_IGNORE);
         }
-    DEBUG_MSG("I have to send %d %d particles\n", nps[0], nps[1]);
-    DEBUG_MSG("I have to recv %d %d particles\n", npr[0], npr[1]);
+    //DEBUG_MSG("I have to send %d %d particles\n", nps[0], nps[1]);
+    //DEBUG_MSG("I have to recv %d %d particles\n", npr[0], npr[1]);
     for (int i=0; i<2; i++)
         pr[i].resize(npr[i]);
 
     int buffer_size = (nps[0] > nps[1]) ? nps[0] : nps[1];
     buffer_size = (buffer_size > npr[0])? buffer_size : npr[0];
     buffer_size = (buffer_size > npr[1])? buffer_size : npr[1];
-    DEBUG_MSG("buffer size is %d\n", buffer_size);
+    //DEBUG_MSG("buffer size is %d\n", buffer_size);
     double *buffer = new double[buffer_size*this->ncomponents*(1+vals.size())];
     for (rsrc = 0; rsrc<this->nprocs; rsrc++)
         for (int i=0; i<2; i++)
@@ -253,7 +253,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
             assert(false);
         }
 #endif
-    DEBUG_MSG("exiting redistribute\n");
+    //DEBUG_MSG("exiting redistribute\n");
 }
 
 
@@ -369,25 +369,28 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 {
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
-    std::fill_n(yy, this->nparticles*3, 0);
-    for (int p=0; p<this->nparticles; p++)
+    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
-        auto pp = y.find(p);
-        if (pp != y.end())
-            std::copy(pp->second.data,
-                      pp->second.data + 3,
-                      yy + pp->first*3);
+        std::fill_n(yy, this->nparticles*3, 0);
+        for (int p=0; p<this->chunk_size; p++)
+        {
+            auto pp = y.find(p+cindex*this->chunk_size);
+            if (pp != y.end())
+                std::copy(pp->second.data,
+                          pp->second.data + 3,
+                          yy + pp->first*3);
+        }
+        MPI_Allreduce(
+                yy,
+                data,
+                3*this->nparticles,
+                MPI_DOUBLE,
+                MPI_SUM,
+                this->comm);
+        if (this->myrank == 0)
+            this->write_point3D_chunk(dset_name, cindex, data);
     }
-    MPI_Allreduce(
-            yy,
-            data,
-            3*this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
     delete[] yy;
-    if (this->myrank == 0)
-        this->write_point3D_chunk(dset_name, 0, data);
     delete[] data;
 }
 
@@ -423,6 +426,24 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         if (this->iteration > 0)
             for (int i=0; i<this->integration_steps; i++)
             {
+                std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
+                for (int p=0; p<this->chunk_size; p++)
+                {
+                    auto pp = this->rhs[i].find(p + cindex*this->chunk_size);
+                    if (pp != this->rhs[i].end())
+                        std::copy(pp->second.data,
+                                  pp->second.data + this->ncomponents,
+                                  temp0 + pp->first*this->ncomponents);
+                }
+                MPI_Allreduce(
+                        temp0,
+                        temp1,
+                        this->ncomponents*this->chunk_size,
+                        MPI_DOUBLE,
+                        MPI_SUM,
+                        this->comm);
+                if (this->myrank == 0)
+                    this->write_rhs_chunk(cindex, i, temp1);
             }
     }
     delete[] temp0;

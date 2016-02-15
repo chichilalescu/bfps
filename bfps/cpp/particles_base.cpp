@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <algorithm>
 #include <cassert>
@@ -323,7 +323,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
             &mem_dims.front(),
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
-    offset[0] = this->iteration / this->traj_skip;
+    offset[0] = this->hdf5_rhs_dims[0]-1;
     offset[1] = rhsindex;
     for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
@@ -352,12 +352,13 @@ void particles_io_base<particle_type>::write_rhs_chunk(
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_rhs_chunks);
     mem_dims[0] = 1;
+    mem_dims[1] = 1;
     hid_t mspace = H5Screate_simple(
             this->hdf5_rhs_dims.size(),
             &mem_dims.front(),
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
-    offset[0] = this->iteration / this->traj_skip;
+    offset[0] = this->hdf5_rhs_dims[0];
     offset[1] = rhsindex;
     for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
