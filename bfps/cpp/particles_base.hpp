@@ -57,6 +57,10 @@ class single_particle_state
         }
 };
 
+std::vector<std::vector<hsize_t>> get_chunk_offsets(
+        std::vector<hsize_t> data_dims,
+        std::vector<hsize_t> chnk_dims);
+
 template <int particle_type>
 class particles_io_base
 {
@@ -75,8 +79,7 @@ class particles_io_base
         std::vector<hsize_t> hdf5_state_dims, hdf5_state_chunks;
         std::vector<hsize_t> hdf5_rhs_dims, hdf5_rhs_chunks;
 
-        std::vector<std::vector<hsize_t>> state_chunk_offsets;
-        std::vector<std::vector<hsize_t>> rhs_chunk_offsets;
+        std::vector<std::vector<hsize_t>> chunk_offsets;
 
         particles_io_base(
                 const char *NAME,
@@ -85,10 +88,20 @@ class particles_io_base
                 MPI_Comm COMM);
         ~particles_io_base();
 
-        void read_state_chunk(const int cindex, double *__restrict__ data);
-        void read_rhs_chunk(  const int cindex, double *__restrict__ data);
-        void write_state_chunk(const int cindex, const double *data);
-        void write_rhs_chunk(  const int cindex, const double *data);
+        void read_state_chunk(
+                const int cindex,
+                double *__restrict__ data);
+        void write_state_chunk(
+                const int cindex,
+                const double *data);
+        void read_rhs_chunk(
+                const int cindex,
+                const int rhsindex,
+                double *__restrict__ data);
+        void write_rhs_chunk(
+                const int cindex,
+                const int rhsindex,
+                const double *data);
 
         void write_point3D_chunk(
                 const std::string dset_name,
@@ -102,6 +115,11 @@ class particles_io_base
         {
             return this->name.c_str();
         }
+        inline const unsigned int get_number_of_chunks()
+        {
+            return this->chunk_offsets.size();
+        }
+        inline const unsigned int get_number_of_rhs_chunks();
         virtual void read( const hid_t data_file_id) = 0;
         virtual void write(const hid_t data_file_id, const bool write_rhs = true) = 0;
 };

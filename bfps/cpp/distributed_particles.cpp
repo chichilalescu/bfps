@@ -44,6 +44,7 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
         const char *NAME,
         const hid_t data_file_id,
         interpolator<rnumber, interp_neighbours> *FIELD,
+        const int NPARTICLES,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
@@ -56,6 +57,7 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
     this->vel = FIELD;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
+    assert(this->nparticles == NPARTICLES);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -116,6 +118,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
 {
+    DEBUG_MSG("entered redistribute\n");
     /* neighbouring rank offsets */
     int ro[2];
     ro[0] = -1;
@@ -164,7 +167,11 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
     for (int i=0; i<2; i++)
         pr[i].resize(npr[i]);
 
-    double *buffer;
+    int buffer_size = (nps[0] > nps[1]) ? nps[0] : nps[1];
+    buffer_size = (buffer_size > npr[0])? buffer_size : npr[0];
+    buffer_size = (buffer_size > npr[1])? buffer_size : npr[1];
+    DEBUG_MSG("buffer size is %d\n", buffer_size);
+    double *buffer = new double[buffer_size*this->ncomponents*(1+vals.size())];
     for (rsrc = 0; rsrc<this->nprocs; rsrc++)
         for (int i=0; i<2; i++)
         {
@@ -178,7 +185,6 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         rdst,
                         2*(rsrc*this->nprocs + rdst),
                         this->comm);
-                buffer = new double[nps[i]*(1+vals.size())*this->ncomponents];
                 int pcounter = 0;
                 for (int p: ps[i])
                 {
@@ -200,9 +206,8 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         nps[i]*(1+vals.size())*this->ncomponents,
                         MPI_DOUBLE,
                         rdst,
-                        2*(rsrc*this->nprocs + rdst),
+                        2*(rsrc*this->nprocs + rdst)+1,
                         this->comm);
-                delete[] buffer;
             }
             if (this->myrank == rdst && npr[1-i] > 0)
             {
@@ -214,13 +219,12 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         2*(rsrc*this->nprocs + rdst),
                         this->comm,
                         MPI_STATUS_IGNORE);
-                buffer = new double[npr[i-1]*(1+vals.size())*this->ncomponents];
                 MPI_Recv(
                         buffer,
                         npr[1-i]*(1+vals.size())*this->ncomponents,
                         MPI_DOUBLE,
                         rsrc,
-                        2*(rsrc*this->nprocs + rdst),
+                        2*(rsrc*this->nprocs + rdst)+1,
                         this->comm,
                         MPI_STATUS_IGNORE);
                 int pcounter = 0;
@@ -233,9 +237,9 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                     }
                     pcounter++;
                 }
-                delete[] buffer;
             }
         }
+    delete[] buffer;
 
 
 #ifndef NDEBUG
@@ -249,6 +253,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
             assert(false);
         }
 #endif
+    DEBUG_MSG("exiting redistribute\n");
 }
 
 
@@ -315,80 +320,44 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
         const hid_t data_file_id)
 {
-    double *temp = new double[this->nparticles*this->ncomponents];
-    if (this->myrank == 0)
+    double *temp = new double[this->chunk_size*this->ncomponents];
+    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
-        std::string temp_string = (std::string("/") +
-                                   std::string(this->name) +
-                                   std::string("/state"));
-        hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-        hid_t mspace, rspace;
-        hsize_t count[4], offset[4];
-        rspace = H5Dget_space(dset);
-        H5Sget_simple_extent_dims(rspace, count, NULL);
-        count[0] = 1;
-        offset[0] = this->iteration / this->traj_skip;
-        offset[1] = 0;
-        offset[2] = 0;
-        mspace = H5Screate_simple(3, count, NULL);
-        H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, temp);
-        H5Sclose(mspace);
-        H5Sclose(rspace);
-        H5Dclose(dset);
+        //read state
+        if (this->myrank == 0)
+            this->read_state_chunk(cindex, temp);
+        MPI_Bcast(
+                temp,
+                this->chunk_size*this->ncomponents,
+                MPI_DOUBLE,
+                0,
+                this->comm);
+        for (int p=0; p<this->chunk_size; p++)
+        {
+            if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
+                this->state[p+cindex*this->chunk_size] = temp + this->ncomponents*p;
+        }
+        //read rhs
+        if (this->iteration > 0)
+            for (int i=0; i<this->integration_steps; i++)
+            {
+                if (this->myrank == 0)
+                    this->read_rhs_chunk(cindex, i, temp);
+                MPI_Bcast(
+                        temp,
+                        this->chunk_size*this->ncomponents,
+                        MPI_DOUBLE,
+                        0,
+                        this->comm);
+                for (int p=0; p<this->chunk_size; p++)
+                {
+                    auto pp = this->state.find(p+cindex*this->chunk_size);
+                    if (pp != this->state.end())
+                        this->rhs[i][p+cindex*this->chunk_size] = temp + this->ncomponents*p;
+                }
+            }
     }
-    MPI_Bcast(
-            temp,
-            this->nparticles*this->ncomponents,
-            MPI_DOUBLE,
-            0,
-            this->comm);
-    for (int p=0; p<this->nparticles; p++)
-    {
-        if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
-            this->state[p] = temp + this->ncomponents*p;
-    }
-    DEBUG_MSG("size of %s->state is %ld\n", this->name.c_str(), this->state.size());
-    //if (this->myrank == 0)
-    //{
-    //    if (this->iteration > 0)
-    //    {
-    //        temp_string = (std::string("/") +
-    //                       std::string(this->name) +
-    //                       std::string("/rhs"));
-    //        dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-    //        rspace = H5Dget_space(dset);
-    //        H5Sget_simple_extent_dims(rspace, count, NULL);
-    //        //reading from last available position
-    //        offset[0] = count[0] - 1;
-    //        offset[3] = 0;
-    //        count[0] = 1;
-    //        count[1] = 1;
-    //        mspace = H5Screate_simple(4, count, NULL);
-    //        for (int i=0; i<this->integration_steps; i++)
-    //        {
-    //            offset[1] = i;
-    //            H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-    //            H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, this->rhs[i]);
-    //        }
-    //        H5Sclose(mspace);
-    //        H5Sclose(rspace);
-    //        H5Dclose(dset);
-    //    }
-    //}
-    //MPI_Bcast(
-    //        temp,
-    //        this->array_size,
-    //        MPI_DOUBLE,
-    //        0,
-    //        this->comm);
-    //for (int i = 0; i<this->integration_steps; i++)
-    //    MPI_Bcast(
-    //            this->rhs[i],
-    //            this->array_size,
-    //            MPI_DOUBLE,
-    //            0,
-    //            this->comm);
+    DEBUG_MSG("%s->state.size = %ld\n", this->name.c_str(), this->state.size());
     delete[] temp;
 }
 
@@ -448,47 +417,47 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
         std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
-    double *data = new double[this->nparticles*this->ncomponents];
-    double *yy = new double[this->nparticles*this->ncomponents];
-    std::fill_n(yy, this->nparticles*this->ncomponents, 0);
-    for (int p=0; p<this->nparticles; p++)
-    {
-        auto pp = y.find(p);
-        if (pp != y.end())
-            std::copy(pp->second.data,
-                      pp->second.data + this->ncomponents,
-                      yy + pp->first*this->ncomponents);
-    }
-    MPI_Allreduce(
-            yy,
-            data,
-            this->ncomponents*this->nparticles,
-            MPI_DOUBLE,
-            MPI_SUM,
-            this->comm);
-    delete[] yy;
-    if (this->myrank == 0)
-    {
-        std::string temp_string = (std::string(this->name) +
-                                   std::string("/") +
-                                   std::string(dset_name));
-        hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-        hid_t mspace, wspace;
-        hsize_t count[3], offset[3];
-        wspace = H5Dget_space(dset);
-        H5Sget_simple_extent_dims(wspace, count, NULL);
-        count[0] = 1;
-        offset[0] = this->iteration / this->traj_skip;
-        offset[1] = 0;
-        offset[2] = 0;
-        mspace = H5Screate_simple(3, count, NULL);
-        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, data);
-        H5Sclose(mspace);
-        H5Sclose(wspace);
-        H5Dclose(dset);
-    }
-    delete[] data;
+    //double *data = new double[this->nparticles*this->ncomponents];
+    //double *yy = new double[this->nparticles*this->ncomponents];
+    //std::fill_n(yy, this->nparticles*this->ncomponents, 0);
+    //for (int p=0; p<this->nparticles; p++)
+    //{
+    //    auto pp = y.find(p);
+    //    if (pp != y.end())
+    //        std::copy(pp->second.data,
+    //                  pp->second.data + this->ncomponents,
+    //                  yy + pp->first*this->ncomponents);
+    //}
+    //MPI_Allreduce(
+    //        yy,
+    //        data,
+    //        this->ncomponents*this->nparticles,
+    //        MPI_DOUBLE,
+    //        MPI_SUM,
+    //        this->comm);
+    //delete[] yy;
+    //if (this->myrank == 0)
+    //{
+    //    std::string temp_string = (std::string(this->name) +
+    //                               std::string("/") +
+    //                               std::string(dset_name));
+    //    hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
+    //    hid_t mspace, wspace;
+    //    hsize_t count[3], offset[3];
+    //    wspace = H5Dget_space(dset);
+    //    H5Sget_simple_extent_dims(wspace, count, NULL);
+    //    count[0] = 1;
+    //    offset[0] = this->iteration / this->traj_skip;
+    //    offset[1] = 0;
+    //    offset[2] = 0;
+    //    mspace = H5Screate_simple(3, count, NULL);
+    //    H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    //    H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, data);
+    //    H5Sclose(mspace);
+    //    H5Sclose(wspace);
+    //    H5Dclose(dset);
+    //}
+    //delete[] data;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>

@@ -65,6 +65,7 @@ class distributed_particles: public particles_io_base<particle_type>
                 const char *NAME,
                 const hid_t data_file_id,
                 interpolator<rnumber, interp_neighbours> *FIELD,
+                const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~distributed_particles();
