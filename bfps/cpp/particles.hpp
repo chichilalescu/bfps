@@ -63,14 +63,12 @@ class particles: public particles_io_base<particle_type>
                 const char *NAME,
                 const hid_t data_file_id,
                 interpolator_base<rnumber, interp_neighbours> *FIELD,
-                const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~particles();
 
         void sample(
                 interpolator_base<rnumber, interp_neighbours> *field,
-                const hid_t data_file_id,
                 const char *dset_name);
 
         inline void sample(
@@ -85,12 +83,11 @@ class particles: public particles_io_base<particle_type>
                 double *__restrict__ rhs);
 
         /* input/output */
-        void read(const hid_t data_file_id);
+        void read();
         void write(
-                const hid_t data_file_id,
                 const char *dset_name,
                 const double *data);
-        void write(const hid_t data_file_id, const bool write_rhs = true);
+        void write(const bool write_rhs = true);
 
         /* solvers */
         void step();

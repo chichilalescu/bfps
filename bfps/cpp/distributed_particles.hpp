@@ -65,14 +65,12 @@ class distributed_particles: public particles_io_base<particle_type>
                 const char *NAME,
                 const hid_t data_file_id,
                 interpolator<rnumber, interp_neighbours> *FIELD,
-                const int NPARTICLES,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
         ~distributed_particles();
 
         void sample(
                 interpolator<rnumber, interp_neighbours> *field,
-                const hid_t data_file_id,
                 const char *dset_name);
         void sample(
                 interpolator<rnumber, interp_neighbours> *field,
@@ -87,16 +85,14 @@ class distributed_particles: public particles_io_base<particle_type>
 
 
         /* input/output */
-        void read(const hid_t data_file_id);
+        void read();
         void write(
-                const hid_t data_file_id,
                 const char *dset_name,
                 std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void write(
-                const hid_t data_file_id,
                 const char *dset_name,
                 std::unordered_map<int, single_particle_state<particle_type>> &y);
-        void write(const hid_t data_file_id, const bool write_rhs = true);
+        void write(const bool write_rhs = true);
 
         /* solvers */
         void step();

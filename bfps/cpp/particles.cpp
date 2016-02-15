@@ -44,7 +44,6 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
         const char *NAME,
         const hid_t data_file_id,
         interpolator_base<rnumber, interp_neighbours> *FIELD,
-        const int NPARTICLES,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
@@ -56,7 +55,6 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
            (INTEGRATION_STEPS >= 1));
     this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
-    assert(this->nparticles == NPARTICLES);
     this->array_size = this->nparticles * this->ncomponents;
     this->state = new double[this->array_size];
     std::fill_n(this->state, this->array_size, 0.0);
@@ -186,8 +184,7 @@ void particles<particle_type, rnumber, interp_neighbours>::step()
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void particles<particle_type, rnumber, interp_neighbours>::read(
-        const hid_t data_file_id)
+void particles<particle_type, rnumber, interp_neighbours>::read()
 {
     if (this->myrank == 0)
         for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
@@ -215,7 +212,6 @@ void particles<particle_type, rnumber, interp_neighbours>::read(
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::write(
-        const hid_t data_file_id,
         const bool write_rhs)
 {
     if (this->myrank == 0)
@@ -231,7 +227,6 @@ void particles<particle_type, rnumber, interp_neighbours>::write(
 template <int particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator_base<rnumber, interp_neighbours> *field,
-        const hid_t data_file_id,
         const char *dset_name)
 {
     double *y = new double[this->nparticles*3];

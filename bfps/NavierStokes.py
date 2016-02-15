@@ -512,12 +512,12 @@ class NavierStokes(_fluid_particle_base):
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
                 {0}->read_rFFTW(fs->rvelocity);
-                ps{1}->sample({0}, particle_file, "velocity");
+                ps{1}->sample({0}, "velocity");
                 """.format(interpolator[s], s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
                     {0}->read_rFFTW({1});
-                    ps{2}->sample({0}, particle_file, "acceleration");
+                    ps{2}->sample({0}, "acceleration");
                     """.format(interpolator[s], acc_name, s0 + s)
         output_vel_acc += '}\n'
 
@@ -536,7 +536,7 @@ class NavierStokes(_fluid_particle_base):
         for s in range(nspecies):
             neighbours = self.parameters[interpolator[s] + '_neighbours']
             self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
-            self.particle_end += ('ps{0}->write(particle_file);\n' +
+            self.particle_end += ('ps{0}->write();\n' +
                                   'delete ps{0};\n').format(s0 + s)
             self.particle_variables += '{0}<VELOCITY_TRACER, {1}, {2}> *ps{3};\n'.format(
                     class_name,
@@ -545,7 +545,6 @@ class NavierStokes(_fluid_particle_base):
                     s0 + s)
             self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
                                     'fname, particle_file, {4},\n' +
-                                    'nparticles,\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             s0 + s,
                                             class_name,
@@ -554,7 +553,7 @@ class NavierStokes(_fluid_particle_base):
                                             interpolator[s])
             self.particle_start += ('ps{0}->dt = dt;\n' +
                                     'ps{0}->iteration = iteration;\n' +
-                                    'ps{0}->read(particle_file);\n').format(s0 + s)
+                                    'ps{0}->read();\n').format(s0 + s)
             if not frozen_particles:
                 if type(kcut) == list:
                     update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
@@ -562,7 +561,7 @@ class NavierStokes(_fluid_particle_base):
                     self.particle_loop += update_field
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
-            self.particle_stat_src += 'ps{0}->write(particle_file, false);\n'.format(s0 + s)
+            self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
@@ -882,9 +881,7 @@ class NavierStokes(_fluid_particle_base):
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
                 ofile.create_group('tracers{0}'.format(s))
-                time_chunk = 2**20 // (8*3*
-                                       self.parameters['nparticles']*
-                                       self.parameters['tracers{0}_integration_steps'.format(s)])
+                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
                 time_chunk = max(time_chunk, 1)
                 dims = (1,
                         self.parameters['tracers{0}_integration_steps'.format(s)],
@@ -895,15 +892,13 @@ class NavierStokes(_fluid_particle_base):
                             self.parameters['nparticles'],
                             3)
                 chunks = (time_chunk,
-                          self.parameters['tracers{0}_integration_steps'.format(s)],
+                          1,
                           self.parameters['nparticles'],
                           3)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
-                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
-                time_chunk = max(time_chunk, 1)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),

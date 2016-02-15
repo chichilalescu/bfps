@@ -44,7 +44,6 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
         const char *NAME,
         const hid_t data_file_id,
         interpolator<rnumber, interp_neighbours> *FIELD,
-        const int NPARTICLES,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
@@ -57,7 +56,6 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
     this->vel = FIELD;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
-    assert(this->nparticles == NPARTICLES);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -98,12 +96,11 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
 template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator<rnumber, interp_neighbours> *field,
-        const hid_t data_file_id,
         const char *dset_name)
 {
     std::unordered_map<int, single_particle_state<POINT3D>> y;
     this->sample(field, y);
-    this->write(data_file_id, dset_name, y);
+    this->write(dset_name, y);
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -317,8 +314,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
-        const hid_t data_file_id)
+void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*this->ncomponents];
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
@@ -363,7 +359,6 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read(
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
-        const hid_t data_file_id,
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
@@ -396,7 +391,6 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 
 template <int particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
-        const hid_t data_file_id,
         const bool write_rhs)
 {
     double *temp0 = new double[this->chunk_size*this->ncomponents];

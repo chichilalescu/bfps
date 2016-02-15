@@ -120,8 +120,8 @@ class particles_io_base
             return this->chunk_offsets.size();
         }
         inline const unsigned int get_number_of_rhs_chunks();
-        virtual void read( const hid_t data_file_id) = 0;
-        virtual void write(const hid_t data_file_id, const bool write_rhs = true) = 0;
+        virtual void read() = 0;
+        virtual void write(const bool write_rhs = true) = 0;
 };
 
 #endif//PARTICLES_BASE
