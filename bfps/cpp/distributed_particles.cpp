@@ -371,7 +371,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
     double *yy = new double[this->nparticles*3];
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
-        std::fill_n(yy, this->nparticles*3, 0);
+        std::fill_n(yy, this->chunk_size*3, 0);
         for (int p=0; p<this->chunk_size; p++)
         {
             auto pp = y.find(p+cindex*this->chunk_size);

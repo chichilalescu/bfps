@@ -46,27 +46,17 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
         interpolator_base<rnumber, interp_neighbours> *FIELD,
         const int NPARTICLES,
         const int TRAJ_SKIP,
-        const int INTEGRATION_STEPS)
+        const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
+            NAME,
+            TRAJ_SKIP,
+            data_file_id,
+            FIELD->descriptor->comm)
 {
-    switch(particle_type)
-    {
-        case VELOCITY_TRACER:
-            this->ncomponents = 3;
-            break;
-        default:
-            this->ncomponents = 3;
-            break;
-    }
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
-    strncpy(this->name, NAME, 256);
-    this->nparticles = NPARTICLES;
     this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
-    this->traj_skip = TRAJ_SKIP;
-    this->myrank = this->vel->descriptor->myrank;
-    this->nprocs = this->vel->descriptor->nprocs;
-    this->comm = this->vel->descriptor->comm;
+    assert(this->nparticles == NPARTICLES);
     this->array_size = this->nparticles * this->ncomponents;
     this->state = new double[this->array_size];
     std::fill_n(this->state, this->array_size, 0.0);
@@ -262,66 +252,30 @@ void particles<particle_type, rnumber, interp_neighbours>::read(
 template <int particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::write(
         const hid_t data_file_id,
-        const char *dset_name,
-        const double *data)
-{
-    std::string temp_string = (std::string(this->name) +
-                               std::string("/") +
-                               std::string(dset_name));
-    hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-    hid_t mspace, wspace;
-    hsize_t count[3], offset[3];
-    wspace = H5Dget_space(dset);
-    H5Sget_simple_extent_dims(wspace, count, NULL);
-    count[0] = 1;
-    offset[0] = this->iteration / this->traj_skip;
-    offset[1] = 0;
-    offset[2] = 0;
-    mspace = H5Screate_simple(3, count, NULL);
-    H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-    H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, data);
-    H5Sclose(mspace);
-    H5Sclose(wspace);
-    H5Dclose(dset);
-}
-
-template <int particle_type, class rnumber, int interp_neighbours>
-void particles<particle_type, rnumber, interp_neighbours>::write(
-        const hid_t data_file_id,
         const bool write_rhs)
 {
     if (this->myrank == 0)
-    {
-        this->write(data_file_id, "state", this->state);
-        if (write_rhs)
+        for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
         {
-            std::string temp_string = (
-                    std::string("/") +
-                    std::string(this->name) +
-                    std::string("/rhs"));
-            hid_t dset = H5Dopen(data_file_id, temp_string.c_str(), H5P_DEFAULT);
-            hid_t wspace = H5Dget_space(dset);
-            hsize_t count[4], offset[4];
-            H5Sget_simple_extent_dims(wspace, count, NULL);
-            //writing to last available position
-            offset[0] = count[0] - 1;
-            offset[1] = 0;
-            offset[2] = 0;
-            offset[3] = 0;
-            count[0] = 1;
-            count[1] = 1;
-            hid_t mspace = H5Screate_simple(4, count, NULL);
-            for (int i=0; i<this->integration_steps; i++)
-            {
-                offset[1] = i;
-                H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-                H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, this->rhs[i]);
-            }
-            H5Sclose(mspace);
-            H5Sclose(wspace);
-            H5Dclose(dset);
+            this->write_state_chunk(cindex, this->state+cindex*this->chunk_size*this->ncomponents);
+            if (write_rhs)
+                for (int i=0; i<this->integration_steps; i++)
+                    this->write_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*this->ncomponents);
         }
-    }
+}
+
+template <int particle_type, class rnumber, int interp_neighbours>
+void particles<particle_type, rnumber, interp_neighbours>::sample(
+        interpolator_base<rnumber, interp_neighbours> *field,
+        const hid_t data_file_id,
+        const char *dset_name)
+{
+    double *y = new double[this->nparticles*this->ncomponents];
+    field->sample(this->nparticles, this->ncomponents, this->state, y);
+    if (this->myrank == 0)
+        for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+            this->write_point3D_chunk(dset_name, cindex, y+cindex*this->chunk_size*this->ncomponents);
+    delete[] y;
 }
 
 

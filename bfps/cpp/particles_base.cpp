@@ -314,10 +314,12 @@ void particles_io_base<particle_type>::read_rhs_chunk(
         const int rhsindex,
         double *data)
 {
+    DEBUG_MSG("entered read_rhs_chunk\n");
     hid_t dset = H5Dopen(this->hdf5_group_id, "rhs", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_rhs_chunks);
     mem_dims[0] = 1;
+    mem_dims[1] = 1;
     hid_t mspace = H5Screate_simple(
             this->hdf5_rhs_dims.size(),
             &mem_dims.front(),
@@ -328,6 +330,9 @@ void particles_io_base<particle_type>::read_rhs_chunk(
     for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
     offset[this->hdf5_rhs_dims.size()-1] = 0;
+    //for (int i=0; i<this->hdf5_rhs_dims.size(); i++)
+    //    DEBUG_MSG("rhs dim %d: size=%d chunk=%d offset=%d\n",
+    //        i, this->hdf5_rhs_dims[i], this->hdf5_rhs_chunks[i], offset[i]);
     H5Sselect_hyperslab(
             rspace,
             H5S_SELECT_SET,
@@ -335,11 +340,14 @@ void particles_io_base<particle_type>::read_rhs_chunk(
             NULL,
             &mem_dims.front(),
             NULL);
+    DEBUG_MSG("selected hyperslab\n");
     H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, data);
+    DEBUG_MSG("data has been read\n");
     H5Sclose(mspace);
     H5Sclose(rspace);
     H5Dclose(dset);
     delete[] offset;
+    DEBUG_MSG("exiting read_rhs_chunk\n");
 }
 
 template <int particle_type>
@@ -363,6 +371,8 @@ void particles_io_base<particle_type>::write_rhs_chunk(
     for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
     offset[this->hdf5_rhs_dims.size()-1] = 0;
+    DEBUG_MSG("rhs write offsets are %d %d %d %d\n",
+            offset[0], offset[1], offset[2], offset[3]);
     H5Sselect_hyperslab(
             rspace,
             H5S_SELECT_SET,

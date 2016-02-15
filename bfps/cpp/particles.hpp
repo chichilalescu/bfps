@@ -38,28 +38,18 @@
 #define PARTICLES
 
 template <int particle_type, class rnumber, int interp_neighbours>
-class particles
+class particles: public particles_io_base<particle_type>
 {
-    public:
-        int myrank, nprocs;
-        MPI_Comm comm;
-
-        /* state will generally hold all the information about the particles.
-         * in the beginning, we will only need to solve 3D ODEs, but I figured
-         * a general ncomponents is better, since we may change our minds.
-         * */
+    private:
         double *state;
         double *rhs[6];
-        int nparticles;
-        int ncomponents;
+
+    public:
         int array_size;
         int integration_steps;
-        int traj_skip;
         interpolator_base<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
-        char name[256];
-        int iteration;
         double dt;
 
         /* methods */
@@ -78,26 +68,16 @@ class particles
                 const int INTEGRATION_STEPS = 2);
         ~particles();
 
-
-        inline const char *get_name()
-        {
-            return this->name;
-        }
-
-        inline void sample(interpolator_base<rnumber, interp_neighbours> *field, double *y)
-        {
-            field->sample(this->nparticles, this->ncomponents, this->state, y);
-        }
+        void sample(
+                interpolator_base<rnumber, interp_neighbours> *field,
+                const hid_t data_file_id,
+                const char *dset_name);
 
         inline void sample(
                 interpolator_base<rnumber, interp_neighbours> *field,
-                const hid_t data_file_id,
-                const char *dset_name)
+                double *y)
         {
-            double *y = new double[this->nparticles*this->ncomponents];
             field->sample(this->nparticles, this->ncomponents, this->state, y);
-            this->write(data_file_id, dset_name, y);
-            delete[] y;
         }
 
         void get_rhs(
@@ -106,7 +86,10 @@ class particles
 
         /* input/output */
         void read(const hid_t data_file_id);
-        void write(const hid_t data_file_id, const char *dset_name, const double *data);
+        void write(
+                const hid_t data_file_id,
+                const char *dset_name,
+                const double *data);
         void write(const hid_t data_file_id, const bool write_rhs = true);
 
         /* solvers */
