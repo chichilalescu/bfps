@@ -48,8 +48,6 @@ parser.add_argument(
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    if 'rFFTW' in opt.particle_class:
-        opt.interpolator_class = 'rFFTW_interpolator'
     c0 = launch(opt, dt = 0.2/opt.n,
             particle_class = opt.particle_class,
             interpolator_class = opt.interpolator_class)

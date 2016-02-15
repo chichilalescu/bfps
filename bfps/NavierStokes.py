@@ -440,7 +440,7 @@ class NavierStokes(_fluid_particle_base):
             interpolator = 'field_interpolator',
             frozen_particles = False,
             acc_name = None,
-            class_name = 'rFFTW_particles'):
+            class_name = 'particles'):
         """Adds code for tracking a series of particle species, each
         consisting of `nparticles` particles.
 

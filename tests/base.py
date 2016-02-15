@@ -116,7 +116,7 @@ def launch(
         tracer_state_file = None,
         vorticity_field = None,
         code_class = bfps.NavierStokes,
-        particle_class = 'rFFTW_particles',
+        particle_class = 'particles',
         interpolator_class = 'rFFTW_interpolator'):
     c = code_class(
             work_dir = opt.work_dir,
