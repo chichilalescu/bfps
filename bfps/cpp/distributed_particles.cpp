@@ -423,7 +423,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         if (this->myrank == 0)
             this->write_state_chunk(cindex, temp1);
         //write rhs
-        if (this->iteration > 0)
+        if (write_rhs)
             for (int i=0; i<this->integration_steps; i++)
             {
                 std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
