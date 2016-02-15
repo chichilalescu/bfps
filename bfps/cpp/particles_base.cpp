@@ -24,7 +24,7 @@
 
 
 
-//#define NDEBUG
+#define NDEBUG
 
 #include <algorithm>
 #include <cassert>
@@ -314,7 +314,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
         const int rhsindex,
         double *data)
 {
-    DEBUG_MSG("entered read_rhs_chunk\n");
+    //DEBUG_MSG("entered read_rhs_chunk\n");
     hid_t dset = H5Dopen(this->hdf5_group_id, "rhs", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_rhs_chunks);
@@ -340,14 +340,14 @@ void particles_io_base<particle_type>::read_rhs_chunk(
             NULL,
             &mem_dims.front(),
             NULL);
-    DEBUG_MSG("selected hyperslab\n");
+    //DEBUG_MSG("selected hyperslab\n");
     H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, data);
-    DEBUG_MSG("data has been read\n");
+    //DEBUG_MSG("data has been read\n");
     H5Sclose(mspace);
     H5Sclose(rspace);
     H5Dclose(dset);
     delete[] offset;
-    DEBUG_MSG("exiting read_rhs_chunk\n");
+    //DEBUG_MSG("exiting read_rhs_chunk\n");
 }
 
 template <int particle_type>
