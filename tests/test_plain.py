@@ -33,10 +33,16 @@ import matplotlib.pyplot as plt
 parser.add_argument('--multiplejob',
         dest = 'multiplejob', action = 'store_true')
 
+parser.add_argument(
+        '--particle-class',
+        default = 'particles',
+        dest = 'particle_class',
+        type = str)
+
 def plain(opt):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
-    c0 = launch(opt, dt = 0.2/opt.n)
+    c0 = launch(opt, dt = 0.2/opt.n, particle_class = opt.particle_class)
     c0.compute_statistics()
     print ('Re = {0:.0f}'.format(c0.statistics['Re']))
     print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))
@@ -51,14 +57,15 @@ def plain(opt):
     opt.work_dir = wd + '/N{0:0>3x}_2'.format(opt.n)
     opt.njobs *= 2
     opt.niter_todo = opt.niter_todo//2
-    c1 = launch(opt, dt = c0.parameters['dt'])
+    c1 = launch(opt, dt = c0.parameters['dt'], particle_class = opt.particle_class)
     c1.compute_statistics()
     opt.work_dir = wd + '/N{0:0>3x}_3'.format(opt.n)
     opt.njobs = 3*opt.njobs//2
     opt.niter_todo = 2*opt.niter_todo//3
-    c2 = launch(opt, dt = c0.parameters['dt'])
+    c2 = launch(opt, dt = c0.parameters['dt'], particle_class = opt.particle_class)
     c2.compute_statistics()
     compare_stats(opt, c0, c1)
+    compare_stats(opt, c0, c2)
     return None
 
 if __name__ == '__main__':
