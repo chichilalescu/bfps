@@ -81,7 +81,8 @@ else:
     if (('develop' in git_branch) or
         ('feature' in git_branch) or
         ('bugfix'  in git_branch)):
-        VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode()
+        VERSION = subprocess.check_output(
+                ['git', 'describe', '--tags', '--dirty']).strip().decode().replace('-g', '+g').replace('-dirty', '.dirty').replace('-', '.post')
     else:
         VERSION = subprocess.check_output(['git', 'describe', '--tags']).strip().decode().split('-')[0]
 print('This is bfps version ' + VERSION)
@@ -90,10 +91,14 @@ print('This is bfps version ' + VERSION)
 
 ### lists of files and MANIFEST.in
 src_file_list = ['field_descriptor',
+                 'interpolator_base',
+                 'distributed_particles',
+                 'particles_base',
+                 'interpolator',
+                 'particles',
+                 'rFFTW_interpolator',
                  'fluid_solver_base',
                  'fluid_solver',
-                 'rFFTW_interpolator',
-                 'rFFTW_particles',
                  'fftw_tools',
                  'spline_n1',
                  'spline_n2',
@@ -103,9 +108,7 @@ src_file_list = ['field_descriptor',
                  'spline_n6',
                  'Lagrange_polys']
 
-header_list = (['cpp/base.hpp',
-                'cpp/particles_base.hpp',
-                'cpp/interpolator_base.hpp'] +
+header_list = (['cpp/base.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list])
 

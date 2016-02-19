@@ -67,7 +67,7 @@ class fluid_solver_base
         std::unordered_map<int, double> Fourier_filter;
         double *kshell;
         int64_t *nshell;
-        int nshells;
+        unsigned int nshells;
 
 
         /* methods */

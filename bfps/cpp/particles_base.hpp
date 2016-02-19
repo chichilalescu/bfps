@@ -24,6 +24,8 @@
 
 
 
+#include <vector>
+#include <hdf5.h>
 #include "interpolator_base.hpp"
 
 #ifndef PARTICLES_BASE
@@ -31,7 +33,96 @@
 #define PARTICLES_BASE
 
 /* particle types */
-enum particle_types {VELOCITY_TRACER};
+enum particle_types {POINT3D, VELOCITY_TRACER};
+
+/* 1 particle state type */
+
+template <int particle_type>
+class single_particle_state
+{
+    public:
+        double *data;
+
+        single_particle_state();
+        single_particle_state(const single_particle_state &src);
+        single_particle_state(const double *src);
+        ~single_particle_state();
+
+        single_particle_state<particle_type> &operator=(const single_particle_state &src);
+        single_particle_state<particle_type> &operator=(const double *src);
+
+        inline double &operator[](const int i)
+        {
+            return this->data[i];
+        }
+};
+
+std::vector<std::vector<hsize_t>> get_chunk_offsets(
+        std::vector<hsize_t> data_dims,
+        std::vector<hsize_t> chnk_dims);
+
+template <int particle_type>
+class particles_io_base
+{
+    protected:
+        int myrank, nprocs;
+        MPI_Comm comm;
+
+        int nparticles;
+        int ncomponents;
+
+        std::string name;
+        int chunk_size;
+        int traj_skip;
+
+        hid_t hdf5_group_id;
+        std::vector<hsize_t> hdf5_state_dims, hdf5_state_chunks;
+        std::vector<hsize_t> hdf5_rhs_dims, hdf5_rhs_chunks;
+
+        std::vector<std::vector<hsize_t>> chunk_offsets;
+
+        particles_io_base(
+                const char *NAME,
+                const int TRAJ_SKIP,
+                const hid_t data_file_id,
+                MPI_Comm COMM);
+        virtual ~particles_io_base();
+
+        void read_state_chunk(
+                const int cindex,
+                double *__restrict__ data);
+        void write_state_chunk(
+                const int cindex,
+                const double *data);
+        void read_rhs_chunk(
+                const int cindex,
+                const int rhsindex,
+                double *__restrict__ data);
+        void write_rhs_chunk(
+                const int cindex,
+                const int rhsindex,
+                const double *data);
+
+        void write_point3D_chunk(
+                const std::string dset_name,
+                const int cindex,
+                const double *data);
+
+    public:
+        int iteration;
+
+        inline const char *get_name()
+        {
+            return this->name.c_str();
+        }
+        inline const unsigned int get_number_of_chunks()
+        {
+            return this->chunk_offsets.size();
+        }
+        inline const unsigned int get_number_of_rhs_chunks();
+        virtual void read() = 0;
+        virtual void write(const bool write_rhs = true) = 0;
+};
 
 #endif//PARTICLES_BASE
 

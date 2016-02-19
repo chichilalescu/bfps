@@ -27,40 +27,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <unordered_map>
+#include <vector>
 #include <hdf5.h>
 #include "base.hpp"
 #include "particles_base.hpp"
 #include "fluid_solver_base.hpp"
-#include "rFFTW_interpolator.hpp"
+#include "interpolator.hpp"
 
-#ifndef RFFTW_PARTICLES
+#ifndef DISTRIBUTED_PARTICLES
 
-#define RFFTW_PARTICLES
+#define DISTRIBUTED_PARTICLES
 
 template <int particle_type, class rnumber, int interp_neighbours>
-class rFFTW_particles
+class distributed_particles: public particles_io_base<particle_type>
 {
-    public:
-        int myrank, nprocs;
-        MPI_Comm comm;
-        rnumber *data;
+    private:
+        std::unordered_map<int, single_particle_state<particle_type> > state;
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
 
-        /* state will generally hold all the information about the particles.
-         * in the beginning, we will only need to solve 3D ODEs, but I figured
-         * a general ncomponents is better, since we may change our minds.
-         * */
-        double *state;
-        double *rhs[6];
-        int nparticles;
-        int ncomponents;
-        int array_size;
+    public:
         int integration_steps;
-        int traj_skip;
-        rFFTW_interpolator<rnumber, interp_neighbours> *vel;
+        // this class only works with buffered interpolator
+        interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
-        char name[256];
-        int iteration;
         double dt;
 
         /* methods */
@@ -70,29 +61,38 @@ class rFFTW_particles
          *  this->state
          *  this->rhs
          * */
-        rFFTW_particles(
+        distributed_particles(
                 const char *NAME,
-                rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
-                const int NPARTICLES,
+                const hid_t data_file_id,
+                interpolator<rnumber, interp_neighbours> *FIELD,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
-        ~rFFTW_particles();
+        ~distributed_particles();
 
+        void sample(
+                interpolator<rnumber, interp_neighbours> *field,
+                const char *dset_name);
+        void sample(
+                interpolator<rnumber, interp_neighbours> *field,
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void get_rhs(
-                double *__restrict__ x,
-                double *__restrict__ rhs);
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
 
-        inline void sample_vec_field(
-                rFFTW_interpolator<rnumber, interp_neighbours> *field,
-                double *vec_values)
-        {
-            field->sample(this->nparticles, this->ncomponents, this->state, vec_values, NULL);
-        }
+        void redistribute(
+                std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals);
+
 
         /* input/output */
-        void read(const hid_t data_file_id);
-        void write(const hid_t data_file_id, const char *dset_name, const double *data);
-        void write(const hid_t data_file_id, const bool write_rhs = true);
+        void read();
+        void write(
+                const char *dset_name,
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
+        void write(
+                const char *dset_name,
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
+        void write(const bool write_rhs = true);
 
         /* solvers */
         void step();
@@ -100,5 +100,5 @@ class rFFTW_particles
         void AdamsBashforth(const int nsteps);
 };
 
-#endif//RFFTW_PARTICLES
+#endif//DISTRIBUTED_PARTICLES
 

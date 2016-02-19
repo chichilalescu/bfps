@@ -78,7 +78,6 @@ class NavierStokes(_fluid_particle_base):
                 hsize_t dims[4];
                 hid_t group;
                 hid_t Cspace, Cdset;
-                int ndims;
                 // store kspace information
                 Cdset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
                 Cspace = H5Dget_space(Cdset);
@@ -337,9 +336,7 @@ class NavierStokes(_fluid_particle_base):
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
-                                 'int *kindices;\n' +
-                                 'hid_t particle_file;\n' +
-                                 'hid_t H5T_field_complex;\n')
+                                 'hid_t particle_file;\n')
         self.fluid_definitions += """
                     typedef struct {{
                         {0} re;
@@ -368,12 +365,6 @@ class NavierStokes(_fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 fs->read('v', 'c');
-                if (fs->cd->myrank == 0)
-                {{
-                    H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
-                    H5Tinsert(H5T_field_complex, "r", HOFFSET(tmp_complex_type, re), {2});
-                    H5Tinsert(H5T_field_complex, "i", HOFFSET(tmp_complex_type, im), {2});
-                }}
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         if self.parameters['nparticles'] > 0:
@@ -396,14 +387,12 @@ class NavierStokes(_fluid_particle_base):
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
-                          'if (fs->cd->myrank == 0)\n' +
-                          '{\n' +
-                          'delete[] kindices;\n' +
-                          'H5Tclose(H5T_field_complex);\n' +
-                          '}\n' +
                           'delete fs;\n')
         if self.parameters['nparticles'] > 0:
-            self.fluid_end += 'H5Fclose(particle_file);\n'
+            self.fluid_end += ('if (myrank == 0)\n' +
+                               '{\n' +
+                               'H5Fclose(particle_file);\n' +
+                               '}\n')
         return None
     def add_3D_rFFTW_field(
             self,
@@ -422,10 +411,11 @@ class NavierStokes(_fluid_particle_base):
             neighbours = 1,
             smoothness = 1,
             name = 'field_interpolator',
-            field_name = 'fs->rvelocity'):
-        self.fluid_includes += '#include "rFFTW_interpolator.hpp"\n'
-        self.fluid_variables += 'rFFTW_interpolator <{0}, {1}> *{2};\n'.format(
-                self.C_dtype, neighbours, name)
+            field_name = 'fs->rvelocity',
+            class_name = 'rFFTW_interpolator'):
+        self.fluid_includes += '#include "{0}.hpp"\n'.format(class_name)
+        self.fluid_variables += '{0} <{1}, {2}> *{3};\n'.format(
+                class_name, self.C_dtype, neighbours, name)
         self.parameters[name + '_type'] = interp_type
         self.parameters[name + '_neighbours'] = neighbours
         if interp_type == 'spline':
@@ -433,8 +423,9 @@ class NavierStokes(_fluid_particle_base):
             beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
         elif interp_type == 'Lagrange':
             beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-        self.fluid_start += '{0} = new rFFTW_interpolator<{1}, {2}>(fs, {3}, {4});\n'.format(
+        self.fluid_start += '{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n'.format(
                 name,
+                class_name,
                 self.C_dtype,
                 neighbours,
                 beta_name,
@@ -447,7 +438,8 @@ class NavierStokes(_fluid_particle_base):
             kcut = None,
             interpolator = 'field_interpolator',
             frozen_particles = False,
-            acc_name = None):
+            acc_name = None,
+            class_name = 'particles'):
         """Adds code for tracking a series of particle species, each
         consisting of `nparticles` particles.
 
@@ -495,7 +487,7 @@ class NavierStokes(_fluid_particle_base):
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
                         //begincpp
-                        group = H5Gopen(particle_file, ps{0}->name, H5P_DEFAULT);
+                        group = H5Gopen(particle_file, ps{0}->get_name(), H5P_DEFAULT);
                         grow_particle_datasets(group, "", NULL, NULL);
                         H5Gclose(group);
                         //endcpp
@@ -506,39 +498,26 @@ class NavierStokes(_fluid_particle_base):
         # array for putting sampled velocity in
         # must compute velocity, just in case it was messed up by some
         # other particle species before the stats
-        output_vel_acc += ('double *velocity = new double[3*nparticles];\n' +
-                           'fs->compute_velocity(fs->cvorticity);\n')
+        output_vel_acc += 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == list:
             output_vel_acc += 'fs->ift_velocity();\n'
         if not type(acc_name) == type(None):
             # array for putting sampled acceleration in
             # must compute acceleration
-            output_vel_acc += 'double *acceleration = new double[3*nparticles];\n'
             output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
         for s in range(nspecies):
             if type(kcut) == list:
                 output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
                 output_vel_acc += 'fs->ift_velocity();\n'
             output_vel_acc += """
-                {0}->field = fs->rvelocity;
-                ps{1}->sample_vec_field({0}, velocity);
+                {0}->read_rFFTW(fs->rvelocity);
+                ps{1}->sample({0}, "velocity");
                 """.format(interpolator[s], s0 + s)
             if not type(acc_name) == type(None):
                 output_vel_acc += """
-                    {0}->field = {1};
-                    ps{2}->sample_vec_field({0}, acceleration);
+                    {0}->read_rFFTW({1});
+                    ps{2}->sample({0}, "acceleration");
                     """.format(interpolator[s], acc_name, s0 + s)
-            output_vel_acc += (
-                    'if (myrank == 0)\n' +
-                    '{\n' +
-                    'ps{0}->write(particle_file, "velocity", velocity);\n'.format(s0 + s))
-            if not type(acc_name) == type(None):
-                output_vel_acc += (
-                        'ps{0}->write(particle_file, "acceleration", acceleration);\n'.format(s0 + s))
-            output_vel_acc += '}\n'
-        output_vel_acc += 'delete[] velocity;\n'
-        if not type(acc_name) == type(None):
-            output_vel_acc += 'delete[] acceleration;\n'
         output_vel_acc += '}\n'
 
         #### initialize, stepping and finalize code
@@ -549,38 +528,39 @@ class NavierStokes(_fluid_particle_base):
             self.particle_loop  += update_fields
         else:
             self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
-        self.particle_includes += '#include "rFFTW_particles.hpp"\n'
+        self.particle_includes += '#include "{0}.hpp"\n'.format(class_name)
         self.particle_stat_src += (
                 'if (ps0->iteration % niter_part == 0)\n' +
                 '{\n')
         for s in range(nspecies):
             neighbours = self.parameters[interpolator[s] + '_neighbours']
             self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
-            self.particle_end += ('ps{0}->write(particle_file);\n' +
+            self.particle_end += ('ps{0}->write();\n' +
                                   'delete ps{0};\n').format(s0 + s)
-            self.particle_variables += 'rFFTW_particles<VELOCITY_TRACER, {0}, {1}> *ps{2};\n'.format(
+            self.particle_variables += '{0}<VELOCITY_TRACER, {1}, {2}> *ps{3};\n'.format(
+                    class_name,
                     self.C_dtype,
                     neighbours,
                     s0 + s)
-            self.particle_start += ('ps{0} = new rFFTW_particles<VELOCITY_TRACER, {1}, {2}>(\n' +
-                                    'fname, {3},\n' +
-                                    'nparticles,\n' +
+            self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
+                                    'fname, particle_file, {4},\n' +
                                     'niter_part, tracers{0}_integration_steps);\n').format(
                                             s0 + s,
+                                            class_name,
                                             self.C_dtype,
                                             neighbours,
                                             interpolator[s])
             self.particle_start += ('ps{0}->dt = dt;\n' +
                                     'ps{0}->iteration = iteration;\n' +
-                                    'ps{0}->read(particle_file);\n').format(s0 + s)
+                                    'ps{0}->read();\n').format(s0 + s)
             if not frozen_particles:
                 if type(kcut) == list:
                     update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
-                self.particle_loop += '{0}->field = fs->rvelocity;\n'.format(interpolator[s])
+                self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
-            self.particle_stat_src += 'ps{0}->write(particle_file, false);\n'.format(s0 + s)
+            self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
@@ -598,6 +578,20 @@ class NavierStokes(_fluid_particle_base):
     def get_postprocess_file(self):
         return h5py.File(self.get_postprocess_file_name(), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
+        """Run basic postprocessing on raw data.
+        The energy spectrum :math:`E(t, k)` and the enstrophy spectrum
+        :math:`\\frac{1}{2}\omega^2(t, k)` are computed from the
+
+        .. math::
+
+            \sum_{k \\leq \\|\\mathbf{k}\\| \\leq k+dk}\\hat{u_i} \\hat{u_j}^*, \\hskip .5cm
+            \sum_{k \\leq \\|\\mathbf{k}\\| \\leq k+dk}\\hat{\omega_i} \\hat{\\omega_j}^*
+
+        tensors, and the enstrophy spectrum is also used to
+        compute the dissipation :math:`\\varepsilon(t)`.
+        These basic quantities are stored in a newly created HDF5 file,
+        ``simname_postprocess.h5``.
+        """
         if len(list(self.statistics.keys())) > 0:
             return None
         self.read_parameters()
@@ -655,8 +649,27 @@ class NavierStokes(_fluid_particle_base):
             self.compute_time_averages()
         return None
     def compute_time_averages(self):
-        """
-        Conventions for Uint and Tint are taken from [Ishihara]_.
+        """Compute easy stats.
+
+        Further computation of statistics based on the contents of
+        ``simname_postprocess.h5``.
+        Standard quantities are as follows
+        (consistent with [Ishihara]_):
+
+        .. math::
+
+            U_{\\textrm{int}}(t) = \\sqrt{\\frac{2E(t)}{3}}, \\hskip .5cm
+            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
+            T_{\\textrm{int}}(t) =
+            \\frac{L_{\\textrm{int}}(t)}{U_{\\textrm{int}}(t)}
+
+            \\eta_K = \\left(\\frac{\\nu^3}{\\varepsilon}\\right)^{1/4}, \\hskip .5cm
+            \\tau_K = \\left(\\frac{\\nu}{\\varepsilon}\\right)^{1/2}, \\hskip .5cm
+            \\lambda = \\sqrt{\\frac{15 \\nu U_{\\textrm{int}}^2}{\\varepsilon}}
+
+            Re = \\frac{U_{\\textrm{int}} L_{\\textrm{int}}}{\\nu}, \\hskip
+            .5cm
+            R_{\\lambda} = \\frac{U_{\\textrm{int}} \\lambda}{\\nu}
 
         .. [Ishihara] T. Ishihara et al,
                       *Small-scale statistics in high-resolution direct numerical
@@ -867,9 +880,7 @@ class NavierStokes(_fluid_particle_base):
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
                 ofile.create_group('tracers{0}'.format(s))
-                time_chunk = 2**20 // (8*3*
-                                       self.parameters['nparticles']*
-                                       self.parameters['tracers{0}_integration_steps'.format(s)])
+                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
                 time_chunk = max(time_chunk, 1)
                 dims = (1,
                         self.parameters['tracers{0}_integration_steps'.format(s)],
@@ -880,15 +891,13 @@ class NavierStokes(_fluid_particle_base):
                             self.parameters['nparticles'],
                             3)
                 chunks = (time_chunk,
-                          self.parameters['tracers{0}_integration_steps'.format(s)],
+                          1,
                           self.parameters['nparticles'],
                           3)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
-                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
-                time_chunk = max(time_chunk, 1)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
@@ -1002,10 +1011,34 @@ class NavierStokes(_fluid_particle_base):
     def prepare_launch(
             self,
             args = []):
+        """Set up reasonable parameters.
+
+        With the default Lundgren forcing applied in the band [2, 4],
+        we can estimate the dissipation, therefore we can estimate
+        :math:`k_M \\eta_K` and constrain the viscosity.
+        Also, if velocity gradient statistics are computed, the
+        dissipation is used for estimating the bins of the QR histogram.
+
+        In brief, the command line parameter :math:`k_M \\eta_K` is
+        used in the following formula for :math:`\\nu` (:math:`N` is the
+        number of real space grid points per coordinate):
+
+        .. math::
+
+            \\nu = \\left(\\frac{2 k_M \\eta_K}{N} \\right)^{4/3}
+
+        With this choice, the average dissipation :math:`\\varepsilon`
+        will be close to 0.4, and the integral scale velocity will be
+        close to 0.77, yielding the approximate value for the Taylor
+        microscale and corresponding Reynolds number:
+
+        .. math::
+
+            \\lambda \\approx 4.75\\left(\\frac{2 k_M \\eta_K}{N} \\right)^{4/6}, \\hskip .5in
+            R_\\lambda \\approx 3.7 \\left(\\frac{N}{2 k_M \\eta_K} \\right)^{4/6}
+
+        """
         opt = _code.prepare_launch(self, args = args)
-        # with the default Lundgren forcing, I can estimate the dissipation
-        # with nondefault forcing, figure out the amplitude for this viscosity
-        # yourself
         self.QR_stats_on = opt.QR_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)

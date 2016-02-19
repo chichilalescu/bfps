@@ -24,6 +24,7 @@
 
 
 
+#include <cmath>
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
@@ -34,23 +35,54 @@
 #define INTERPOLATOR
 
 template <class rnumber, int interp_neighbours>
-class interpolator
+class interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
+    private:
+        /* pointer to buffered field */
+        rnumber *field;
+
     public:
         ptrdiff_t buffer_size;
-        base_polynomial_values compute_beta;
-        field_descriptor<rnumber> *descriptor;
-        field_descriptor<rnumber> *unbuffered_descriptor;
-        rnumber *f0, *f1, *temp;
+
+        /* descriptor for buffered field */
+        field_descriptor<rnumber> *buffered_descriptor;
 
         interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
-                base_polynomial_values BETA_POLYS);
+                base_polynomial_values BETA_POLYS,
+                ...);
         ~interpolator();
 
-        void operator()(double t, int *__restrict__ xg, double *__restrict__ xx, double *__restrict__ dest, int *deriv = NULL);
-        /* destroys input */
-        int read_rFFTW(void *src);
+        int read_rFFTW(const void *src);
+
+        inline int get_rank(double z)
+        {
+            return this->descriptor->rank[MOD(int(floor(z/this->dz)), this->descriptor->sizes[0])];
+        }
+
+        /* interpolate field at an array of locations */
+        void sample(
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                double *__restrict__ y,
+                const int *deriv = NULL);
+        /* interpolate 1 point */
+        inline void operator()(
+                const double *__restrict__ x,
+                double *__restrict__ dest,
+                const int *deriv = NULL)
+        {
+            int xg[3];
+            double xx[3];
+            this->get_grid_coordinates(x, xg, xx);
+            (*this)(xg, xx, dest, deriv);
+        }
+        void operator()(
+                const int *__restrict__ xg,
+                const double *__restrict__ xx,
+                double *__restrict__ dest,
+                const int *deriv = NULL);
 };
 
 #endif//INTERPOLATOR

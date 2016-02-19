@@ -14,6 +14,7 @@ Welcome to bfps's documentation!
     /_static/overview
     /_static/development
     /_static/api
+    /_static/cpp
 
 
 Indices and tables

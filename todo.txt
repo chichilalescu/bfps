@@ -1,4 +1,5 @@
 (B) compute z polynomials only when needed                                  @optimization
+(B) use argparse subcommands instead of required argument                   @design
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
 (B) use less memory                                                         @optimization

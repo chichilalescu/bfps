@@ -50,22 +50,22 @@ if __name__ == '__main__':
     c.pars_from_namespace(opt)
     c.fill_up_fluid_code()
     c.add_interpolator(
-            name = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness),
+            name = 'buffered',
             neighbours = opt.neighbours,
             smoothness = opt.smoothness,
             class_name = 'interpolator')
     c.add_interpolator(
-            name = 'n{0}'.format(opt.neighbours),
+            name = 'rFFTW',
             neighbours = opt.neighbours,
-            interp_type = 'Lagrange',
-            class_name = 'interpolator')
+            smoothness = opt.smoothness,
+            class_name = 'rFFTW_interpolator')
     c.add_particles(
             integration_steps = 1,
-            interpolator = 'n{0}m{1}'.format(opt.neighbours, opt.smoothness),
+            interpolator = 'buffered',
             class_name = 'particles')
     c.add_particles(
             integration_steps = 1,
-            interpolator = 'n{0}'.format(opt.neighbours),
+            interpolator = 'rFFTW',
             class_name = 'particles')
     c.finalize_code()
     c.write_src()
