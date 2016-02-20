@@ -313,44 +313,44 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
         const int nsteps)
 {
     this->get_rhs(this->state, this->rhs[0]);
-    for (auto &pp: this->state)
-        for (int i=0; i<this->ncomponents; i++)
-            switch(nsteps)
-            {
-                case 1:
-                    pp.second[i] += this->dt*this->rhs[0][pp.first][i];
-                    break;
-                case 2:
-                    pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
-                                            -   this->rhs[1][pp.first][i])/2;
-                    break;
-                case 3:
-                    pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
-                                            - 16*this->rhs[1][pp.first][i]
-                                            +  5*this->rhs[2][pp.first][i])/12;
-                    break;
-                case 4:
-                    pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
-                                            - 59*this->rhs[1][pp.first][i]
-                                            + 37*this->rhs[2][pp.first][i]
-                                            -  9*this->rhs[3][pp.first][i])/24;
-                    break;
-                case 5:
-                    pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
-                                            - 2774*this->rhs[1][pp.first][i]
-                                            + 2616*this->rhs[2][pp.first][i]
-                                            - 1274*this->rhs[3][pp.first][i]
-                                            +  251*this->rhs[4][pp.first][i])/720;
-                    break;
-                case 6:
-                    pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
-                                            - 7923*this->rhs[1][pp.first][i]
-                                            + 9982*this->rhs[2][pp.first][i]
-                                            - 7298*this->rhs[3][pp.first][i]
-                                            + 2877*this->rhs[4][pp.first][i]
-                                            -  475*this->rhs[5][pp.first][i])/1440;
-                    break;
-            }
+    //for (auto &pp: this->state)
+    //    for (int i=0; i<this->ncomponents; i++)
+    //        switch(nsteps)
+    //        {
+    //            case 1:
+    //                pp.second[i] += this->dt*this->rhs[0][pp.first][i];
+    //                break;
+    //            case 2:
+    //                pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
+    //                                        -   this->rhs[1][pp.first][i])/2;
+    //                break;
+    //            case 3:
+    //                pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
+    //                                        - 16*this->rhs[1][pp.first][i]
+    //                                        +  5*this->rhs[2][pp.first][i])/12;
+    //                break;
+    //            case 4:
+    //                pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
+    //                                        - 59*this->rhs[1][pp.first][i]
+    //                                        + 37*this->rhs[2][pp.first][i]
+    //                                        -  9*this->rhs[3][pp.first][i])/24;
+    //                break;
+    //            case 5:
+    //                pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
+    //                                        - 2774*this->rhs[1][pp.first][i]
+    //                                        + 2616*this->rhs[2][pp.first][i]
+    //                                        - 1274*this->rhs[3][pp.first][i]
+    //                                        +  251*this->rhs[4][pp.first][i])/720;
+    //                break;
+    //            case 6:
+    //                pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
+    //                                        - 7923*this->rhs[1][pp.first][i]
+    //                                        + 9982*this->rhs[2][pp.first][i]
+    //                                        - 7298*this->rhs[3][pp.first][i]
+    //                                        + 2877*this->rhs[4][pp.first][i]
+    //                                        -  475*this->rhs[5][pp.first][i])/1440;
+    //                break;
+    //        }
     //this->redistribute(this->state, this->rhs);
     this->roll_rhs();
 }
@@ -360,8 +360,8 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
-                            this->iteration+1 :
-                            this->integration_steps);
+                          this->iteration+1 :
+                          this->integration_steps);
     this->iteration++;
 }
 
@@ -418,6 +418,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
 {
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
+    int zmin_rank, zmax_rank;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
@@ -425,9 +426,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         {
             auto pp = y.find(p+cindex*this->chunk_size);
             if (pp != y.end())
-                std::copy(pp->second.data,
-                          pp->second.data + 3,
-                          yy + pp->first*3);
+            {
+                this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
+                if (this->myrank == zmin_rank)
+                    std::copy(pp->second.data,
+                              pp->second.data + 3,
+                              yy + pp->first*3);
+            }
         }
         MPI_Allreduce(
                 yy,
@@ -449,6 +454,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
 {
     double *temp0 = new double[this->chunk_size*this->ncomponents];
     double *temp1 = new double[this->chunk_size*this->ncomponents];
+    int zmin_rank, zmax_rank;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
@@ -457,9 +463,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         {
             auto pp = this->state.find(p + cindex*this->chunk_size);
             if (pp != this->state.end())
-                std::copy(pp->second.data,
-                          pp->second.data + this->ncomponents,
-                          temp0 + pp->first*this->ncomponents);
+            {
+                this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
+                if (this->myrank == zmin_rank)
+                    std::copy(pp->second.data,
+                              pp->second.data + this->ncomponents,
+                              temp0 + pp->first*this->ncomponents);
+            }
         }
         MPI_Allreduce(
                 temp0,
@@ -479,9 +489,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
                 {
                     auto pp = this->rhs[i].find(p + cindex*this->chunk_size);
                     if (pp != this->rhs[i].end())
-                        std::copy(pp->second.data,
-                                  pp->second.data + this->ncomponents,
-                                  temp0 + pp->first*this->ncomponents);
+                    {
+                        this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
+                        if (this->myrank == zmin_rank)
+                            std::copy(pp->second.data,
+                                      pp->second.data + this->ncomponents,
+                                      temp0 + pp->first*this->ncomponents);
+                    }
                 }
                 MPI_Allreduce(
                         temp0,
