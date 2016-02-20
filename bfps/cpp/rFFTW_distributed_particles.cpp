@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cmath>
 #include <cassert>
@@ -33,17 +33,17 @@
 #include <sstream>
 
 #include "base.hpp"
-#include "distributed_particles.hpp"
+#include "rFFTW_distributed_particles.hpp"
 #include "fftw_tools.hpp"
 
 
 extern int myrank, nprocs;
 
 template <int particle_type, class rnumber, int interp_neighbours>
-distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_particles(
+rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_distributed_particles(
         const char *NAME,
         const hid_t data_file_id,
-        interpolator<rnumber, interp_neighbours> *FIELD,
+        rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
@@ -59,31 +59,72 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
     this->state.reserve(2*this->nparticles / this->nprocs);
     for (unsigned int i=0; i<this->rhs.size(); i++)
         this->rhs[i].reserve(2*this->nparticles / this->nprocs);
+
+    this->interp_comm.resize(this->vel->descriptor->sizes[0]);
+    this->interp_nprocs.resize(this->vel->descriptor->sizes[0]);
+    int rmaxz, rminz;
+    int color, key;
+    for (int zg=0; zg<this->vel->descriptor->sizes[0]; zg++)
+    {
+        color = (this->vel->get_rank_info(
+                    (zg+.5)*this->vel->dz, rminz, rmaxz) ? zg : MPI_UNDEFINED);
+        key = zg - this->vel->descriptor->starts[0] + interp_neighbours;
+        MPI_Comm_split(this->comm, color, key, &this->interp_comm[zg]);
+        if (this->interp_comm[zg] != MPI_COMM_NULL)
+            MPI_Comm_size(this->interp_comm[zg], &this->interp_nprocs[zg]);
+        else
+            this->interp_nprocs[zg] = 0;
+    }
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-distributed_particles<particle_type, rnumber, interp_neighbours>::~distributed_particles()
+rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_distributed_particles()
 {
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
-        interpolator<rnumber, interp_neighbours> *field,
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
+        rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    double *yyy = new double[3];
     double *yy = new double[3];
+    std::fill_n(yy, 3, 0);
     y.clear();
-    for (auto &pp: x)
+    int xg[3];
+    double xx[3];
+    for (int p=0; p<this->nparticles; p++)
     {
-        (*field)(pp.second.data, yy);
-        y[pp.first] = yy;
+        auto pp = x.find(p);
+        if (pp != x.end())
+        {
+            field->get_grid_coordinates(pp->second.data, xg, xx);
+            (*field)(xg, xx, yy);
+            if (this->interp_nprocs[xg[2]]>1)
+            {
+                DEBUG_MSG(
+                        "iteration %d, zg is %d, nprocs is %d\n",
+                        this->iteration, xg[2], this->interp_nprocs[xg[2]]);
+                MPI_Allreduce(
+                        yy,
+                        yyy,
+                        3,
+                        MPI_DOUBLE,
+                        MPI_SUM,
+                        this->interp_comm[xg[2]]);
+                y[p] = yyy;
+            }
+            else
+                y[p] = yy;
+        }
     }
     delete[] yy;
+    delete[] yyy;
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
@@ -100,8 +141,8 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
-        interpolator<rnumber, interp_neighbours> *field,
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
+        rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const char *dset_name)
 {
     std::unordered_map<int, single_particle_state<POINT3D>> y;
@@ -110,14 +151,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
         rhs[i+1] = rhs[i];
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
 {
@@ -137,9 +178,15 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
     int rsrc, rdst;
     /* get list of id-s to send */
     for (auto &pp: x)
-        for (int i=0; i<2; i++)
-            if (this->vel->get_rank(pp.second.data[2]) == nr[i])
-                ps[i].push_back(pp.first);
+    {
+        int rminz, rmaxz;
+        bool is_here = this->vel->get_rank_info(pp.second.data[2], rminz, rmaxz);
+        //for (int i=0; i<2; i++)
+        //{
+        //    if (this->vel->get_rank() == nr[i])
+        //        ps[i].push_back(pp.first);
+        //}
+    }
     /* prepare data for send recv */
     for (int i=0; i<2; i++)
         nps[i] = ps[i].size();
@@ -247,14 +294,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
 
 #ifndef NDEBUG
     /* check that all particles at x are local */
-    for (auto &pp: x)
-        if (this->vel->get_rank(pp.second.data[2]) != this->myrank)
-        {
-            DEBUG_MSG("found particle %d with rank %d\n",
-                    pp.first,
-                    this->vel->get_rank(pp.second.data[2]));
-            assert(false);
-        }
+    //for (auto &pp: x)
+    //    if (this->vel->get_rank(pp.second.data[2]) != this->myrank)
+    //    {
+    //        DEBUG_MSG("found particle %d with rank %d\n",
+    //                pp.first,
+    //                this->vel->get_rank(pp.second.data[2]));
+    //        assert(false);
+    //    }
 #endif
     //DEBUG_MSG("exiting redistribute\n");
 }
@@ -262,7 +309,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
     this->get_rhs(this->state, this->rhs[0]);
@@ -304,13 +351,13 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
                                             -  475*this->rhs[5][pp.first][i])/1440;
                     break;
             }
-    this->redistribute(this->state, this->rhs);
+    //this->redistribute(this->state, this->rhs);
     this->roll_rhs();
 }
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
                             this->iteration+1 :
@@ -320,9 +367,10 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*this->ncomponents];
+    int tmpint1, tmpint2;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //read state
@@ -336,7 +384,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
                 this->comm);
         for (int p=0; p<this->chunk_size; p++)
         {
-            if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
+            if (this->vel->get_rank_info(temp[this->ncomponents*p+2], tmpint1, tmpint2))
                 this->state[p+cindex*this->chunk_size] = temp + this->ncomponents*p;
         }
         //read rhs
@@ -364,7 +412,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
@@ -396,7 +444,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
-void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
     double *temp0 = new double[this->chunk_size*this->ncomponents];
@@ -452,16 +500,17 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 
 
 /*****************************************************************************/
-template class distributed_particles<VELOCITY_TRACER, float, 1>;
-template class distributed_particles<VELOCITY_TRACER, float, 2>;
-template class distributed_particles<VELOCITY_TRACER, float, 3>;
-template class distributed_particles<VELOCITY_TRACER, float, 4>;
-template class distributed_particles<VELOCITY_TRACER, float, 5>;
-template class distributed_particles<VELOCITY_TRACER, float, 6>;
-template class distributed_particles<VELOCITY_TRACER, double, 1>;
-template class distributed_particles<VELOCITY_TRACER, double, 2>;
-template class distributed_particles<VELOCITY_TRACER, double, 3>;
-template class distributed_particles<VELOCITY_TRACER, double, 4>;
-template class distributed_particles<VELOCITY_TRACER, double, 5>;
-template class distributed_particles<VELOCITY_TRACER, double, 6>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 1>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 2>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 3>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 4>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 5>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, float, 6>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 1>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 2>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 3>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 4>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 5>;
+template class rFFTW_distributed_particles<VELOCITY_TRACER, double, 6>;
 /*****************************************************************************/
+

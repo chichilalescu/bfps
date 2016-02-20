@@ -37,6 +37,7 @@ template <class rnumber, int interp_neighbours>
 class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
     public:
+        using interpolator_base<rnumber, interp_neighbours>::operator();
         /* size of field to interpolate */
         ptrdiff_t field_size;
 
@@ -61,6 +62,8 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
             this->field = (rnumber*)src;
             return EXIT_SUCCESS;
         }
+
+        bool get_rank_info(double z, int &maxz_rank, int &minz_rank);
 
         /* interpolate field at an array of locations */
         void sample(

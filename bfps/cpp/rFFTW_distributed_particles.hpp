@@ -33,23 +33,25 @@
 #include "base.hpp"
 #include "particles_base.hpp"
 #include "fluid_solver_base.hpp"
-#include "interpolator.hpp"
+#include "rFFTW_interpolator.hpp"
 
-#ifndef DISTRIBUTED_PARTICLES
+#ifndef RFFTW_DISTRIBUTED_PARTICLES
 
-#define DISTRIBUTED_PARTICLES
+#define RFFTW_DISTRIBUTED_PARTICLES
 
 template <int particle_type, class rnumber, int interp_neighbours>
-class distributed_particles: public particles_io_base<particle_type>
+class rFFTW_distributed_particles: public particles_io_base<particle_type>
 {
     private:
         std::unordered_map<int, single_particle_state<particle_type> > state;
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
+        std::vector<MPI_Comm> interp_comm;
+        std::vector<int> interp_nprocs;
 
     public:
         int integration_steps;
-        // this class only works with buffered interpolator
-        interpolator<rnumber, interp_neighbours> *vel;
+        // this class only works with rFFTW interpolator
+        rFFTW_interpolator<rnumber, interp_neighbours> *vel;
 
         /* simulation parameters */
         double dt;
@@ -61,19 +63,19 @@ class distributed_particles: public particles_io_base<particle_type>
          *  this->state
          *  this->rhs
          * */
-        distributed_particles(
+        rFFTW_distributed_particles(
                 const char *NAME,
                 const hid_t data_file_id,
-                interpolator<rnumber, interp_neighbours> *FIELD,
+                rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
                 const int TRAJ_SKIP,
                 const int INTEGRATION_STEPS = 2);
-        ~distributed_particles();
+        ~rFFTW_distributed_particles();
 
         void sample(
-                interpolator<rnumber, interp_neighbours> *field,
+                rFFTW_interpolator<rnumber, interp_neighbours> *field,
                 const char *dset_name);
         void sample(
-                interpolator<rnumber, interp_neighbours> *field,
+                rFFTW_interpolator<rnumber, interp_neighbours> *field,
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void get_rhs(
@@ -101,5 +103,5 @@ class distributed_particles: public particles_io_base<particle_type>
         void AdamsBashforth(const int nsteps);
 };
 
-#endif//DISTRIBUTED_PARTICLES
+#endif//RFFTW_DISTRIBUTED_PARTICLES
 

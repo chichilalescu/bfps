@@ -92,6 +92,7 @@ print('This is bfps version ' + VERSION)
 ### lists of files and MANIFEST.in
 src_file_list = ['field_descriptor',
                  'interpolator_base',
+                 'rFFTW_distributed_particles',
                  'distributed_particles',
                  'particles_base',
                  'interpolator',

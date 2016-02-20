@@ -232,13 +232,16 @@ def particle_finite_diff_test(
     if interp_name not in pars.keys():
         # old format
         interp_name = 'tracers{0}_field'.format(species)
+    interp_name = pars[interp_name].value
+    if type(interp_name) == bytes:
+        interp_name = str(interp_name, 'ASCII')
     to_print = (
             'steps={0}, interp={1}, neighbours={2}, '.format(
                 pars['tracers{0}_integration_steps'.format(species)].value,
-                pars[str(pars[interp_name].value, 'ASCII') + '_type'].value,
-                pars[str(pars[interp_name].value, 'ASCII') + '_neighbours'].value))
-    if 'spline' in str(pars[interp_name].value, 'ASCII'):
-        to_print += 'smoothness = {0}, '.format(pars[str(pars[interp_name].value, 'ASCII') + '_smoothness'].value)
+                pars[interp_name + '_type'].value,
+                pars[interp_name + '_neighbours'].value))
+    if 'spline' in interp_name:
+        to_print += 'smoothness = {0}, '.format(pars[interp_name + '_smoothness'].value)
     to_print += (
             'SNR d1p-vel={0:.3f}'.format(np.mean(snr_vel1)))
     if acc_on:
