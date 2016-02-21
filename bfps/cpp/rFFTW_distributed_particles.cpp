@@ -103,9 +103,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             (*field)(xg, xx, yy);
             if (this->interp_nprocs[xg[2]]>1)
             {
-                DEBUG_MSG(
-                        "iteration %d, zg is %d, nprocs is %d\n",
-                        this->iteration, xg[2], this->interp_nprocs[xg[2]]);
                 MPI_Allreduce(
                         yy,
                         yyy,
@@ -117,6 +114,12 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             }
             else
                 y[p] = yy;
+            //DEBUG_MSG(
+            //        "iteration %d, zg %d, nprocs %d, y.data[0] %g\n",
+            //        this->iteration,
+            //        xg[2],
+            //        this->interp_nprocs[xg[2]],
+            //        y[p].data[0]);
         }
     }
     delete[] yy;
@@ -427,7 +430,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
             auto pp = y.find(p+cindex*this->chunk_size);
             if (pp != y.end())
             {
-                this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
+                this->vel->get_rank_info(this->state[pp->first].data[2], zmax_rank, zmin_rank);
                 if (this->myrank == zmin_rank)
                     std::copy(pp->second.data,
                               pp->second.data + 3,
