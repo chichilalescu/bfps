@@ -88,9 +88,9 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->domain_nprocs[ 1] = 2; // domain in common with higher z CPU
 
     /* initialize domain bins */
-    this->domain_particles[-1] = std::unordered_set<int>();
-    this->domain_particles[ 0] = std::unordered_set<int>();
-    this->domain_particles[ 1] = std::unordered_set<int>();
+    this->domain_particles[-1] = std::set<int>();
+    this->domain_particles[ 0] = std::set<int>();
+    this->domain_particles[ 1] = std::set<int>();
 
     int rmaxz, rminz;
     int color, key;
@@ -144,11 +144,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
-    DEBUG_MSG("just entered sample\n");
     double *yyy;
     double *yy;
     y.clear();
-    std::unordered_map<int, std::unordered_set<int>> dp;
+    std::unordered_map<int, std::set<int>> dp;
     this->sort_into_domains(x, dp);
     /* local z domain */
     yy = new double[3];
@@ -158,7 +157,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         y[p] = yy;
     }
     delete[] yy;
-    DEBUG_MSG("finished local z domain\n");
     /* boundary z domains */
     int domain_index;
     for (int rankpair = 0; rankpair < this->nprocs; rankpair++)
@@ -170,12 +168,14 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         if (this->myrank == rankpair ||
             this->myrank == MOD(rankpair+1, this->nprocs))
         {
-            yy = new double[dp[domain_index].size()];
-            yyy = new double[dp[domain_index].size()];
+            yy = new double[3*dp[domain_index].size()];
+            yyy = new double[3*dp[domain_index].size()];
             int tindex;
             tindex = 0;
             for (auto p: dp[domain_index])
             {
+                DEBUG_MSG("domain_index %d, particle id %d\n",
+                        domain_index, p);
                 (*field)(x.find(p)->second.data, yy + tindex*3);
                 tindex++;
             }
@@ -190,15 +190,12 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             for (auto p: dp[domain_index])
             {
                 y[p] = yyy + tindex*3;
+                tindex++;
             }
             delete[] yy;
             delete[] yyy;
         }
     }
-    DEBUG_MSG("finished nonlocal z domains\n");
-    delete[] yy;
-    delete[] yyy;
-    DEBUG_MSG("exiting sample\n");
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -447,13 +444,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::ste
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sort_into_domains(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
-        std::unordered_map<int, std::unordered_set<int>> &dp)
+        std::unordered_map<int, std::set<int>> &dp)
 {
     int tmpint1, tmpint2;
     dp.clear();
-    dp[-1] = std::unordered_set<int>();
-    dp[ 0] = std::unordered_set<int>();
-    dp[ 1] = std::unordered_set<int>();
+    dp[-1] = std::set<int>();
+    dp[ 0] = std::set<int>();
+    dp[ 1] = std::set<int>();
     for (auto &xx: x)
     {
         if (this->vel->get_rank_info(xx.second.data[2], tmpint1, tmpint2))
