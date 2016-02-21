@@ -180,8 +180,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
 
             for (auto p: ordered_dp)
             {
-                DEBUG_MSG("domain_index %d, particle id %d\n",
-                        domain_index, p);
                 (*field)(x.find(p)->second.data, yy + tindex*3);
                 tindex++;
             }
