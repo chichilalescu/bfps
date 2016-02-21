@@ -92,6 +92,18 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->domain_particles[-1] = std::unordered_set<int>();
     this->domain_particles[ 0] = std::unordered_set<int>();
     this->domain_particles[ 1] = std::unordered_set<int>();
+    this->domain_particles[-1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    this->domain_particles[ 1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    this->domain_particles[ 0].reserve(unsigned(
+                1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
+                float(this->nparticles) /
+                this->nprocs));
 
     int rmaxz, rminz;
     int color, key;
@@ -143,16 +155,15 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        const std::unordered_map<int, std::unordered_set<int>> &dp,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     double *yyy;
     double *yy;
     y.clear();
-    std::unordered_map<int, std::unordered_set<int>> dp;
-    this->sort_into_domains(x, dp);
     /* local z domain */
     yy = new double[3];
-    for (auto p: dp[0])
+    for (auto p: dp.at(0))
     {
         (*field)(x.find(p)->second.data, yy);
         y[p] = yy;
@@ -169,24 +180,24 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         if (this->myrank == rankpair ||
             this->myrank == MOD(rankpair+1, this->nprocs))
         {
-            yy = new double[3*dp[domain_index].size()];
-            yyy = new double[3*dp[domain_index].size()];
+            yy = new double[3*dp.at(domain_index).size()];
+            yyy = new double[3*dp.at(domain_index).size()];
             int tindex;
             tindex = 0;
             // can this sorting be done more efficiently?
             std::set<int> ordered_dp;
-            for (auto p: dp[domain_index])
+            for (auto p: dp.at(domain_index))
                 ordered_dp.insert(p);
 
             for (auto p: ordered_dp)
             {
-                (*field)(x.find(p)->second.data, yy + tindex*3);
+                (*field)(x.at(p).data, yy + tindex*3);
                 tindex++;
             }
             MPI_Allreduce(
                     yy,
                     yyy,
-                    3*dp[domain_index].size(),
+                    3*dp.at(domain_index).size(),
                     MPI_DOUBLE,
                     MPI_SUM,
                     this->domain_comm[domain_index]);
@@ -205,13 +216,14 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        const std::unordered_map<int, std::unordered_set<int>> &dp,
         std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
     std::unordered_map<int, single_particle_state<POINT3D>> yy;
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->sample(this->vel, this->state, yy);
+            this->sample(this->vel, x, dp, yy);
             y.clear();
             for (auto &pp: x)
                 y[pp.first] = yy[pp.first].data;
@@ -225,7 +237,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const char *dset_name)
 {
     std::unordered_map<int, single_particle_state<POINT3D>> y;
-    this->sample(field, this->state, y);
+    this->sample(field, this->state, this->domain_particles, y);
     this->write(dset_name, y);
 }
 
@@ -392,7 +404,9 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
             }
         }
     delete[] buffer;
-    dp = newdp;
+    // x has been changed, so newdp is obsolete
+    // we need to sort into domains again
+    this->sort_into_domains(x, dp);
 
 
 #ifndef NDEBUG
@@ -415,7 +429,7 @@ template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
-    this->get_rhs(this->state, this->rhs[0]);
+    this->get_rhs(this->state, this->domain_particles, this->rhs[0]);
     for (auto &pp: this->state)
         for (int i=0; i<this->ncomponents; i++)
             switch(nsteps)
@@ -479,6 +493,18 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sor
     dp[-1] = std::unordered_set<int>();
     dp[ 0] = std::unordered_set<int>();
     dp[ 1] = std::unordered_set<int>();
+    dp[-1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    dp[ 1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    dp[ 0].reserve(unsigned(
+                1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
+                float(this->nparticles) /
+                this->nprocs));
     for (auto &xx: x)
     {
         if (this->vel->get_rank_info(xx.second.data[2], tmpint1, tmpint2))
@@ -574,7 +600,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         MPI_Allreduce(
                 yy,
                 data,
-                3*this->nparticles,
+                3*this->chunk_size,
                 MPI_DOUBLE,
                 MPI_SUM,
                 this->comm);
