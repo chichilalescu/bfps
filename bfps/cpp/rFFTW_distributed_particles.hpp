@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <hdf5.h>
 #include "base.hpp"
@@ -43,10 +44,11 @@ template <int particle_type, class rnumber, int interp_neighbours>
 class rFFTW_distributed_particles: public particles_io_base<particle_type>
 {
     private:
-        std::unordered_map<int, single_particle_state<particle_type> > state;
+        std::unordered_map<int, single_particle_state<particle_type>> state;
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
-        std::vector<MPI_Comm> interp_comm;
-        std::vector<int> interp_nprocs;
+        std::unordered_map<int, int> domain_nprocs;
+        std::unordered_map<int, MPI_Comm> domain_comm;
+        std::unordered_map<int, std::unordered_set<int>> domain_particles;
 
     public:
         int integration_steps;
@@ -82,6 +84,10 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, single_particle_state<particle_type>> &y);
 
+
+        void sort_into_domains(
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::unordered_map<int, std::unordered_set<int>> &dp);
         void redistribute(
                 std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals);

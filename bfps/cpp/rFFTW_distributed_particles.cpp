@@ -51,8 +51,28 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
             data_file_id,
             FIELD->descriptor->comm)
 {
+    /* check that integration_steps has a valid value.
+     * If NDEBUG is defined, "assert" doesn't do anything.
+     * With NDEBUG defined, and an invalid INTEGRATION_STEPS,
+     * the particles will simply sit still.
+     * */
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
+    /* check that the field layout is compatible with this class.
+     * if it's not, the code will fail in bad ways, most likely ending up
+     * with various CPUs locked in some MPI send/receive.
+     * therefore I prefer to just kill the code at this point,
+     * no matter whether or not NDEBUG is present.
+     * */
+    if (interp_neighbours*2+2 > FIELD->descriptor->subsizes[0])
+    {
+        DEBUG_MSG("parameters incompatible with rFFTW_distributed_particles.\n"
+                  "interp kernel size is %d, local_z_size is %d\n",
+                  interp_neighbours*2+2, FIELD->descriptor->subsizes[0]);
+        if (FIELD->descriptor->myrank == 0)
+            std::cerr << "parameters incompatible with rFFTW_distributed_particles." << std::endl;
+        exit(0);
+    }
     this->vel = FIELD;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
@@ -60,21 +80,57 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     for (unsigned int i=0; i<this->rhs.size(); i++)
         this->rhs[i].reserve(2*this->nparticles / this->nprocs);
 
-    this->interp_comm.resize(this->vel->descriptor->sizes[0]);
-    this->interp_nprocs.resize(this->vel->descriptor->sizes[0]);
+    /* build communicators and stuff for interpolation */
+
+    /* number of processors per domain */
+    this->domain_nprocs[-1] = 2; // domain in common with lower z CPU
+    this->domain_nprocs[ 0] = 1; // local domain
+    this->domain_nprocs[ 1] = 2; // domain in common with higher z CPU
+
+    /* initialize domain bins */
+    this->domain_particles[-1] = std::unordered_set<int>();
+    this->domain_particles[ 0] = std::unordered_set<int>();
+    this->domain_particles[ 1] = std::unordered_set<int>();
+
     int rmaxz, rminz;
     int color, key;
-    for (int zg=0; zg<this->vel->descriptor->sizes[0]; zg++)
+    MPI_Comm tmpcomm;
+    for (int rank=0; rank<this->nprocs; rank++)
     {
-        color = (this->vel->get_rank_info(
-                    (zg+.5)*this->vel->dz, rminz, rmaxz) ? zg : MPI_UNDEFINED);
-        key = zg - this->vel->descriptor->starts[0] + interp_neighbours;
-        MPI_Comm_split(this->comm, color, key, &this->interp_comm[zg]);
-        if (this->interp_comm[zg] != MPI_COMM_NULL)
-            MPI_Comm_size(this->interp_comm[zg], &this->interp_nprocs[zg]);
-        else
-            this->interp_nprocs[zg] = 0;
+        color = MPI_UNDEFINED;
+        key = MPI_UNDEFINED;
+        if (this->myrank == rank)
+        {
+            color = rank;
+            key = 0;
+        }
+        if (this->myrank == MOD(rank + 1, this->nprocs))
+        {
+            color = rank;
+            key = 1;
+        }
+        MPI_Comm_split(this->comm, color, key, &tmpcomm);
+        if (this->myrank == rank)
+            this->domain_comm[ 1] = tmpcomm;
+        if (this->myrank == MOD(rank+1, this->nprocs))
+            this->domain_comm[-1] = tmpcomm;
+
     }
+
+    /* following code may be useful in the future for the general case */
+    //this->interp_comm.resize(this->vel->descriptor->sizes[0]);
+    //this->interp_nprocs.resize(this->vel->descriptor->sizes[0]);
+    //for (int zg=0; zg<this->vel->descriptor->sizes[0]; zg++)
+    //{
+    //    color = (this->vel->get_rank_info(
+    //                (zg+.5)*this->vel->dz, rminz, rmaxz) ? zg : MPI_UNDEFINED);
+    //    key = zg - this->vel->descriptor->starts[0] + interp_neighbours;
+    //    MPI_Comm_split(this->comm, color, key, &this->interp_comm[zg]);
+    //    if (this->interp_comm[zg] != MPI_COMM_NULL)
+    //        MPI_Comm_size(this->interp_comm[zg], &this->interp_nprocs[zg]);
+    //    else
+    //        this->interp_nprocs[zg] = 0;
+    //}
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -88,42 +144,48 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    DEBUG_MSG("just entered sample\n");
     double *yyy = new double[3];
     double *yy = new double[3];
-    std::fill_n(yy, 3, 0);
     y.clear();
-    int xg[3];
-    double xx[3];
-    for (int p=0; p<this->nparticles; p++)
+    std::unordered_map<int, std::unordered_set<int>> dp;
+    this->sort_into_domains(x, dp);
+    /* local z domain */
+    for (auto p: dp[0])
     {
-        auto pp = x.find(p);
-        if (pp != x.end())
+        (*field)(x.find(p)->second.data, yy);
+        y[p] = yy;
+    }
+    DEBUG_MSG("finished local z domain\n");
+    /* boundary z domains */
+    int domain_index;
+    for (int rankpair = 0; rankpair < this->nprocs; rankpair++)
+    {
+        if (this->myrank == rankpair)
+            domain_index = 1;
+        if (this->myrank == MOD(rankpair+1, this->nprocs))
+            domain_index = -1;
+        if (this->myrank == rankpair ||
+            this->myrank == MOD(rankpair+1, this->nprocs))
         {
-            field->get_grid_coordinates(pp->second.data, xg, xx);
-            (*field)(xg, xx, yy);
-            if (this->interp_nprocs[xg[2]]>1)
+            for (auto p: dp[domain_index])
             {
+                (*field)(x.find(p)->second.data, yy);
                 MPI_Allreduce(
                         yy,
                         yyy,
                         3,
                         MPI_DOUBLE,
                         MPI_SUM,
-                        this->interp_comm[xg[2]]);
+                        this->domain_comm[domain_index]);
                 y[p] = yyy;
             }
-            else
-                y[p] = yy;
-            //DEBUG_MSG(
-            //        "iteration %d, zg %d, nprocs %d, y.data[0] %g\n",
-            //        this->iteration,
-            //        xg[2],
-            //        this->interp_nprocs[xg[2]],
-            //        y[p].data[0]);
         }
     }
+    DEBUG_MSG("finished nonlocal z domains\n");
     delete[] yy;
     delete[] yyy;
+    DEBUG_MSG("exiting sample\n");
 }
 
 template <int particle_type, class rnumber, int interp_neighbours>
@@ -370,6 +432,34 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::ste
 
 
 template <int particle_type, class rnumber, int interp_neighbours>
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sort_into_domains(
+        const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        std::unordered_map<int, std::unordered_set<int>> &dp)
+{
+    int tmpint1, tmpint2;
+    dp.clear();
+    dp[-1] = std::unordered_set<int>();
+    dp[ 0] = std::unordered_set<int>();
+    dp[ 1] = std::unordered_set<int>();
+    for (auto &xx: x)
+    {
+        if (this->vel->get_rank_info(xx.second.data[2], tmpint1, tmpint2))
+        {
+            if (tmpint1 == tmpint2)
+                dp[0].insert(xx.first);
+            else
+            {
+                if (this->myrank == tmpint1)
+                    dp[-1].insert(xx.first);
+                else
+                    dp[ 1].insert(xx.first);
+            }
+        }
+    }
+}
+
+
+template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*this->ncomponents];
@@ -388,7 +478,9 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
         for (int p=0; p<this->chunk_size; p++)
         {
             if (this->vel->get_rank_info(temp[this->ncomponents*p+2], tmpint1, tmpint2))
+            {
                 this->state[p+cindex*this->chunk_size] = temp + this->ncomponents*p;
+            }
         }
         //read rhs
         if (this->iteration > 0)
@@ -410,7 +502,12 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
                 }
             }
     }
+    this->sort_into_domains(this->state, this->domain_particles);
     DEBUG_MSG("%s->state.size = %ld\n", this->name.c_str(), this->state.size());
+    for (int domain=-1; domain<=1; domain++)
+    {
+        DEBUG_MSG("domain %d nparticles = %ld\n", domain, this->domain_particles[domain].size());
+    }
     delete[] temp;
 }
 
@@ -422,19 +519,18 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
     int zmin_rank, zmax_rank;
+    int pindex = 0;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
-        for (int p=0; p<this->chunk_size; p++)
+        for (int p=0; p<this->chunk_size; p++, pindex++)
         {
-            auto pp = y.find(p+cindex*this->chunk_size);
-            if (pp != y.end())
+            if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+                this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
             {
-                this->vel->get_rank_info(this->state[pp->first].data[2], zmax_rank, zmin_rank);
-                if (this->myrank == zmin_rank)
-                    std::copy(pp->second.data,
-                              pp->second.data + 3,
-                              yy + pp->first*3);
+                std::copy(y[pindex].data,
+                          y[pindex].data + 3,
+                          yy + p*3);
             }
         }
         MPI_Allreduce(
@@ -458,20 +554,20 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     double *temp0 = new double[this->chunk_size*this->ncomponents];
     double *temp1 = new double[this->chunk_size*this->ncomponents];
     int zmin_rank, zmax_rank;
+    int pindex = 0;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
         std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
-        for (int p=0; p<this->chunk_size; p++)
+        pindex = cindex*this->chunk_size;
+        for (int p=0; p<this->chunk_size; p++, pindex++)
         {
-            auto pp = this->state.find(p + cindex*this->chunk_size);
-            if (pp != this->state.end())
+            if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+                this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
             {
-                this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
-                if (this->myrank == zmin_rank)
-                    std::copy(pp->second.data,
-                              pp->second.data + this->ncomponents,
-                              temp0 + pp->first*this->ncomponents);
+                std::copy(this->state[pindex].data,
+                          this->state[pindex].data + this->ncomponents,
+                          temp0 + p*this->ncomponents);
             }
         }
         MPI_Allreduce(
@@ -488,16 +584,15 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
             for (int i=0; i<this->integration_steps; i++)
             {
                 std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
-                for (int p=0; p<this->chunk_size; p++)
+                pindex = cindex*this->chunk_size;
+                for (int p=0; p<this->chunk_size; p++, pindex++)
                 {
-                    auto pp = this->rhs[i].find(p + cindex*this->chunk_size);
-                    if (pp != this->rhs[i].end())
+                    if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+                        this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
                     {
-                        this->vel->get_rank_info(pp->second.data[2], zmax_rank, zmin_rank);
-                        if (this->myrank == zmin_rank)
-                            std::copy(pp->second.data,
-                                      pp->second.data + this->ncomponents,
-                                      temp0 + pp->first*this->ncomponents);
+                        std::copy(this->rhs[i][pindex].data,
+                                  this->rhs[i][pindex].data + this->ncomponents,
+                                  temp0 + p*this->ncomponents);
                     }
                 }
                 MPI_Allreduce(
