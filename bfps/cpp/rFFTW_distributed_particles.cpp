@@ -145,17 +145,19 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     DEBUG_MSG("just entered sample\n");
-    double *yyy = new double[3];
-    double *yy = new double[3];
+    double *yyy;
+    double *yy;
     y.clear();
     std::unordered_map<int, std::unordered_set<int>> dp;
     this->sort_into_domains(x, dp);
     /* local z domain */
+    yy = new double[3];
     for (auto p: dp[0])
     {
         (*field)(x.find(p)->second.data, yy);
         y[p] = yy;
     }
+    delete[] yy;
     DEBUG_MSG("finished local z domain\n");
     /* boundary z domains */
     int domain_index;
@@ -168,18 +170,29 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         if (this->myrank == rankpair ||
             this->myrank == MOD(rankpair+1, this->nprocs))
         {
+            yy = new double[dp[domain_index].size()];
+            yyy = new double[dp[domain_index].size()];
+            int tindex;
+            tindex = 0;
             for (auto p: dp[domain_index])
             {
-                (*field)(x.find(p)->second.data, yy);
-                MPI_Allreduce(
-                        yy,
-                        yyy,
-                        3,
-                        MPI_DOUBLE,
-                        MPI_SUM,
-                        this->domain_comm[domain_index]);
-                y[p] = yyy;
+                (*field)(x.find(p)->second.data, yy + tindex*3);
+                tindex++;
             }
+            MPI_Allreduce(
+                    yy,
+                    yyy,
+                    3*dp[domain_index].size(),
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    this->domain_comm[domain_index]);
+            tindex = 0;
+            for (auto p: dp[domain_index])
+            {
+                y[p] = yyy + tindex*3;
+            }
+            delete[] yy;
+            delete[] yyy;
         }
     }
     DEBUG_MSG("finished nonlocal z domains\n");
