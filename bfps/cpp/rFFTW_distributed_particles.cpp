@@ -239,9 +239,35 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rol
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
         std::unordered_map<int, single_particle_state<particle_type>> &x,
-        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
+        std::unordered_map<int, std::unordered_set<int>> &dp)
 {
     //DEBUG_MSG("entered redistribute\n");
+    /* get new distribution of particles */
+    std::unordered_map<int, std::unordered_set<int>> newdp;
+    this->sort_into_domains(x, newdp);
+    /* take care of particles that are leaving the shared domains */
+    int dindex[2] = {-1, 1};
+    // for each D of the 2 shared domains
+    for (int di=0; di<2; di++)
+        // for all particles previously in D
+        for (auto p: dp[dindex[di]])
+        {
+            // if the particle is no longer in D
+            if (newdp[dindex[di]].find(p) == newdp[dindex[di]].end())
+            {
+                // and the particle is not in the local domain
+                if (newdp[0].find(p) == newdp[0].end())
+                {
+                    // remove the particle from the local list
+                    x.erase(p);
+                    for (int i=0; i<vals.size(); i++)
+                        vals[i].erase(p);
+                }
+                // if the particle is in the local domain, do nothing
+            }
+        }
+    /* take care of particles that are entering the shared domains */
     /* neighbouring rank offsets */
     int ro[2];
     ro[0] = -1;
@@ -256,15 +282,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     int nps[2], npr[2];
     int rsrc, rdst;
     /* get list of id-s to send */
-    for (auto &pp: x)
+    for (auto &p: dp[0])
     {
-        int rminz, rmaxz;
-        bool is_here = this->vel->get_rank_info(pp.second.data[2], rminz, rmaxz);
-        //for (int i=0; i<2; i++)
-        //{
-        //    if (this->vel->get_rank() == nr[i])
-        //        ps[i].push_back(pp.first);
-        //}
+        for (int di=0; di<2; di++)
+        {
+            if (newdp[dindex[di]].find(p) != newdp[dindex[di]].end())
+                ps[di].push_back(p);
+        }
     }
     /* prepare data for send recv */
     for (int i=0; i<2; i++)
@@ -320,13 +344,11 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                     std::copy(x[p].data,
                               x[p].data + this->ncomponents,
                               buffer + pcounter*(1+vals.size())*this->ncomponents);
-                    x.erase(p);
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
                         std::copy(vals[tindex][p].data,
                                   vals[tindex][p].data + this->ncomponents,
                                   buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents);
-                        vals[tindex].erase(p);
                     }
                     pcounter++;
                 }
@@ -360,6 +382,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                 for (int p: pr[1-i])
                 {
                     x[p] = buffer + (pcounter*(1+vals.size()))*this->ncomponents;
+                    newdp[1-i].insert(p);
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
                         vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents;
@@ -369,6 +392,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
             }
         }
     delete[] buffer;
+    dp = newdp;
 
 
 #ifndef NDEBUG
@@ -392,45 +416,45 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
         const int nsteps)
 {
     this->get_rhs(this->state, this->rhs[0]);
-    //for (auto &pp: this->state)
-    //    for (int i=0; i<this->ncomponents; i++)
-    //        switch(nsteps)
-    //        {
-    //            case 1:
-    //                pp.second[i] += this->dt*this->rhs[0][pp.first][i];
-    //                break;
-    //            case 2:
-    //                pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
-    //                                        -   this->rhs[1][pp.first][i])/2;
-    //                break;
-    //            case 3:
-    //                pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
-    //                                        - 16*this->rhs[1][pp.first][i]
-    //                                        +  5*this->rhs[2][pp.first][i])/12;
-    //                break;
-    //            case 4:
-    //                pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
-    //                                        - 59*this->rhs[1][pp.first][i]
-    //                                        + 37*this->rhs[2][pp.first][i]
-    //                                        -  9*this->rhs[3][pp.first][i])/24;
-    //                break;
-    //            case 5:
-    //                pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
-    //                                        - 2774*this->rhs[1][pp.first][i]
-    //                                        + 2616*this->rhs[2][pp.first][i]
-    //                                        - 1274*this->rhs[3][pp.first][i]
-    //                                        +  251*this->rhs[4][pp.first][i])/720;
-    //                break;
-    //            case 6:
-    //                pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
-    //                                        - 7923*this->rhs[1][pp.first][i]
-    //                                        + 9982*this->rhs[2][pp.first][i]
-    //                                        - 7298*this->rhs[3][pp.first][i]
-    //                                        + 2877*this->rhs[4][pp.first][i]
-    //                                        -  475*this->rhs[5][pp.first][i])/1440;
-    //                break;
-    //        }
-    //this->redistribute(this->state, this->rhs);
+    for (auto &pp: this->state)
+        for (int i=0; i<this->ncomponents; i++)
+            switch(nsteps)
+            {
+                case 1:
+                    pp.second[i] += this->dt*this->rhs[0][pp.first][i];
+                    break;
+                case 2:
+                    pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
+                                            -   this->rhs[1][pp.first][i])/2;
+                    break;
+                case 3:
+                    pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
+                                            - 16*this->rhs[1][pp.first][i]
+                                            +  5*this->rhs[2][pp.first][i])/12;
+                    break;
+                case 4:
+                    pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
+                                            - 59*this->rhs[1][pp.first][i]
+                                            + 37*this->rhs[2][pp.first][i]
+                                            -  9*this->rhs[3][pp.first][i])/24;
+                    break;
+                case 5:
+                    pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
+                                            - 2774*this->rhs[1][pp.first][i]
+                                            + 2616*this->rhs[2][pp.first][i]
+                                            - 1274*this->rhs[3][pp.first][i]
+                                            +  251*this->rhs[4][pp.first][i])/720;
+                    break;
+                case 6:
+                    pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
+                                            - 7923*this->rhs[1][pp.first][i]
+                                            + 9982*this->rhs[2][pp.first][i]
+                                            - 7298*this->rhs[3][pp.first][i]
+                                            + 2877*this->rhs[4][pp.first][i]
+                                            -  475*this->rhs[5][pp.first][i])/1440;
+                    break;
+            }
+    this->redistribute(this->state, this->rhs, this->domain_particles);
     this->roll_rhs();
 }
 

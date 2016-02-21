@@ -90,7 +90,8 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
                 std::unordered_map<int, std::unordered_set<int>> &dp);
         void redistribute(
                 std::unordered_map<int, single_particle_state<particle_type>> &x,
-                std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals);
+                std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
+                std::unordered_map<int, std::unordered_set<int>> &dp);
 
 
         /* input/output */
