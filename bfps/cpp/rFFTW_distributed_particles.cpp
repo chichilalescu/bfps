@@ -31,6 +31,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
+#include <set>
 
 #include "base.hpp"
 #include "rFFTW_distributed_particles.hpp"
@@ -88,9 +89,9 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->domain_nprocs[ 1] = 2; // domain in common with higher z CPU
 
     /* initialize domain bins */
-    this->domain_particles[-1] = std::set<int>();
-    this->domain_particles[ 0] = std::set<int>();
-    this->domain_particles[ 1] = std::set<int>();
+    this->domain_particles[-1] = std::unordered_set<int>();
+    this->domain_particles[ 0] = std::unordered_set<int>();
+    this->domain_particles[ 1] = std::unordered_set<int>();
 
     int rmaxz, rminz;
     int color, key;
@@ -147,7 +148,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
     double *yyy;
     double *yy;
     y.clear();
-    std::unordered_map<int, std::set<int>> dp;
+    std::unordered_map<int, std::unordered_set<int>> dp;
     this->sort_into_domains(x, dp);
     /* local z domain */
     yy = new double[3];
@@ -172,7 +173,12 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             yyy = new double[3*dp[domain_index].size()];
             int tindex;
             tindex = 0;
+            // can this sorting be done more efficiently?
+            std::set<int> ordered_dp;
             for (auto p: dp[domain_index])
+                ordered_dp.insert(p);
+
+            for (auto p: ordered_dp)
             {
                 DEBUG_MSG("domain_index %d, particle id %d\n",
                         domain_index, p);
@@ -187,7 +193,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
                     MPI_SUM,
                     this->domain_comm[domain_index]);
             tindex = 0;
-            for (auto p: dp[domain_index])
+            for (auto p: ordered_dp)
             {
                 y[p] = yyy + tindex*3;
                 tindex++;
@@ -444,13 +450,13 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::ste
 template <int particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sort_into_domains(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
-        std::unordered_map<int, std::set<int>> &dp)
+        std::unordered_map<int, std::unordered_set<int>> &dp)
 {
     int tmpint1, tmpint2;
     dp.clear();
-    dp[-1] = std::set<int>();
-    dp[ 0] = std::set<int>();
-    dp[ 1] = std::set<int>();
+    dp[-1] = std::unordered_set<int>();
+    dp[ 0] = std::unordered_set<int>();
+    dp[ 1] = std::unordered_set<int>();
     for (auto &xx: x)
     {
         if (this->vel->get_rank_info(xx.second.data[2], tmpint1, tmpint2))
