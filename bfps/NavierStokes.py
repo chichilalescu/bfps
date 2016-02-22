@@ -400,11 +400,11 @@ class NavierStokes(_fluid_particle_base):
                           'if (fs->cd->myrank == 0)\n' +
                           '{\n' +
                           'delete[] kindices;\n' +
-                          'H5Tclose(H5T_field_complex);\n' +
-                          '}\n' +
-                          'delete fs;\n')
+                          'H5Tclose(H5T_field_complex);\n')
         if self.parameters['nparticles'] > 0:
             self.fluid_end += 'H5Fclose(particle_file);\n'
+        self.fluid_end += ('}\n' +
+                           'delete fs;\n')
         return None
     def add_3D_rFFTW_field(
             self,
