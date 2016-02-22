@@ -37,7 +37,7 @@
 
 #define PARTICLES
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 class particles: public particles_io_base<particle_type>
 {
     private:

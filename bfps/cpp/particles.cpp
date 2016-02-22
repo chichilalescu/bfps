@@ -39,7 +39,7 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::particles(
         const char *NAME,
         const hid_t data_file_id,
@@ -65,7 +65,7 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::~particles()
 {
     delete[] this->state;
@@ -75,7 +75,7 @@ particles<particle_type, rnumber, interp_neighbours>::~particles()
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::get_rhs(double *x, double *y)
 {
     switch(particle_type)
@@ -86,7 +86,7 @@ void particles<particle_type, rnumber, interp_neighbours>::get_rhs(double *x, do
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
@@ -97,7 +97,7 @@ void particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
@@ -173,7 +173,7 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -183,7 +183,7 @@ void particles<particle_type, rnumber, interp_neighbours>::step()
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::read()
 {
     if (this->myrank == 0)
@@ -210,7 +210,7 @@ void particles<particle_type, rnumber, interp_neighbours>::read()
                     this->comm);
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
@@ -224,7 +224,7 @@ void particles<particle_type, rnumber, interp_neighbours>::write(
         }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator_base<rnumber, interp_neighbours> *field,
         const char *dset_name)

@@ -26,6 +26,7 @@
 
 #include <vector>
 #include <hdf5.h>
+#include <unordered_map>
 #include "interpolator_base.hpp"
 
 #ifndef PARTICLES_BASE
@@ -35,13 +36,21 @@
 /* particle types */
 enum particle_types {POINT3D, VELOCITY_TRACER};
 
+/* space dimension */
+constexpr unsigned int state_dimension(particle_types particle_type)
+{
+    return ((particle_type == POINT3D) ? 3 : (
+            (particle_type == VELOCITY_TRACER) ? 3 :
+            3));
+}
+
 /* 1 particle state type */
 
-template <int particle_type>
+template <particle_types particle_type>
 class single_particle_state
 {
     public:
-        double *data;
+        double data[state_dimension(particle_type)];
 
         single_particle_state();
         single_particle_state(const single_particle_state &src);
@@ -61,7 +70,7 @@ std::vector<std::vector<hsize_t>> get_chunk_offsets(
         std::vector<hsize_t> data_dims,
         std::vector<hsize_t> chnk_dims);
 
-template <int particle_type>
+template <particle_types particle_type>
 class particles_io_base
 {
     protected:

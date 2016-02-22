@@ -40,7 +40,7 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_distributed_particles(
         const char *NAME,
         const hid_t data_file_id,
@@ -146,12 +146,12 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     //}
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_distributed_particles()
 {
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
@@ -213,7 +213,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         const std::unordered_map<int, std::unordered_set<int>> &dp,
@@ -231,7 +231,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const char *dset_name)
@@ -241,14 +241,14 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
     this->write(dset_name, y);
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
         rhs[i+1] = rhs[i];
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
@@ -425,7 +425,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
 
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
@@ -473,7 +473,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -483,7 +483,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::ste
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sort_into_domains(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, std::unordered_set<int>> &dp)
@@ -523,7 +523,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sor
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*this->ncomponents];
@@ -575,7 +575,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
     delete[] temp;
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
@@ -611,7 +611,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     delete[] data;
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {

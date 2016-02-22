@@ -39,7 +39,7 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_particles(
         const char *NAME,
         const hid_t data_file_id,
@@ -61,12 +61,12 @@ distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_pa
         this->rhs[i].reserve(2*this->nparticles / this->nprocs);
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 distributed_particles<particle_type, rnumber, interp_neighbours>::~distributed_particles()
 {
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator<rnumber, interp_neighbours> *field,
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
@@ -82,7 +82,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
     delete[] yy;
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<particle_type>> &y)
@@ -99,7 +99,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator<rnumber, interp_neighbours> *field,
         const char *dset_name)
@@ -109,14 +109,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
     this->write(dset_name, y);
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
         rhs[i+1] = rhs[i];
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
@@ -261,7 +261,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
 
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
@@ -309,7 +309,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -319,7 +319,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*this->ncomponents];
@@ -363,7 +363,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
     delete[] temp;
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
@@ -395,7 +395,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
     delete[] data;
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {

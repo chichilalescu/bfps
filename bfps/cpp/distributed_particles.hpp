@@ -39,7 +39,7 @@
 
 #define DISTRIBUTED_PARTICLES
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 class distributed_particles: public particles_io_base<particle_type>
 {
     private:
