@@ -75,7 +75,7 @@ class particles: public particles_io_base<particle_type>
                 interpolator_base<rnumber, interp_neighbours> *field,
                 double *y)
         {
-            field->sample(this->nparticles, this->ncomponents, this->state, y);
+            field->sample(this->nparticles, state_dimension(particle_type), this->state, y);
         }
 
         void get_rhs(

@@ -119,7 +119,6 @@ particles_io_base<particle_type>::particles_io_base(
         const hid_t data_file_id,
         MPI_Comm COMM)
 {
-    this->ncomponents = state_dimension(particle_type);
     this->name = std::string(NAME);
     this->traj_skip = TRAJ_SKIP;
     this->comm = COMM;
@@ -134,7 +133,7 @@ particles_io_base<particle_type>::particles_io_base(
         dspace = H5Dget_space(dset);
         this->hdf5_state_dims.resize(H5Sget_simple_extent_ndims(dspace));
         H5Sget_simple_extent_dims(dspace, &this->hdf5_state_dims.front(), NULL);
-        assert(this->hdf5_state_dims[this->hdf5_state_dims.size()-1] == this->ncomponents);
+        assert(this->hdf5_state_dims[this->hdf5_state_dims.size()-1] == state_dimension(particle_type));
         this->nparticles = 1;
         for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
             this->nparticles *= this->hdf5_state_dims[i];

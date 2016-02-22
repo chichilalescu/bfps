@@ -174,7 +174,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
     buffer_size = (buffer_size > npr[0])? buffer_size : npr[0];
     buffer_size = (buffer_size > npr[1])? buffer_size : npr[1];
     //DEBUG_MSG("buffer size is %d\n", buffer_size);
-    double *buffer = new double[buffer_size*this->ncomponents*(1+vals.size())];
+    double *buffer = new double[buffer_size*state_dimension(particle_type)*(1+vals.size())];
     for (rsrc = 0; rsrc<this->nprocs; rsrc++)
         for (int i=0; i<2; i++)
         {
@@ -192,21 +192,21 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                 for (int p: ps[i])
                 {
                     std::copy(x[p].data,
-                              x[p].data + this->ncomponents,
-                              buffer + pcounter*(1+vals.size())*this->ncomponents);
+                              x[p].data + state_dimension(particle_type),
+                              buffer + pcounter*(1+vals.size())*state_dimension(particle_type));
                     x.erase(p);
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
                         std::copy(vals[tindex][p].data,
-                                  vals[tindex][p].data + this->ncomponents,
-                                  buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents);
+                                  vals[tindex][p].data + state_dimension(particle_type),
+                                  buffer + (pcounter*(1+vals.size()) + tindex+1)*state_dimension(particle_type));
                         vals[tindex].erase(p);
                     }
                     pcounter++;
                 }
                 MPI_Send(
                         buffer,
-                        nps[i]*(1+vals.size())*this->ncomponents,
+                        nps[i]*(1+vals.size())*state_dimension(particle_type),
                         MPI_DOUBLE,
                         rdst,
                         2*(rsrc*this->nprocs + rdst)+1,
@@ -224,7 +224,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         MPI_STATUS_IGNORE);
                 MPI_Recv(
                         buffer,
-                        npr[1-i]*(1+vals.size())*this->ncomponents,
+                        npr[1-i]*(1+vals.size())*state_dimension(particle_type),
                         MPI_DOUBLE,
                         rsrc,
                         2*(rsrc*this->nprocs + rdst)+1,
@@ -233,10 +233,10 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                 int pcounter = 0;
                 for (int p: pr[1-i])
                 {
-                    x[p] = buffer + (pcounter*(1+vals.size()))*this->ncomponents;
+                    x[p] = buffer + (pcounter*(1+vals.size()))*state_dimension(particle_type);
                     for (int tindex=0; tindex<vals.size(); tindex++)
                     {
-                        vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*this->ncomponents;
+                        vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*state_dimension(particle_type);
                     }
                     pcounter++;
                 }
@@ -267,7 +267,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
 {
     this->get_rhs(this->state, this->rhs[0]);
     for (auto &pp: this->state)
-        for (int i=0; i<this->ncomponents; i++)
+        for (int i=0; i<state_dimension(particle_type); i++)
             switch(nsteps)
             {
                 case 1:
@@ -322,7 +322,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
-    double *temp = new double[this->chunk_size*this->ncomponents];
+    double *temp = new double[this->chunk_size*state_dimension(particle_type)];
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //read state
@@ -330,14 +330,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
             this->read_state_chunk(cindex, temp);
         MPI_Bcast(
                 temp,
-                this->chunk_size*this->ncomponents,
+                this->chunk_size*state_dimension(particle_type),
                 MPI_DOUBLE,
                 0,
                 this->comm);
         for (int p=0; p<this->chunk_size; p++)
         {
-            if (this->vel->get_rank(temp[this->ncomponents*p+2]) == this->myrank)
-                this->state[p+cindex*this->chunk_size] = temp + this->ncomponents*p;
+            if (this->vel->get_rank(temp[state_dimension(particle_type)*p+2]) == this->myrank)
+                this->state[p+cindex*this->chunk_size] = temp + state_dimension(particle_type)*p;
         }
         //read rhs
         if (this->iteration > 0)
@@ -347,7 +347,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
                     this->read_rhs_chunk(cindex, i, temp);
                 MPI_Bcast(
                         temp,
-                        this->chunk_size*this->ncomponents,
+                        this->chunk_size*state_dimension(particle_type),
                         MPI_DOUBLE,
                         0,
                         this->comm);
@@ -355,7 +355,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
                 {
                     auto pp = this->state.find(p+cindex*this->chunk_size);
                     if (pp != this->state.end())
-                        this->rhs[i][p+cindex*this->chunk_size] = temp + this->ncomponents*p;
+                        this->rhs[i][p+cindex*this->chunk_size] = temp + state_dimension(particle_type)*p;
                 }
             }
     }
@@ -399,24 +399,24 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
-    double *temp0 = new double[this->chunk_size*this->ncomponents];
-    double *temp1 = new double[this->chunk_size*this->ncomponents];
+    double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
+    double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
-        std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
+        std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
         for (int p=0; p<this->chunk_size; p++)
         {
             auto pp = this->state.find(p + cindex*this->chunk_size);
             if (pp != this->state.end())
                 std::copy(pp->second.data,
-                          pp->second.data + this->ncomponents,
-                          temp0 + pp->first*this->ncomponents);
+                          pp->second.data + state_dimension(particle_type),
+                          temp0 + pp->first*state_dimension(particle_type));
         }
         MPI_Allreduce(
                 temp0,
                 temp1,
-                this->ncomponents*this->chunk_size,
+                state_dimension(particle_type)*this->chunk_size,
                 MPI_DOUBLE,
                 MPI_SUM,
                 this->comm);
@@ -426,19 +426,19 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         if (write_rhs)
             for (int i=0; i<this->integration_steps; i++)
             {
-                std::fill_n(temp0, this->ncomponents*this->chunk_size, 0);
+                std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
                 for (int p=0; p<this->chunk_size; p++)
                 {
                     auto pp = this->rhs[i].find(p + cindex*this->chunk_size);
                     if (pp != this->rhs[i].end())
                         std::copy(pp->second.data,
-                                  pp->second.data + this->ncomponents,
-                                  temp0 + pp->first*this->ncomponents);
+                                  pp->second.data + state_dimension(particle_type),
+                                  temp0 + pp->first*state_dimension(particle_type));
                 }
                 MPI_Allreduce(
                         temp0,
                         temp1,
-                        this->ncomponents*this->chunk_size,
+                        state_dimension(particle_type)*this->chunk_size,
                         MPI_DOUBLE,
                         MPI_SUM,
                         this->comm);

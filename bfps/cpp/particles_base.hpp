@@ -78,7 +78,6 @@ class particles_io_base
         MPI_Comm comm;
 
         int nparticles;
-        int ncomponents;
 
         std::string name;
         int chunk_size;
