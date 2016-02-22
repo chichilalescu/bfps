@@ -195,12 +195,14 @@ def compare_stats(
             key,
             np.max(np.abs(c0.statistics[key + '(t)'] - c0.statistics[key + '(t)']))))
     for i in range(c0.particle_species):
-        print('maximum traj difference species {0} is {1} {2}'.format(
+        print('species={0} differences: max pos(t) {1:.1e} min vel(0) {2:.1e}, max vel(0) {3:.1e}'.format(
             i,
             np.max(np.abs(c0.get_particle_file()['tracers{0}/state'.format(i)][:] -
                           c1.get_particle_file()['tracers{0}/state'.format(i)][:])),
-            np.nanmax(np.abs(c0.get_particle_file()['tracers{0}/state'.format(i)][:] -
-                             c1.get_particle_file()['tracers{0}/state'.format(i)][:]))))
+            np.min(np.abs(c0.get_particle_file()['tracers{0}/velocity'.format(i)][0] -
+                          c1.get_particle_file()['tracers{0}/velocity'.format(i)][0])),
+            np.max(np.abs(c0.get_particle_file()['tracers{0}/velocity'.format(i)][0] -
+                          c1.get_particle_file()['tracers{0}/velocity'.format(i)][0]))))
     if plots_on:
         # plot energy and enstrophy
         fig = plt.figure(figsize = (12, 12))

@@ -30,78 +30,56 @@
 #include <cassert>
 #include "particles_base.hpp"
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type>::single_particle_state()
 {
-    switch(particle_type)
-    {
-        default:
-            this->data = new double[3];
-            std::fill_n(this->data, 3, 0);
-            break;
-    }
+    std::fill_n(this->data, state_dimension(particle_type), 0);
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type>::single_particle_state(
         const single_particle_state<particle_type> &src)
 {
-    switch(particle_type)
-    {
-        default:
-            this->data = new double[3];
-            std::copy(src.data, src.data + 3, this->data);
-            break;
-    }
+    std::copy(
+            src.data,
+            src.data + state_dimension(particle_type),
+            this->data);
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type>::single_particle_state(
         const double *src)
 {
-    switch(particle_type)
-    {
-        default:
-            this->data = new double[3];
-            std::copy(src, src + 3, this->data);
-            break;
-    }
+    std::copy(
+            src,
+            src + state_dimension(particle_type),
+            this->data);
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type>::~single_particle_state()
 {
-    switch(particle_type)
-    {
-        default:
-            delete[] this->data;
-            break;
-    }
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type> &single_particle_state<particle_type>::operator=(
         const single_particle_state &src)
 {
-    switch(particle_type)
-    {
-        default:
-            std::copy(src.data, src.data + 3, this->data);
-            break;
-    }
+    std::copy(
+            src.data,
+            src.data + state_dimension(particle_type),
+            this->data);
     return *this;
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 single_particle_state<particle_type> &single_particle_state<particle_type>::operator=(
         const double *src)
 {
-    switch(particle_type)
-    {
-        default:
-            std::copy(src, src + 3, this->data);
-            break;
-    }
+    std::copy(
+            src,
+            src + state_dimension(particle_type),
+            this->data);
     return *this;
 }
 
@@ -134,19 +112,13 @@ int get_chunk_offsets(
     return EXIT_SUCCESS;
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 particles_io_base<particle_type>::particles_io_base(
         const char *NAME,
         const int TRAJ_SKIP,
         const hid_t data_file_id,
         MPI_Comm COMM)
 {
-    switch(particle_type)
-    {
-        default:
-            this->ncomponents = 3;
-            break;
-    }
     this->name = std::string(NAME);
     this->traj_skip = TRAJ_SKIP;
     this->comm = COMM;
@@ -161,7 +133,7 @@ particles_io_base<particle_type>::particles_io_base(
         dspace = H5Dget_space(dset);
         this->hdf5_state_dims.resize(H5Sget_simple_extent_ndims(dspace));
         H5Sget_simple_extent_dims(dspace, &this->hdf5_state_dims.front(), NULL);
-        assert(this->hdf5_state_dims[this->hdf5_state_dims.size()-1] == this->ncomponents);
+        assert(this->hdf5_state_dims[this->hdf5_state_dims.size()-1] == state_dimension(particle_type));
         this->nparticles = 1;
         for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
             this->nparticles *= this->hdf5_state_dims[i];
@@ -235,14 +207,14 @@ particles_io_base<particle_type>::particles_io_base(
     DEBUG_MSG("exiting particles_io_base constructor\n");
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 particles_io_base<particle_type>::~particles_io_base()
 {
     if(this->myrank == 0)
         H5Gclose(this->hdf5_group_id);
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 void particles_io_base<particle_type>::read_state_chunk(
         const int cindex,
         double *data)
@@ -276,7 +248,7 @@ void particles_io_base<particle_type>::read_state_chunk(
     DEBUG_MSG("exiting read_state_chunk\n");
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 void particles_io_base<particle_type>::write_state_chunk(
         const int cindex,
         const double *data)
@@ -308,7 +280,7 @@ void particles_io_base<particle_type>::write_state_chunk(
     delete[] offset;
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 void particles_io_base<particle_type>::read_rhs_chunk(
         const int cindex,
         const int rhsindex,
@@ -350,7 +322,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
     //DEBUG_MSG("exiting read_rhs_chunk\n");
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 void particles_io_base<particle_type>::write_rhs_chunk(
         const int cindex,
         const int rhsindex,
@@ -387,7 +359,7 @@ void particles_io_base<particle_type>::write_rhs_chunk(
     delete[] offset;
 }
 
-template <int particle_type>
+template <particle_types particle_type>
 void particles_io_base<particle_type>::write_point3D_chunk(
         const std::string dset_name,
         const int cindex,

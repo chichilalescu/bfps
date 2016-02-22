@@ -39,7 +39,7 @@
 
 extern int myrank, nprocs;
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::particles(
         const char *NAME,
         const hid_t data_file_id,
@@ -55,7 +55,7 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
            (INTEGRATION_STEPS >= 1));
     this->vel = FIELD;
     this->integration_steps = INTEGRATION_STEPS;
-    this->array_size = this->nparticles * this->ncomponents;
+    this->array_size = this->nparticles * state_dimension(particle_type);
     this->state = new double[this->array_size];
     std::fill_n(this->state, this->array_size, 0.0);
     for (int i=0; i < this->integration_steps; i++)
@@ -65,7 +65,7 @@ particles<particle_type, rnumber, interp_neighbours>::particles(
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::~particles()
 {
     delete[] this->state;
@@ -75,18 +75,18 @@ particles<particle_type, rnumber, interp_neighbours>::~particles()
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::get_rhs(double *x, double *y)
 {
     switch(particle_type)
     {
         case VELOCITY_TRACER:
-            this->vel->sample(this->nparticles, this->ncomponents, x, y);
+            this->vel->sample(this->nparticles, state_dimension(particle_type), x, y);
             break;
     }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
@@ -97,7 +97,7 @@ void particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
@@ -107,26 +107,26 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
     {
         case 1:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*this->rhs[0][ii];
                 }
             break;
         case 2:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*(3*this->rhs[0][ii]
                                                -   this->rhs[1][ii])/2;
                 }
             break;
         case 3:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*(23*this->rhs[0][ii]
                                                - 16*this->rhs[1][ii]
                                                +  5*this->rhs[2][ii])/12;
@@ -134,9 +134,9 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
             break;
         case 4:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*(55*this->rhs[0][ii]
                                                - 59*this->rhs[1][ii]
                                                + 37*this->rhs[2][ii]
@@ -145,9 +145,9 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
             break;
         case 5:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*(1901*this->rhs[0][ii]
                                                - 2774*this->rhs[1][ii]
                                                + 2616*this->rhs[2][ii]
@@ -157,9 +157,9 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
             break;
         case 6:
             for (int p=0; p<this->nparticles; p++)
-                for (int i=0; i<this->ncomponents; i++)
+                for (int i=0; i<state_dimension(particle_type); i++)
                 {
-                    ii = p*this->ncomponents+i;
+                    ii = p*state_dimension(particle_type)+i;
                     this->state[ii] += this->dt*(4277*this->rhs[0][ii]
                                                - 7923*this->rhs[1][ii]
                                                + 9982*this->rhs[2][ii]
@@ -173,7 +173,7 @@ void particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::step()
 {
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
@@ -183,16 +183,16 @@ void particles<particle_type, rnumber, interp_neighbours>::step()
 }
 
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::read()
 {
     if (this->myrank == 0)
         for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
         {
-            this->read_state_chunk(cindex, this->state+cindex*this->chunk_size*this->ncomponents);
+            this->read_state_chunk(cindex, this->state+cindex*this->chunk_size*state_dimension(particle_type));
             if (this->iteration > 0)
                 for (int i=0; i<this->integration_steps; i++)
-                    this->read_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*this->ncomponents);
+                    this->read_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*state_dimension(particle_type));
         }
     MPI_Bcast(
             this->state,
@@ -210,27 +210,27 @@ void particles<particle_type, rnumber, interp_neighbours>::read()
                     this->comm);
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
     if (this->myrank == 0)
         for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
         {
-            this->write_state_chunk(cindex, this->state+cindex*this->chunk_size*this->ncomponents);
+            this->write_state_chunk(cindex, this->state+cindex*this->chunk_size*state_dimension(particle_type));
             if (write_rhs)
                 for (int i=0; i<this->integration_steps; i++)
-                    this->write_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*this->ncomponents);
+                    this->write_rhs_chunk(cindex, i, this->rhs[i]+cindex*this->chunk_size*state_dimension(particle_type));
         }
 }
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void particles<particle_type, rnumber, interp_neighbours>::sample(
         interpolator_base<rnumber, interp_neighbours> *field,
         const char *dset_name)
 {
     double *y = new double[this->nparticles*3];
-    field->sample(this->nparticles, this->ncomponents, this->state, y);
+    field->sample(this->nparticles, state_dimension(particle_type), this->state, y);
     if (this->myrank == 0)
         for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
             this->write_point3D_chunk(dset_name, cindex, y+cindex*this->chunk_size*3);

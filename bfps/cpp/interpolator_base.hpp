@@ -87,6 +87,18 @@ class interpolator_base
                 const double *__restrict__ xx,
                 double *__restrict__ dest,
                 const int *deriv = NULL) = 0;
+
+        /* interpolate 1 point */
+        inline void operator()(
+                const double *__restrict__ x,
+                double *__restrict__ dest,
+                const int *deriv = NULL)
+        {
+            int xg[3];
+            double xx[3];
+            this->get_grid_coordinates(x, xg, xx);
+            (*this)(xg, xx, dest, deriv);
+        }
 };
 
 #endif//INTERPOLATOR_BASE
