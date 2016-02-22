@@ -55,6 +55,24 @@ rFFTW_interpolator<rnumber, interp_neighbours>::~rFFTW_interpolator()
 }
 
 template <class rnumber, int interp_neighbours>
+bool rFFTW_interpolator<rnumber, interp_neighbours>::get_rank_info(double z, int &maxz_rank, int &minz_rank)
+{
+    int zg = int(floor(z/this->dz));
+    minz_rank = this->descriptor->rank[MOD(
+             zg - interp_neighbours,
+            this->descriptor->sizes[0])];
+    maxz_rank = this->descriptor->rank[MOD(
+            zg + 1 + interp_neighbours,
+            this->descriptor->sizes[0])];
+    bool is_here = false;
+    for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
+        is_here = (is_here ||
+                   (this->descriptor->myrank ==
+                    this->descriptor->rank[MOD(zg+iz, this->descriptor->sizes[0])]));
+    return is_here;
+}
+
+template <class rnumber, int interp_neighbours>
 void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
         const int nparticles,
         const int pdimension,

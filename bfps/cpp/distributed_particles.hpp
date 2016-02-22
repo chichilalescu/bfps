@@ -39,7 +39,7 @@
 
 #define DISTRIBUTED_PARTICLES
 
-template <int particle_type, class rnumber, int interp_neighbours>
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 class distributed_particles: public particles_io_base<particle_type>
 {
     private:
@@ -74,6 +74,7 @@ class distributed_particles: public particles_io_base<particle_type>
                 const char *dset_name);
         void sample(
                 interpolator<rnumber, interp_neighbours> *field,
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void get_rhs(
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
