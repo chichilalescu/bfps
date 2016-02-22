@@ -105,7 +105,6 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
                 float(this->nparticles) /
                 this->nprocs));
 
-    int rmaxz, rminz;
     int color, key;
     MPI_Comm tmpcomm;
     for (int rank=0; rank<this->nprocs; rank++)
@@ -284,10 +283,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     int ro[2];
     ro[0] = -1;
     ro[1] = 1;
-    /* neighbouring ranks */
-    int nr[2];
-    nr[0] = MOD(this->myrank+ro[0], this->nprocs);
-    nr[1] = MOD(this->myrank+ro[1], this->nprocs);
     /* particles to send, particles to receive */
     std::vector<int> ps[2], pr[2];
     /* number of particles to send, number of particles to receive */
@@ -582,7 +577,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
 {
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
-    int zmin_rank, zmax_rank;
     int pindex = 0;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
@@ -617,7 +611,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
 {
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
-    int zmin_rank, zmax_rank;
     int pindex = 0;
     for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
