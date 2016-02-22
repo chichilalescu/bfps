@@ -1010,8 +1010,7 @@ class NavierStokes(_fluid_particle_base):
         return None
     def prepare_launch(
             self,
-            args = [],
-            noparticles = False):
+            args = []):
         """Set up reasonable parameters.
 
         With the default Lundgren forcing applied in the band [2, 4],
@@ -1062,26 +1061,30 @@ class NavierStokes(_fluid_particle_base):
             self.name += '-QR'
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = opt.work_dir
-        if noparticles:
-            opt.nparticles = 0
-        elif opt.nparticles > 0:
-            self.add_3D_rFFTW_field(name = 'rFFTW_acc')
-            self.add_interpolator(
-                    name = 'cubic_spline',
-                    neighbours = 1,
-                    smoothness = 1)
-            self.add_particles(
-                    integration_steps = [4],
-                    interpolator = 'cubic_spline',
-                    acc_name = 'rFFTW_acc')
         self.pars_from_namespace(opt)
         return opt
     def launch(
             self,
             args = [],
+            noparticles = False,
             **kwargs):
         opt = self.prepare_launch(args = args)
         self.fill_up_fluid_code()
+        if noparticles:
+            opt.nparticles = 0
+        elif opt.nparticles > 0:
+            self.add_3D_rFFTW_field(
+                    name = 'rFFTW_acc')
+            self.add_interpolator(
+                    name = 'cubic_spline',
+                    neighbours = 1,
+                    smoothness = 1,
+                    class_name = 'rFFTW_interpolator')
+            self.add_particles(
+                    integration_steps = [4],
+                    interpolator = 'cubic_spline',
+                    acc_name = 'rFFTW_acc',
+                    class_name = 'rFFTW_distributed_particles')
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
