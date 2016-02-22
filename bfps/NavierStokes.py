@@ -368,6 +368,7 @@ class NavierStokes(_fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 fs->read('v', 'c');
+                DEBUG_MSG("finished reading field\\n");
                 if (fs->cd->myrank == 0)
                 {{
                     H5T_field_complex = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
@@ -399,11 +400,11 @@ class NavierStokes(_fluid_particle_base):
                           'if (fs->cd->myrank == 0)\n' +
                           '{\n' +
                           'delete[] kindices;\n' +
-                          'H5Tclose(H5T_field_complex);\n' +
-                          '}\n' +
-                          'delete fs;\n')
+                          'H5Tclose(H5T_field_complex);\n')
         if self.parameters['nparticles'] > 0:
             self.fluid_end += 'H5Fclose(particle_file);\n'
+        self.fluid_end += ('}\n' +
+                           'delete fs;\n')
         return None
     def add_3D_rFFTW_field(
             self,
@@ -1001,8 +1002,7 @@ class NavierStokes(_fluid_particle_base):
         return None
     def prepare_launch(
             self,
-            args = [],
-            noparticles = False):
+            args = []):
         opt = _code.prepare_launch(self, args = args)
         # with the default Lundgren forcing, I can estimate the dissipation
         # with nondefault forcing, figure out the amplitude for this viscosity
@@ -1029,6 +1029,15 @@ class NavierStokes(_fluid_particle_base):
             self.name += '-QR'
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = opt.work_dir
+        self.pars_from_namespace(opt)
+        return opt
+    def launch(
+            self,
+            args = [],
+            noparticles = False,
+            **kwargs):
+        opt = self.prepare_launch(args = args)
+        self.fill_up_fluid_code()
         if noparticles:
             opt.nparticles = 0
         elif opt.nparticles > 0:
@@ -1041,14 +1050,6 @@ class NavierStokes(_fluid_particle_base):
                     integration_steps = [4],
                     interpolator = 'cubic_spline',
                     acc_name = 'rFFTW_acc')
-        self.pars_from_namespace(opt)
-        return opt
-    def launch(
-            self,
-            args = [],
-            **kwargs):
-        opt = self.prepare_launch(args = args)
-        self.fill_up_fluid_code()
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
