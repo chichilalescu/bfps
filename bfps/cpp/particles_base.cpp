@@ -135,7 +135,7 @@ particles_io_base<particle_type>::particles_io_base(
         H5Sget_simple_extent_dims(dspace, &this->hdf5_state_dims.front(), NULL);
         assert(this->hdf5_state_dims[this->hdf5_state_dims.size()-1] == state_dimension(particle_type));
         this->nparticles = 1;
-        for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
+        for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
             this->nparticles *= this->hdf5_state_dims[i];
         prop_list = H5Dget_create_plist(dset);
         this->hdf5_state_chunks.resize(this->hdf5_state_dims.size());
@@ -144,7 +144,7 @@ particles_io_base<particle_type>::particles_io_base(
         H5Sclose(dspace);
         H5Dclose(dset);
         this->chunk_size = 1;
-        for (auto i=1; i<this->hdf5_state_dims.size()-1; i++)
+        for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
             this->chunk_size *= this->hdf5_state_chunks[i];
         dset = H5Dopen(this->hdf5_group_id, "rhs", H5P_DEFAULT);
         dspace = H5Dget_space(dset);
@@ -230,7 +230,7 @@ void particles_io_base<particle_type>::read_state_chunk(
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()];
     offset[0] = this->iteration / this->traj_skip;
-    for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
+    for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-1];
     offset[this->hdf5_state_dims.size()-1] = 0;
     H5Sselect_hyperslab(
@@ -263,7 +263,7 @@ void particles_io_base<particle_type>::write_state_chunk(
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()];
     offset[0] = this->iteration / this->traj_skip;
-    for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
+    for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-1];
     offset[this->hdf5_state_dims.size()-1] = 0;
     H5Sselect_hyperslab(
@@ -299,7 +299,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
     offset[0] = this->hdf5_rhs_dims[0]-1;
     offset[1] = rhsindex;
-    for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
+    for (unsigned int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
     offset[this->hdf5_rhs_dims.size()-1] = 0;
     //for (int i=0; i<this->hdf5_rhs_dims.size(); i++)
@@ -340,7 +340,7 @@ void particles_io_base<particle_type>::write_rhs_chunk(
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
     offset[0] = this->hdf5_rhs_dims[0];
     offset[1] = rhsindex;
-    for (int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
+    for (unsigned int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
     offset[this->hdf5_rhs_dims.size()-1] = 0;
     DEBUG_MSG("rhs write offsets are %d %d %d %d\n",
@@ -376,7 +376,7 @@ void particles_io_base<particle_type>::write_point3D_chunk(
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()];
     offset[0] = this->iteration / this->traj_skip;
-    for (int i=1; i<this->hdf5_state_dims.size()-1; i++)
+    for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-1];
     offset[this->hdf5_state_dims.size()-1] = 0;
     H5Sselect_hyperslab(

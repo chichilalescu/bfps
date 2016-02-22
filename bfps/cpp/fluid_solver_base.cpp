@@ -54,7 +54,7 @@ double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
     double sum_local;
     this->cospectrum(a, a, spec);
     sum_local = 0.0;
-    for (int n = 0; n < this->nshells; n++)
+    for (unsigned int n = 0; n < this->nshells; n++)
     {
         sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
     }
