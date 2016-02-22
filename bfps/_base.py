@@ -62,6 +62,7 @@ class _base(object):
     def cread_pars(self):
         key = sorted(list(self.parameters.keys()))
         src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
+        #         + 'DEBUG_MSG("entered read_parameters\\n");\n'
                  + 'hid_t dset, memtype, space;\n'
                  + 'hsize_t dims[1];\n'
                  + 'char *string_data;\n')
@@ -82,6 +83,7 @@ class _base(object):
             else:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
             src_txt += 'H5Dclose(dset);\n'
+        #src_txt += 'DEBUG_MSG("exiting read_parameters\\n");\n' # finishing read_parameters
         src_txt += 'return 0;\n}\n' # finishing read_parameters
         return src_txt
     def cprint_pars(self):
