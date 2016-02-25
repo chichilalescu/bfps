@@ -57,7 +57,7 @@ def convergence_test(
             nu = c0.parameters['nu'],
             vorticity_field = init_vorticity,
             code_class = code_class,
-            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
+            tracer_state_file = c0.get_particle_file())
     double(opt)
     opt.n *= 2
     opt.niter_todo *= 2
@@ -70,7 +70,7 @@ def convergence_test(
             nu = c0.parameters['nu'],
             vorticity_field = init_vorticity,
             code_class = code_class,
-            tracer_state_file = h5py.File(os.path.join(c0.work_dir, c0.simname + '.h5'), 'r'))
+            tracer_state_file = c0.get_particle_file())
     # get real space fields
     converter = bfps.FluidConvert(
             fluid_precision = opt.precision,
@@ -185,8 +185,10 @@ def convergence_test(
     ## particle test:
     # compute distance between final positions for species 1
     def get_traj_error(species):
-        e0 = np.abs(c0.trajectories[species][-1, :, :3] - c1.trajectories[species][-1, :, :3])
-        e1 = np.abs(c1.trajectories[species][-1, :, :3] - c2.trajectories[species][-1, :, :3])
+        e0 = np.abs(c0.get_particle_file()['tracers{0}/state'.format(species)][-1, :, :3] -
+                    c1.get_particle_file()['tracers{0}/state'.format(species)][-1, :, :3])
+        e1 = np.abs(c1.get_particle_file()['tracers{0}/state'.format(species)][-1, :, :3] -
+                    c2.get_particle_file()['tracers{0}/state'.format(species)][-1, :, :3])
         return np.array([np.average(np.sqrt(np.sum(e0**2, axis = 1))),
                          np.average(np.sqrt(np.sum(e1**2, axis = 1)))])
     err = [get_traj_error(i) for i in range(1, c0.particle_species)]
@@ -218,9 +220,9 @@ def convergence_test(
         a = fig.add_subplot(111, projection = '3d')
         for t in range(c.parameters['nparticles']):
             for i in range(1, c.particle_species):
-                a.plot(c.trajectories[i][:, t, 0],
-                       c.trajectories[i][:, t, 1],
-                       c.trajectories[i][:, t, 2])
+                a.plot(c.get_particle_file()['tracers{0}/state'.format(i)][:, t, 0],
+                       c.get_particle_file()['tracers{0}/state'.format(i)][:, t, 1],
+                       c.get_particle_file()['tracers{0}/state'.format(i)][:, t, 2])
         fig.savefig('traj_N{0:0>3x}_{1}.pdf'.format(c.parameters['nx'], opt.precision), format = 'pdf')
     return c0, c1, c2
 
