@@ -31,9 +31,6 @@ from ._fluid_base import _fluid_particle_base
 from ._base import _base
 import bfps
 
-class _tmp_obj(object):
-    pass
-
 class FluidConvert(_fluid_particle_base):
     """This class is meant to be used for conversion of native DNS field
     representations to real-space representations of velocity/vorticity
@@ -112,9 +109,9 @@ class FluidConvert(_fluid_particle_base):
             **kwargs):
         opt = self.prepare_launch(args)
         self.pars_from_namespace(opt)
-        tmp_obj = _tmp_obj()
-        tmp_obj.simname = self.simname
-        tmp_obj.work_dir = self.work_dir
+        tmp_obj = _base(
+                simname = self.simname,
+                work_dir = self.work_dir)
         tmp_obj.parameters = {}
         for k in self.parameters.keys():
             tmp_obj.parameters[k] = self.parameters[k]
