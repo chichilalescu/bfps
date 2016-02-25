@@ -28,7 +28,11 @@ import numpy as np
 import pickle
 import os
 from ._fluid_base import _fluid_particle_base
+from ._base import _base
 import bfps
+
+class _tmp_obj(object):
+    pass
 
 class FluidConvert(_fluid_particle_base):
     """This class is meant to be used for conversion of native DNS field
@@ -53,6 +57,7 @@ class FluidConvert(_fluid_particle_base):
         self.parameters['write_rvelocity']  = 1
         self.parameters['write_rvorticity'] = 1
         self.parameters['fluid_name'] = 'test'
+        self.parameters['niter_todo'] = 0
         self.fill_up_fluid_code()
         self.finalize_code()
         return None
@@ -96,19 +101,40 @@ class FluidConvert(_fluid_particle_base):
             parser):
         _fluid_particle_base.specific_parser_arguments(self, parser)
         parser.add_argument(
-                '--src-wd',
-                type = str,
-                dest = 'src_work_dir',
-                default = './')
-        parser.add_argument(
-                '--src-simname',
-                type = str,
-                dest = 'src_simname',
-                default = '')
-        parser.add_argument(
-                '--src-iteration',
+                '--iteration',
                 type = int,
-                dest = 'src_iteration',
+                dest = 'iteration',
                 default = 0)
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        opt = self.prepare_launch(args)
+        self.pars_from_namespace(opt)
+        tmp_obj = _tmp_obj()
+        tmp_obj.simname = self.simname
+        tmp_obj.work_dir = self.work_dir
+        tmp_obj.parameters = {}
+        for k in self.parameters.keys():
+            tmp_obj.parameters[k] = self.parameters[k]
+        _base.read_parameters(tmp_obj)
+        for k in ['nx', 'ny', 'nz',
+                  'dkx', 'dky', 'dkz',
+                  'niter_out']:
+            self.parameters[k] = tmp_obj.parameters[k]
+        self.simname = opt.simname + '_convert'
+        self.parameters['fluid_name'] = opt.simname
+        if type(opt.niter_out) != type(None):
+            self.parameters['niter_out'] = opt.niter_out
+        read_file = os.path.join(
+                self.work_dir,
+                opt.simname + '_cvorticity_i{0:0>5x}'.format(opt.iteration))
+        if not os.path.exists(read_file):
+            print('FluidConvert called for nonexistent data. not running.')
+            return None
+        self.set_host_info(bfps.host_info)
+        self.write_par(iter0 = opt.iteration)
+        self.run(ncpu = opt.ncpu)
         return None
 

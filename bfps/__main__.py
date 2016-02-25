@@ -30,6 +30,7 @@ import argparse
 import bfps
 from .NavierStokes import NavierStokes
 from .FluidResize import FluidResize
+from .FluidConvert import FluidConvert
 
 def main():
     parser = argparse.ArgumentParser(prog = 'bfps')
@@ -49,9 +50,10 @@ def main():
                  'FR',
                  'FR-single',
                  'FR-double']
+    FCoptions = ['FluidConvert']
     parser.add_argument(
             'base_class',
-            choices = NSoptions + FRoptions,
+            choices = NSoptions + FRoptions + FCoptions,
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
@@ -66,6 +68,8 @@ def main():
         base_class = NavierStokes
     elif opt.base_class in FRoptions:
         base_class = FluidResize
+    elif opt.base_class in FCoptions:
+        base_class = FluidConvert
     c = base_class(fluid_precision = precision)
     c.launch(args = sys.argv[2:])
     return None
