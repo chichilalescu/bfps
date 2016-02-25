@@ -79,7 +79,8 @@ class FluidConvert(_fluid_particle_base):
                 fs = new fluid_solver<{0}>(
                         fluid_name,
                         nx, ny, nz,
-                        dkx, dky, dkz);
+                        dkx, dky, dkz,
+                        FFTW_ESTIMATE);
                 fs->iteration = iteration;
                 do_conversion(fs);
                 //endcpp
