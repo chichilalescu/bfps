@@ -1072,19 +1072,20 @@ class NavierStokes(_fluid_particle_base):
         self.fill_up_fluid_code()
         if noparticles:
             opt.nparticles = 0
-        elif opt.nparticles > 0:
-            self.add_3D_rFFTW_field(
-                    name = 'rFFTW_acc')
-            self.add_interpolator(
-                    name = 'cubic_spline',
-                    neighbours = 1,
-                    smoothness = 1,
-                    class_name = 'rFFTW_interpolator')
-            self.add_particles(
-                    integration_steps = [4],
-                    interpolator = 'cubic_spline',
-                    acc_name = 'rFFTW_acc',
-                    class_name = 'rFFTW_distributed_particles')
+        elif type(opt.nparticles) == int:
+            if opt.nparticles > 0:
+                self.add_3D_rFFTW_field(
+                        name = 'rFFTW_acc')
+                self.add_interpolator(
+                        name = 'cubic_spline',
+                        neighbours = 1,
+                        smoothness = 1,
+                        class_name = 'rFFTW_interpolator')
+                self.add_particles(
+                        integration_steps = [4],
+                        interpolator = 'cubic_spline',
+                        acc_name = 'rFFTW_acc',
+                        class_name = 'rFFTW_distributed_particles')
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
