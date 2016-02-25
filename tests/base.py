@@ -175,7 +175,7 @@ def launch(
                 if type(tracer_state_file) == type(None):
                     data = None
                 else:
-                    data = tracer_state_file['particles/tracers{0}/state'.format(species)][0]
+                    data = tracer_state_file['tracers{0}/state'.format(species)][0]
                 c.generate_tracer_state(
                         species = species,
                         write_to_file = False,

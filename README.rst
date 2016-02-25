@@ -13,11 +13,12 @@ in the repository), and it is working as expected. Parameters and
 statistics are stored in HDF5 format, together with code information,
 so simulation data should be "future proof".
 
-Users of this code are expected to either use `NavierStokes` objects
+Users of this code are expected to either use
+:class:`NavierStokes <bfps.NavierStokes.NavierStokes>` objects
 directly, or construct their own class that inherits this class.
 The way I use it is to I inherit and add custom statistics as necessary; I
 also have private C++ code that can get added and used when needed.
-I plan on adding documentation on the procedure as when other people
+I plan on adding documentation on the procedure when other people
 show interest in using the code, or when time permits.
 
 
@@ -54,8 +55,12 @@ needed.
     python setup.py build
     python setup.py install
 
-Also, in order to run the C++ code you need to have an MPI compiler
-installed, the HDF5 C library as well as FFTW 3 (at least 3.3 I think).
+In order to run the C++ code you need to have an MPI compiler
+installed, the HDF5 C library as well as FFTW 3 --- I use version 3.4.4,
+and I think that there is a bug with the wisdom mechanism in earlier
+versions (not sure though).
+You will see that you need to link against them in the machine
+settings file when you try to set it up.
 
 
 --------
@@ -68,4 +73,6 @@ Comments
 * I am using this code mainly with Python 3.4, but Python 2.7
   compatibility should be kept since mayavi (well, vtk actually) only
   works on Python 2.
+  Until vtk becomes compatible with Python 3.x, any Python 2.7
+  incompatibilites should be reported as bugs.
 

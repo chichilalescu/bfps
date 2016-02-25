@@ -272,7 +272,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                 {
                     // remove the particle from the local list
                     x.erase(p);
-                    for (int i=0; i<vals.size(); i++)
+                    for (unsigned int i=0; i<vals.size(); i++)
                         vals[i].erase(p);
                 }
                 // if the particle is in the local domain, do nothing
@@ -351,7 +351,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                     std::copy(x[p].data,
                               x[p].data + state_dimension(particle_type),
                               buffer + pcounter*(1+vals.size())*state_dimension(particle_type));
-                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    for (unsigned int tindex=0; tindex<vals.size(); tindex++)
                     {
                         std::copy(vals[tindex][p].data,
                                   vals[tindex][p].data + state_dimension(particle_type),
@@ -390,7 +390,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                 {
                     x[p] = buffer + (pcounter*(1+vals.size()))*state_dimension(particle_type);
                     newdp[1-i].insert(p);
-                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    for (unsigned int tindex=0; tindex<vals.size(); tindex++)
                     {
                         vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*state_dimension(particle_type);
                     }
@@ -426,7 +426,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
 {
     this->get_rhs(this->state, this->domain_particles, this->rhs[0]);
     for (auto &pp: this->state)
-        for (int i=0; i<state_dimension(particle_type); i++)
+        for (unsigned int i=0; i<state_dimension(particle_type); i++)
             switch(nsteps)
             {
                 case 1:
@@ -523,7 +523,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
 {
     double *temp = new double[this->chunk_size*state_dimension(particle_type)];
     int tmpint1, tmpint2;
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //read state
         if (this->myrank == 0)
@@ -534,7 +534,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
                 MPI_DOUBLE,
                 0,
                 this->comm);
-        for (int p=0; p<this->chunk_size; p++)
+        for (unsigned int p=0; p<this->chunk_size; p++)
         {
             if (this->vel->get_rank_info(temp[state_dimension(particle_type)*p+2], tmpint1, tmpint2))
             {
@@ -553,7 +553,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
                         MPI_DOUBLE,
                         0,
                         this->comm);
-                for (int p=0; p<this->chunk_size; p++)
+                for (unsigned int p=0; p<this->chunk_size; p++)
                 {
                     auto pp = this->state.find(p+cindex*this->chunk_size);
                     if (pp != this->state.end())
@@ -578,10 +578,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
     int pindex = 0;
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
-        for (int p=0; p<this->chunk_size; p++, pindex++)
+        for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
         {
             if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
                 this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
@@ -612,12 +612,12 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
     int pindex = 0;
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
         std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
         pindex = cindex*this->chunk_size;
-        for (int p=0; p<this->chunk_size; p++, pindex++)
+        for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
         {
             if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
                 this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
@@ -642,7 +642,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
             {
                 std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
                 pindex = cindex*this->chunk_size;
-                for (int p=0; p<this->chunk_size; p++, pindex++)
+                for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
                 {
                     if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
                         this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())

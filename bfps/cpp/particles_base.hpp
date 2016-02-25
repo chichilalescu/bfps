@@ -77,10 +77,10 @@ class particles_io_base
         int myrank, nprocs;
         MPI_Comm comm;
 
-        int nparticles;
+        unsigned int nparticles;
 
         std::string name;
-        int chunk_size;
+        unsigned int chunk_size;
         int traj_skip;
 
         hid_t hdf5_group_id;

@@ -3,6 +3,10 @@ C++ classes
 ===========
 
 -------------
+Fluid Solvers
+-------------
+
+-------------
 Interpolators
 -------------
 
@@ -37,12 +41,15 @@ They need to have at least the following public methods:
 interpolator
 ------------
 
-fields need to be padded, so that interpolation is a 1cpu job.
+Fields need to be padded, so that interpolation is a 1cpu job.
+While slow, codes using this interpolator will always work.
 
 rFFTW_interpolator
 ------------------
 
-fields are not padded, computation is synchronized across all CPUs.
+Fields are not padded, computation is synchronized across different processes.
+Since this avoids the padding step, it's ridiculously faster for small
+numbers of particles.
 
 -----------------
 Particle trackers
@@ -54,11 +61,25 @@ They need to be coupled to an interpolator.
 particles
 ---------
 
-*work in progress* distributed solver.
+Simple class, particle state is synchronized across all processes.
+It can work either with ``interpolator`` or ``rFFTW_interpolator``.
 
-rFFTW_particles
----------------
+distributed_particles
+---------------------
 
-*NOT* distributed.
-Particle data is syncrhonized across all CPUs.
+Works **only** with ``interpolator``.
+Particles are split among different processes, and redistributed after every
+time step.
+
+rFFTW_distributed_particles
+---------------------------
+
+Works **only** with ``rFFTW_interpolator``, and **only** if the interpolation
+kernel is at least as big as the `z` size of the local field slab.
+Particles are split among different domains, and redistributed after
+every time step.
+Each process has 3 domains: particles for which interpolation needs to
+be synchronized with the lower `z` process, particles for which the
+interpolation is local, and particles for which the interpolation needs
+to be synchronized with the higher `z` process.
 

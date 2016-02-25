@@ -137,14 +137,14 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
     int rsrc, rdst;
     /* get list of id-s to send */
     for (auto &pp: x)
-        for (int i=0; i<2; i++)
+        for (unsigned int i=0; i<2; i++)
             if (this->vel->get_rank(pp.second.data[2]) == nr[i])
                 ps[i].push_back(pp.first);
     /* prepare data for send recv */
-    for (int i=0; i<2; i++)
+    for (unsigned int i=0; i<2; i++)
         nps[i] = ps[i].size();
     for (rsrc = 0; rsrc<this->nprocs; rsrc++)
-        for (int i=0; i<2; i++)
+        for (unsigned int i=0; i<2; i++)
         {
             rdst = MOD(rsrc+ro[i], this->nprocs);
             if (this->myrank == rsrc)
@@ -167,7 +167,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
         }
     //DEBUG_MSG("I have to send %d %d particles\n", nps[0], nps[1]);
     //DEBUG_MSG("I have to recv %d %d particles\n", npr[0], npr[1]);
-    for (int i=0; i<2; i++)
+    for (unsigned int i=0; i<2; i++)
         pr[i].resize(npr[i]);
 
     int buffer_size = (nps[0] > nps[1]) ? nps[0] : nps[1];
@@ -176,7 +176,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
     //DEBUG_MSG("buffer size is %d\n", buffer_size);
     double *buffer = new double[buffer_size*state_dimension(particle_type)*(1+vals.size())];
     for (rsrc = 0; rsrc<this->nprocs; rsrc++)
-        for (int i=0; i<2; i++)
+        for (unsigned int i=0; i<2; i++)
         {
             rdst = MOD(rsrc+ro[i], this->nprocs);
             if (this->myrank == rsrc && nps[i] > 0)
@@ -195,7 +195,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                               x[p].data + state_dimension(particle_type),
                               buffer + pcounter*(1+vals.size())*state_dimension(particle_type));
                     x.erase(p);
-                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    for (unsigned int tindex=0; tindex<vals.size(); tindex++)
                     {
                         std::copy(vals[tindex][p].data,
                                   vals[tindex][p].data + state_dimension(particle_type),
@@ -230,11 +230,11 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
                         2*(rsrc*this->nprocs + rdst)+1,
                         this->comm,
                         MPI_STATUS_IGNORE);
-                int pcounter = 0;
+                unsigned int pcounter = 0;
                 for (int p: pr[1-i])
                 {
                     x[p] = buffer + (pcounter*(1+vals.size()))*state_dimension(particle_type);
-                    for (int tindex=0; tindex<vals.size(); tindex++)
+                    for (unsigned int tindex=0; tindex<vals.size(); tindex++)
                     {
                         vals[tindex][p] = buffer + (pcounter*(1+vals.size()) + tindex+1)*state_dimension(particle_type);
                     }
@@ -267,7 +267,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
 {
     this->get_rhs(this->state, this->rhs[0]);
     for (auto &pp: this->state)
-        for (int i=0; i<state_dimension(particle_type); i++)
+        for (unsigned int i=0; i<state_dimension(particle_type); i++)
             switch(nsteps)
             {
                 case 1:
@@ -323,7 +323,7 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
     double *temp = new double[this->chunk_size*state_dimension(particle_type)];
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //read state
         if (this->myrank == 0)
@@ -334,7 +334,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
                 MPI_DOUBLE,
                 0,
                 this->comm);
-        for (int p=0; p<this->chunk_size; p++)
+        for (unsigned int p=0; p<this->chunk_size; p++)
         {
             if (this->vel->get_rank(temp[state_dimension(particle_type)*p+2]) == this->myrank)
                 this->state[p+cindex*this->chunk_size] = temp + state_dimension(particle_type)*p;
@@ -351,7 +351,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::read()
                         MPI_DOUBLE,
                         0,
                         this->comm);
-                for (int p=0; p<this->chunk_size; p++)
+                for (unsigned int p=0; p<this->chunk_size; p++)
                 {
                     auto pp = this->state.find(p+cindex*this->chunk_size);
                     if (pp != this->state.end())
@@ -370,10 +370,10 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 {
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
-        for (int p=0; p<this->chunk_size; p++)
+        for (unsigned int p=0; p<this->chunk_size; p++)
         {
             auto pp = y.find(p+cindex*this->chunk_size);
             if (pp != y.end())
@@ -401,11 +401,11 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
 {
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
-    for (int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
         std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
-        for (int p=0; p<this->chunk_size; p++)
+        for (unsigned int p=0; p<this->chunk_size; p++)
         {
             auto pp = this->state.find(p + cindex*this->chunk_size);
             if (pp != this->state.end())
@@ -427,7 +427,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
             for (int i=0; i<this->integration_steps; i++)
             {
                 std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
-                for (int p=0; p<this->chunk_size; p++)
+                for (unsigned int p=0; p<this->chunk_size; p++)
                 {
                     auto pp = this->rhs[i].find(p + cindex*this->chunk_size);
                     if (pp != this->rhs[i].end())
