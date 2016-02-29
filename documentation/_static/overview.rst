@@ -61,7 +61,7 @@ computed in postprocessing by the python code.
 Conventions
 -----------
 
-The C++ backend is based on ``FFTW``, therefore the Fourier
+The C++ backend is based on ``FFTW``, and the Fourier
 representations are *transposed*.
 In brief, this is the way the fields are represented on disk and in
 memory (both in the C++ backend and in Python postprocessing):
@@ -80,7 +80,7 @@ memory (both in the C++ backend and in Python postprocessing):
       components, as ``FFTW`` requires for the correspondence with the
       real space representations.
 
-:func:`read_cfield <NavierStokes.NavierStokes.read_cfield>` will return
+:func:`read_cfield <bfps.NavierStokes.NavierStokes.read_cfield>` will return
 a properly shaped ``numpy.array`` containing a snapshot of the Fourier
 representation of a 3D field.
 
@@ -202,8 +202,8 @@ In brief the following takes place:
     5. the C++ code actually performs the DNS, and outputs various
        results into the ``<simname>.h5`` file.
 
-After the simulation is done, things in :ref:`sec-first-postprocessing`
-are simpler.
+After the simulation is done, things are simpler.
 In fact, any ``HDF5`` capable software can be used to read the data
-file, and the dataset names should be reasonably easy to interpret.
+file, and the dataset names should be reasonably easy to interpret, so
+custom postprocessing codes can easily be generated.
 
