@@ -3,8 +3,7 @@
 (B) read https://www.xsede.org/documents/271087/369161/ExtScale-Koziol.pdf  @optimization @HDF5 +I/O
 (B) set up mechanism for adding in new PDEs                                 @design +v2.0 +alternate_algorithms
 (B) use less memory                                                         @optimization
-(C) code overview                                                           @documentation
-(C) move stat I/O to cpp lib                                                @design @HDF5
+(B) move stat I/O to cpp lib                                                @design @HDF5
 (C) test involving hydrodynamic similarity                                  @tests
 (C) tests should use launch instead of get_parser                           @design @tests
 (C) use HDF5 io for fields                                                  @design @HDF5 +I/O

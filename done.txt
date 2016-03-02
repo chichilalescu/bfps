@@ -17,3 +17,4 @@ x 2016-01-24 document coordinate conventions                                    
 x 2016-01-24 move parameters from _fluid_particle_base to NavierStokes etc           @design
 x 2016-01-29 install_info should be renamed to bfps_info in data file
 x 2016-02-01 tweak HDF5 settings                                                     @optimization @HDF5 +I/O
+x 2016-03-02 code overview                                                           @documentation
