@@ -39,9 +39,7 @@ header_dir = os.path.join(os.path.join(dist_loc, 'bfps'), 'cpp')
 lib_dir = os.path.join(dist_loc, 'bfps')
 
 install_info = pickle.load(
-        open(os.path.join(os.path.dirname(here),
-                          'install_info.pickle'),
-             'rb'))
+        open(os.path.join(os.path.dirname(here), 'install_info.pickle'), 'rb'))
 
 homefolder = os.path.expanduser('~')
 bfpsfolder = os.path.join(homefolder, '.config/', 'bfps')

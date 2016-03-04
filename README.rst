@@ -2,24 +2,30 @@
 Big Fluid and Particle Simulator
 ================================
 
-At the moment, this code is meant to run pseudospectral DNS of
-Navier-Stokes, using FFTW 3, and to integrate particle trajectories in
-the resulting fields.
-I'm trying to write it as general as possible, so that it can be
-expanded in the future; it remains to be seen how well this will work.
+In brief, this code runs pseudospectral direct numerical simulations
+(DNS) of the incompressible Navier-Stokes equations, using FFTW 3, and
+it can integrate particle trajectories in the resulting fields.
 
 The Navier-Stokes solver has been extensively tested (tests are included
-in the repository), and it is working as expected. Parameters and
-statistics are stored in HDF5 format, together with code information,
-so simulation data should be "future proof".
+in the repository), and it is working as expected.
+Parameters and statistics are stored in HDF5 format, together with code
+information, so simulation data should be "future proof" --- suggestions
+of possible improvements to the current approach are always welcome.
 
-Users of this code are expected to either use
-:class:`NavierStokes <bfps.NavierStokes.NavierStokes>` objects
-directly, or construct their own class that inherits this class.
-The way I use it is to I inherit and add custom statistics as necessary; I
-also have private C++ code that can get added and used when needed.
-I plan on adding documentation on the procedure when other people
-show interest in using the code, or when time permits.
+The wish is that this Python package provides an easy and general way
+of constructing efficient specialized DNS C++ codes for different
+turbulence problems we encounter in our research.
+At the same time, the package should provide a unified way of
+postprocessing data, and accessing the postprocessing results.
+The code therefore consists of two main parts: the pure C++ code, a set
+of loosely related "building blocks", and the Python code, which can
+generate C++ code using the pure classes, but with a significant degree
+of flexibility.
+
+The code user is expected to write a small-ish python script that will
+properly define the DNS they are interested in running.
+That code will generate an executable that can then be run directly on
+the user's machine, or submitted to a queue on some cluster.
 
 
 .. _sec-installation:
@@ -28,7 +34,20 @@ show interest in using the code, or when time permits.
 Installation
 ------------
 
+So far, the code has been run on an ubuntu 14.04 machine, an opensuse
+13.2 desktop, and a reasonably standard linux cluster (biggest run so
+far was 1344^3 on 16 nodes of 12 cores each, with about 24 seconds per
+time step).
+Postprocessing data may not be very computationally intensive, depending
+on the amount of data involved.
+However, actual simulations are computationally intensive, and it is not
+recommended that you run big DNS on machines that may overheat.
+The rule of thumb is that if the CPU fan can be heard, the simulation is
+too intensive for a laptop.
+
 **Postprocessing only**
+
+Use a console; navigate to the ``bfps`` folder, and type:
 
 .. code:: bash
 
@@ -41,7 +60,9 @@ Installation
 
 If you want to run simulations on the machine where you're installing,
 you will need to call `build` before installing.
-Before executing any command, please modify `machine_settings_py.py`
+Your machine needs to have an MPI compiler installed, the HDF5 C library
+and FFTW >= 3.4.
+The file `machine_settings_py.py` should be modified
 appropriately for your machine (otherwise the `build` command will most
 likely fail).
 This file will be copied the first time you run `setup.py` into
@@ -55,13 +76,25 @@ needed.
     python setup.py build
     python setup.py install
 
-In order to run the C++ code you need to have an MPI compiler
-installed, the HDF5 C library as well as FFTW 3 --- I use version 3.4.4,
-and I think that there is a bug with the wisdom mechanism in earlier
-versions (not sure though).
-You will see that you need to link against them in the machine
-settings file when you try to set it up.
+-------------
+Documentation
+-------------
 
+While the code is not fully documented yet, basic information is already
+available, and it is recommended that you generate the manual and go
+through it carefully.
+Please don't be shy about asking for specific improvements to the
+current text.
+In order to generate the manual, navigate to the repository folder, and
+execute the following commands:
+
+.. code:: bash
+
+    cd documentation
+    make latexpdf
+
+Optionally, html documentation can be generated instead if needed, just
+type ``make html`` instead.
 
 --------
 Comments
@@ -70,9 +103,9 @@ Comments
 * particles: initialization of multistep solvers is done with lower
   order methods, so don't be surprised if direct convergence tests fail.
 
-* I am using this code mainly with Python 3.4, but Python 2.7
+* Code is used mainly with Python 3.4, but Python 2.7
   compatibility should be kept since mayavi (well, vtk actually) only
   works on Python 2.
   Until vtk becomes compatible with Python 3.x, any Python 2.7
-  incompatibilites should be reported as bugs.
+  incompatibilites can be reported as bugs.
 
