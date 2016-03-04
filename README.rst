@@ -27,13 +27,6 @@ properly define the DNS they are interested in running.
 That code will generate an executable that can then be run directly on
 the user's machine, or submitted to a queue on some cluster.
 
-In practice,
-:class:`NavierStokes <bfps.NavierStokes.NavierStokes>` objects
-can be used directly, or children of this class can be constructed.
-In our own usage, we inherit and customize the statistics and some
-methods, such as
-the :func:`add_particles <bfps.NavierStokes.NavierStokes.add_particles>`
-method.
 
 .. _sec-installation:
 
@@ -43,8 +36,14 @@ Installation
 
 So far, the code has been run on an ubuntu 14.04 machine, an opensuse
 13.2 desktop, and a reasonably standard linux cluster (biggest run so
-far was 1344^3 on 16 12-core nodes, with about 24 seconds per time
-step).
+far was 1344^3 on 16 nodes of 12 cores each, with about 24 seconds per
+time step).
+Postprocessing data may not be very computationally intensive, depending
+on the amount of data involved.
+However, actual simulations are computationally intensive, and it is not
+recommended that you run big DNS on machines that may overheat.
+The rule of thumb is that if the CPU fan can be heard, the simulation is
+too intensive for a laptop.
 
 **Postprocessing only**
 
@@ -76,6 +75,26 @@ needed.
 
     python setup.py build
     python setup.py install
+
+-------------
+Documentation
+-------------
+
+While the code is not fully documented yet, basic information is already
+available, and it is recommended that you generate the manual and go
+through it carefully.
+Please don't be shy about asking for specific improvements to the
+current text.
+In order to generate the manual, navigate to the repository folder, and
+execute the following commands:
+
+.. code:: bash
+
+    cd documentation
+    make latexpdf
+
+Optionally, html documentation can be generated instead if needed, just
+type ``make html`` instead.
 
 --------
 Comments
