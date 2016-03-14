@@ -14,7 +14,7 @@ of possible improvements to the current approach are always welcome.
 
 The wish is that this Python package provides an easy and general way
 of constructing efficient specialized DNS C++ codes for different
-turbulence problems we encounter in our research.
+turbulence problems encountered in research.
 At the same time, the package should provide a unified way of
 postprocessing data, and accessing the postprocessing results.
 The code therefore consists of two main parts: the pure C++ code, a set
@@ -22,10 +22,10 @@ of loosely related "building blocks", and the Python code, which can
 generate C++ code using the pure classes, but with a significant degree
 of flexibility.
 
-The code user is expected to write a small-ish python script that will
+The code user is expected to write a small python script that will
 properly define the DNS they are interested in running.
 That code will generate an executable that can then be run directly on
-the user's machine, or submitted to a queue on some cluster.
+the user's machine, or submitted to a queue on a cluster.
 
 
 .. _sec-installation:
@@ -40,10 +40,6 @@ far was 1344^3 on 16 nodes of 12 cores each, with about 24 seconds per
 time step).
 Postprocessing data may not be very computationally intensive, depending
 on the amount of data involved.
-However, actual simulations are computationally intensive, and it is not
-recommended that you run big DNS on machines that may overheat.
-The rule of thumb is that if the CPU fan can be heard, the simulation is
-too intensive for a laptop.
 
 **Postprocessing only**
 
@@ -94,14 +90,14 @@ execute the following commands:
     make latexpdf
 
 Optionally, html documentation can be generated instead if needed, just
-type ``make html`` instead.
+type ``make html`` instead of ``make latexpdf``.
 
 --------
 Comments
 --------
 
 * particles: initialization of multistep solvers is done with lower
-  order methods, so don't be surprised if direct convergence tests fail.
+  order methods, so direct convergence tests will fail.
 
 * Code is used mainly with Python 3.4, but Python 2.7
   compatibility should be kept since mayavi (well, vtk actually) only
