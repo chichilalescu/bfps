@@ -186,7 +186,7 @@ class _code(_base):
                                bfps.install_info['install_date'])
         if need_to_compile:
             assert(self.compile_code() == 0)
-            if self.work_dir != './':
+            if self.work_dir != os.path.realpath(os.getcwd()):
                 shutil.copy(self.name, self.work_dir)
         current_dir = os.getcwd()
         os.chdir(self.work_dir)
