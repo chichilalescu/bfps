@@ -747,7 +747,7 @@ class NavierStokes(_fluid_particle_base):
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
             for k in ['velocity', 'vorticity']:
-                time_chunk = 2**20//(8*3*self.parameters['nx'])
+                time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/xlines/' + k,
                                      (1, self.parameters['nx'], 3),
