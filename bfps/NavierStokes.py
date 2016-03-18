@@ -565,14 +565,6 @@ class NavierStokes(_fluid_particle_base):
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
         return None
-    def get_data_file_name(self):
-        return os.path.join(self.work_dir, self.simname + '.h5')
-    def get_data_file(self):
-        return h5py.File(self.get_data_file_name(), 'r')
-    def get_particle_file_name(self):
-        return os.path.join(self.work_dir, self.simname + '_particles.h5')
-    def get_particle_file(self):
-        return h5py.File(self.get_particle_file_name(), 'r')
     def get_postprocess_file_name(self):
         return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
     def get_postprocess_file(self):

@@ -91,6 +91,14 @@ class _fluid_particle_base(_code):
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
         return None
+    def get_data_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '.h5')
+    def get_data_file(self):
+        return h5py.File(self.get_data_file_name(), 'r')
+    def get_particle_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '_particles.h5')
+    def get_particle_file(self):
+        return h5py.File(self.get_particle_file_name(), 'r')
     def finalize_code(self):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
