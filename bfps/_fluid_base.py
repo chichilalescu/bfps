@@ -99,7 +99,9 @@ class _fluid_particle_base(_code):
         return os.path.join(self.work_dir, self.simname + '_particles.h5')
     def get_particle_file(self):
         return h5py.File(self.get_particle_file_name(), 'r')
-    def finalize_code(self):
+    def finalize_code(
+            self,
+            postprocess_mode = False):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
         self.variables  += self.fluid_variables
@@ -200,21 +202,30 @@ class _fluid_particle_base(_code):
                                   'MPI_Allreduce(&local_time_difference, &time_difference, ' +
                                       '1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);\n' +
                                   'if (myrank == 0) std::cout << "iteration " ' +
-                                      '<< iteration << " took " ' +
+                                      '<< {0} << " took " ' +
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
-        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
-        self.main       += '{\n'
-        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
-        if self.particle_species > 0:
-            self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
-            self.main   += self.particle_loop
-        self.main       += self.fluid_loop
-        self.main       += output_time_difference
-        self.main       += '}\n'
-        self.main       += 'do_stats();\n'
-        self.main       += 'do_particle_stats();\n'
-        self.main       += output_time_difference
+        if not postprocess_mode:
+            self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
+            self.main       += '{\n'
+            self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
+            if self.particle_species > 0:
+                self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
+                self.main   += self.particle_loop
+            self.main       += self.fluid_loop
+            self.main       += output_time_difference.format('iteration')
+            self.main       += '}\n'
+            self.main       += 'do_stats();\n'
+            self.main       += 'do_particle_stats();\n'
+            self.main       += output_time_difference.format('iteration')
+        else:
+            self.main       += 'for (int frame_index = 0; frame_index <= iteration; frame_index += niter_out)\n'
+            self.main       += '{\n'
+            if self.particle_species > 0:
+                self.main   += self.particle_loop
+            self.main       += self.fluid_loop
+            self.main       += output_time_difference.format('frame_index')
+            self.main       += '}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
