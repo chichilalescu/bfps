@@ -219,7 +219,7 @@ class _fluid_particle_base(_code):
             self.main       += 'do_particle_stats();\n'
             self.main       += output_time_difference.format('iteration')
         else:
-            self.main       += 'for (int frame_index = 0; frame_index <= iteration; frame_index += niter_out)\n'
+            self.main       += 'for (int frame_index = iter0; frame_index <= iter1; frame_index += niter_out)\n'
             self.main       += '{\n'
             if self.particle_species > 0:
                 self.main   += self.particle_loop

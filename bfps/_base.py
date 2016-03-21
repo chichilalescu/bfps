@@ -48,29 +48,42 @@ class _base(object):
         self.work_dir = os.path.realpath(work_dir)
         self.simname = simname
         return None
-    def cdef_pars(self):
-        key = sorted(list(self.parameters.keys()))
+    def cdef_pars(
+            self,
+            parameters = None):
+        if type(parameters) == type(None):
+            parameters = self.parameters
+        key = sorted(list(parameters.keys()))
         src_txt = ''
         for i in range(len(key)):
-            if type(self.parameters[key[i]]) == int:
+            if type(parameters[key[i]]) == int:
                 src_txt += 'int ' + key[i] + ';\n'
-            elif type(self.parameters[key[i]]) == str:
+            elif type(parameters[key[i]]) == str:
                 src_txt += 'char ' + key[i] + '[{0}];\n'.format(self.string_length)
             else:
                 src_txt += 'double ' + key[i] + ';\n'
         return src_txt
-    def cread_pars(self):
-        key = sorted(list(self.parameters.keys()))
-        src_txt = ('int read_parameters(hid_t data_file_id)\n{\n'
-        #         + 'DEBUG_MSG("entered read_parameters\\n");\n'
-                 + 'hid_t dset, memtype, space;\n'
-                 + 'hsize_t dims[1];\n'
-                 + 'char *string_data;\n')
+    def cread_pars(
+            self,
+            parameters = None,
+            function_suffix = '',
+            file_group = 'parameters'):
+        if type(parameters) == type(None):
+            parameters = self.parameters
+        key = sorted(list(parameters.keys()))
+        src_txt = ('int read_parameters' + function_suffix + '()\n{\n' +
+                   'hid_t parameter_file;\n' +
+                   'hid_t dset, memtype, space;\n' +
+                   'char fname[256];\n' +
+                   'hsize_t dims[1];\n' +
+                   'char *string_data;\n' +
+                   'sprintf(fname, "%s.h5", simname);\n' +
+                   'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
         for i in range(len(key)):
-            src_txt += 'dset = H5Dopen(data_file_id, "parameters/{0}", H5P_DEFAULT);\n'.format(key[i])
-            if type(self.parameters[key[i]]) == int:
+            src_txt += 'dset = H5Dopen(parameter_file, "/{0}/{1}", H5P_DEFAULT);\n'.format(file_group, key[i])
+            if type(parameters[key[i]]) == int:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
-            elif type(self.parameters[key[i]]) == str:
+            elif type(parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
                             'memtype = H5Dget_type(dset);\n' +
                             'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
@@ -83,7 +96,7 @@ class _base(object):
             else:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
             src_txt += 'H5Dclose(dset);\n'
-        #src_txt += 'DEBUG_MSG("exiting read_parameters\\n");\n' # finishing read_parameters
+        src_txt += 'H5Fclose(parameter_file);\n'
         src_txt += 'return 0;\n}\n' # finishing read_parameters
         return src_txt
     def cprint_pars(self):
@@ -97,16 +110,18 @@ class _base(object):
             else:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %g\\n", ' + key[i] + ');\n'
         return src_txt
-    def write_par(self, iter0 = 0):
+    def write_par(
+            self,
+            iter0 = 0):
         if not os.path.isdir(self.work_dir):
             os.makedirs(self.work_dir)
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
-            if (type(self.parameters[k]) == str) and (sys.version[0] == 3):
+            if (type(self.parameters[k]) == str) and (sys.version_info[0] == 3):
                 ofile.create_dataset('parameters/' + k,
                                      (1,),
                                      dtype = 'S10')
-                #ofile['parameters/' + k] = self.parameters[k].encode('ascii', 'ignore')
+                ofile['parameters/' + k] = bytes(self.parameters[k]) #.encode('ascii', 'ignore')
                 #print (ofile['parameters/' + k])
             else:
                 ofile['parameters/' + k] = self.parameters[k]
@@ -114,6 +129,22 @@ class _base(object):
         ofile['bfps_info/solver_class'] = type(self).__name__
         for k in install_info.keys():
             ofile['bfps_info/' + k] = str(install_info[k])
+        ofile.close()
+        return None
+    def rewrite_par(
+            self,
+            group = None,
+            parameters = None):
+        assert(group != 'parameters')
+        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+        for k in parameters.keys():
+            if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
+                ofile.create_dataset(group + '/' + k,
+                                     (1,),
+                                     dtype = 'S10')
+                ofile[group + '/' + k] = bytes(parameters[k])
+            else:
+                ofile[group + '/' + k] = parameters[k]
         ofile.close()
         return None
     def read_parameters(self):
@@ -177,11 +208,14 @@ class _base(object):
         return None
     def parameters_to_parser_arguments(
             self,
-            parser):
-        for k in sorted(self.parameters.keys()):
+            parser,
+            parameters = None):
+        if type(parameters) == type(None):
+            parameters = self.parameters
+        for k in sorted(parameters.keys()):
             parser.add_argument(
                     '--{0}'.format(k),
-                    type = type(self.parameters[k]),
+                    type = type(parameters[k]),
                     dest = k,
                     default = None)
         return None
