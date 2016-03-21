@@ -112,6 +112,7 @@ class FluidConvert(_fluid_particle_base):
         opt = self.prepare_launch(args)
         if opt.iter1 == -1:
             opt.iter1 = self.get_data_file()['iteration'].value
+        self.pars_from_namespace(opt)
         self.set_host_info(bfps.host_info)
         self.rewrite_par(
                 group = 'conversion_parameters',
