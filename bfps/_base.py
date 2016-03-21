@@ -118,10 +118,11 @@ class _base(object):
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             if (type(self.parameters[k]) == str) and (sys.version_info[0] == 3):
-                ofile.create_dataset('parameters/' + k,
-                                     (1,),
-                                     dtype = 'S10')
-                ofile['parameters/' + k][0] = bytes(self.parameters[k], 'ascii')
+                #ofile.create_dataset('parameters/' + k,
+                #                     (1,),
+                #                     dtype = 'S10')
+                #ofile['parameters/' + k][0] = bytes(self.parameters[k], 'ascii')
+                ofile['parameters/' + k] = bytes(self.parameters[k], 'ascii')
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
