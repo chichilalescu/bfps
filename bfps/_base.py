@@ -121,8 +121,7 @@ class _base(object):
                 ofile.create_dataset('parameters/' + k,
                                      (1,),
                                      dtype = 'S10')
-                ofile['parameters/' + k] = bytes(self.parameters[k]) #.encode('ascii', 'ignore')
-                #print (ofile['parameters/' + k])
+                ofile['parameters/' + k] = bytes(self.parameters[k], 'ascii')
             else:
                 ofile['parameters/' + k] = self.parameters[k]
         ofile['iteration'] = int(iter0)
