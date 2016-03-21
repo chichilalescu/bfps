@@ -132,7 +132,7 @@ class _base(object):
                 if not type(cmd_line_pars[k]) == type(None):
                     self.parameters[k] = cmd_line_pars[k]
         self.simname = opt.simname
-        self.work_dir = opt.work_dir
+        self.work_dir = os.path.realpath(opt.work_dir)
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')

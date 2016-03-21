@@ -42,6 +42,7 @@ class FrozenFieldParticles(bfps.NavierStokes):
                 fluid_precision = fluid_precision,
                 frozen_fields = frozen_fields,
                 use_fftw_wisdom = use_fftw_wisdom)
+        return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_variables += 'fluid_solver<{0}> *fs;\n'.format(self.C_dtype)

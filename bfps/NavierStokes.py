@@ -1052,7 +1052,7 @@ class NavierStokes(_fluid_particle_base):
             # datasets in the .h5 file
             self.name += '-QR'
         if len(opt.src_work_dir) == 0:
-            opt.src_work_dir = opt.work_dir
+            opt.src_work_dir = os.path.realpath(opt.work_dir)
         self.pars_from_namespace(opt)
         return opt
     def launch(
