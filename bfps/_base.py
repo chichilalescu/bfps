@@ -118,10 +118,6 @@ class _base(object):
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'w-')
         for k in self.parameters.keys():
             if (type(self.parameters[k]) == str) and (sys.version_info[0] == 3):
-                #ofile.create_dataset('parameters/' + k,
-                #                     (1,),
-                #                     dtype = 'S10')
-                #ofile['parameters/' + k][0] = bytes(self.parameters[k], 'ascii')
                 ofile['parameters/' + k] = bytes(self.parameters[k], 'ascii')
             else:
                 ofile['parameters/' + k] = self.parameters[k]
@@ -153,17 +149,24 @@ class _base(object):
                 if k in self.parameters.keys():
                     self.parameters[k] = type(self.parameters[k])(data_file['parameters/' + k].value)
         return None
-    def pars_from_namespace(self, opt):
+    def pars_from_namespace(
+            self,
+            opt,
+            parameters = None,
+            get_sim_info = True):
+        if type(parameters) == type(None):
+            parameters = self.parameters
         cmd_line_pars = vars(opt)
         for k in ['nx', 'ny', 'nz']:
             if type(cmd_line_pars[k]) == type(None):
                 cmd_line_pars[k] = opt.n
-        for k in self.parameters.keys():
+        for k in parameters.keys():
             if k in cmd_line_pars.keys():
                 if not type(cmd_line_pars[k]) == type(None):
-                    self.parameters[k] = cmd_line_pars[k]
-        self.simname = opt.simname
-        self.work_dir = os.path.realpath(opt.work_dir)
+                    parameters[k] = cmd_line_pars[k]
+        if get_sim_info:
+            self.simname = opt.simname
+            self.work_dir = os.path.realpath(opt.work_dir)
         return None
     def get_coord(self, direction):
         assert(direction == 'x' or direction == 'y' or direction == 'z')
