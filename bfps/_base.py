@@ -134,13 +134,18 @@ class _base(object):
         assert(group != 'parameters')
         ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
         for k in parameters.keys():
-            if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
-                ofile.create_dataset(group + '/' + k,
-                                     (1,),
-                                     dtype = 'S10')
-                ofile[group + '/' + k] = bytes(parameters[k])
+            if group not in ofile.keys():
+                ofile.create_group(group)
+            if k not in ofile[group].keys():
+                if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
+                    ofile[group + '/' + k] = bytes(parameters[k])
+                else:
+                    ofile[group + '/' + k] = parameters[k]
             else:
-                ofile[group + '/' + k] = parameters[k]
+                if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
+                    ofile[group + '/' + k][:] = bytes(parameters[k])
+                else:
+                    ofile[group + '/' + k][...] = parameters[k]
         ofile.close()
         return None
     def read_parameters(self):
