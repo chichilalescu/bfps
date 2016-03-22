@@ -54,6 +54,7 @@ class FluidConvert(_fluid_particle_base):
         self.spec_parameters = {}
         self.spec_parameters['write_rvelocity']  = 1
         self.spec_parameters['write_rvorticity'] = 1
+        self.spec_parameters['write_rTrS2'] = 1
         self.spec_parameters['iter0'] = 0
         self.spec_parameters['iter1'] = -1
         self.fill_up_fluid_code()
@@ -79,6 +80,8 @@ class FluidConvert(_fluid_particle_base):
                         bla->write('u', 'r');
                     if (write_rvorticity)
                         bla->write('v', 'r');
+                    if (write_rTrS2)
+                        bla->write_rTrS2();
                 }}
                 //endcpp
                 """.format(self.C_dtype)
