@@ -297,7 +297,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
             &mem_dims.front(),
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
-    offset[0] = this->hdf5_rhs_dims[0]-1;
+    offset[0] = this->hdf5_rhs_dims[0]-2;
     offset[1] = rhsindex;
     for (unsigned int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
@@ -338,7 +338,7 @@ void particles_io_base<particle_type>::write_rhs_chunk(
             &mem_dims.front(),
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_rhs_dims.size()];
-    offset[0] = this->hdf5_rhs_dims[0];
+    offset[0] = this->hdf5_rhs_dims[0]-1;
     offset[1] = rhsindex;
     for (unsigned int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];

@@ -90,6 +90,42 @@ class _fluid_particle_base(_code):
         self.particle_end  = ''
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
+        self.store_kspace = """
+                //begincpp
+                if (myrank == 0 && iteration == 0)
+                {
+                    hsize_t dims[4];
+                    hid_t space, dset;
+                    // store kspace information
+                    hid_t parameter_file = stat_file;
+                    //char fname[256];
+                    //sprintf(fname, "%s.h5", simname);
+                    //parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
+                    dset = H5Dopen(parameter_file, "/kspace/kshell", H5P_DEFAULT);
+                    space = H5Dget_space(dset);
+                    H5Sget_simple_extent_dims(space, dims, NULL);
+                    H5Sclose(space);
+                    if (fs->nshells != dims[0])
+                    {
+                        DEBUG_MSG(
+                            "ERROR: computed nshells %d not equal to data file nshells %d\\n",
+                            fs->nshells, dims[0]);
+                    }
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/nshell", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->nshell);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kMspec);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
+                    H5Dclose(dset);
+                    //H5Fclose(parameter_file);
+                }
+                //endcpp
+                """
         return None
     def get_data_file_name(self):
         return os.path.join(self.work_dir, self.simname + '.h5')
@@ -104,7 +140,8 @@ class _fluid_particle_base(_code):
             postprocess_mode = False):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
-        self.variables  += self.fluid_variables
+        self.variables  += (self.fluid_variables +
+                            'hid_t particle_file;\n')
         self.definitions+= self.fluid_definitions
         if self.particle_species > 0:
             self.includes    += self.particle_includes
@@ -177,10 +214,23 @@ class _fluid_particle_base(_code):
                         }}
                         //endcpp
                         """.format(fftw_prefix) + self.main_end
-        self.main        = self.fluid_start
         if self.particle_species > 0:
-            self.main   += self.particle_start
-        self.main       += """
+            self.main_start += """
+                if (myrank == 0)
+                {
+                    // set caching parameters
+                    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                    herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                    DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
+                    sprintf(fname, "%s_particles.h5", simname);
+                    particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                }
+                """
+            self.main_end = ('if (myrank == 0)\n' +
+                             '{\n' +
+                             'H5Fclose(particle_file);\n' +
+                             '}\n') + self.main_end
+        self.main        = """
                            //begincpp
                            int data_file_problem;
                            clock_t time0, time1;
@@ -196,6 +246,9 @@ class _fluid_particle_base(_code):
                            }
                            //endcpp
                            """
+        self.main       += self.fluid_start
+        if self.particle_species > 0:
+            self.main   += self.particle_start
         output_time_difference = ('time1 = clock();\n' +
                                   'local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);\n' +
                                   'time_difference = 0.0;\n' +

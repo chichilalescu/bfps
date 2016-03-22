@@ -78,29 +78,6 @@ class NavierStokes(_fluid_particle_base):
                 hsize_t dims[4];
                 hid_t group;
                 hid_t Cspace, Cdset;
-                // store kspace information
-                Cdset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
-                Cspace = H5Dget_space(Cdset);
-                H5Sget_simple_extent_dims(Cspace, dims, NULL);
-                H5Sclose(Cspace);
-                if (fs->nshells != dims[0])
-                {
-                    DEBUG_MSG(
-                        "ERROR: computed nshells %d not equal to data file nshells %d\\n",
-                        fs->nshells, dims[0]);
-                    file_problems++;
-                }
-                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);
-                H5Dclose(Cdset);
-                Cdset = H5Dopen(stat_file, "/kspace/nshell", H5P_DEFAULT);
-                H5Dwrite(Cdset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->nshell);
-                H5Dclose(Cdset);
-                Cdset = H5Dopen(stat_file, "/kspace/kM", H5P_DEFAULT);
-                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kMspec);
-                H5Dclose(Cdset);
-                Cdset = H5Dopen(stat_file, "/kspace/dk", H5P_DEFAULT);
-                H5Dwrite(Cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
-                H5Dclose(Cdset);
                 group = H5Gopen(stat_file, "/statistics", H5P_DEFAULT);
                 H5Ovisit(group, H5_INDEX_NAME, H5_ITER_NATIVE, grow_statistics_dataset, NULL);
                 H5Gclose(group);
@@ -335,8 +312,7 @@ class NavierStokes(_fluid_particle_base):
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
-                                 'hid_t particle_file;\n')
+        self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype))
         self.fluid_definitions += """
                     typedef struct {{
                         {0} re;
@@ -367,18 +343,7 @@ class NavierStokes(_fluid_particle_base):
                 fs->read('v', 'c');
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
-        if self.parameters['nparticles'] > 0:
-            self.fluid_start += """
-                if (myrank == 0)
-                {
-                    // set caching parameters
-                    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-                    herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
-                    DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
-                    sprintf(fname, "%s_particles.h5", simname);
-                    particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
-                }
-                """
+        self.fluid_start += self.store_kspace
         if not self.frozen_fields:
             self.fluid_loop = 'fs->step(dt);\n'
         else:
@@ -388,11 +353,6 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
                           'delete fs;\n')
-        if self.parameters['nparticles'] > 0:
-            self.fluid_end += ('if (myrank == 0)\n' +
-                               '{\n' +
-                               'H5Fclose(particle_file);\n' +
-                               '}\n')
         return None
     def add_3D_rFFTW_field(
             self,
@@ -487,7 +447,7 @@ class NavierStokes(_fluid_particle_base):
             self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
             self.file_datasets_grow += """
                         //begincpp
-                        group = H5Gopen(particle_file, ps{0}->get_name(), H5P_DEFAULT);
+                        group = H5Gopen(particle_file, "/tracers{0}", H5P_DEFAULT);
                         grow_particle_datasets(group, "", NULL, NULL);
                         H5Gclose(group);
                         //endcpp
