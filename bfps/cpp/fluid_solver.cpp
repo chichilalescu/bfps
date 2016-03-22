@@ -486,7 +486,6 @@ int fluid_solver<R>::write_rTrS2() \
                 ra + cc*this->cd->local_size*2); \
     } \
     /* velocity gradient is now stored, in real space, in ra */ \
-    std::fill_n(this->rv[1], 2*this->cd->local_size, 0.0); \
     R *dx_u, *dy_u, *dz_u; \
     dx_u = ra; \
     dy_u = ra + 2*this->cd->local_size; \
