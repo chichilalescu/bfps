@@ -114,7 +114,8 @@ header_list = (['cpp/base.hpp'] +
                 for fname in src_file_list])
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
-    for fname in ['bfps/cpp/' + fname + '.cpp' for fname in src_file_list] + header_list:
+    for fname in (['bfps/cpp/' + ff + '.cpp' for ff in src_file_list] +
+                  ['bfps/' + ff for ff in header_list]):
         manifest_in_file.write('include {0}\n'.format(fname))
 
 
