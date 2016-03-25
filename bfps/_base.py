@@ -143,7 +143,7 @@ class _base(object):
                     ofile[group + '/' + k] = parameters[k]
             else:
                 if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
-                    ofile[group + '/' + k][:] = bytes(parameters[k], 'ascii')
+                    ofile[group + '/' + k][...] = bytes(parameters[k], 'ascii')
                 else:
                     ofile[group + '/' + k][...] = parameters[k]
         ofile.close()
