@@ -24,6 +24,7 @@
 
 
 
+import sys
 import math
 import numpy as np
 
@@ -234,7 +235,10 @@ def particle_finite_diff_test(
         interp_name = 'tracers{0}_field'.format(species)
     interp_name = pars[interp_name].value
     if type(interp_name) == bytes:
-        interp_name = str(interp_name, 'ASCII')
+        if sys.version_info[0] == 3:
+            interp_name = str(interp_name, 'ASCII')
+        elif sys.version_info[0] == 2:
+            interp_name = str(interp_name)
     to_print = (
             'steps={0}, interp={1}, neighbours={2}, '.format(
                 pars['tracers{0}_integration_steps'.format(species)].value,
