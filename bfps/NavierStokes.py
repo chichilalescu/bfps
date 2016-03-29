@@ -75,9 +75,7 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['max_R_estimate'] = 1.0
         self.file_datasets_grow = """
                 //begincpp
-                hsize_t dims[4];
                 hid_t group;
-                hid_t Cspace, Cdset;
                 group = H5Gopen(stat_file, "/statistics", H5P_DEFAULT);
                 H5Ovisit(group, H5_INDEX_NAME, H5_ITER_NATIVE, grow_statistics_dataset, NULL);
                 H5Gclose(group);
