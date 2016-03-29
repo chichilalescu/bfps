@@ -159,11 +159,29 @@ class NavierStokes(_fluid_particle_base):
                 max_estimates[1] = max_estimates[0];
                 max_estimates[2] = max_estimates[0];
                 max_estimates[3] = max_velocity_estimate;
-                fs->compute_rspace_stats4(fs->rvelocity,
-                                         velocity_moments,
-                                         hist_velocity,
-                                         max_estimates,
-                                         histogram_bins);
+                hid_t stat_group;
+                if (myrank == 0)
+                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
+                std::vector<double> max_estimate_vector;
+                max_estimate_vector.resize(4);
+                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[3] = max_velocity_estimate;
+                fs->compute_rspace_stats(
+                        fs->rvelocity,
+                        stat_group,
+                        "velocity",
+                        fs->iteration/niter_stat,
+                        max_estimate_vector);
+                if (myrank == 0)
+                    H5Gclose(stat_group);
+
+                //fs->compute_rspace_stats4(fs->rvelocity,
+                //                         velocity_moments,
+                //                         hist_velocity,
+                //                         max_estimates,
+                //                         histogram_bins);
                 fs->ift_vorticity();
                 max_estimates[0] = max_vorticity_estimate/sqrt(3);
                 max_estimates[1] = max_estimates[0];
@@ -203,18 +221,26 @@ class NavierStokes(_fluid_particle_base):
                 '/statistics/xlines/vorticity',
                 'fs->rvorticity',
                 data_type = field_H5T)
+        #self.stat_src += self.create_stat_output(
+        #        '/statistics/moments/velocity',
+        #        'velocity_moments',
+        #        size_setup = """
+        #            count[0] = 1;
+        #            count[1] = 10;
+        #            count[2] = 4;
+        #            """,
+        #        close_spaces = False)
         self.stat_src += self.create_stat_output(
-                '/statistics/moments/velocity',
-                'velocity_moments',
+                '/statistics/moments/vorticity',
+                'vorticity_moments',
                 size_setup = """
                     count[0] = 1;
                     count[1] = 10;
                     count[2] = 4;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/moments/vorticity',
-                'vorticity_moments')
+                    """)
+        #self.stat_src += self.create_stat_output(
+        #        '/statistics/moments/vorticity',
+        #        'vorticity_moments')
         self.stat_src += self.create_stat_output(
                 '/statistics/spectra/velocity_velocity',
                 'spec_velocity',
