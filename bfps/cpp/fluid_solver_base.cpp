@@ -260,7 +260,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         count[1] = nbins;
         mspace = H5Screate_simple(3, count, NULL);
         H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, moments);
+        H5Dwrite(dset, H5T_NATIVE_INT64, mspace, wspace, H5P_DEFAULT, hist);
         H5Sclose(wspace);
         H5Sclose(mspace);
         H5Dclose(dset);
