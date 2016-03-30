@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -441,7 +441,7 @@ void fluid_solver_base<R>::compute_vector_gradient(FFTW(complex) *A, FFTW(comple
     dz_u = A + 2*this->cd->local_size; \
     CLOOP_K2( \
             this, \
-            if (k2 <= this->kM2) \
+            /*if (k2 <= this->kM2)*/ \
             { \
                 tindex = 3*cindex; \
                 for (int cc=0; cc<3; cc++) \
