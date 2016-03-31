@@ -347,6 +347,7 @@ class _fluid_particle_base(_code):
             field_name = 'vorticity',
             write_to_file = False):
         np.random.seed(rseed)
+        #to switch to constant field, add/delete _uniform from the three calls below
         Kdata00 = tools.generate_data_3D(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
