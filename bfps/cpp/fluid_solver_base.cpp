@@ -690,9 +690,7 @@ int fluid_solver_base<R>::read_base(const char *fname, FFTW(complex) *data) \
 { \
     char full_name[512]; \
     sprintf(full_name, "%s_%s_i%.5x", this->name, fname, this->iteration); \
-    int return_value = this->cd->read(full_name, (void*)data); \
-    this->low_pass_Fourier(data, 3, this->kM); \
-    return return_value; \
+    return this->cd->read(full_name, (void*)data); \
 } \
  \
 template<> \

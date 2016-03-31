@@ -419,6 +419,7 @@ int fluid_solver<R>::read(char field, char representation) \
             else \
                 FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
         } \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
         this->force_divfree(this->cvorticity); \
         this->symmetrize(this->cvorticity, 3); \
         return EXIT_SUCCESS; \
