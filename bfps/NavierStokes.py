@@ -75,9 +75,7 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['max_R_estimate'] = 1.0
         self.file_datasets_grow = """
                 //begincpp
-                hsize_t dims[4];
                 hid_t group;
-                hid_t Cspace, Cdset;
                 group = H5Gopen(stat_file, "/statistics", H5P_DEFAULT);
                 H5Ovisit(group, H5_INDEX_NAME, H5_ITER_NATIVE, grow_statistics_dataset, NULL);
                 H5Gclose(group);
@@ -113,8 +111,6 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
-                double *velocity_moments  = new double[10*4];
-                double *vorticity_moments = new double[10*4];
                 ptrdiff_t *hist_velocity  = new ptrdiff_t[histogram_bins*4];
                 ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
                 double max_estimates[4];
@@ -159,21 +155,34 @@ class NavierStokes(_fluid_particle_base):
                 max_estimates[1] = max_estimates[0];
                 max_estimates[2] = max_estimates[0];
                 max_estimates[3] = max_velocity_estimate;
-                fs->compute_rspace_stats4(fs->rvelocity,
-                                         velocity_moments,
-                                         hist_velocity,
-                                         max_estimates,
-                                         histogram_bins);
+                hid_t stat_group;
+                if (myrank == 0)
+                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
+                std::vector<double> max_estimate_vector;
+                max_estimate_vector.resize(4);
+                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[3] = max_velocity_estimate;
+                fs->compute_rspace_stats(
+                        fs->rvelocity,
+                        stat_group,
+                        "velocity",
+                        fs->iteration/niter_stat,
+                        max_estimate_vector);
                 fs->ift_vorticity();
-                max_estimates[0] = max_vorticity_estimate/sqrt(3);
-                max_estimates[1] = max_estimates[0];
-                max_estimates[2] = max_estimates[0];
-                max_estimates[3] = max_vorticity_estimate;
-                fs->compute_rspace_stats4(fs->rvorticity,
-                                         vorticity_moments,
-                                         hist_vorticity,
-                                         max_estimates,
-                                         histogram_bins);
+                max_estimate_vector[0] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[1] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[2] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[3] = max_vorticity_estimate;
+                fs->compute_rspace_stats(
+                        fs->rvorticity,
+                        stat_group,
+                        "vorticity",
+                        fs->iteration/niter_stat,
+                        max_estimate_vector);
+                if (myrank == 0)
+                    H5Gclose(stat_group);
                 if (fs->cd->myrank == 0)
                 {{
                     hid_t Cdset, wspace, mspace;
@@ -203,18 +212,6 @@ class NavierStokes(_fluid_particle_base):
                 '/statistics/xlines/vorticity',
                 'fs->rvorticity',
                 data_type = field_H5T)
-        self.stat_src += self.create_stat_output(
-                '/statistics/moments/velocity',
-                'velocity_moments',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = 10;
-                    count[2] = 4;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/moments/vorticity',
-                'vorticity_moments')
         self.stat_src += self.create_stat_output(
                 '/statistics/spectra/velocity_velocity',
                 'spec_velocity',
@@ -293,8 +290,6 @@ class NavierStokes(_fluid_particle_base):
                 }
                 delete[] spec_velocity;
                 delete[] spec_vorticity;
-                delete[] velocity_moments;
-                delete[] vorticity_moments;
                 delete[] hist_velocity;
                 delete[] hist_vorticity;
                 //endcpp
