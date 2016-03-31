@@ -32,7 +32,7 @@ def generate_data_3D_uniform(
         n0, n1, n2,
         dtype = np.complex128,
         p = 1.5,
-        amplitude = 0.5):
+        amplitude = 1.0):
     """returns the Fourier representation of a constant field.
 
     The generated field is scalar (single component), in practice a
@@ -45,7 +45,7 @@ def generate_data_3D_uniform(
     :param n1: number of :math:`y` nodes on real-space grid
     :param n2: number of :math:`x` nodes on real-space grid
     :param dtype: data type to use, (default=numpy.complex128)
-    :param p: exponent for powerlaw to use in spectrum
+    :param p: ignored
     :param amplitude: prefactor that field is multiplied with
     :type n0: int
     :type n1: int
@@ -59,7 +59,7 @@ def generate_data_3D_uniform(
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
     a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
-    a[0]=1.
+    a[0] = amplitude
     return a
 
 
