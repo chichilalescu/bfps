@@ -823,6 +823,38 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             acceleration); \
     FFTW(free)(pressure); \
 } \
+ \
+template<> \
+int fluid_solver<R>::write_rpressure() \
+{ \
+    char fname[512]; \
+    FFTW(complex) *pressure; \
+    pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
+    this->compute_velocity(this->cvorticity); \
+    this->ift_velocity(); \
+    this->compute_pressure(pressure); \
+    this->fill_up_filename("rpressure", fname); \
+    R *rpressure = FFTW(alloc_real)((this->cd->local_size/3)*2); \
+    FFTW(plan) c2r; \
+    c2r = FFTW(mpi_plan_dft_c2r_3d)( \
+            this->rd->sizes[0], this->rd->sizes[1], this->rd->sizes[2], \
+            pressure, rpressure, this->cd->comm, \
+            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
+    FFTW(execute)(c2r); \
+    /* output goes here */ \
+    int ntmp[3]; \
+    ntmp[0] = this->rd->sizes[0]; \
+    ntmp[1] = this->rd->sizes[1]; \
+    ntmp[2] = this->rd->sizes[2]; \
+    field_descriptor<R> *scalar_descriptor = new field_descriptor<R>(3, ntmp, MPI_RNUM, this->cd->comm); \
+    clip_zero_padding<R>(scalar_descriptor, rpressure, 1); \
+    int return_value = scalar_descriptor->write(fname, rpressure); \
+    delete scalar_descriptor; \
+    FFTW(destroy_plan)(c2r); \
+    FFTW(free)(pressure); \
+    FFTW(free)(rpressure); \
+    return return_value; \
+} \
 
 /*****************************************************************************/
 
