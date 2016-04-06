@@ -345,21 +345,54 @@ class _fluid_particle_base(_code):
             amplitude = 1.,
             iteration = 0,
             field_name = 'vorticity',
-            write_to_file = False):
+            write_to_file = False,
+            # to switch to constant field, use generate_data_3D_uniform
+            # for scalar_generator
+            scalar_generator = tools.generate_data_3D):
+        """generate vector field.
+
+        The generated field is not divergence free, but it has the proper
+        shape.
+
+        :param rseed: seed for random number generator
+        :param spectra_slope: spectrum of field will look like k^(-p)
+        :param amplitude: all amplitudes are multiplied with this value
+        :param iteration: the field is written at this iteration
+        :param field_name: the name of the field being generated
+        :param write_to_file: should we write the field to file?
+        :param scalar_generator: which function to use for generating the
+            individual components.
+            Possible values: bfps.tools.generate_data_3D,
+            bfps.tools.generate_data_3D_uniform
+        :type rseed: int
+        :type spectra_slope: float
+        :type amplitude: float
+        :type iteration: int
+        :type field_name: str
+        :type write_to_file: bool
+        :type scalar_generator: function
+
+        :returns: ``Kdata``, a complex valued 4D ``numpy.array`` that uses the
+            transposed FFTW layout.
+            Kdata[ky, kz, kx, i] is the amplitude of mode (kx, ky, kz) for
+            the i-th component of the field.
+            (i.e. x is the fastest index and z the slowest index in the
+            real-space representation).
+        """
         np.random.seed(rseed)
-        Kdata00 = tools.generate_data_3D(
+        Kdata00 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata01 = tools.generate_data_3D(
+        Kdata01 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata02 = tools.generate_data_3D(
+        Kdata02 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,

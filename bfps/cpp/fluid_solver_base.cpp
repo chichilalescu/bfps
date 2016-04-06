@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>

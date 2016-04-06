@@ -28,6 +28,41 @@ import sys
 import math
 import numpy as np
 
+def generate_data_3D_uniform(
+        n0, n1, n2,
+        dtype = np.complex128,
+        p = 1.5,
+        amplitude = 1.0):
+    """returns the Fourier representation of a constant field.
+
+    The generated field is scalar (single component), in practice a
+    3D ``numpy`` complex-valued array.
+    The field will use the FFTW representation, with the slowest
+    direction corresponding to :math:`y`, the intermediate to :math:`z`
+    and the fastest direction to :math:`x`.
+
+    :param n0: number of :math:`z` nodes on real-space grid
+    :param n1: number of :math:`y` nodes on real-space grid
+    :param n2: number of :math:`x` nodes on real-space grid
+    :param dtype: data type to use, (default=numpy.complex128)
+    :param p: ignored
+    :param amplitude: prefactor that field is multiplied with
+    :type n0: int
+    :type n1: int
+    :type n2: int
+    :type dtype: numpy.dtype
+    :type p: float
+    :type amplitude: float
+
+    :returns: ``a``, a complex valued 3D ``numpy.array`` that uses the
+             FFTW layout.
+    """
+    assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
+    a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
+    a[0] = amplitude
+    return a
+
+
 def generate_data_3D(
         n0, n1, n2,
         dtype = np.complex128,

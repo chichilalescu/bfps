@@ -35,11 +35,10 @@ import subprocess
 import pickle
 
 
-
 ### compiler configuration
 # check if .config/bfps/machine_settings.py file exists, create it if not
 homefolder = os.path.expanduser('~')
-bfpsfolder = os.path.join(homefolder, '.config/', 'bfps')
+bfpsfolder = os.path.join(homefolder, '.config', 'bfps')
 if not os.path.exists(os.path.join(bfpsfolder, 'machine_settings.py')):
     if not os.path.isdir(bfpsfolder):
         os.mkdir(bfpsfolder)
@@ -51,10 +50,9 @@ if not os.path.exists(os.path.join(bfpsfolder, 'host_information.py')):
     open(os.path.join(bfpsfolder, 'host_information.py'),
          'w').write('host_info = {\'type\' : \'none\'}\n')
     shutil.copyfile('./machine_settings_py.py', os.path.join(bfpsfolder, 'machine_settings.py'))
-sys.path.append(bfpsfolder)
+sys.path.insert(0, bfpsfolder)
 # import stuff required for compilation of static library
 from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
-
 
 
 ### package versioning
