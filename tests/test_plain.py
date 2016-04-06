@@ -26,26 +26,81 @@
 
 
 #from base import *
+import bfps
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-parser.add_argument('--multiplejob',
-        dest = 'multiplejob', action = 'store_true')
+#parser.add_argument('--multiplejob',
+#        dest = 'multiplejob', action = 'store_true')
+#
+#parser.add_argument(
+#        '--particle-class',
+#        default = 'particles',
+#        dest = 'particle_class',
+#        type = str)
+#
+#parser.add_argument(
+#        '--interpolator-class',
+#        default = 'interpolator',
+#        dest = 'interpolator_class',
+#        type = str)
 
-parser.add_argument(
-        '--particle-class',
-        default = 'particles',
-        dest = 'particle_class',
-        type = str)
+class NSPlain(bfps.NavierStokes):
+    def specific_parser_arguments(
+            self,
+            parser):
+        bfps.NavierStokes.specific_parser_arguments(self, parser)
+        parser.add_argument(
+                '--particle-class',
+                default = 'rFFTW_distributed_particles',
+                dest = 'particle_class',
+                type = str)
+        parser.add_argument(
+                '--interpolator-class',
+                default = 'rFFTW_interpolator',
+                dest = 'interpolator_class',
+                type = str)
+        parser.add_argument('--neighbours',
+                type = int,
+                dest = 'neighbours',
+                default = 3)
+        parser.add_argument('--smoothness',
+                type = int,
+                dest = 'smoothness',
+                default = 2)
+        return None
+    def launch(
+            self,
+            args = [],
+            **kwargs):
+        opt = self.prepare_launch(args = args)
+        self.fill_up_fluid_code()
+        if type(opt.nparticles) == int:
+            if opt.nparticles > 0:
+                self.add_3D_rFFTW_field(
+                        name = 'rFFTW_acc')
+                self.add_interpolator(
+                        name = 'spline',
+                        neighbours = opt.neighbours,
+                        smoothness = opt.smoothness,
+                        class_name =  opt.interpolator_class)
+                self.add_particles(
+                        kcut = ['fs->kM/2', 'fs->kM/3'],
+                        integration_steps = 3,
+                        interpolator = 'spline',
+                        class_name = opt.particle_class)
+                self.add_particles(
+                        integration_steps = [2, 3, 4, 6],
+                        interpolator = 'spline',
+                        acc_name = 'rFFTW_acc',
+                        class_name = opt.particle_class)
+        self.finalize_code()
+        self.launch_jobs(opt = opt)
+        return None
 
-parser.add_argument(
-        '--interpolator-class',
-        default = 'interpolator',
-        dest = 'interpolator_class',
-        type = str)
-
-def plain(opt):
+def plain(args):
     wd = opt.work_dir
     opt.work_dir = wd + '/N{0:0>3x}_1'.format(opt.n)
     c0 = launch(opt, dt = 0.2/opt.n,
@@ -81,15 +136,12 @@ def plain(opt):
     return None
 
 if __name__ == '__main__':
-    opt = parser.parse_args(
+    c = NSPlain()
+    c.launch(
             ['-n', '32',
-             '--run',
-             '--initialize',
              '--ncpu', '4',
              '--nparticles', '1000',
              '--niter_todo', '48',
-             '--precision', 'single',
              '--wd', 'data/single'] +
             sys.argv[1:])
-    plain(opt)
 
