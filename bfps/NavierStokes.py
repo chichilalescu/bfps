@@ -834,7 +834,7 @@ class NavierStokes(_fluid_particle_base):
             pbase_shape = particle_ic.shape[:-1]
             assert(particle_ic.shape[-1] == 3)
             number_of_particles = 1
-            for val in pbase_shape:
+            for val in pbase_shape[1:]:
                 number_of_particles *= val
 
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
@@ -846,7 +846,7 @@ class NavierStokes(_fluid_particle_base):
                          self.parameters['tracers{0}_integration_steps'.format(s)]) +
                         pbase_shape + (3,))
                 maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
-                chunks = (time_chunk, 1) + dims[2:]
+                chunks = (time_chunk, 1, 1) + dims[3:]
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
@@ -856,20 +856,20 @@ class NavierStokes(_fluid_particle_base):
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk,) + pbase_shape + (3,))
+                        (time_chunk, 1) + pbase_shape[1:] + (3,))
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk,) + pbase_shape + (3,))
+                        (time_chunk, 1) + pbase_shape[1:] + (3,))
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     create_particle_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
                             (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            (time_chunk,) + pbase_shape + (3,))
+                            (time_chunk, 1) + pbase_shape[1:] + (3,))
         return None
     def add_particle_fields(
             self,
@@ -961,15 +961,24 @@ class NavierStokes(_fluid_particle_base):
                dest = 'particle_rand_seed',
                default = None)
         parser.add_argument(
-               '--nclouds',
+               '--pclouds',
                type = int,
-               dest = 'nclouds',
-               default = 1)
+               dest = 'pclouds',
+               default = 1,
+               help = ('number of particle clouds. Particle "clouds" '
+                       'consist of particles distributed according to '
+                       'pcloud-type.'))
+        parser.add_argument(
+                '--pcloud-type',
+                choices = ['random-cube',
+                           'regular-cube'],
+                dest = 'pcloud_type',
+                default = 'random-cube')
         parser.add_argument(
                '--particle-cloud-size',
                type = float,
                dest = 'particle_cloud_size',
-               default = 0.1)
+               default = 2*np.pi)
         return None
     def prepare_launch(
             self,
@@ -1057,11 +1066,28 @@ class NavierStokes(_fluid_particle_base):
             opt = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
             particle_initial_condition = None
-            if opt.nclouds > 1:
+            if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
-                particle_initial_condition = (
-                        np.random.random((opt.nclouds, 1, 3))*2*np.pi +
+                if opt.pcloud_type == 'random-cube':
+                    particle_initial_condition = (
+                        np.random.random((opt.pclouds, 1, 3))*2*np.pi +
                         np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+                elif opt.pcloud_type == 'regular-cube':
+                    onedarray = np.linspace(
+                            -opt.particle_cloud_size/2,
+                            opt.particle_cloud_size/2,
+                            self.parameters['nparticles'])
+                    particle_initial_condition = np.zeros(
+                            (opt.pclouds,
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'], 3),
+                            dtype = np.float64)
+                    particle_initial_condition[:] = \
+                        np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+                    particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+                    particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+                    particle_initial_condition[..., 2] += onedarray[None, :, None, None]
             self.write_par(
                     particle_ic = particle_initial_condition)
             if self.parameters['nparticles'] > 0:
