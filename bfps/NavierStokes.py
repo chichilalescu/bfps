@@ -703,24 +703,21 @@ class NavierStokes(_fluid_particle_base):
                                      (1, self.parameters['nx'], 3),
                                      chunks = (time_chunk, self.parameters['nx'], 3),
                                      maxshape = (None, self.parameters['nx'], 3),
-                                     dtype = self.dtype,
-                                     compression = 'gzip')
+                                     dtype = self.dtype)
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
                                      (1, nshells, 3, 3),
                                      chunks = (time_chunk, nshells, 3, 3),
                                      maxshape = (None, nshells, 3, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*4*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/' + k,
                                      (1, 10, 4),
                                      chunks = (time_chunk, 10, 4),
                                      maxshape = (None, 10, 4),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/' + k,
@@ -733,8 +730,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  4),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
             if self.QR_stats_on:
                 time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
@@ -748,8 +744,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  3),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
                 time_chunk = 2**20//(8*9*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/velocity_gradient',
@@ -765,24 +760,21 @@ class NavierStokes(_fluid_particle_base):
                                                  self.parameters['histogram_bins'],
                                                  3,
                                                  3),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
                 time_chunk = 2**20//(8*3*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/trS2_Q_R',
                                      (1, 10, 3),
                                      chunks = (time_chunk, 10, 3),
                                      maxshape = (None, 10, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*9*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/velocity_gradient',
                                      (1, 10, 3, 3),
                                      chunks = (time_chunk, 10, 3, 3),
                                      maxshape = (None, 10, 3, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/QR2D',
@@ -795,8 +787,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['QR2D_histogram_bins'],
                                                  self.parameters['QR2D_histogram_bins']),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
         if self.particle_species == 0:
             return None
         def create_particle_dataset(
