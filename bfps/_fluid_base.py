@@ -257,6 +257,9 @@ class _fluid_particle_base(_code):
                                   'if (myrank == 0) std::cout << "iteration " ' +
                                       '<< {0} << " took " ' +
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
+                                  'if (myrank == 0) std::cerr << "iteration " ' +
+                                      '<< {0} << " took " ' +
+                                      '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
         if not postprocess_mode:
             self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
