@@ -110,7 +110,7 @@ class err_finder:
         self.xcRK = []
         for c in self.clist:
             self.xcRK.append(cRK(
-                c.trajectories[1][0].T,
+                c.get_particle_file()['tracers1/state'][0].T,
                 c.parameters['dt'],
                 c.parameters['niter_todo'],
                 ABC_flow))
@@ -118,14 +118,14 @@ class err_finder:
                        for c in self.clist]
         self.ctraj = [None]
         for i in range(1, self.clist[0].particle_species):
-            self.ctraj.append([self.clist[j].trajectories[i].transpose((0, 2, 1))
+            self.ctraj.append([self.clist[j].get_particle_file()['tracers{0}/state'.format(i)].value.transpose((0, 2, 1))
                                for j in range(len(self.clist))])
         return None
     def get_AB_err(self, nsubsteps = 1):
         self.xAB = []
         for c in self.clist:
             self.xAB.append(AdamsBashforth(
-                c.trajectories[1][0].T,
+                c.get_particle_file()['tracers1/state'][0].T,
                 c.parameters['dt'],
                 c.parameters['niter_todo'],
                 ABC_flow,
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     a = fig.add_subplot(111)
     for s in range(1, 5):
         ef.get_AB_err(s)
-        errlist = [np.average(np.abs(ef.clist[i].trajectories[s][-1, :, :3] - ef.xAB[i][-1].T))
+        errlist = [np.average(np.abs(ef.clist[i].get_particle_file()['tracers{0}/state'.format(s)].value[-1, :, :3] - ef.xAB[i][-1].T))
                    for i in range(len(ef.clist))]
         a.plot(ef.dtlist, errlist,
                label = 'directAB{0}'.format(s),

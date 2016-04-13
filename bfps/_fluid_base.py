@@ -90,11 +90,58 @@ class _fluid_particle_base(_code):
         self.particle_end  = ''
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
+        self.store_kspace = """
+                //begincpp
+                if (myrank == 0 && iteration == 0)
+                {
+                    hsize_t dims[4];
+                    hid_t space, dset;
+                    // store kspace information
+                    hid_t parameter_file = stat_file;
+                    //char fname[256];
+                    //sprintf(fname, "%s.h5", simname);
+                    //parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
+                    dset = H5Dopen(parameter_file, "/kspace/kshell", H5P_DEFAULT);
+                    space = H5Dget_space(dset);
+                    H5Sget_simple_extent_dims(space, dims, NULL);
+                    H5Sclose(space);
+                    if (fs->nshells != dims[0])
+                    {
+                        DEBUG_MSG(
+                            "ERROR: computed nshells %d not equal to data file nshells %d\\n",
+                            fs->nshells, dims[0]);
+                    }
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->kshell);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/nshell", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, fs->nshell);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kMspec);
+                    H5Dclose(dset);
+                    dset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->dk);
+                    H5Dclose(dset);
+                    //H5Fclose(parameter_file);
+                }
+                //endcpp
+                """
         return None
-    def finalize_code(self):
+    def get_data_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '.h5')
+    def get_data_file(self):
+        return h5py.File(self.get_data_file_name(), 'r')
+    def get_particle_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '_particles.h5')
+    def get_particle_file(self):
+        return h5py.File(self.get_particle_file_name(), 'r')
+    def finalize_code(
+            self,
+            postprocess_mode = False):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
-        self.variables  += self.fluid_variables
+        self.variables  += (self.fluid_variables +
+                            'hid_t particle_file;\n')
         self.definitions+= self.fluid_definitions
         if self.particle_species > 0:
             self.includes    += self.particle_includes
@@ -167,10 +214,23 @@ class _fluid_particle_base(_code):
                         }}
                         //endcpp
                         """.format(fftw_prefix) + self.main_end
-        self.main        = self.fluid_start
         if self.particle_species > 0:
-            self.main   += self.particle_start
-        self.main       += """
+            self.main_start += """
+                if (myrank == 0)
+                {
+                    // set caching parameters
+                    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                    herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                    DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
+                    sprintf(fname, "%s_particles.h5", simname);
+                    particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                }
+                """
+            self.main_end = ('if (myrank == 0)\n' +
+                             '{\n' +
+                             'H5Fclose(particle_file);\n' +
+                             '}\n') + self.main_end
+        self.main        = """
                            //begincpp
                            int data_file_problem;
                            clock_t time0, time1;
@@ -186,27 +246,42 @@ class _fluid_particle_base(_code):
                            }
                            //endcpp
                            """
+        self.main       += self.fluid_start
+        if self.particle_species > 0:
+            self.main   += self.particle_start
         output_time_difference = ('time1 = clock();\n' +
                                   'local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);\n' +
                                   'time_difference = 0.0;\n' +
                                   'MPI_Allreduce(&local_time_difference, &time_difference, ' +
                                       '1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);\n' +
                                   'if (myrank == 0) std::cout << "iteration " ' +
-                                      '<< iteration << " took " ' +
+                                      '<< {0} << " took " ' +
+                                      '<< time_difference/nprocs << " seconds" << std::endl;\n' +
+                                  'if (myrank == 0) std::cerr << "iteration " ' +
+                                      '<< {0} << " took " ' +
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
-        self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
-        self.main       += '{\n'
-        self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
-        if self.particle_species > 0:
-            self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
-            self.main   += self.particle_loop
-        self.main       += self.fluid_loop
-        self.main       += output_time_difference
-        self.main       += '}\n'
-        self.main       += 'do_stats();\n'
-        self.main       += 'do_particle_stats();\n'
-        self.main       += output_time_difference
+        if not postprocess_mode:
+            self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
+            self.main       += '{\n'
+            self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
+            if self.particle_species > 0:
+                self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
+                self.main   += self.particle_loop
+            self.main       += self.fluid_loop
+            self.main       += output_time_difference.format('iteration')
+            self.main       += '}\n'
+            self.main       += 'do_stats();\n'
+            self.main       += 'do_particle_stats();\n'
+            self.main       += output_time_difference.format('iteration')
+        else:
+            self.main       += 'for (int frame_index = iter0; frame_index <= iter1; frame_index += niter_out)\n'
+            self.main       += '{\n'
+            if self.particle_species > 0:
+                self.main   += self.particle_loop
+            self.main       += self.fluid_loop
+            self.main       += output_time_difference.format('frame_index')
+            self.main       += '}\n'
         if self.particle_species > 0:
             self.main   += self.particle_end
         self.main       += self.fluid_end
@@ -273,21 +348,54 @@ class _fluid_particle_base(_code):
             amplitude = 1.,
             iteration = 0,
             field_name = 'vorticity',
-            write_to_file = False):
+            write_to_file = False,
+            # to switch to constant field, use generate_data_3D_uniform
+            # for scalar_generator
+            scalar_generator = tools.generate_data_3D):
+        """generate vector field.
+
+        The generated field is not divergence free, but it has the proper
+        shape.
+
+        :param rseed: seed for random number generator
+        :param spectra_slope: spectrum of field will look like k^(-p)
+        :param amplitude: all amplitudes are multiplied with this value
+        :param iteration: the field is written at this iteration
+        :param field_name: the name of the field being generated
+        :param write_to_file: should we write the field to file?
+        :param scalar_generator: which function to use for generating the
+            individual components.
+            Possible values: bfps.tools.generate_data_3D,
+            bfps.tools.generate_data_3D_uniform
+        :type rseed: int
+        :type spectra_slope: float
+        :type amplitude: float
+        :type iteration: int
+        :type field_name: str
+        :type write_to_file: bool
+        :type scalar_generator: function
+
+        :returns: ``Kdata``, a complex valued 4D ``numpy.array`` that uses the
+            transposed FFTW layout.
+            Kdata[ky, kz, kx, i] is the amplitude of mode (kx, ky, kz) for
+            the i-th component of the field.
+            (i.e. x is the fastest index and z the slowest index in the
+            real-space representation).
+        """
         np.random.seed(rseed)
-        Kdata00 = tools.generate_data_3D(
+        Kdata00 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata01 = tools.generate_data_3D(
+        Kdata01 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
                 p = spectra_slope,
                 amplitude = amplitude).astype(self.ctype)
-        Kdata02 = tools.generate_data_3D(
+        Kdata02 = scalar_generator(
                 self.parameters['nz']//2,
                 self.parameters['ny']//2,
                 self.parameters['nx']//2,
@@ -324,8 +432,6 @@ class _fluid_particle_base(_code):
             #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
             data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
             data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
-        else:
-            assert(data.shape == (self.parameters['nparticles'], ncomponents))
         if testing:
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])

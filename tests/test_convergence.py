@@ -78,15 +78,12 @@ def convergence_test(
     converter.write_src()
     converter.set_host_info({'type' : 'pc'})
     for c in [c0, c1, c2]:
-        converter.work_dir = c.work_dir
-        converter.simname = c.simname + '_converter'
-        for key in converter.parameters.keys():
-            if key in c.parameters.keys():
-                converter.parameters[key] = c.parameters[key]
-        converter.parameters['fluid_name'] = c.simname
-        converter.write_par()
-        converter.run(
-                ncpu = 2)
+        converter.launch(
+                args = ['--wd', c.work_dir,
+                        '--simname', c.simname,
+                        '--iter0', '{0}'.format(c.parameters['niter_todo']),
+                        '--iter1', '{0}'.format(c.parameters['niter_todo']),
+                        '--ncpu', '2'])
         c.transpose_frame(iteration = c.parameters['niter_todo'])
     # read data
     c0.compute_statistics()

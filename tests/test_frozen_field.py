@@ -40,50 +40,25 @@ class FrozenFieldParticles(bfps.NavierStokes):
                 work_dir = work_dir,
                 simname = simname,
                 fluid_precision = fluid_precision,
-                frozen_fields = frozen_fields,
+                frozen_fields = True,
                 use_fftw_wisdom = use_fftw_wisdom)
-    def fill_up_fluid_code(self):
-        self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += 'fluid_solver<{0}> *fs;\n'.format(self.C_dtype)
-        self.write_fluid_stats()
-        self.fluid_start += """
-                //begincpp
-                char fname[512];
-                fs = new fluid_solver<{0}>(
-                        simname,
-                        nx, ny, nz,
-                        dkx, dky, dkz);
-                fs->nu = nu;
-                fs->fmode = fmode;
-                fs->famplitude = famplitude;
-                fs->fk0 = fk0;
-                fs->fk1 = fk1;
-                strncpy(fs->forcing_type, forcing_type, 128);
-                fs->iteration = iteration;
-                fs->read('v', 'c');
-                //endcpp
-                """.format(self.C_dtype)
-        self.fluid_loop += """
-                //begincpp
-                fs->iteration++;
-                if (fs->iteration % niter_out == 0)
-                    fs->write('v', 'c');
-                //endcpp
-                """
-        self.fluid_end += """
-                //begincpp
-                if (fs->iteration % niter_out != 0)
-                    fs->write('v', 'c');
-                delete fs;
-                //endcpp
-                """
         return None
 
 from test_convergence import convergence_test
 
 if __name__ == '__main__':
+    opt = parser.parse_args(
+            ['-n', '16',
+             '--run',
+             '--initialize',
+             '--ncpu', '2',
+             '--nparticles', '1000',
+             '--niter_todo', '32',
+             '--precision', 'single',
+             '--wd', 'data/single'] +
+            sys.argv[1:])
     convergence_test(
-            parser.parse_args(),
+            opt,
             launch,
             code_class = FrozenFieldParticles)
 

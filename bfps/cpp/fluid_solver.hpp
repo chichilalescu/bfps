@@ -110,6 +110,9 @@ class fluid_solver:public fluid_solver_base<rnumber>
 
         int read(char field, char representation);
         int write(char field, char representation);
+        int write_rTrS2();
+        int write_renstrophy();
+        int write_rpressure();
 };
 
 #endif//FLUID_SOLVER

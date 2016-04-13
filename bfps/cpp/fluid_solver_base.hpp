@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <hdf5.h>
 #include <iostream>
 #include <unordered_map>
 #include <vector>
@@ -91,6 +92,12 @@ class fluid_solver_base
         void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec);
         void cospectrum(cnumber *__restrict__ a, cnumber *__restrict__ b, double *__restrict__ spec, const double k2exponent);
         double autocorrel(cnumber *__restrict__ a);
+        void compute_rspace_stats(
+                const rnumber *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset,
+                const std::vector<double> max_estimate);
         template <int nvals>
         void compute_rspace_stats(rnumber *__restrict__ a,
                                   double *__restrict__ moments,

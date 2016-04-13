@@ -127,6 +127,151 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 }
 
 template <class rnumber>
+void fluid_solver_base<rnumber>::compute_rspace_stats(
+        const rnumber *a,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset,
+        const std::vector<double> max_estimate)
+{
+    const int nmoments = 10;
+    int nvals, nbins;
+    if (this->rd->myrank == 0)
+    {
+        hid_t dset, wspace;
+        hsize_t dims[3];
+        int ndims;
+        dset = H5Dopen(group, ("moments/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+        assert(ndims == 3);
+        assert(dims[1] == nmoments);
+        nvals = dims[2];
+        H5Sclose(wspace);
+        H5Dclose(dset);
+        dset = H5Dopen(group, ("histograms/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+        assert(ndims == 3);
+        nbins = dims[1];
+        assert(nvals == dims[2]);
+        H5Sclose(wspace);
+        H5Dclose(dset);
+    }
+    MPI_Bcast(&nvals, 1, MPI_INT, 0, this->rd->comm);
+    MPI_Bcast(&nbins, 1, MPI_INT, 0, this->rd->comm);
+    assert(nvals == max_estimate.size());
+    double *moments = new double[nmoments*nvals];
+    double *local_moments = new double[nmoments*nvals];
+    double *val_tmp = new double[nvals];
+    double *binsize = new double[nvals];
+    double *pow_tmp = new double[nvals];
+    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
+    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
+    int bin;
+    for (int i=0; i<nvals; i++)
+        binsize[i] = 2*max_estimate[i] / nbins;
+    std::fill_n(local_hist, nbins*nvals, 0);
+    std::fill_n(local_moments, nmoments*nvals, 0);
+    if (nvals == 4) local_moments[3] = max_estimate[3];
+    RLOOP(
+        this,
+        std::fill_n(pow_tmp, nvals, 1.0);
+        if (nvals == 4) val_tmp[3] = 0.0;
+        for (int i=0; i<3; i++)
+        {
+            val_tmp[i] = a[rindex*3+i];
+            if (nvals == 4) val_tmp[3] += val_tmp[i]*val_tmp[i];
+        }
+        if (nvals == 4)
+        {
+            val_tmp[3] = sqrt(val_tmp[3]);
+            if (val_tmp[3] < local_moments[0*nvals+3])
+                local_moments[0*nvals+3] = val_tmp[3];
+            if (val_tmp[3] > local_moments[9*nvals+3])
+                local_moments[9*nvals+3] = val_tmp[3];
+            bin = int(floor(val_tmp[3]*2/binsize[3]));
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*nvals+3]++;
+        }
+        for (int i=0; i<3; i++)
+        {
+            if (val_tmp[i] < local_moments[0*nvals+i])
+                local_moments[0*nvals+i] = val_tmp[i];
+            if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
+                local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
+            bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+            if (bin >= 0 && bin < nbins)
+                local_hist[bin*nvals+i]++;
+        }
+        for (int n=1; n < nmoments-1; n++)
+            for (int i=0; i<nvals; i++)
+                local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+        );
+    MPI_Allreduce(
+            (void*)local_moments,
+            (void*)moments,
+            nvals,
+            MPI_DOUBLE, MPI_MIN, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + nvals),
+            (void*)(moments+nvals),
+            (nmoments-2)*nvals,
+            MPI_DOUBLE, MPI_SUM, this->cd->comm);
+    MPI_Allreduce(
+            (void*)(local_moments + (nmoments-1)*nvals),
+            (void*)(moments+(nmoments-1)*nvals),
+            nvals,
+            MPI_DOUBLE, MPI_MAX, this->cd->comm);
+    MPI_Allreduce(
+            (void*)local_hist,
+            (void*)hist,
+            nbins*nvals,
+            MPI_INT64_T, MPI_SUM, this->cd->comm);
+    for (int n=1; n < nmoments-1; n++)
+        for (int i=0; i<nvals; i++)
+            moments[n*nvals + i] /= this->normalization_factor;
+    delete[] local_moments;
+    delete[] local_hist;
+    delete[] val_tmp;
+    delete[] binsize;
+    delete[] pow_tmp;
+    if (this->rd->myrank == 0)
+    {
+        hid_t dset, wspace, mspace;
+        hsize_t count[3], offset[3], dims[3];
+        dset = H5Dopen(group, ("moments/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        H5Sget_simple_extent_dims(wspace, dims, NULL);
+        offset[0] = toffset;
+        offset[1] = 0;
+        offset[2] = 0;
+        count[0] = 1;
+        count[1] = nmoments;
+        count[2] = nvals;
+        mspace = H5Screate_simple(3, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, moments);
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+        dset = H5Dopen(group, ("histograms/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        count[1] = nbins;
+        mspace = H5Screate_simple(3, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_INT64, mspace, wspace, H5P_DEFAULT, hist);
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+    }
+    delete[] moments;
+    delete[] hist;
+}
+
+
+
+template <class rnumber>
 template<int nvals>
 void fluid_solver_base<rnumber>::compute_rspace_stats(
         rnumber *a,

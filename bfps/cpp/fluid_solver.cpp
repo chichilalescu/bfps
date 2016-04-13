@@ -419,6 +419,7 @@ int fluid_solver<R>::read(char field, char representation) \
             else \
                 FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
         } \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
         this->force_divfree(this->cvorticity); \
         this->symmetrize(this->cvorticity, 3); \
         return EXIT_SUCCESS; \
@@ -460,6 +461,114 @@ int fluid_solver<R>::write(char field, char representation) \
         return this->rd->write(fname, this->rvelocity); \
     } \
     return EXIT_FAILURE; \
+} \
+ \
+template<> \
+int fluid_solver<R>::write_rTrS2() \
+{ \
+    char fname[512]; \
+    this->fill_up_filename("rTrS2", fname); \
+    FFTW(complex) *ca; \
+    R *ra; \
+    ca = FFTW(alloc_complex)(this->cd->local_size*3); \
+    ra = (R*)(ca); \
+    this->compute_velocity(this->cvorticity); \
+    this->compute_vector_gradient(ca, this->cvelocity); \
+    for (int cc=0; cc<3; cc++) \
+    { \
+        std::copy( \
+                (R*)(ca + cc*this->cd->local_size), \
+                (R*)(ca + (cc+1)*this->cd->local_size), \
+                (R*)this->cv[1]); \
+        FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
+        std::copy( \
+                this->rv[1], \
+                this->rv[1] + this->cd->local_size*2, \
+                ra + cc*this->cd->local_size*2); \
+    } \
+    /* velocity gradient is now stored, in real space, in ra */ \
+    R *dx_u, *dy_u, *dz_u; \
+    dx_u = ra; \
+    dy_u = ra + 2*this->cd->local_size; \
+    dz_u = ra + 4*this->cd->local_size; \
+    R *trS2 = FFTW(alloc_real)((this->cd->local_size/3)*2); \
+    double average_local = 0; \
+    RLOOP( \
+            this, \
+            R AxxAxx; \
+            R AyyAyy; \
+            R AzzAzz; \
+            R Sxy; \
+            R Syz; \
+            R Szx; \
+            ptrdiff_t tindex = 3*rindex; \
+            AxxAxx = dx_u[tindex+0]*dx_u[tindex+0]; \
+            AyyAyy = dy_u[tindex+1]*dy_u[tindex+1]; \
+            AzzAzz = dz_u[tindex+2]*dz_u[tindex+2]; \
+            Sxy = dx_u[tindex+1]+dy_u[tindex+0]; \
+            Syz = dy_u[tindex+2]+dz_u[tindex+1]; \
+            Szx = dz_u[tindex+0]+dx_u[tindex+2]; \
+            trS2[rindex] = (AxxAxx + AyyAyy + AzzAzz + \
+                            (Sxy*Sxy + Syz*Syz + Szx*Szx)/2); \
+            average_local += trS2[rindex]; \
+            ); \
+    double average; \
+    MPI_Allreduce( \
+            &average_local, \
+            &average, \
+            1, \
+            MPI_DOUBLE, MPI_SUM, this->cd->comm); \
+    DEBUG_MSG("average TrS2 is %g\n", average); \
+    FFTW(free)(ca); \
+    /* output goes here */ \
+    int ntmp[3]; \
+    ntmp[0] = this->rd->sizes[0]; \
+    ntmp[1] = this->rd->sizes[1]; \
+    ntmp[2] = this->rd->sizes[2]; \
+    field_descriptor<R> *scalar_descriptor = new field_descriptor<R>(3, ntmp, MPI_RNUM, this->cd->comm); \
+    clip_zero_padding<R>(scalar_descriptor, trS2, 1); \
+    int return_value = scalar_descriptor->write(fname, trS2); \
+    delete scalar_descriptor; \
+    FFTW(free)(trS2); \
+    return return_value; \
+} \
+ \
+template<> \
+int fluid_solver<R>::write_renstrophy() \
+{ \
+    char fname[512]; \
+    this->fill_up_filename("renstrophy", fname); \
+    R *enstrophy = FFTW(alloc_real)((this->cd->local_size/3)*2); \
+    this->ift_vorticity(); \
+    double average_local = 0; \
+    RLOOP( \
+            this, \
+            ptrdiff_t tindex = 3*rindex; \
+            enstrophy[rindex] = ( \
+                this->rvorticity[tindex+0]*this->rvorticity[tindex+0] + \
+                this->rvorticity[tindex+1]*this->rvorticity[tindex+1] + \
+                this->rvorticity[tindex+2]*this->rvorticity[tindex+2] \
+                )/2; \
+            average_local += enstrophy[rindex]; \
+            ); \
+    double average; \
+    MPI_Allreduce( \
+            &average_local, \
+            &average, \
+            1, \
+            MPI_DOUBLE, MPI_SUM, this->cd->comm); \
+    DEBUG_MSG("average enstrophy is %g\n", average); \
+    /* output goes here */ \
+    int ntmp[3]; \
+    ntmp[0] = this->rd->sizes[0]; \
+    ntmp[1] = this->rd->sizes[1]; \
+    ntmp[2] = this->rd->sizes[2]; \
+    field_descriptor<R> *scalar_descriptor = new field_descriptor<R>(3, ntmp, MPI_RNUM, this->cd->comm); \
+    clip_zero_padding<R>(scalar_descriptor, enstrophy, 1); \
+    int return_value = scalar_descriptor->write(fname, enstrophy); \
+    delete scalar_descriptor; \
+    FFTW(free)(enstrophy); \
+    return return_value; \
 } \
  \
 template<> \
@@ -713,6 +822,38 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
             this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
     FFTW(free)(pressure); \
+} \
+ \
+template<> \
+int fluid_solver<R>::write_rpressure() \
+{ \
+    char fname[512]; \
+    FFTW(complex) *pressure; \
+    pressure = FFTW(alloc_complex)(this->cd->local_size/3); \
+    this->compute_velocity(this->cvorticity); \
+    this->ift_velocity(); \
+    this->compute_pressure(pressure); \
+    this->fill_up_filename("rpressure", fname); \
+    R *rpressure = FFTW(alloc_real)((this->cd->local_size/3)*2); \
+    FFTW(plan) c2r; \
+    c2r = FFTW(mpi_plan_dft_c2r_3d)( \
+            this->rd->sizes[0], this->rd->sizes[1], this->rd->sizes[2], \
+            pressure, rpressure, this->cd->comm, \
+            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN); \
+    FFTW(execute)(c2r); \
+    /* output goes here */ \
+    int ntmp[3]; \
+    ntmp[0] = this->rd->sizes[0]; \
+    ntmp[1] = this->rd->sizes[1]; \
+    ntmp[2] = this->rd->sizes[2]; \
+    field_descriptor<R> *scalar_descriptor = new field_descriptor<R>(3, ntmp, MPI_RNUM, this->cd->comm); \
+    clip_zero_padding<R>(scalar_descriptor, rpressure, 1); \
+    int return_value = scalar_descriptor->write(fname, rpressure); \
+    delete scalar_descriptor; \
+    FFTW(destroy_plan)(c2r); \
+    FFTW(free)(pressure); \
+    FFTW(free)(rpressure); \
+    return return_value; \
 } \
 
 /*****************************************************************************/
