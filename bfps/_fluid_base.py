@@ -257,6 +257,9 @@ class _fluid_particle_base(_code):
                                   'if (myrank == 0) std::cout << "iteration " ' +
                                       '<< {0} << " took " ' +
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
+                                  'if (myrank == 0) std::cerr << "iteration " ' +
+                                      '<< {0} << " took " ' +
+                                      '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
         if not postprocess_mode:
             self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
@@ -429,8 +432,6 @@ class _fluid_particle_base(_code):
             #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
             data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
             data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
-        else:
-            assert(data.shape == (self.parameters['nparticles'], ncomponents))
         if testing:
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])

@@ -688,7 +688,10 @@ class NavierStokes(_fluid_particle_base):
                          self.parameters['nz'],
                          self.parameters['nx']//2+1,
                          3))
-    def write_par(self, iter0 = 0):
+    def write_par(
+            self,
+            iter0 = 0,
+            particle_ic = None):
         _fluid_particle_base.write_par(self, iter0 = iter0)
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             kspace = self.get_kspace()
@@ -700,24 +703,21 @@ class NavierStokes(_fluid_particle_base):
                                      (1, self.parameters['nx'], 3),
                                      chunks = (time_chunk, self.parameters['nx'], 3),
                                      maxshape = (None, self.parameters['nx'], 3),
-                                     dtype = self.dtype,
-                                     compression = 'gzip')
+                                     dtype = self.dtype)
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
                                      (1, nshells, 3, 3),
                                      chunks = (time_chunk, nshells, 3, 3),
                                      maxshape = (None, nshells, 3, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*4*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/' + k,
                                      (1, 10, 4),
                                      chunks = (time_chunk, 10, 4),
                                      maxshape = (None, 10, 4),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*4*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/' + k,
@@ -730,8 +730,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  4),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
             if self.QR_stats_on:
                 time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
@@ -745,8 +744,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  3),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
                 time_chunk = 2**20//(8*9*self.parameters['histogram_bins'])
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/velocity_gradient',
@@ -762,24 +760,21 @@ class NavierStokes(_fluid_particle_base):
                                                  self.parameters['histogram_bins'],
                                                  3,
                                                  3),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
                 time_chunk = 2**20//(8*3*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/trS2_Q_R',
                                      (1, 10, 3),
                                      chunks = (time_chunk, 10, 3),
                                      maxshape = (None, 10, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*9*10)
                 time_chunk = max(time_chunk, 1)
                 a = ofile.create_dataset('statistics/moments/velocity_gradient',
                                      (1, 10, 3, 3),
                                      chunks = (time_chunk, 10, 3, 3),
                                      maxshape = (None, 10, 3, 3),
-                                     dtype = np.float64,
-                                     compression = 'gzip')
+                                     dtype = np.float64)
                 time_chunk = 2**20//(8*self.parameters['QR2D_histogram_bins']**2)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/histograms/QR2D',
@@ -792,8 +787,7 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['QR2D_histogram_bins'],
                                                  self.parameters['QR2D_histogram_bins']),
-                                     dtype = np.int64,
-                                     compression = 'gzip')
+                                     dtype = np.int64)
         if self.particle_species == 0:
             return None
         def create_particle_dataset(
@@ -824,23 +818,26 @@ class NavierStokes(_fluid_particle_base):
                     dcpl,
                     h5py.h5p.DEFAULT)
 
+        if type(particle_ic) == type(None):
+            pbase_shape = (self.parameters['nparticles'],)
+            number_of_particles = self.parameters['nparticles']
+        else:
+            pbase_shape = particle_ic.shape[:-1]
+            assert(particle_ic.shape[-1] == 3)
+            number_of_particles = 1
+            for val in pbase_shape[1:]:
+                number_of_particles *= val
+
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
                 ofile.create_group('tracers{0}'.format(s))
-                time_chunk = 2**20 // (8*3*self.parameters['nparticles'])
+                time_chunk = 2**20 // (8*3*number_of_particles)
                 time_chunk = max(time_chunk, 1)
-                dims = (1,
-                        self.parameters['tracers{0}_integration_steps'.format(s)],
-                        self.parameters['nparticles'],
-                        3)
-                maxshape = (h5py.h5s.UNLIMITED,
-                            self.parameters['tracers{0}_integration_steps'.format(s)],
-                            self.parameters['nparticles'],
-                            3)
-                chunks = (time_chunk,
-                          1,
-                          self.parameters['nparticles'],
-                          3)
+                dims = ((1,
+                         self.parameters['tracers{0}_integration_steps'.format(s)]) +
+                        pbase_shape + (3,))
+                maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
+                chunks = (time_chunk, 1, 1) + dims[3:]
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
@@ -848,22 +845,22 @@ class NavierStokes(_fluid_particle_base):
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
-                        (1, self.parameters['nparticles'], 3),
-                        (h5py.h5s.UNLIMITED, self.parameters['nparticles'], 3),
-                        (time_chunk, self.parameters['nparticles'], 3))
+                        (1,) + pbase_shape + (3,),
+                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
+                        (time_chunk, 1) + pbase_shape[1:] + (3,))
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
-                        (1, self.parameters['nparticles'], 3),
-                        (h5py.h5s.UNLIMITED, self.parameters['nparticles'], 3),
-                        (time_chunk, self.parameters['nparticles'], 3))
+                        (1,) + pbase_shape + (3,),
+                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
+                        (time_chunk, 1) + pbase_shape[1:] + (3,))
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     create_particle_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
-                            (1, self.parameters['nparticles'], 3),
-                            (h5py.h5s.UNLIMITED, self.parameters['nparticles'], 3),
-                            (time_chunk, self.parameters['nparticles'], 3))
+                            (1,) + pbase_shape + (3,),
+                            (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
+                            (time_chunk, 1) + pbase_shape[1:] + (3,))
         return None
     def add_particle_fields(
             self,
@@ -954,6 +951,25 @@ class NavierStokes(_fluid_particle_base):
                type = int,
                dest = 'particle_rand_seed',
                default = None)
+        parser.add_argument(
+               '--pclouds',
+               type = int,
+               dest = 'pclouds',
+               default = 1,
+               help = ('number of particle clouds. Particle "clouds" '
+                       'consist of particles distributed according to '
+                       'pcloud-type.'))
+        parser.add_argument(
+                '--pcloud-type',
+                choices = ['random-cube',
+                           'regular-cube'],
+                dest = 'pcloud_type',
+                default = 'random-cube')
+        parser.add_argument(
+               '--particle-cloud-size',
+               type = float,
+               dest = 'particle_cloud_size',
+               default = 2*np.pi)
         return None
     def prepare_launch(
             self,
@@ -1040,11 +1056,36 @@ class NavierStokes(_fluid_particle_base):
             self,
             opt = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            self.write_par()
+            particle_initial_condition = None
+            if opt.pclouds > 1:
+                np.random.seed(opt.particle_rand_seed)
+                if opt.pcloud_type == 'random-cube':
+                    particle_initial_condition = (
+                        np.random.random((opt.pclouds, 1, 3))*2*np.pi +
+                        np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+                elif opt.pcloud_type == 'regular-cube':
+                    onedarray = np.linspace(
+                            -opt.particle_cloud_size/2,
+                            opt.particle_cloud_size/2,
+                            self.parameters['nparticles'])
+                    particle_initial_condition = np.zeros(
+                            (opt.pclouds,
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'], 3),
+                            dtype = np.float64)
+                    particle_initial_condition[:] = \
+                        np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+                    particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+                    particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+                    particle_initial_condition[..., 2] += onedarray[None, :, None, None]
+            self.write_par(
+                    particle_ic = particle_initial_condition)
             if self.parameters['nparticles'] > 0:
                 data = self.generate_tracer_state(
                         species = 0,
-                        rseed = opt.particle_rand_seed)
+                        rseed = opt.particle_rand_seed,
+                        data = particle_initial_condition)
                 for s in range(1, self.particle_species):
                     self.generate_tracer_state(species = s, data = data)
             init_condition_file = os.path.join(

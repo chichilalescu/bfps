@@ -92,6 +92,8 @@ int get_chunk_offsets(
     int total_number_of_chunks = 1;
     for (unsigned i=0; i<nchunks.size(); i++)
     {
+        DEBUG_MSG("get_chunk_offset nchunks[%d] = %ld, chnk_dims[%d] = %ld\n",
+                i, nchunks[i], i, chnk_dims[i]);
         nchunks[i] = data_dims[i] / chnk_dims[i];
         total_number_of_chunks *= nchunks[i];
     }
@@ -157,6 +159,7 @@ particles_io_base<particle_type>::particles_io_base(
         H5Sclose(dspace);
         H5Dclose(dset);
     }
+    DEBUG_MSG("hello, rank 0 just read particle thingie\n");
 
     int tmp;
     tmp = this->hdf5_state_dims.size();
@@ -171,34 +174,45 @@ particles_io_base<particle_type>::particles_io_base(
         this->hdf5_state_dims.resize(tmp);
         this->hdf5_state_chunks.resize(tmp);
     }
+    DEBUG_MSG("successfully resized state_dims and state_chunks\n");
     MPI_Bcast(
             &this->hdf5_state_dims.front(),
             this->hdf5_state_dims.size(),
-            MPI_INTEGER,
+            // hsize_t is in fact unsigned long long. Will this ever change...?
+            MPI_UNSIGNED_LONG_LONG,
             0,
             this->comm);
     MPI_Bcast(
             &this->hdf5_state_chunks.front(),
             this->hdf5_state_chunks.size(),
-            MPI_INTEGER,
+            MPI_UNSIGNED_LONG_LONG,
             0,
             this->comm);
+    DEBUG_MSG("successfully broadcasted state_dims and state_chunks\n");
+    for (unsigned i=0; i<this->hdf5_state_chunks.size(); i++)
+        DEBUG_MSG(
+                "hdf5_state_dims[%d] = %ld, hdf5_state_chunks[%d] = %ld\n",
+                i, this->hdf5_state_dims[i],
+                i, this->hdf5_state_chunks[i]
+                );
     std::vector<hsize_t> tdims(this->hdf5_state_dims), tchnk(this->hdf5_state_chunks);
     tdims.erase(tdims.begin()+0);
     tchnk.erase(tchnk.begin()+0);
     tdims.erase(tdims.end()-1);
     tchnk.erase(tchnk.end()-1);
+    DEBUG_MSG("before get_chunk_offsets\n");
     get_chunk_offsets(tdims, tchnk, this->chunk_offsets);
+    DEBUG_MSG("after get_chunk_offsets\n");
     MPI_Bcast(
             &this->chunk_size,
             1,
-            MPI_INTEGER,
+            MPI_UNSIGNED,
             0,
             this->comm);
     MPI_Bcast(
             &this->nparticles,
             1,
-            MPI_INTEGER,
+            MPI_UNSIGNED,
             0,
             this->comm);
     DEBUG_MSG("nparticles = %d, chunk_size = %d\n",
