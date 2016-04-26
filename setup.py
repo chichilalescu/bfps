@@ -88,7 +88,8 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['field_descriptor',
+src_file_list = ['field',
+                 'field_descriptor',
                  'rFFTW_distributed_particles',
                  'distributed_particles',
                  'particles',
