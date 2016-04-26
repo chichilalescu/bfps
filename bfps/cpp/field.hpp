@@ -53,60 +53,59 @@ constexpr unsigned int ndim(
             (fc == THREExTHREE) ? 5 : 3));
 }
 
-template <class number,
-          field_backend be,
-          field_components fc>
-class field_container
+template <field_components fc>
+class field_layout
 {
     public:
         /* description */
         hsize_t sizes[ndim(fc)];
         hsize_t subsizes[ndim(fc)];
         hsize_t starts[ndim(fc)];
-        ptrdiff_t slice_size, local_size, full_size;
+        hsize_t local_size, full_size;
 
         int myrank, nprocs;
         MPI_Comm comm;
 
-        std::vector<int> rank;
+        std::vector<std::vector<int>> rank;
         std::vector<std::vector<int>> all_start;
         std::vector<std::vector<int>> all_size;
 
-        number *data;
-
         /* methods */
-        field_container(
-                int nx, int ny, int nz,
+        field_layout(
+                hsize_t *SIZES,
+                hsize_t *SUBSIZES,
+                hsize_t *STARTS,
                 MPI_Comm COMM_TO_USE);
-        ~field_container();
-
-        int read(
-                const char *fname,
-                const char *dset_name,
-                int iteration);
-
-        int write(
-                const char *fname,
-                const char *dset_name,
-                int iteration);
+        ~field_layout(){}
 };
 
-//template <class rnum,
-//          field_representation repr,
-//          field_backend be,
-//          field_components fc>
-//class field
-//{
-//    public:
-//
-//        field_container< *kdata, *rdata;
-//
-//        /* methods */
-//        field(
-//                int *n,
-//                MPI_Comm COMM_TO_USE);
-//        ~field();
-//};
+template <class rnumber,
+          field_representation repr,
+          field_backend be,
+          field_components fc>
+class field
+{
+    public:
+        int myrank, nprocs;
+        MPI_Comm comm;
+
+        field_layout<fc> *clayout, *rlayout, *rmemlayout;
+
+        rnumber *rdata;
+        rnumber (*cdata)[2];
+
+        /* methods */
+        field(
+                int nx, int ny, int nz,
+                MPI_Comm COMM_TO_USE);
+        ~field();
+
+        int io(
+                const char *fname,
+                const char *dset_name,
+                int iteration,
+                bool read = true);
+};
 
 #endif//FIELD
 
