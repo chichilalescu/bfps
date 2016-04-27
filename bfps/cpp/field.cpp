@@ -61,6 +61,7 @@ field_layout<fc>::field_layout(
         this->local_size *= this->subsizes[i];
         this->full_size *= this->sizes[i];
     }
+
     /*field will at most be distributed in 2D*/
     this->rank.resize(2);
     this->all_start.resize(2);
@@ -110,11 +111,29 @@ template <class rnumber,
           field_components fc>
 field<rnumber, repr, be, fc>::field(
                 int nx, int ny, int nz,
-                MPI_Comm COMM_TO_USE)
+                MPI_Comm COMM_TO_USE,
+                unsigned FFTW_PLAN_RIGOR)
 {
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
+
+    this->fftw_plan_rigor = FFTW_PLAN_RIGOR;
+
+    /* generate HDF5 data types */
+    if (typeid(rnumber) == typeid(float))
+        this->rnumber_H5T = H5Tcopy(H5T_NATIVE_FLOAT);
+    else if (typeid(rnumber) == typeid(double))
+        this->rnumber_H5T = H5Tcopy(H5T_NATIVE_DOUBLE);
+    typedef struct {
+        rnumber re;   /*real part*/
+        rnumber im;   /*imaginary part*/
+    } tmp_complex_type;
+    this->cnumber_H5T = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
+    H5Tinsert(this->cnumber_H5T, "r", HOFFSET(tmp_complex_type, re), this->rnumber_H5T);
+    H5Tinsert(this->cnumber_H5T, "i", HOFFSET(tmp_complex_type, im), this->rnumber_H5T);
+
+    /* switch on backend */
     switch(be)
     {
         case FFTW:
@@ -144,7 +163,8 @@ field<rnumber, repr, be, fc>::field(
                 starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
                 this->rmemlayout = new field_layout<fc>(
                         sizes, subsizes, starts, this->comm);
-                this->rdata = (rnumber*)fftw_malloc(sizeof(rnumber)*this->rmemlayout->local_size);
+                this->rdata = (rnumber*)fftw_malloc(
+                        sizeof(rnumber)*this->rmemlayout->local_size);
             }
             if (repr == COMPLEX || repr == BOTH)
             {
@@ -153,7 +173,46 @@ field<rnumber, repr, be, fc>::field(
                 starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
                 this->clayout = new field_layout<fc>(
                         sizes, subsizes, starts, this->comm);
-                this->cdata = (rnumber(*)[2])fftw_malloc(2*sizeof(rnumber)*this->clayout->local_size);
+                this->cdata = (rnumber(*)[2])fftw_malloc(
+                        2*sizeof(rnumber)*this->clayout->local_size);
+            }
+            if (repr == BOTH)
+            {
+                if(typeid(rnumber) == typeid(float))
+                {
+                    DEBUG_MSG("generating plans for float\n");
+                    this->c2r_plan = new fftwf_plan;
+                    this->r2c_plan = new fftwf_plan;
+                    *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
+                            3, nfftw, ncomp(fc),
+                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                            (fftwf_complex*)this->cdata, (float*)this->rdata,
+                            this->comm,
+                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+                    *((fftwf_plan*)this->r2c_plan) = fftwf_mpi_plan_many_dft_r2c(
+                            3, nfftw, ncomp(fc),
+                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                            (float*)this->rdata, (fftwf_complex*)this->cdata,
+                            this->comm,
+                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
+                }
+                if (typeid(rnumber) == typeid(double))
+                {
+                    this->c2r_plan = new fftw_plan;
+                    this->r2c_plan = new fftw_plan;
+                    *((fftw_plan*)this->c2r_plan) = fftw_mpi_plan_many_dft_c2r(
+                            3, nfftw, ncomp(fc),
+                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                            (fftw_complex*)this->cdata, (double*)this->rdata,
+                            this->comm,
+                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+                    *((fftw_plan*)this->r2c_plan) = fftw_mpi_plan_many_dft_r2c(
+                            3, nfftw, ncomp(fc),
+                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                            (double*)this->rdata, (fftw_complex*)this->cdata,
+                            this->comm,
+                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
+                }
             }
             break;
     }
@@ -165,17 +224,66 @@ template <class rnumber,
           field_components fc>
 field<rnumber, repr, be, fc>::~field()
 {
-    if (repr == REAL || repr == BOTH)
+    /* close data types */
+    H5Tclose(this->rnumber_H5T);
+    H5Tclose(this->cnumber_H5T);
+    switch(be)
     {
-        delete this->rlayout;
-        delete this->rmemlayout;
-        delete[] this->rdata;
+        case FFTW:
+            if (repr == REAL || repr == BOTH)
+            {
+                delete this->rlayout;
+                delete this->rmemlayout;
+                fftw_free(this->rdata);
+            }
+            if (repr == COMPLEX || repr == BOTH)
+            {
+                delete this->clayout;
+                fftw_free(this->cdata);
+            }
+            break;
+            if (repr == BOTH)
+            {
+                if (typeid(rnumber) == typeid(float))
+                {
+                    fftwf_destroy_plan(*(fftwf_plan*)this->c2r_plan);
+                    delete (fftwf_plan*)this->c2r_plan;
+                    fftwf_destroy_plan(*(fftwf_plan*)this->r2c_plan);
+                    delete (fftwf_plan*)this->r2c_plan;
+                }
+                else if (typeid(rnumber) == typeid(double))
+                {
+                    fftw_destroy_plan(*(fftw_plan*)this->c2r_plan);
+                    delete (fftw_plan*)this->c2r_plan;
+                    fftw_destroy_plan(*(fftw_plan*)this->r2c_plan);
+                    delete (fftw_plan*)this->r2c_plan;
+                }
+            }
     }
-    if (repr == COMPLEX || repr == BOTH)
-    {
-        delete this->clayout;
-        delete[] this->cdata;
-    }
+}
+
+template <class rnumber,
+          field_representation repr,
+          field_backend be,
+          field_components fc>
+void field<rnumber, repr, be, fc>::ift()
+{
+    if (repr == BOTH && typeid(rnumber) == typeid(float))
+        fftwf_execute(*((fftwf_plan*)this->c2r_plan));
+    else if (repr == BOTH && typeid(rnumber) == typeid(double))
+        fftw_execute(*((fftw_plan*)this->c2r_plan));
+}
+
+template <class rnumber,
+          field_representation repr,
+          field_backend be,
+          field_components fc>
+void field<rnumber, repr, be, fc>::dft()
+{
+    if (repr == BOTH && typeid(rnumber) == typeid(float))
+        fftwf_execute(*((fftwf_plan*)this->r2c_plan));
+    else if (repr == BOTH && typeid(rnumber) == typeid(double))
+        fftw_execute(*((fftw_plan*)this->r2c_plan));
 }
 
 template <class rnumber,
@@ -189,7 +297,7 @@ int field<rnumber, repr, be, fc>::io(
         bool read)
 {
     hid_t file_id, dset_id, plist_id;
-    hid_t dset_type, field_type, field_complex_type;
+    hid_t dset_type;
     bool io_for_real = false;
 
     /* open file */
@@ -204,14 +312,16 @@ int field<rnumber, repr, be, fc>::io(
     /* open data set */
     dset_id = H5Dopen(file_id, dset_name, H5P_DEFAULT);
     dset_type = H5Dget_type(dset_id);
-    io_for_real = (H5Tequal(dset_type, H5T_IEEE_F32BE) ||
-        H5Tequal(dset_type, H5T_IEEE_F32LE) ||
-        H5Tequal(dset_type, H5T_INTEL_F32) ||
-        H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
-        H5Tequal(dset_type, H5T_IEEE_F64BE) ||
-        H5Tequal(dset_type, H5T_IEEE_F64LE) ||
-        H5Tequal(dset_type, H5T_INTEL_F64) ||
-        H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+    io_for_real = (
+            H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+            H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+            H5Tequal(dset_type, H5T_INTEL_F32) ||
+            H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+            H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+            H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+            H5Tequal(dset_type, H5T_INTEL_F64) ||
+            H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+    DEBUG_MSG("io_for_real %d, %s\n", int(io_for_real), dset_name);
 
     /* generic space initialization */
     hid_t fspace, mspace;
@@ -219,11 +329,8 @@ int field<rnumber, repr, be, fc>::io(
     hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
     hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
     H5Sget_simple_extent_dims(fspace, dims, NULL);
-    if (typeid(rnumber) == typeid(float))
-        field_type = H5Tcopy(H5T_NATIVE_FLOAT);
-    else if (typeid(rnumber) == typeid(double))
-        field_type = H5Tcopy(H5T_NATIVE_DOUBLE);
-    if (io_for_real)
+    if (io_for_real &&
+        (repr == REAL || repr == BOTH))
     {
         for (int i=0; i<ndim(fc); i++)
         {
@@ -241,20 +348,13 @@ int field<rnumber, repr, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
-            H5Dread(dset_id, field_type, mspace, fspace, H5P_DEFAULT, this->rdata);
+            H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->rdata);
         else
-            H5Dwrite(dset_id, field_type, mspace, fspace, H5P_DEFAULT, this->rdata);
+            H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->rdata);
         H5Sclose(mspace);
     }
-    else
+    else if (repr == COMPLEX || repr == BOTH)
     {
-        typedef struct {
-            rnumber re;   /*real part*/
-            rnumber im;   /*imaginary part*/
-        } tmp_complex_type;
-        field_complex_type = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
-        H5Tinsert(field_complex_type, "r", HOFFSET(tmp_complex_type, re), field_type);
-        H5Tinsert(field_complex_type, "i", HOFFSET(tmp_complex_type, im), field_type);
         for (int i=0; i<ndim(fc); i++)
         {
             count[i+1] = this->clayout->subsizes[i];
@@ -271,14 +371,12 @@ int field<rnumber, repr, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
-            H5Dread(dset_id, field_complex_type, mspace, fspace, H5P_DEFAULT, this->cdata);
+            H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->cdata);
         else
-            H5Dwrite(dset_id, field_complex_type, mspace, fspace, H5P_DEFAULT, this->cdata);
+            H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->cdata);
         H5Sclose(mspace);
-        H5Tclose(field_complex_type);
     }
 
-    H5Tclose(field_type);
     H5Tclose(dset_type);
     H5Sclose(fspace);
     /* close data set */

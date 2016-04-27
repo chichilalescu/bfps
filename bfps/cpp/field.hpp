@@ -87,18 +87,30 @@ template <class rnumber,
 class field
 {
     public:
+        /* basic MPI information */
         int myrank, nprocs;
         MPI_Comm comm;
 
+        /* descriptions of field layout and distribution */
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 
+        /* data arrays */
         rnumber *rdata;
         rnumber (*cdata)[2];
+
+        /* FFT plans */
+        void *c2r_plan;
+        void *r2c_plan;
+        unsigned fftw_plan_rigor;
+
+        /* HDF5 data types for arrays */
+        hid_t rnumber_H5T, cnumber_H5T;
 
         /* methods */
         field(
                 int nx, int ny, int nz,
-                MPI_Comm COMM_TO_USE);
+                MPI_Comm COMM_TO_USE,
+                unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
         ~field();
 
         int io(
@@ -106,6 +118,10 @@ class field
                 const char *dset_name,
                 int iteration,
                 bool read = true);
+
+        void dft();
+        void ift();
+
 };
 
 #endif//FIELD

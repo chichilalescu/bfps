@@ -27,6 +27,7 @@
 #include <mpi.h>
 #include <stdarg.h>
 #include <iostream>
+#include <typeinfo>
 
 #ifndef BASE
 

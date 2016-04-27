@@ -36,15 +36,17 @@ class TestField(_fluid_particle_base):
                 //begincpp
                 f = new field<{0}, BOTH, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
-                DEBUG_MSG("about to read rdata\\n");
+                // read rdata
                 f->io("field.h5", "rdata", 0, true);
-                DEBUG_MSG("about to write rdata_tmp\\n");
-                f->io("field.h5", "rdata_tmp", 0, false);
-                DEBUG_MSG("about to read cdata\\n");
-                f->io("field.h5", "cdata", 0, true);
-                DEBUG_MSG("about to write cdata_tmp\\n");
+                // go to fourier space, write into cdata_tmp
+                f->dft();
                 f->io("field.h5", "cdata_tmp", 0, false);
-        //endcpp
+                f->ift();
+                f->io("field.h5", "rdata", 0, false);
+                f->io("field.h5", "cdata", 0, true);
+                f->ift();
+                f->io("field.h5", "rdata_tmp", 0, false);
+                //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
                 //begincpp
@@ -70,12 +72,13 @@ class TestField(_fluid_particle_base):
         return None
 
 def main():
+    n = 128
     kdata = pyfftw.n_byte_align_empty(
-            (32, 32, 17),
+            (n, n, n//2 + 1),
             pyfftw.simd_alignment,
             dtype = np.complex64)
     rdata = pyfftw.n_byte_align_empty(
-            (32, 32, 32),
+            (n, n, n),
             pyfftw.simd_alignment,
             dtype = np.float32)
     c2r = pyfftw.FFTW(
@@ -83,34 +86,36 @@ def main():
             rdata,
             axes = (0, 1, 2),
             direction = 'FFTW_BACKWARD',
-            threads = 8)
-    kdata[:] = bfps.tools.generate_data_3D(32, 32, 32, dtype = np.complex64)
+            threads = 2)
+    kdata[:] = bfps.tools.generate_data_3D(n, n, n, dtype = np.complex64)
+    cdata = kdata.copy()
     c2r.execute()
 
     f = h5py.File('field.h5', 'w')
-    f['cdata'] = kdata.reshape((1,) + kdata.shape)
+    f['cdata'] = cdata.reshape((1,) + cdata.shape)
+    f['cdata_tmp'] = np.zeros(shape=(1,) + cdata.shape).astype(cdata.dtype)
     f['rdata'] = rdata.reshape((1,) + rdata.shape)
     f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
-    f['cdata_tmp'] = np.zeros(shape=(1,) + kdata.shape).astype(kdata.dtype)
     f.close()
 
     ## run cpp code
     tf = TestField()
     tf.launch(
-            ['-n', '32',
+            ['-n', '{0}'.format(n),
              '--ncpu', '2'])
 
     f = h5py.File('field.h5', 'r')
-    print(np.max(np.abs(f['rdata'].value - f['rdata_tmp'].value)))
-    print(np.max(np.abs(f['cdata'].value - f['cdata_tmp'].value)))
+    print(np.max(np.abs(f['rdata_tmp'][0] - rdata)) / np.mean(np.abs(rdata)))
+    print(np.max(np.abs(f['rdata'][0]/(n**3) - rdata)) / np.mean(np.abs(rdata)))
+    print(np.max(np.abs(f['cdata_tmp'][0]/(n**3) - cdata)) / np.mean(np.abs(cdata)))
     ## compare
     fig = plt.figure(figsize=(12, 6))
     a = fig.add_subplot(121)
     a.set_axis_off()
-    a.imshow(rdata[:, 4, :], interpolation = 'none')
+    a.imshow(rdata[0, :, :], interpolation = 'none')
     a = fig.add_subplot(122)
     a.set_axis_off()
-    a.imshow(f['rdata_tmp'][0, :, 4, :], interpolation = 'none')
+    a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
     fig.tight_layout()
     fig.savefig('tst.pdf')
     return None
