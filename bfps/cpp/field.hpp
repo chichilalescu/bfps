@@ -34,7 +34,6 @@
 
 #define FIELD
 
-enum field_representation {REAL, COMPLEX, BOTH};
 enum field_backend {FFTW};
 enum field_components {ONE, THREE, THREExTHREE};
 
@@ -81,11 +80,13 @@ class field_layout
 };
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
 class field
 {
+    private:
+        /* data arrays */
+        rnumber *data;
     public:
         /* basic MPI information */
         int myrank, nprocs;
@@ -93,10 +94,6 @@ class field
 
         /* descriptions of field layout and distribution */
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
-
-        /* data arrays */
-        rnumber *rdata;
-        rnumber (*cdata)[2];
 
         /* FFT plans */
         void *c2r_plan;
@@ -121,7 +118,6 @@ class field
 
         void dft();
         void ift();
-
 };
 
 #endif//FIELD

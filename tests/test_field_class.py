@@ -31,10 +31,10 @@ class TestField(_fluid_particle_base):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_includes += '#include "field.hpp"\n'
-        self.fluid_variables += ('field<' + self.C_dtype + ', BOTH, FFTW, ONE> *f;\n')
+        self.fluid_variables += ('field<' + self.C_dtype + ', FFTW, ONE> *f;\n')
         self.fluid_start += """
                 //begincpp
-                f = new field<{0}, BOTH, FFTW, ONE>(
+                f = new field<{0}, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
                 // read rdata
                 f->io("field.h5", "rdata", 0, true);

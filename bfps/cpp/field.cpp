@@ -106,10 +106,9 @@ field_layout<fc>::field_layout(
 }
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
-field<rnumber, repr, be, fc>::field(
+field<rnumber, be, fc>::field(
                 int nx, int ny, int nz,
                 MPI_Comm COMM_TO_USE,
                 unsigned FFTW_PLAN_RIGOR)
@@ -151,77 +150,65 @@ field<rnumber, repr, be, fc>::field(
                     &local_n0, &local_0_start,
                     &local_n1, &local_1_start);
             hsize_t sizes[3], subsizes[3], starts[3];
-            if (repr == REAL || repr == BOTH)
+            sizes[0] = nz; sizes[1] = ny; sizes[2] = nx;
+            subsizes[0] = local_n0; subsizes[1] = ny; subsizes[2] = nx;
+            starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
+            this->rlayout = new field_layout<fc>(
+                    sizes, subsizes, starts, this->comm);
+            sizes[0] = nz; sizes[1] = ny; sizes[2] = nx+2;
+            subsizes[0] = local_n0; subsizes[1] = ny; subsizes[2] = nx+2;
+            starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
+            this->rmemlayout = new field_layout<fc>(
+                    sizes, subsizes, starts, this->comm);
+            sizes[0] = nz; sizes[1] = ny; sizes[2] = nx/2+1;
+            subsizes[0] = local_n1; subsizes[1] = ny; subsizes[2] = nx/2+1;
+            starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
+            this->clayout = new field_layout<fc>(
+                    sizes, subsizes, starts, this->comm);
+            this->data = (rnumber*)fftw_malloc(
+                    sizeof(rnumber)*this->rmemlayout->local_size);
+            if(typeid(rnumber) == typeid(float))
             {
-                sizes[0] = nz; sizes[1] = ny; sizes[2] = nx;
-                subsizes[0] = local_n0; subsizes[1] = ny; subsizes[2] = nx;
-                starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
-                this->rlayout = new field_layout<fc>(
-                        sizes, subsizes, starts, this->comm);
-                sizes[0] = nz; sizes[1] = ny; sizes[2] = nx+2;
-                subsizes[0] = local_n0; subsizes[1] = ny; subsizes[2] = nx+2;
-                starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
-                this->rmemlayout = new field_layout<fc>(
-                        sizes, subsizes, starts, this->comm);
-                this->rdata = (rnumber*)fftw_malloc(
-                        sizeof(rnumber)*this->rmemlayout->local_size);
+                this->c2r_plan = new fftwf_plan;
+                this->r2c_plan = new fftwf_plan;
+                *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
+                        3, nfftw, ncomp(fc),
+                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                        (fftwf_complex*)this->data, (float*)this->data,
+                        this->comm,
+                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+                *((fftwf_plan*)this->r2c_plan) = fftwf_mpi_plan_many_dft_r2c(
+                        3, nfftw, ncomp(fc),
+                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                        (float*)this->data, (fftwf_complex*)this->data,
+                        this->comm,
+                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
             }
-            if (repr == COMPLEX || repr == BOTH)
+            if (typeid(rnumber) == typeid(double))
             {
-                sizes[0] = nz; sizes[1] = ny; sizes[2] = nx/2+1;
-                subsizes[0] = local_n1; subsizes[1] = ny; subsizes[2] = nx/2+1;
-                starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
-                this->clayout = new field_layout<fc>(
-                        sizes, subsizes, starts, this->comm);
-                this->cdata = (rnumber(*)[2])fftw_malloc(
-                        2*sizeof(rnumber)*this->clayout->local_size);
-            }
-            if (repr == BOTH)
-            {
-                if(typeid(rnumber) == typeid(float))
-                {
-                    this->c2r_plan = new fftwf_plan;
-                    this->r2c_plan = new fftwf_plan;
-                    *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
-                            3, nfftw, ncomp(fc),
-                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                            (fftwf_complex*)this->cdata, (float*)this->rdata,
-                            this->comm,
-                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                    *((fftwf_plan*)this->r2c_plan) = fftwf_mpi_plan_many_dft_r2c(
-                            3, nfftw, ncomp(fc),
-                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                            (float*)this->rdata, (fftwf_complex*)this->cdata,
-                            this->comm,
-                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-                }
-                if (typeid(rnumber) == typeid(double))
-                {
-                    this->c2r_plan = new fftw_plan;
-                    this->r2c_plan = new fftw_plan;
-                    *((fftw_plan*)this->c2r_plan) = fftw_mpi_plan_many_dft_c2r(
-                            3, nfftw, ncomp(fc),
-                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                            (fftw_complex*)this->cdata, (double*)this->rdata,
-                            this->comm,
-                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                    *((fftw_plan*)this->r2c_plan) = fftw_mpi_plan_many_dft_r2c(
-                            3, nfftw, ncomp(fc),
-                            FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                            (double*)this->rdata, (fftw_complex*)this->cdata,
-                            this->comm,
-                            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-                }
+                this->c2r_plan = new fftw_plan;
+                this->r2c_plan = new fftw_plan;
+                *((fftw_plan*)this->c2r_plan) = fftw_mpi_plan_many_dft_c2r(
+                        3, nfftw, ncomp(fc),
+                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                        (fftw_complex*)this->data, (double*)this->data,
+                        this->comm,
+                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+                *((fftw_plan*)this->r2c_plan) = fftw_mpi_plan_many_dft_r2c(
+                        3, nfftw, ncomp(fc),
+                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                        (double*)this->data, (fftw_complex*)this->data,
+                        this->comm,
+                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
             }
             break;
     }
 }
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
-field<rnumber, repr, be, fc>::~field()
+field<rnumber, be, fc>::~field()
 {
     /* close data types */
     H5Tclose(this->rnumber_H5T);
@@ -229,67 +216,54 @@ field<rnumber, repr, be, fc>::~field()
     switch(be)
     {
         case FFTW:
-            if (repr == REAL || repr == BOTH)
+            delete this->rlayout;
+            delete this->rmemlayout;
+            delete this->clayout;
+            fftw_free(this->data);
+            if (typeid(rnumber) == typeid(float))
             {
-                delete this->rlayout;
-                delete this->rmemlayout;
-                fftw_free(this->rdata);
+                fftwf_destroy_plan(*(fftwf_plan*)this->c2r_plan);
+                delete (fftwf_plan*)this->c2r_plan;
+                fftwf_destroy_plan(*(fftwf_plan*)this->r2c_plan);
+                delete (fftwf_plan*)this->r2c_plan;
             }
-            if (repr == COMPLEX || repr == BOTH)
+            else if (typeid(rnumber) == typeid(double))
             {
-                delete this->clayout;
-                fftw_free(this->cdata);
+                fftw_destroy_plan(*(fftw_plan*)this->c2r_plan);
+                delete (fftw_plan*)this->c2r_plan;
+                fftw_destroy_plan(*(fftw_plan*)this->r2c_plan);
+                delete (fftw_plan*)this->r2c_plan;
             }
             break;
-            if (repr == BOTH)
-            {
-                if (typeid(rnumber) == typeid(float))
-                {
-                    fftwf_destroy_plan(*(fftwf_plan*)this->c2r_plan);
-                    delete (fftwf_plan*)this->c2r_plan;
-                    fftwf_destroy_plan(*(fftwf_plan*)this->r2c_plan);
-                    delete (fftwf_plan*)this->r2c_plan;
-                }
-                else if (typeid(rnumber) == typeid(double))
-                {
-                    fftw_destroy_plan(*(fftw_plan*)this->c2r_plan);
-                    delete (fftw_plan*)this->c2r_plan;
-                    fftw_destroy_plan(*(fftw_plan*)this->r2c_plan);
-                    delete (fftw_plan*)this->r2c_plan;
-                }
-            }
     }
 }
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
-void field<rnumber, repr, be, fc>::ift()
+void field<rnumber, be, fc>::ift()
 {
-    if (repr == BOTH && typeid(rnumber) == typeid(float))
+    if (typeid(rnumber) == typeid(float))
         fftwf_execute(*((fftwf_plan*)this->c2r_plan));
-    else if (repr == BOTH && typeid(rnumber) == typeid(double))
+    else if (typeid(rnumber) == typeid(double))
         fftw_execute(*((fftw_plan*)this->c2r_plan));
 }
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
-void field<rnumber, repr, be, fc>::dft()
+void field<rnumber, be, fc>::dft()
 {
-    if (repr == BOTH && typeid(rnumber) == typeid(float))
+    if (typeid(rnumber) == typeid(float))
         fftwf_execute(*((fftwf_plan*)this->r2c_plan));
-    else if (repr == BOTH && typeid(rnumber) == typeid(double))
+    else if (typeid(rnumber) == typeid(double))
         fftw_execute(*((fftw_plan*)this->r2c_plan));
 }
 
 template <class rnumber,
-          field_representation repr,
           field_backend be,
           field_components fc>
-int field<rnumber, repr, be, fc>::io(
+int field<rnumber, be, fc>::io(
         const char *fname,
         const char *dset_name,
         int iteration,
@@ -327,8 +301,7 @@ int field<rnumber, repr, be, fc>::io(
     hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
     hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
     H5Sget_simple_extent_dims(fspace, dims, NULL);
-    if (io_for_real &&
-        (repr == REAL || repr == BOTH))
+    if (io_for_real)
     {
         for (int i=0; i<ndim(fc); i++)
         {
@@ -346,12 +319,12 @@ int field<rnumber, repr, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
-            H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->rdata);
+            H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
         else
-            H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->rdata);
+            H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
         H5Sclose(mspace);
     }
-    else if (repr == COMPLEX || repr == BOTH)
+    else
     {
         for (int i=0; i<ndim(fc); i++)
         {
@@ -369,9 +342,9 @@ int field<rnumber, repr, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
-            H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->cdata);
+            H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
         else
-            H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->cdata);
+            H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
         H5Sclose(mspace);
     }
 
@@ -384,27 +357,10 @@ int field<rnumber, repr, be, fc>::io(
     return EXIT_SUCCESS;
 }
 
-template class field<float, REAL, FFTW, ONE>;
-template class field<float, COMPLEX, FFTW, ONE>;
-template class field<float, BOTH, FFTW, ONE>;
-
-template class field<float, REAL, FFTW, THREE>;
-template class field<float, COMPLEX, FFTW, THREE>;
-template class field<float, BOTH, FFTW, THREE>;
-
-template class field<float, REAL, FFTW, THREExTHREE>;
-template class field<float, COMPLEX, FFTW, THREExTHREE>;
-template class field<float, BOTH, FFTW, THREExTHREE>;
-
-template class field<double, REAL, FFTW, ONE>;
-template class field<double, COMPLEX, FFTW, ONE>;
-template class field<double, BOTH, FFTW, ONE>;
-
-template class field<double, REAL, FFTW, THREE>;
-template class field<double, COMPLEX, FFTW, THREE>;
-template class field<double, BOTH, FFTW, THREE>;
-
-template class field<double, REAL, FFTW, THREExTHREE>;
-template class field<double, COMPLEX, FFTW, THREExTHREE>;
-template class field<double, BOTH, FFTW, THREExTHREE>;
+template class field<float, FFTW, ONE>;
+template class field<float, FFTW, THREE>;
+template class field<float, FFTW, THREExTHREE>;
+template class field<double, FFTW, ONE>;
+template class field<double, FFTW, THREE>;
+template class field<double, FFTW, THREExTHREE>;
 
