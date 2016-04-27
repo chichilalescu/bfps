@@ -122,10 +122,11 @@ field<rnumber, repr, be, fc>::field(
             nfftw[0] = nz;
             nfftw[1] = ny;
             nfftw[2] = nx;
-            ptrdiff_t tmp_local_size;
+            //ptrdiff_t tmp_local_size;
             ptrdiff_t local_n0, local_0_start;
             ptrdiff_t local_n1, local_1_start;
-            tmp_local_size = fftw_mpi_local_size_many_transposed(
+            //tmp_local_size = fftw_mpi_local_size_many_transposed(
+            fftw_mpi_local_size_many_transposed(
                     3, nfftw, ncomp(fc),
                     FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, this->comm,
                     &local_n0, &local_0_start,
@@ -188,47 +189,101 @@ int field<rnumber, repr, be, fc>::io(
         bool read)
 {
     hid_t file_id, dset_id, plist_id;
+    hid_t dset_type, field_type, field_complex_type;
+    bool io_for_real = false;
+
+    /* open file */
     plist_id = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
-    file_id = H5Fopen(fname, H5F_ACC_RDWR, plist_id);
+    if (read)
+        file_id = H5Fopen(fname, H5F_ACC_RDONLY, plist_id);
+    else
+        file_id = H5Fopen(fname, H5F_ACC_RDWR, plist_id);
     H5Pclose(plist_id);
+
+    /* open data set */
     dset_id = H5Dopen(file_id, dset_name, H5P_DEFAULT);
+    dset_type = H5Dget_type(dset_id);
+    io_for_real = (H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+        H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+        H5Tequal(dset_type, H5T_INTEL_F32) ||
+        H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+        H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+        H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+        H5Tequal(dset_type, H5T_INTEL_F64) ||
+        H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+
+    /* generic space initialization */
     hid_t fspace, mspace;
     fspace = H5Dget_space(dset_id);
     hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
     hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
     H5Sget_simple_extent_dims(fspace, dims, NULL);
-    for (int i=0; i<ndim(fc); i++)
+    if (typeid(rnumber) == typeid(float))
+        field_type = H5Tcopy(H5T_NATIVE_FLOAT);
+    else if (typeid(rnumber) == typeid(double))
+        field_type = H5Tcopy(H5T_NATIVE_DOUBLE);
+    if (io_for_real)
     {
-        count[i+1] = this->rlayout->subsizes[i];
-        offset[i+1] = this->rlayout->starts[i];
-        assert(dims[i+1] == this->rlayout->sizes[i]);
-        memshape[i+1] = this->rmemlayout->subsizes[i];
-        memoffset[i+1] = 0;
-        DEBUG_MSG("count[%d] = %ld, "
-                  "offset[%d] = %ld, "
-                  "dims[%d] = %ld, "
-                  "memshape[%d] = %ld\n",
-                  i+1, count[i+1],
-                  i+1, offset[i+1],
-                  i+1, dims[i+1],
-                  i+1, memshape[i+1]);
+        for (int i=0; i<ndim(fc); i++)
+        {
+            count[i+1] = this->rlayout->subsizes[i];
+            offset[i+1] = this->rlayout->starts[i];
+            assert(dims[i+1] == this->rlayout->sizes[i]);
+            memshape[i+1] = this->rmemlayout->subsizes[i];
+            memoffset[i+1] = 0;
+        }
+        count[0] = 1;
+        offset[0] = iteration;
+        memshape[0] = 1;
+        memoffset[0] = 0;
+        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+        if (read)
+            H5Dread(dset_id, field_type, mspace, fspace, H5P_DEFAULT, this->rdata);
+        else
+            H5Dwrite(dset_id, field_type, mspace, fspace, H5P_DEFAULT, this->rdata);
+        H5Sclose(mspace);
     }
-    count[0] = 1;
-    offset[0] = iteration;
-    memshape[0] = 1;
-    memoffset[0] = 0;
-    mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
-    DEBUG_MSG("selecting from file space\n");
-    H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-    DEBUG_MSG("selecting from memory space\n");
-    H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
-    if (read)
-        H5Dread(dset_id, H5T_NATIVE_FLOAT, mspace, fspace, H5P_DEFAULT, this->rdata);
     else
-        H5Dwrite(dset_id, H5T_NATIVE_FLOAT, mspace, fspace, H5P_DEFAULT, this->rdata);
-    H5Dclose(dset_id);
+    {
+        typedef struct {
+            rnumber re;   /*real part*/
+            rnumber im;   /*imaginary part*/
+        } tmp_complex_type;
+        field_complex_type = H5Tcreate(H5T_COMPOUND, sizeof(tmp_complex_type));
+        H5Tinsert(field_complex_type, "r", HOFFSET(tmp_complex_type, re), field_type);
+        H5Tinsert(field_complex_type, "i", HOFFSET(tmp_complex_type, im), field_type);
+        for (int i=0; i<ndim(fc); i++)
+        {
+            count[i+1] = this->clayout->subsizes[i];
+            offset[i+1] = this->clayout->starts[i];
+            assert(dims[i+1] == this->clayout->sizes[i]);
+            memshape[i+1] = count[i+1];
+            memoffset[i+1] = 0;
+        }
+        count[0] = 1;
+        offset[0] = iteration;
+        memshape[0] = 1;
+        memoffset[0] = 0;
+        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+        if (read)
+            H5Dread(dset_id, field_complex_type, mspace, fspace, H5P_DEFAULT, this->cdata);
+        else
+            H5Dwrite(dset_id, field_complex_type, mspace, fspace, H5P_DEFAULT, this->cdata);
+        H5Sclose(mspace);
+        H5Tclose(field_complex_type);
+    }
+
+    H5Tclose(field_type);
+    H5Tclose(dset_type);
     H5Sclose(fspace);
+    /* close data set */
+    H5Dclose(dset_id);
+    /* close file */
     H5Fclose(file_id);
     return EXIT_SUCCESS;
 }

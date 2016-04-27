@@ -36,10 +36,14 @@ class TestField(_fluid_particle_base):
                 //begincpp
                 f = new field<{0}, BOTH, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
-                DEBUG_MSG("about to read data\\n");
+                DEBUG_MSG("about to read rdata\\n");
                 f->io("field.h5", "rdata", 0, true);
-                DEBUG_MSG("about to write data\\n");
+                DEBUG_MSG("about to write rdata_tmp\\n");
                 f->io("field.h5", "rdata_tmp", 0, false);
+                DEBUG_MSG("about to read cdata\\n");
+                f->io("field.h5", "cdata", 0, true);
+                DEBUG_MSG("about to write cdata_tmp\\n");
+                f->io("field.h5", "cdata_tmp", 0, false);
         //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
@@ -84,8 +88,10 @@ def main():
     c2r.execute()
 
     f = h5py.File('field.h5', 'w')
+    f['cdata'] = kdata.reshape((1,) + kdata.shape)
     f['rdata'] = rdata.reshape((1,) + rdata.shape)
     f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
+    f['cdata_tmp'] = np.zeros(shape=(1,) + kdata.shape).astype(kdata.dtype)
     f.close()
 
     ## run cpp code
@@ -96,6 +102,7 @@ def main():
 
     f = h5py.File('field.h5', 'r')
     print(np.max(np.abs(f['rdata'].value - f['rdata_tmp'].value)))
+    print(np.max(np.abs(f['cdata'].value - f['cdata_tmp'].value)))
     ## compare
     fig = plt.figure(figsize=(12, 6))
     a = fig.add_subplot(121)
