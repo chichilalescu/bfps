@@ -180,7 +180,6 @@ field<rnumber, repr, be, fc>::field(
             {
                 if(typeid(rnumber) == typeid(float))
                 {
-                    DEBUG_MSG("generating plans for float\n");
                     this->c2r_plan = new fftwf_plan;
                     this->r2c_plan = new fftwf_plan;
                     *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
@@ -321,7 +320,6 @@ int field<rnumber, repr, be, fc>::io(
             H5Tequal(dset_type, H5T_IEEE_F64LE) ||
             H5Tequal(dset_type, H5T_INTEL_F64) ||
             H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
-    DEBUG_MSG("io_for_real %d, %s\n", int(io_for_real), dset_name);
 
     /* generic space initialization */
     hid_t fspace, mspace;
@@ -389,4 +387,24 @@ int field<rnumber, repr, be, fc>::io(
 template class field<float, REAL, FFTW, ONE>;
 template class field<float, COMPLEX, FFTW, ONE>;
 template class field<float, BOTH, FFTW, ONE>;
+
+template class field<float, REAL, FFTW, THREE>;
+template class field<float, COMPLEX, FFTW, THREE>;
+template class field<float, BOTH, FFTW, THREE>;
+
+template class field<float, REAL, FFTW, THREExTHREE>;
+template class field<float, COMPLEX, FFTW, THREExTHREE>;
+template class field<float, BOTH, FFTW, THREExTHREE>;
+
+template class field<double, REAL, FFTW, ONE>;
+template class field<double, COMPLEX, FFTW, ONE>;
+template class field<double, BOTH, FFTW, ONE>;
+
+template class field<double, REAL, FFTW, THREE>;
+template class field<double, COMPLEX, FFTW, THREE>;
+template class field<double, BOTH, FFTW, THREE>;
+
+template class field<double, REAL, FFTW, THREExTHREE>;
+template class field<double, COMPLEX, FFTW, THREExTHREE>;
+template class field<double, BOTH, FFTW, THREExTHREE>;
 
