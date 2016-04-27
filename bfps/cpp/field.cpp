@@ -109,15 +109,18 @@ template <class rnumber,
           field_backend be,
           field_components fc>
 field<rnumber, be, fc>::field(
-                int nx, int ny, int nz,
-                MPI_Comm COMM_TO_USE,
-                unsigned FFTW_PLAN_RIGOR)
+                const int nx,
+                const int ny,
+                const int nz,
+                const MPI_Comm COMM_TO_USE,
+                const unsigned FFTW_PLAN_RIGOR)
 {
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
 
     this->fftw_plan_rigor = FFTW_PLAN_RIGOR;
+    this->real_space_representation = true;
 
     /* generate HDF5 data types */
     if (typeid(rnumber) == typeid(float))
@@ -247,6 +250,7 @@ void field<rnumber, be, fc>::ift()
         fftwf_execute(*((fftwf_plan*)this->c2r_plan));
     else if (typeid(rnumber) == typeid(double))
         fftw_execute(*((fftw_plan*)this->c2r_plan));
+    this->real_space_representation = true;
 }
 
 template <class rnumber,
@@ -258,16 +262,17 @@ void field<rnumber, be, fc>::dft()
         fftwf_execute(*((fftwf_plan*)this->r2c_plan));
     else if (typeid(rnumber) == typeid(double))
         fftw_execute(*((fftw_plan*)this->r2c_plan));
+    this->real_space_representation = false;
 }
 
 template <class rnumber,
           field_backend be,
           field_components fc>
 int field<rnumber, be, fc>::io(
-        const char *fname,
-        const char *dset_name,
-        int iteration,
-        bool read)
+        const std::string fname,
+        const std::string dset_name,
+        const int iteration,
+        const bool read)
 {
     hid_t file_id, dset_id, plist_id;
     hid_t dset_type;
@@ -277,13 +282,13 @@ int field<rnumber, be, fc>::io(
     plist_id = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
     if (read)
-        file_id = H5Fopen(fname, H5F_ACC_RDONLY, plist_id);
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
     else
-        file_id = H5Fopen(fname, H5F_ACC_RDWR, plist_id);
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
     H5Pclose(plist_id);
 
     /* open data set */
-    dset_id = H5Dopen(file_id, dset_name, H5P_DEFAULT);
+    dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
     dset_type = H5Dget_type(dset_id);
     io_for_real = (
             H5Tequal(dset_type, H5T_IEEE_F32BE) ||
@@ -319,9 +324,16 @@ int field<rnumber, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
+        {
             H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            this->real_space_representation = true;
+        }
         else
+        {
             H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            if (!this->real_space_representation)
+                DEBUG_MSG("I just wrote complex field into real space dataset. It's probably nonsense.\n");
+        }
         H5Sclose(mspace);
     }
     else
@@ -342,9 +354,16 @@ int field<rnumber, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
+        {
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            this->real_space_representation = false;
+        }
         else
+        {
             H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            if (this->real_space_representation)
+                DEBUG_MSG("I just wrote real space field into complex dataset. It's probably nonsense.\n");
+        }
         H5Sclose(mspace);
     }
 

@@ -28,6 +28,7 @@
 #include <hdf5.h>
 #include <fftw3-mpi.h>
 #include <vector>
+#include <string>
 #include "base.hpp"
 
 #ifndef FIELD
@@ -87,6 +88,7 @@ class field
     private:
         /* data arrays */
         rnumber *data;
+        bool real_space_representation;
     public:
         /* basic MPI information */
         int myrank, nprocs;
@@ -105,16 +107,18 @@ class field
 
         /* methods */
         field(
-                int nx, int ny, int nz,
-                MPI_Comm COMM_TO_USE,
-                unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
+                const int nx,
+                const int ny,
+                const int nz,
+                const MPI_Comm COMM_TO_USE,
+                const unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
         ~field();
 
         int io(
-                const char *fname,
-                const char *dset_name,
-                int iteration,
-                bool read = true);
+                const std::string fname,
+                const std::string dset_name,
+                const int iteration,
+                const bool read = true);
 
         void dft();
         void ift();

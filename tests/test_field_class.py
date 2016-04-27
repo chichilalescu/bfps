@@ -105,19 +105,23 @@ def main():
              '--ncpu', '2'])
 
     f = h5py.File('field.h5', 'r')
-    print(np.max(np.abs(f['rdata_tmp'][0] - rdata)) / np.mean(np.abs(rdata)))
-    print(np.max(np.abs(f['rdata'][0]/(n**3) - rdata)) / np.mean(np.abs(rdata)))
-    print(np.max(np.abs(f['cdata_tmp'][0]/(n**3) - cdata)) / np.mean(np.abs(cdata)))
-    ## compare
-    fig = plt.figure(figsize=(12, 6))
-    a = fig.add_subplot(121)
-    a.set_axis_off()
-    a.imshow(rdata[0, :, :], interpolation = 'none')
-    a = fig.add_subplot(122)
-    a.set_axis_off()
-    a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
-    fig.tight_layout()
-    fig.savefig('tst.pdf')
+    err0 = np.max(np.abs(f['rdata_tmp'][0] - rdata)) / np.mean(np.abs(rdata))
+    err1 = np.max(np.abs(f['rdata'][0]/(n**3) - rdata)) / np.mean(np.abs(rdata))
+    err2 = np.max(np.abs(f['cdata_tmp'][0]/(n**3) - cdata)) / np.mean(np.abs(cdata))
+    print(err0, err1, err2)
+    assert(err0 < 1e-5)
+    assert(err1 < 1e-5)
+    assert(err2 < 1e-4)
+    ### compare
+    #fig = plt.figure(figsize=(12, 6))
+    #a = fig.add_subplot(121)
+    #a.set_axis_off()
+    #a.imshow(rdata[0, :, :], interpolation = 'none')
+    #a = fig.add_subplot(122)
+    #a.set_axis_off()
+    #a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
+    #fig.tight_layout()
+    #fig.savefig('tst.pdf')
     return None
 
 if __name__ == '__main__':
