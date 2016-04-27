@@ -117,11 +117,17 @@ class field
         int io(
                 const std::string fname,
                 const std::string dset_name,
-                const int iteration,
+                const int toffset,
                 const bool read = true);
 
         void dft();
         void ift();
+
+        void compute_rspace_stats(
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset,
+                const std::vector<double> max_estimate);
 };
 
 #endif//FIELD
