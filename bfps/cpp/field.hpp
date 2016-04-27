@@ -28,6 +28,7 @@
 #include <hdf5.h>
 #include <fftw3-mpi.h>
 #include <vector>
+#include "base.hpp"
 
 #ifndef FIELD
 

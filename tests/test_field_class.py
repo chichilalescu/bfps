@@ -1,4 +1,5 @@
 import numpy as np
+import h5py
 import matplotlib.pyplot as plt
 import pyfftw
 import bfps
@@ -33,10 +34,13 @@ class TestField(_fluid_particle_base):
         self.fluid_variables += ('field<' + self.C_dtype + ', BOTH, FFTW, ONE> *f;\n')
         self.fluid_start += """
                 //begincpp
-                DEBUG_MSG("aloha\\n");
                 f = new field<{0}, BOTH, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
-                //endcpp
+                DEBUG_MSG("about to read data\\n");
+                f->io("field.h5", "rdata", 0, true);
+                DEBUG_MSG("about to write data\\n");
+                f->io("field.h5", "rdata_tmp", 0, false);
+        //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
                 //begincpp
@@ -79,17 +83,27 @@ def main():
     kdata[:] = bfps.tools.generate_data_3D(32, 32, 32, dtype = np.complex64)
     c2r.execute()
 
+    f = h5py.File('field.h5', 'w')
+    f['rdata'] = rdata.reshape((1,) + rdata.shape)
+    f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
+    f.close()
+
     ## run cpp code
     tf = TestField()
     tf.launch(
             ['-n', '32',
              '--ncpu', '2'])
 
+    f = h5py.File('field.h5', 'r')
+    print(np.max(np.abs(f['rdata'].value - f['rdata_tmp'].value)))
     ## compare
-    fig = plt.figure()
-    a = fig.add_subplot(111)
+    fig = plt.figure(figsize=(12, 6))
+    a = fig.add_subplot(121)
     a.set_axis_off()
     a.imshow(rdata[:, 4, :], interpolation = 'none')
+    a = fig.add_subplot(122)
+    a.set_axis_off()
+    a.imshow(f['rdata_tmp'][0, :, 4, :], interpolation = 'none')
     fig.tight_layout()
     fig.savefig('tst.pdf')
     return None

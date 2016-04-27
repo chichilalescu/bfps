@@ -195,7 +195,8 @@ int field<rnumber, repr, be, fc>::io(
     dset_id = H5Dopen(file_id, dset_name, H5P_DEFAULT);
     hid_t fspace, mspace;
     fspace = H5Dget_space(dset_id);
-    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1], memshape[ndim(fc)+1];
+    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
+    hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
     H5Sget_simple_extent_dims(fspace, dims, NULL);
     for (int i=0; i<ndim(fc); i++)
     {
@@ -203,17 +204,30 @@ int field<rnumber, repr, be, fc>::io(
         offset[i+1] = this->rlayout->starts[i];
         assert(dims[i+1] == this->rlayout->sizes[i]);
         memshape[i+1] = this->rmemlayout->subsizes[i];
+        memoffset[i+1] = 0;
+        DEBUG_MSG("count[%d] = %ld, "
+                  "offset[%d] = %ld, "
+                  "dims[%d] = %ld, "
+                  "memshape[%d] = %ld\n",
+                  i+1, count[i+1],
+                  i+1, offset[i+1],
+                  i+1, dims[i+1],
+                  i+1, memshape[i+1]);
     }
     count[0] = 1;
     offset[0] = iteration;
     memshape[0] = 1;
+    memoffset[0] = 0;
     mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+    DEBUG_MSG("selecting from file space\n");
     H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-    H5Sselect_hyperslab(mspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    DEBUG_MSG("selecting from memory space\n");
+    H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
     if (read)
         H5Dread(dset_id, H5T_NATIVE_FLOAT, mspace, fspace, H5P_DEFAULT, this->rdata);
     else
         H5Dwrite(dset_id, H5T_NATIVE_FLOAT, mspace, fspace, H5P_DEFAULT, this->rdata);
+    H5Dclose(dset_id);
     H5Sclose(fspace);
     H5Fclose(file_id);
     return EXIT_SUCCESS;
