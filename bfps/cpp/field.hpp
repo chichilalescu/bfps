@@ -128,6 +128,10 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
+        inline rnumber* data_front()
+        {
+            return this->data;
+        }
 };
 
 /* real space loop */
