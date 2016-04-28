@@ -46,6 +46,17 @@ class TestField(_fluid_particle_base):
                 f->io("field.h5", "cdata", 0, true);
                 f->ift();
                 f->io("field.h5", "rdata_tmp", 0, false);
+                std::vector<double> me;
+                me.resize(1);
+                me[0] = 30;
+                hid_t gg;
+                if (f->myrank == 0)
+                    gg = H5Fopen("field.h5", H5F_ACC_RDWR, H5P_DEFAULT);
+                f->compute_rspace_stats(
+                        gg, "scal",
+                        0, me);
+                if (f->myrank == 0)
+                    H5Fclose(gg);
                 //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
@@ -96,6 +107,8 @@ def main():
     f['cdata_tmp'] = np.zeros(shape=(1,) + cdata.shape).astype(cdata.dtype)
     f['rdata'] = rdata.reshape((1,) + rdata.shape)
     f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
+    f['moments/scal'] = np.zeros(shape = (1, 10)).astype(np.float)
+    f['histograms/scal'] = np.zeros(shape = (1, 64)).astype(np.float)
     f.close()
 
     ## run cpp code
@@ -122,6 +135,14 @@ def main():
     #a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
     #fig.tight_layout()
     #fig.savefig('tst.pdf')
+    # look at moments and histogram
+    print('moments are ', f['moments/scal'][0])
+    fig = plt.figure(figsize=(6,6))
+    a = fig.add_subplot(111)
+    a.plot(f['histograms/scal'][0])
+    a.set_yscale('log')
+    fig.tight_layout()
+    fig.savefig('tst.pdf')
     return None
 
 if __name__ == '__main__':

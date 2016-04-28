@@ -130,5 +130,23 @@ class field
                 const std::vector<double> max_estimate);
 };
 
+/* real space loop */
+#define FFTW_RLOOP(obj, expression) \
+ \
+{ \
+    for (int zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
+    for (int yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
+    { \
+        ptrdiff_t rindex = ( \
+                zindex * obj->rlayout->subsizes[1] + yindex)*( \
+                    obj->rmemlayout->subsizes[2]); \
+    for (int xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
+        { \
+            expression; \
+            rindex++; \
+        } \
+    } \
+}
+
 #endif//FIELD
 
