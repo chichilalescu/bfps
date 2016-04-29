@@ -56,7 +56,7 @@ field_layout<fc>::field_layout(
     }
     this->local_size = 1;
     this->full_size = 1;
-    for (int i=0; i<ndim(fc); i++)
+    for (unsigned int i=0; i<ndim(fc); i++)
     {
         this->local_size *= this->subsizes[i];
         this->full_size *= this->sizes[i];
@@ -71,7 +71,7 @@ field_layout<fc>::field_layout(
         this->rank[i].resize(this->sizes[i]);
         std::vector<int> local_rank;
         local_rank.resize(this->sizes[i], 0);
-        for (int ii=this->starts[i]; ii<this->starts[i]+this->subsizes[i]; ii++)
+        for (unsigned int ii=this->starts[i]; ii<this->starts[i]+this->subsizes[i]; ii++)
             local_rank[ii] = this->myrank;
         MPI_Allreduce(
                 &local_rank.front(),
@@ -312,7 +312,7 @@ int field<rnumber, be, fc>::io(
     memoffset[0] = 0;
     if (io_for_real)
     {
-        for (int i=0; i<ndim(fc); i++)
+        for (unsigned int i=0; i<ndim(fc); i++)
         {
             count[i+1] = this->rlayout->subsizes[i];
             offset[i+1] = this->rlayout->starts[i];
@@ -343,7 +343,7 @@ int field<rnumber, be, fc>::io(
     }
     else
     {
-        for (int i=0; i<ndim(fc); i++)
+        for (unsigned int i=0; i<ndim(fc); i++)
         {
             count[i+1] = this->clayout->subsizes[i];
             offset[i+1] = this->clayout->starts[i];
@@ -388,7 +388,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
 {
     assert(this->real_space_representation);
     assert(fc == ONE || fc == THREE);
-    const int nmoments = 10;
+    const unsigned int nmoments = 10;
     int nvals, nbins;
     if (this->myrank == 0)
     {
@@ -398,7 +398,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         dset = H5Dopen(group, ("moments/" + dset_name).c_str(), H5P_DEFAULT);
         wspace = H5Dget_space(dset);
         ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
-        assert(ndims == ndim(fc)-1);
+        assert(ndims == int(ndim(fc))-1);
         assert(dims[1] == nmoments);
         switch(ndims)
         {
@@ -417,18 +417,18 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         dset = H5Dopen(group, ("histograms/" + dset_name).c_str(), H5P_DEFAULT);
         wspace = H5Dget_space(dset);
         ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
-        assert(ndims == ndim(fc)-1);
+        assert(ndims == int(ndim(fc))-1);
         nbins = dims[1];
         if (ndims == 3)
-            assert(nvals == dims[2]);
+            assert(nvals == int(dims[2]));
         else if (ndims == 4)
-            assert(nvals == dims[2]*dims[3]);
+            assert(nvals == int(dims[2]*dims[3]));
         H5Sclose(wspace);
         H5Dclose(dset);
     }
     MPI_Bcast(&nvals, 1, MPI_INT, 0, this->comm);
     MPI_Bcast(&nbins, 1, MPI_INT, 0, this->comm);
-    assert(nvals == max_estimate.size());
+    assert(nvals == int(max_estimate.size()));
     double *moments = new double[nmoments*nvals];
     double *local_moments = new double[nmoments*nvals];
     double *val_tmp = new double[nvals];
@@ -448,13 +448,13 @@ void field<rnumber, be, fc>::compute_rspace_stats(
             FFTW_RLOOP(
                 this,
                 std::fill_n(pow_tmp, nvals, 1.0);
-                if (nvals == 4) val_tmp[3] = 0.0;
-                for (int i=0; i<ncomp(fc); i++)
+                if (nvals == int(4)) val_tmp[3] = 0.0;
+                for (unsigned int i=0; i<ncomp(fc); i++)
                 {
                     val_tmp[i] = this->data[rindex*ncomp(fc)+i];
-                    if (nvals == 4) val_tmp[3] += val_tmp[i]*val_tmp[i];
+                    if (nvals == int(4)) val_tmp[3] += val_tmp[i]*val_tmp[i];
                 }
-                if (nvals == 4)
+                if (nvals == int(4))
                 {
                     val_tmp[3] = sqrt(val_tmp[3]);
                     if (val_tmp[3] < local_moments[0*nvals+3])
@@ -465,7 +465,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     if (bin >= 0 && bin < nbins)
                         local_hist[bin*nvals+3]++;
                 }
-                for (int i=0; i<ncomp(fc); i++)
+                for (unsigned int i=0; i<ncomp(fc); i++)
                 {
                     if (val_tmp[i] < local_moments[0*nvals+i])
                         local_moments[0*nvals+i] = val_tmp[i];
@@ -475,7 +475,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     if (bin >= 0 && bin < nbins)
                         local_hist[bin*nvals+i]++;
                 }
-                for (int n=1; n < nmoments-1; n++)
+                for (int n=1; n < int(nmoments)-1; n++)
                     for (int i=0; i<nvals; i++)
                         local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
                 );
@@ -501,7 +501,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
             (void*)hist,
             nbins*nvals,
             MPI_INT64_T, MPI_SUM, this->comm);
-    for (int n=1; n < nmoments-1; n++)
+    for (int n=1; n < int(nmoments)-1; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->rlayout->full_size;
     delete[] local_moments;

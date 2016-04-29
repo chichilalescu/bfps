@@ -138,13 +138,13 @@ class field
 #define FFTW_RLOOP(obj, expression) \
  \
 { \
-    for (int zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
-    for (int yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
+    for (hsize_t zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
+    for (hsize_t yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
     { \
         ptrdiff_t rindex = ( \
                 zindex * obj->rlayout->subsizes[1] + yindex)*( \
                     obj->rmemlayout->subsizes[2]); \
-    for (int xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
+    for (hsize_t xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
         { \
             expression; \
             rindex++; \
