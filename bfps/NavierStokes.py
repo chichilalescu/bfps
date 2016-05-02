@@ -111,9 +111,6 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
-                ptrdiff_t *hist_velocity  = new ptrdiff_t[histogram_bins*4];
-                ptrdiff_t *hist_vorticity = new ptrdiff_t[histogram_bins*4];
-                double max_estimates[4];
                 fs->compute_velocity(fs->cvorticity);
                 double *spec_velocity  = new double[fs->nshells*9];
                 double *spec_vorticity = new double[fs->nshells*9];
@@ -151,10 +148,6 @@ class NavierStokes(_fluid_particle_base):
         self.stat_src += """
                 //begincpp
                 fs->ift_velocity();
-                max_estimates[0] = max_velocity_estimate/sqrt(3);
-                max_estimates[1] = max_estimates[0];
-                max_estimates[2] = max_estimates[0];
-                max_estimates[3] = max_velocity_estimate;
                 hid_t stat_group;
                 if (myrank == 0)
                     stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
@@ -225,20 +218,6 @@ class NavierStokes(_fluid_particle_base):
         self.stat_src += self.create_stat_output(
                 '/statistics/spectra/vorticity_vorticity',
                 'spec_vorticity')
-        self.stat_src += self.create_stat_output(
-                '/statistics/histograms/velocity',
-                'hist_velocity',
-                data_type = 'H5T_NATIVE_INT64',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = histogram_bins;
-                    count[2] = 4;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/histograms/vorticity',
-                'hist_vorticity',
-                data_type = 'H5T_NATIVE_INT64')
         if self.QR_stats_on:
             self.stat_src += self.create_stat_output(
                     '/statistics/moments/trS2_Q_R',
@@ -290,8 +269,6 @@ class NavierStokes(_fluid_particle_base):
                 }
                 delete[] spec_velocity;
                 delete[] spec_vorticity;
-                delete[] hist_velocity;
-                delete[] hist_vorticity;
                 //endcpp
                 """
         if self.QR_stats_on:
