@@ -105,7 +105,7 @@ field_layout<fc>::field_layout(
     }
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 field<rnumber, be, fc>::field(
@@ -208,7 +208,7 @@ field<rnumber, be, fc>::field(
     }
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 field<rnumber, be, fc>::~field()
@@ -241,7 +241,7 @@ field<rnumber, be, fc>::~field()
     }
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 void field<rnumber, be, fc>::ift()
@@ -253,7 +253,7 @@ void field<rnumber, be, fc>::ift()
     this->real_space_representation = true;
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 void field<rnumber, be, fc>::dft()
@@ -265,7 +265,7 @@ void field<rnumber, be, fc>::dft()
     this->real_space_representation = false;
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 int field<rnumber, be, fc>::io(
@@ -377,7 +377,7 @@ int field<rnumber, be, fc>::io(
     return EXIT_SUCCESS;
 }
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 void field<rnumber, be, fc>::compute_rspace_stats(
@@ -660,6 +660,107 @@ kspace<be, dt>::~kspace()
     delete this->layout;
 }
 
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
+{
+    const double km2 = kmax*kmax;
+    KSPACE_CLOOP_K2(
+            this,
+            if (k2 >= km2)
+                std::fill_n(a + 2*ncomp(fc)*cindex, 2*ncomp(fc), 0);
+            );
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+void kspace<be, dt>::dealias(rnumber *__restrict__ a)
+{
+    switch(be)
+    {
+        case TWO_THIRDS:
+            this->low_pass<rnumber, fc>(a, this->kM);
+            break;
+        case SMOOTH:
+            KSPACE_CLOOP_K2(
+                    this,
+                    double tval = this->dealias_filter[int(round(k2 / this->dk2))];
+                    for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                        a[2*ncomp(fc)*cindex + tcounter] *= tval;
+                    );
+            break;
+    }
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+void kspace<be, dt>::cospectrum(
+        rnumber *__restrict__ a,
+        rnumber *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset)
+{
+    std::vector<double> spec, spec_local;
+    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    KSPACE_CLOOP_K2_NXMODES(
+            this,
+            if (k2 < this->kM2)
+            {
+                int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
+                for (int i=0; i<ncomp(fc); i++)
+                for (int j=0; j<ncomp(fc); j++)
+                    spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
+                    (a[2*(ncomp(fc)*cindex + i)+0] * b[2*(ncomp(fc)*cindex + j)+0]) +
+                    (a[2*(ncomp(fc)*cindex + i)+1] * b[2*(ncomp(fc)*cindex + j)+1]));
+            }
+            );
+    MPI_Allreduce(
+            &spec_local.front(),
+            &spec.front(),
+            spec.size(),
+            MPI_DOUBLE, MPI_SUM, this->layout->comm);
+    if (this->layout->myrank == 0)
+    {
+        hid_t dset, wspace, mspace;
+        hsize_t count[(ndim(fc)-2)*2], offset[(ndim(fc)-2)*2], dims[(ndim(fc)-2)*2];
+        dset = H5Dopen(group, ("spectra/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        H5Sget_simple_extent_dims(wspace, dims, NULL);
+        switch (fc)
+        {
+            default:
+                offset[0] = toffset;
+                offset[1] = 0;
+                count[0] = 1;
+                count[1] = this->nshells;
+            case THREE:
+                offset[2] = 0;
+                offset[3] = 0;
+                count[2] = ncomp(fc);
+                count[3] = ncomp(fc);
+            case THREExTHREE:
+                offset[4] = 0;
+                offset[5] = 0;
+                count[4] = ncomp(fc);
+                count[5] = ncomp(fc);
+        }
+        mspace = H5Screate_simple((ndim(fc)-2)*2, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, &spec.front());
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+    }
+}
+
 template class field<float, FFTW, ONE>;
 template class field<float, FFTW, THREE>;
 template class field<float, FFTW, THREExTHREE>;
@@ -671,16 +772,22 @@ template class kspace<FFTW, TWO_THIRDS>;
 template class kspace<FFTW, SMOOTH>;
 
 template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<ONE> *, const double, const double, const double);
+        const field_layout<ONE> *,
+        const double, const double, const double);
 template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<THREE> *, const double, const double, const double);
+        const field_layout<THREE> *,
+        const double, const double, const double);
 template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<THREExTHREE> *, const double, const double, const double);
+        const field_layout<THREExTHREE> *,
+        const double, const double, const double);
 
 template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<ONE> *, const double, const double, const double);
+        const field_layout<ONE> *,
+        const double, const double, const double);
 template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<THREE> *, const double, const double, const double);
+        const field_layout<THREE> *,
+        const double, const double, const double);
 template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<THREExTHREE> *, const double, const double, const double);
+        const field_layout<THREExTHREE> *,
+        const double, const double, const double);
 

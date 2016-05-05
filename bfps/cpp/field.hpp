@@ -82,6 +82,11 @@ class field_layout
         ~field_layout(){}
 };
 
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+class field;
+
 template <field_backend be,
           kspace_dealias_type dt>
 class kspace
@@ -111,9 +116,26 @@ class kspace
                 const double DKY = 1.0,
                 const double DKZ = 1.0);
         ~kspace();
+
+        template <typename rnumber,
+                  field_components fc>
+        void low_pass(rnumber *__restrict__ a, const double kmax);
+
+        template <typename rnumber,
+                  field_components fc>
+        void dealias(rnumber *__restrict__ a);
+
+        template <typename rnumber,
+                  field_components fc>
+        void cospectrum(
+                rnumber *__restrict__ a,
+                rnumber *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
 };
 
-template <class rnumber,
+template <typename rnumber,
           field_backend be,
           field_components fc>
 class field
@@ -165,7 +187,7 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
-        inline rnumber* data_front()
+        inline rnumber* __restrict__ get_rdata()
         {
             return this->data;
         }
@@ -192,6 +214,23 @@ class field
             } \
             break; \
     } \
+}
+
+#define KSPACE_CLOOP_K2(obj, expression) \
+ \
+{ \
+    double k2; \
+    ptrdiff_t cindex = 0; \
+    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++) \
+    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++) \
+    for (hsize_t xindex = 0; xindex < obj->layout->subsizes[2]; xindex++) \
+        { \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
+            expression; \
+            cindex++; \
+        } \
 }
 
 #define KSPACE_CLOOP_K2_NXMODES(obj, expression) \
