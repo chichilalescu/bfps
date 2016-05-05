@@ -30,10 +30,10 @@
 
 template <field_components fc>
 field_layout<fc>::field_layout(
-        hsize_t *SIZES,
-        hsize_t *SUBSIZES,
-        hsize_t *STARTS,
-        MPI_Comm COMM_TO_USE)
+        const hsize_t *SIZES,
+        const hsize_t *SUBSIZES,
+        const hsize_t *STARTS,
+        const MPI_Comm COMM_TO_USE)
 {
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
@@ -442,45 +442,40 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     std::fill_n(local_hist, nbins*nvals, 0);
     std::fill_n(local_moments, nmoments*nvals, 0);
     if (nvals == 4) local_moments[3] = max_estimate[3];
-    switch(be)
-    {
-        case FFTW:
-            FFTW_RLOOP(
-                this,
-                std::fill_n(pow_tmp, nvals, 1.0);
-                if (nvals == int(4)) val_tmp[3] = 0.0;
-                for (unsigned int i=0; i<ncomp(fc); i++)
-                {
-                    val_tmp[i] = this->data[rindex*ncomp(fc)+i];
-                    if (nvals == int(4)) val_tmp[3] += val_tmp[i]*val_tmp[i];
-                }
-                if (nvals == int(4))
-                {
-                    val_tmp[3] = sqrt(val_tmp[3]);
-                    if (val_tmp[3] < local_moments[0*nvals+3])
-                        local_moments[0*nvals+3] = val_tmp[3];
-                    if (val_tmp[3] > local_moments[9*nvals+3])
-                        local_moments[9*nvals+3] = val_tmp[3];
-                    bin = int(floor(val_tmp[3]*2/binsize[3]));
-                    if (bin >= 0 && bin < nbins)
-                        local_hist[bin*nvals+3]++;
-                }
-                for (unsigned int i=0; i<ncomp(fc); i++)
-                {
-                    if (val_tmp[i] < local_moments[0*nvals+i])
-                        local_moments[0*nvals+i] = val_tmp[i];
-                    if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
-                        local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
-                    bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
-                    if (bin >= 0 && bin < nbins)
-                        local_hist[bin*nvals+i]++;
-                }
-                for (int n=1; n < int(nmoments)-1; n++)
-                    for (int i=0; i<nvals; i++)
-                        local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
-                );
-            break;
-    }
+    FIELD_RLOOP(
+            this,
+            std::fill_n(pow_tmp, nvals, 1.0);
+            if (nvals == int(4)) val_tmp[3] = 0.0;
+            for (unsigned int i=0; i<ncomp(fc); i++)
+            {
+                val_tmp[i] = this->data[rindex*ncomp(fc)+i];
+                if (nvals == int(4)) val_tmp[3] += val_tmp[i]*val_tmp[i];
+            }
+            if (nvals == int(4))
+            {
+                val_tmp[3] = sqrt(val_tmp[3]);
+                if (val_tmp[3] < local_moments[0*nvals+3])
+                    local_moments[0*nvals+3] = val_tmp[3];
+                if (val_tmp[3] > local_moments[9*nvals+3])
+                    local_moments[9*nvals+3] = val_tmp[3];
+                bin = int(floor(val_tmp[3]*2/binsize[3]));
+                if (bin >= 0 && bin < nbins)
+                    local_hist[bin*nvals+3]++;
+            }
+            for (unsigned int i=0; i<ncomp(fc); i++)
+            {
+                if (val_tmp[i] < local_moments[0*nvals+i])
+                    local_moments[0*nvals+i] = val_tmp[i];
+                if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
+                    local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
+                bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+                if (bin >= 0 && bin < nbins)
+                    local_hist[bin*nvals+i]++;
+            }
+            for (int n=1; n < int(nmoments)-1; n++)
+                for (int i=0; i<nvals; i++)
+                    local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+            );
     MPI_Allreduce(
             (void*)local_moments,
             (void*)moments,
@@ -552,10 +547,140 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     delete[] hist;
 }
 
+template <field_backend be,
+          kspace_dealias_type dt>
+template <field_components fc>
+kspace<be, dt>::kspace(
+        const field_layout<fc> *source_layout,
+        const double DKX,
+        const double DKY,
+        const double DKZ)
+{
+    /* get layout */
+    this->layout = new field_layout<ONE>(
+            source_layout->sizes,
+            source_layout->subsizes,
+            source_layout->starts,
+            source_layout->comm);
+
+    /* store dk values */
+    this->dkx = DKX;
+    this->dky = DKY;
+    this->dkz = DKZ;
+
+    /* compute kx, ky, kz and compute kM values */
+    switch(be)
+    {
+        case FFTW:
+            this->kx.resize(this->layout->sizes[2]);
+            this->ky.resize(this->layout->subsizes[0]);
+            this->kz.resize(this->layout->sizes[1]);
+            int i, ii;
+            for (i = 0; i<this->layout->sizes[2]; i++)
+                this->kx[i] = i*this->dkx;
+            for (i = 0; i<this->layout->subsizes[0]; i++)
+            {
+                ii = i + this->layout->starts[0];
+                if (ii <= this->layout->sizes[1]/2)
+                    this->ky[i] = this->dky*ii;
+                else
+                    this->ky[i] = this->dky*(ii - this->layout->sizes[1]);
+            }
+            for (i = 0; i<this->layout->sizes[1]; i++)
+            {
+                if (i <= this->layout->sizes[0]/2)
+                    this->kz[i] = this->dkz*i;
+                else
+                    this->kz[i] = this->dkz*(i - this->layout->sizes[0]);
+            }
+            switch(dealias_type)
+            {
+                case TWO_THIRDS:
+                    this->kMx = this->dkx*(int(2*(int(this->layout->sizes[2])-1)/3)-1);
+                    this->kMy = this->dky*(int(this->layout->sizes[0] / 3)-1);
+                    this->kMz = this->dkz*(int(this->layout->sizes[1] / 3)-1);
+                    break;
+                case SMOOTH:
+                    this->kMx = this->dkx*(int(this->layout->sizes[2])-2);
+                    this->kMy = this->dky*(int(this->layout->sizes[0] / 2)-1);
+                    this->kMz = this->dkz*(int(this->layout->sizes[1] / 2)-1);
+                    break;
+            }
+            break;
+    }
+
+    /* get global kM and dk */
+    this->kM = this->kMx;
+    if (this->kM < this->kMy) this->kM = this->kMy;
+    if (this->kM < this->kMz) this->kM = this->kMz;
+    this->kM2 = this->kM * this->kM;
+    this->dk = this->dkx;
+    if (this->dk > this->dky) this->dk = this->dky;
+    if (this->dk > this->dkz) this->dk = this->dkz;
+    this->dk2 = this->dk*this->dk;
+
+    /* spectra stuff */
+    this->nshells = int(this->kM / this->dk) + 2;
+    this->kshell.resize(this->nshells, 0);
+    this->nshell.resize(this->nshells, 0);
+    std::vector<double> kshell_local;
+    kshell_local.resize(this->nshells, 0);
+    std::vector<int64_t> nshell_local;
+    nshell_local.resize(this->nshells, 0);
+    double knorm;
+    KSPACE_CLOOP_K2_NXMODES(
+            this,
+            if (k2 < this->kM2)
+            {
+                knorm = sqrt(k2);
+                nshell_local[int(knorm/this->dk)] += nxmodes;
+                kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
+            }
+            if (dealias_type == TWO_THIRDS)
+                this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+            );
+    MPI_Allreduce(
+            &nshell_local.front(),
+            &this->nshell.front(),
+            this->nshells,
+            MPI_INT64_T, MPI_SUM, this->layout->comm);
+    MPI_Allreduce(
+            &kshell_local.front(),
+            &this->kshell.front(),
+            this->nshells,
+            MPI_DOUBLE, MPI_SUM, this->layout->comm);
+    for (int n=0; n<this->nshells; n++)
+        this->kshell[n] /= this->nshell[n];
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+kspace<be, dt>::~kspace()
+{
+    delete this->layout;
+}
+
 template class field<float, FFTW, ONE>;
 template class field<float, FFTW, THREE>;
 template class field<float, FFTW, THREExTHREE>;
 template class field<double, FFTW, ONE>;
 template class field<double, FFTW, THREE>;
 template class field<double, FFTW, THREExTHREE>;
+
+template class kspace<FFTW, TWO_THIRDS>;
+template class kspace<FFTW, SMOOTH>;
+
+template kspace<FFTW, TWO_THIRDS>::kspace<>(
+        const field_layout<ONE> *, const double, const double, const double);
+template kspace<FFTW, TWO_THIRDS>::kspace<>(
+        const field_layout<THREE> *, const double, const double, const double);
+template kspace<FFTW, TWO_THIRDS>::kspace<>(
+        const field_layout<THREExTHREE> *, const double, const double, const double);
+
+template kspace<FFTW, SMOOTH>::kspace<>(
+        const field_layout<ONE> *, const double, const double, const double);
+template kspace<FFTW, SMOOTH>::kspace<>(
+        const field_layout<THREE> *, const double, const double, const double);
+template kspace<FFTW, SMOOTH>::kspace<>(
+        const field_layout<THREExTHREE> *, const double, const double, const double);
 

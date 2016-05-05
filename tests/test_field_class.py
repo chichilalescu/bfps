@@ -31,11 +31,14 @@ class TestField(_fluid_particle_base):
         self.fluid_includes += '#include <cstring>\n'
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_includes += '#include "field.hpp"\n'
-        self.fluid_variables += ('field<' + self.C_dtype + ', FFTW, ONE> *f;\n')
+        self.fluid_variables += ('field<' + self.C_dtype + ', FFTW, ONE> *f;\n' +
+                                 'kspace<FFTW, SMOOTH> *kk;\n')
         self.fluid_start += """
                 //begincpp
                 f = new field<{0}, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
+                kk = new kspace<FFTW, SMOOTH>(
+                        f->clayout, 1., 1., 1.);
                 // read rdata
                 f->io("field.h5", "rdata", 0, true);
                 // go to fourier space, write into cdata_tmp

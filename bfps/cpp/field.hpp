@@ -27,6 +27,7 @@
 #include <mpi.h>
 #include <hdf5.h>
 #include <fftw3-mpi.h>
+#include <unordered_map>
 #include <vector>
 #include <string>
 #include "base.hpp"
@@ -37,6 +38,7 @@
 
 enum field_backend {FFTW};
 enum field_components {ONE, THREE, THREExTHREE};
+enum kspace_dealias_type {TWO_THIRDS, SMOOTH};
 
 constexpr unsigned int ncomp(
         field_components fc)
@@ -73,11 +75,42 @@ class field_layout
 
         /* methods */
         field_layout(
-                hsize_t *SIZES,
-                hsize_t *SUBSIZES,
-                hsize_t *STARTS,
-                MPI_Comm COMM_TO_USE);
+                const hsize_t *SIZES,
+                const hsize_t *SUBSIZES,
+                const hsize_t *STARTS,
+                const MPI_Comm COMM_TO_USE);
         ~field_layout(){}
+};
+
+template <field_backend be,
+          kspace_dealias_type dt>
+class kspace
+{
+    public:
+        /* relevant field layout */
+        field_layout<ONE> *layout;
+
+        /* physical parameters */
+        double dkx, dky, dkz, dk, dk2;
+
+        /* mode and dealiasing information */
+        int dealias_type;
+        double kMx, kMy, kMz, kM, kM2;
+        double kMspec, kMspec2;
+        std::vector<double> kx, ky, kz;
+        std::unordered_map<int, double> dealias_filter;
+        std::vector<double> kshell;
+        std::vector<int64_t> nshell;
+        int nshells;
+
+        /* methods */
+        template <field_components fc>
+        kspace(
+                const field_layout<fc> *source_layout,
+                const double DKX = 1.0,
+                const double DKY = 1.0,
+                const double DKZ = 1.0);
+        ~kspace();
 };
 
 template <class rnumber,
@@ -95,6 +128,10 @@ class field
         MPI_Comm comm;
 
         /* descriptions of field layout and distribution */
+        /* for the FFTW backend, at least, the real space field requires more
+         * space to be allocated than strictly needed for the data, hence the
+         * two layout descriptors.
+         * */
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 
         /* FFT plans */
@@ -135,19 +172,51 @@ class field
 };
 
 /* real space loop */
-#define FFTW_RLOOP(obj, expression) \
+#define FIELD_RLOOP(obj, expression) \
  \
 { \
-    for (hsize_t zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
-    for (hsize_t yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
+    switch (be) \
     { \
-        ptrdiff_t rindex = ( \
-                zindex * obj->rlayout->subsizes[1] + yindex)*( \
-                    obj->rmemlayout->subsizes[2]); \
-    for (hsize_t xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
+        case FFTW: \
+            for (hsize_t zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
+            for (hsize_t yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
+            { \
+                ptrdiff_t rindex = ( \
+                        zindex * obj->rlayout->subsizes[1] + yindex)*( \
+                            obj->rmemlayout->subsizes[2]); \
+            for (hsize_t xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
+                { \
+                    expression; \
+                    rindex++; \
+                } \
+            } \
+            break; \
+    } \
+}
+
+#define KSPACE_CLOOP_K2_NXMODES(obj, expression) \
+ \
+{ \
+    double k2; \
+    ptrdiff_t cindex = 0; \
+    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++) \
+    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++) \
+    { \
+        int nxmodes = 1; \
+        hsize_t xindex = 0; \
+        k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+              obj->ky[yindex]*obj->ky[yindex] + \
+              obj->kz[zindex]*obj->kz[zindex]); \
+        expression; \
+        cindex++; \
+        nxmodes = 2; \
+    for (xindex = 1; xindex < obj->layout->subsizes[2]; xindex++) \
         { \
+            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
+                  obj->ky[yindex]*obj->ky[yindex] + \
+                  obj->kz[zindex]*obj->kz[zindex]); \
             expression; \
-            rindex++; \
+            cindex++; \
         } \
     } \
 }
