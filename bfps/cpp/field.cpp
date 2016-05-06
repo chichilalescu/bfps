@@ -736,21 +736,21 @@ void kspace<be, dt>::cospectrum(
         H5Sget_simple_extent_dims(wspace, dims, NULL);
         switch (fc)
         {
-            default:
-                offset[0] = toffset;
-                offset[1] = 0;
-                count[0] = 1;
-                count[1] = this->nshells;
-            case THREE:
-                offset[2] = 0;
-                offset[3] = 0;
-                count[2] = ncomp(fc);
-                count[3] = ncomp(fc);
             case THREExTHREE:
                 offset[4] = 0;
                 offset[5] = 0;
                 count[4] = ncomp(fc);
                 count[5] = ncomp(fc);
+            case THREE:
+                offset[2] = 0;
+                offset[3] = 0;
+                count[2] = ncomp(fc);
+                count[3] = ncomp(fc);
+            default:
+                offset[0] = toffset;
+                offset[1] = 0;
+                count[0] = 1;
+                count[1] = this->nshells;
         }
         mspace = H5Screate_simple((ndim(fc)-2)*2, count, NULL);
         H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
@@ -790,4 +790,43 @@ template kspace<FFTW, SMOOTH>::kspace<>(
 template kspace<FFTW, SMOOTH>::kspace<>(
         const field_layout<THREExTHREE> *,
         const double, const double, const double);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, ONE>(
+                float *__restrict__ a,
+                float *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, ONE>(
+                double *__restrict__ a,
+                double *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREE>(
+                float *__restrict__ a,
+                float *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREE>(
+                double *__restrict__ a,
+                double *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREExTHREE>(
+                float *__restrict__ a,
+                float *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREExTHREE>(
+                double *__restrict__ a,
+                double *__restrict__ b,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
 
