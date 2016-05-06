@@ -585,7 +585,6 @@ kspace<be, dt>::kspace(
                     this->ky[i] = this->dky*ii;
                 else
                     this->ky[i] = this->dky*(ii - int(this->layout->sizes[1]));
-                DEBUG_MSG("ky[%d] = %g\n", i, this->ky[i]);
             }
             for (i = 0; i<this->layout->sizes[1]; i++)
             {
@@ -593,7 +592,6 @@ kspace<be, dt>::kspace(
                     this->kz[i] = this->dkz*i;
                 else
                     this->kz[i] = this->dkz*(i - int(this->layout->sizes[0]));
-                DEBUG_MSG("kz[%d] = %g\n", i, this->kz[i]);
             }
             switch(dt)
             {
