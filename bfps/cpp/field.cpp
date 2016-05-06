@@ -780,13 +780,14 @@ void kspace<be, dt>::cospectrum(
             this,
             if (k2 <= this->kM2)
             {
-                //DEBUG_MSG("k2 %g, kM2 %g\n", k2, this->kM2);
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
                 for (int i=0; i<ncomp(fc); i++)
                 for (int j=0; j<ncomp(fc); j++)
+                {
                     spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
                     (a[ncomp(fc)*cindex + i][0] * a[ncomp(fc)*cindex + j][0]) +
                     (a[ncomp(fc)*cindex + i][1] * a[ncomp(fc)*cindex + j][1]));
+                }
             }
             );
     MPI_Allreduce(
@@ -806,14 +807,14 @@ void kspace<be, dt>::cospectrum(
             case THREExTHREE:
                 offset[4] = 0;
                 offset[5] = 0;
-                count[4] = ncomp(fc);
-                count[5] = ncomp(fc);
+                count[4] = 3;
+                count[5] = 3;
             case THREE:
                 offset[2] = 0;
                 offset[3] = 0;
-                count[2] = ncomp(fc);
-                count[3] = ncomp(fc);
-            default:
+                count[2] = 3;
+                count[3] = 3;
+            case ONE:
                 offset[0] = toffset;
                 offset[1] = 0;
                 count[0] = 1;
