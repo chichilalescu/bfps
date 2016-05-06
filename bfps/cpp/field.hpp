@@ -99,7 +99,6 @@ class kspace
         double dkx, dky, dkz, dk, dk2;
 
         /* mode and dealiasing information */
-        int dealias_type;
         double kMx, kMy, kMz, kM, kM2;
         double kMspec, kMspec2;
         std::vector<double> kx, ky, kz;
@@ -144,6 +143,7 @@ class field
         /* data arrays */
         rnumber *data;
         bool real_space_representation;
+        typedef rnumber cnumber[2];
     public:
         /* basic MPI information */
         int myrank, nprocs;
@@ -187,9 +187,13 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
-        inline rnumber* __restrict__ get_rdata()
+        inline rnumber *__restrict__ get_rdata()
         {
             return this->data;
+        }
+        inline cnumber *__restrict__ get_cdata()
+        {
+            return (cnumber*)this->data;
         }
 };
 

@@ -593,7 +593,7 @@ kspace<be, dt>::kspace(
                 else
                     this->kz[i] = this->dkz*(i - this->layout->sizes[0]);
             }
-            switch(dealias_type)
+            switch(dt)
             {
                 case TWO_THIRDS:
                     this->kMx = this->dkx*(int(2*(int(this->layout->sizes[2])-1)/3)-1);
@@ -636,7 +636,7 @@ kspace<be, dt>::kspace(
                 nshell_local[int(knorm/this->dk)] += nxmodes;
                 kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
             }
-            if (dealias_type == TWO_THIRDS)
+            if (dt == TWO_THIRDS)
                 this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
             );
     MPI_Allreduce(

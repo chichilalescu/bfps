@@ -781,7 +781,7 @@ void fluid_solver<R>::compute_gradient_statistics( \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
+void fluid_solver<R>::compute_Lagrangian_acceleration(R (*acceleration)[2]) \
 { \
     ptrdiff_t tindex; \
     FFTW(complex) *pressure; \
@@ -816,12 +816,22 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                 this->cv[1][tindex+2][1] -= this->kz[zindex]*pressure[cindex][0]; \
             } \
             ); \
+    std::copy( \
+            (R*)this->cv[1], \
+            (R*)(this->cv[1] + this->cd->local_size), \
+            (R*)acceleration); \
+    FFTW(free)(pressure); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
+{ \
+    this->compute_Lagrangian_acceleration((FFTW(complex)*)acceleration); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
     std::copy( \
             this->rv[1], \
             this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
-    FFTW(free)(pressure); \
 } \
  \
 template<> \
