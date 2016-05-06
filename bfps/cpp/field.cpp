@@ -584,14 +584,16 @@ kspace<be, dt>::kspace(
                 if (ii <= this->layout->sizes[1]/2)
                     this->ky[i] = this->dky*ii;
                 else
-                    this->ky[i] = this->dky*(ii - this->layout->sizes[1]);
+                    this->ky[i] = this->dky*(ii - int(this->layout->sizes[1]));
+                DEBUG_MSG("ky[%d] = %g\n", i, this->ky[i]);
             }
             for (i = 0; i<this->layout->sizes[1]; i++)
             {
                 if (i <= this->layout->sizes[0]/2)
                     this->kz[i] = this->dkz*i;
                 else
-                    this->kz[i] = this->dkz*(i - this->layout->sizes[0]);
+                    this->kz[i] = this->dkz*(i - int(this->layout->sizes[0]));
+                DEBUG_MSG("kz[%d] = %g\n", i, this->kz[i]);
             }
             switch(dt)
             {
@@ -618,6 +620,8 @@ kspace<be, dt>::kspace(
     if (this->dk > this->dky) this->dk = this->dky;
     if (this->dk > this->dkz) this->dk = this->dkz;
     this->dk2 = this->dk*this->dk;
+
+    DEBUG_MSG("in kspace kM is %g, kM2 is %g\n", this->kM, this->kM2);
 
     /* spectra stuff */
     this->nshells = int(this->kM / this->dk) + 2;
@@ -712,7 +716,7 @@ void kspace<be, dt>::cospectrum(
     spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     KSPACE_CLOOP_K2_NXMODES(
             this,
-            if (k2 < this->kM2)
+            if (k2 <= this->kM2)
             {
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
                 for (int i=0; i<ncomp(fc); i++)
@@ -720,6 +724,71 @@ void kspace<be, dt>::cospectrum(
                     spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
                     (a[2*(ncomp(fc)*cindex + i)+0] * b[2*(ncomp(fc)*cindex + j)+0]) +
                     (a[2*(ncomp(fc)*cindex + i)+1] * b[2*(ncomp(fc)*cindex + j)+1]));
+            }
+            );
+    MPI_Allreduce(
+            &spec_local.front(),
+            &spec.front(),
+            spec.size(),
+            MPI_DOUBLE, MPI_SUM, this->layout->comm);
+    if (this->layout->myrank == 0)
+    {
+        hid_t dset, wspace, mspace;
+        hsize_t count[(ndim(fc)-2)*2], offset[(ndim(fc)-2)*2], dims[(ndim(fc)-2)*2];
+        dset = H5Dopen(group, ("spectra/" + dset_name).c_str(), H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        H5Sget_simple_extent_dims(wspace, dims, NULL);
+        switch (fc)
+        {
+            case THREExTHREE:
+                offset[4] = 0;
+                offset[5] = 0;
+                count[4] = ncomp(fc);
+                count[5] = ncomp(fc);
+            case THREE:
+                offset[2] = 0;
+                offset[3] = 0;
+                count[2] = ncomp(fc);
+                count[3] = ncomp(fc);
+            default:
+                offset[0] = toffset;
+                offset[1] = 0;
+                count[0] = 1;
+                count[1] = this->nshells;
+        }
+        mspace = H5Screate_simple((ndim(fc)-2)*2, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, &spec.front());
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+    }
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+void kspace<be, dt>::cospectrum(
+        rnumber (*__restrict__ a)[2],
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset)
+{
+    std::vector<double> spec, spec_local;
+    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    KSPACE_CLOOP_K2_NXMODES(
+            this,
+            if (k2 <= this->kM2)
+            {
+                //DEBUG_MSG("k2 %g, kM2 %g\n", k2, this->kM2);
+                int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
+                for (int i=0; i<ncomp(fc); i++)
+                for (int j=0; j<ncomp(fc); j++)
+                    spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
+                    (a[ncomp(fc)*cindex + i][0] * a[ncomp(fc)*cindex + j][0]) +
+                    (a[ncomp(fc)*cindex + i][1] * a[ncomp(fc)*cindex + j][1]));
             }
             );
     MPI_Allreduce(
@@ -790,6 +859,73 @@ template kspace<FFTW, SMOOTH>::kspace<>(
 template kspace<FFTW, SMOOTH>::kspace<>(
         const field_layout<THREExTHREE> *,
         const double, const double, const double);
+
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, ONE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, ONE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREExTHREE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREExTHREE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, ONE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, ONE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREExTHREE>(
+                fftwf_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREExTHREE>(
+                fftw_complex *__restrict__ a,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+
 
 template void kspace<FFTW, SMOOTH>::cospectrum<float, ONE>(
                 float *__restrict__ a,
