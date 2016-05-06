@@ -185,15 +185,8 @@ class kspace
         template <typename rnumber,
                   field_components fc>
         void cospectrum(
-                rnumber *__restrict__ a,
-                rnumber *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-        template <typename rnumber,
-                  field_components fc>
-        void cospectrum(
-                rnumber (*__restrict__ a)[2],
+                const rnumber(* __restrict__ a)[2],
+                const rnumber(* __restrict__ b)[2],
                 const hid_t group,
                 const std::string dset_name,
                 const hsize_t toffset);
