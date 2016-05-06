@@ -419,12 +419,19 @@ int fluid_solver<R>::read(char field, char representation) \
             else \
                 FFTW(execute)(*((FFTW(plan)*)this->r2c_vorticity )); \
         } \
+        this->low_pass_Fourier(this->cvorticity, 3, this->kM); \
         this->force_divfree(this->cvorticity); \
         this->symmetrize(this->cvorticity, 3); \
         return EXIT_SUCCESS; \
     } \
     if ((field == 'u') && (representation == 'c')) \
-        return this->read_base("cvelocity", this->cvelocity); \
+    { \
+        read_result = this->read_base("cvelocity", this->cvelocity); \
+        this->low_pass_Fourier(this->cvelocity, 3, this->kM); \
+        this->force_divfree(this->cvorticity); \
+        this->symmetrize(this->cvorticity, 3); \
+        return read_result; \
+    } \
     if ((field == 'u') && (representation == 'r')) \
         return this->read_base("rvelocity", this->rvelocity); \
     return EXIT_FAILURE; \
