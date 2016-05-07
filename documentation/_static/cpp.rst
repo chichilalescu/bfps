@@ -2,6 +2,28 @@
 C++ classes
 ===========
 
+----------------
+Field operations
+----------------
+
+-----
+field
+-----
+
+Class that should handle all field operations.
+I/O is performed with HDF5 (maybe the binary I/O should be migrated here
+for flexibility).
+Can perform real space statistics.
+
+------
+kspace
+------
+
+Class that describes Fourier space.
+Can compute spectra.
+Should compute various Fourier filters, and should handle any
+filter-based dealiasing as well.
+
 -------------
 Fluid Solvers
 -------------
