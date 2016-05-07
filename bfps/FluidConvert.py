@@ -97,6 +97,7 @@ class FluidConvert(_fluid_particle_base):
                         simname,
                         nx, ny, nz,
                         dkx, dky, dkz,
+                        dealias_type,
                         FFTW_ESTIMATE);
                 //endcpp
                 """.format(self.C_dtype)
