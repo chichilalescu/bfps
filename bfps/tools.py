@@ -93,9 +93,9 @@ def generate_data_3D(
              FFTW layout.
     """
     assert(n0 % 2 == 0 and n1 % 2 == 0 and n2 % 2 == 0)
-    a = np.zeros((n1, n0, n2/2+1), dtype = dtype)
+    a = np.zeros((n1, n0, n2//2+1), dtype = dtype)
     a[:] = amplitude*(np.random.randn(*a.shape) + 1j*np.random.randn(*a.shape))
-    k, j, i = np.mgrid[-n1/2+1:n1/2+1, -n0/2+1:n0/2+1, 0:n2/2+1]
+    k, j, i = np.mgrid[-n1//2+1:n1//2+1, -n0//2+1:n0//2+1, 0:n2//2+1]
     k = (k**2 + j**2 + i**2)**.5
     k = np.roll(k, n1//2+1, axis = 0)
     k = np.roll(k, n0//2+1, axis = 1)
@@ -163,7 +163,7 @@ def padd_with_zeros(
     assert(a.shape[0] <= n0 and
            a.shape[1] <= n1 and
            a.shape[2] <= n2//2+1)
-    b = np.zeros((n0, n1, n2/2 + 1) + a.shape[3:], dtype = odtype)
+    b = np.zeros((n0, n1, n2//2 + 1) + a.shape[3:], dtype = odtype)
     m0 = a.shape[1]
     m1 = a.shape[0]
     m2 = a.shape[2]
