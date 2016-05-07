@@ -619,8 +619,6 @@ kspace<be, dt>::kspace(
     if (this->dk > this->dkz) this->dk = this->dkz;
     this->dk2 = this->dk*this->dk;
 
-    DEBUG_MSG("in kspace kM is %g, kM2 is %g\n", this->kM, this->kM2);
-
     /* spectra stuff */
     this->nshells = int(this->kM / this->dk) + 2;
     this->kshell.resize(this->nshells, 0);

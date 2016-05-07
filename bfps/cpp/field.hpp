@@ -143,6 +143,24 @@ class field
         {
             return (cnumber*)this->data;
         }
+
+        inline field<rnumber, be, fc>& operator=(const cnumber *__restrict__ source)
+        {
+            std::copy((rnumber*)source,
+                      (rnumber*)(source + this->clayout->local_size),
+                      this->data);
+            this->real_space_representation = false;
+            return *this;
+        }
+
+        inline field<rnumber, be, fc>& operator=(const rnumber *__restrict__ source)
+        {
+            std::copy(source,
+                      source + this->rmemlayout->local_size,
+                      this->data);
+            this->real_space_representation = true;
+            return *this;
+        }
 };
 
 template <field_backend be,

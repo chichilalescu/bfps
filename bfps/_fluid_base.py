@@ -75,6 +75,7 @@ class _fluid_particle_base(_code):
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
+        self.fluid_includes = '#include "field.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
         self.fluid_start = ''

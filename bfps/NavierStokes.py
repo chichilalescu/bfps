@@ -111,13 +111,74 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
+                hid_t stat_group;
+                if (myrank == 0)
+                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
                 fs->compute_velocity(fs->cvorticity);
-                double *spec_velocity  = new double[fs->nshells*9];
-                double *spec_vorticity = new double[fs->nshells*9];
-                fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
-                fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
+                std::vector<double> max_estimate_vector;
+                max_estimate_vector.resize(4);
+                *tmp_vec_field = fs->cvelocity;
+                switch(fs->dealias_type)
+                {{
+                    case 0:
+                        kk_two_thirds->cospectrum<{0}, THREE>(
+                            tmp_vec_field->get_cdata(),
+                            tmp_vec_field->get_cdata(),
+                            stat_group,
+                            "velocity_velocity",
+                            fs->iteration / niter_stat);
+                        break;
+                    case 1:
+                        kk_smooth->cospectrum<{0}, THREE>(
+                            tmp_vec_field->get_cdata(),
+                            tmp_vec_field->get_cdata(),
+                            stat_group,
+                            "velocity_velocity",
+                            fs->iteration / niter_stat);
+                        break;
+                }}
+                tmp_vec_field->ift();
+                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
+                max_estimate_vector[3] = max_velocity_estimate;
+                tmp_vec_field->compute_rspace_stats(
+                        stat_group,
+                        "velocity",
+                        fs->iteration / niter_stat,
+                        max_estimate_vector);
+                *tmp_vec_field = fs->cvorticity;
+                switch(fs->dealias_type)
+                {{
+                    case 0:
+                        kk_two_thirds->cospectrum<{0}, THREE>(
+                            tmp_vec_field->get_cdata(),
+                            tmp_vec_field->get_cdata(),
+                            stat_group,
+                            "vorticity_vorticity",
+                            fs->iteration / niter_stat);
+                        break;
+                    case 1:
+                        kk_smooth->cospectrum<{0}, THREE>(
+                            tmp_vec_field->get_cdata(),
+                            tmp_vec_field->get_cdata(),
+                            stat_group,
+                            "vorticity_vorticity",
+                            fs->iteration / niter_stat);
+                        break;
+                }}
+                tmp_vec_field->ift();
+                max_estimate_vector[0] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[1] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[2] = max_vorticity_estimate/sqrt(3);
+                max_estimate_vector[3] = max_vorticity_estimate;
+                tmp_vec_field->compute_rspace_stats(
+                        stat_group,
+                        "vorticity",
+                        fs->iteration / niter_stat,
+                        max_estimate_vector);
                 //endcpp
-                """
+                """.format(self.C_dtype)
         if self.QR_stats_on:
             self.stat_src += """
                 //begincpp
@@ -147,33 +208,6 @@ class NavierStokes(_fluid_particle_base):
                 """
         self.stat_src += """
                 //begincpp
-                fs->ift_velocity();
-                hid_t stat_group;
-                if (myrank == 0)
-                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
-                std::vector<double> max_estimate_vector;
-                max_estimate_vector.resize(4);
-                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_velocity_estimate;
-                fs->compute_rspace_stats(
-                        fs->rvelocity,
-                        stat_group,
-                        "velocity",
-                        fs->iteration/niter_stat,
-                        max_estimate_vector);
-                fs->ift_vorticity();
-                max_estimate_vector[0] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_vorticity_estimate;
-                fs->compute_rspace_stats(
-                        fs->rvorticity,
-                        stat_group,
-                        "vorticity",
-                        fs->iteration/niter_stat,
-                        max_estimate_vector);
                 if (myrank == 0)
                     H5Gclose(stat_group);
                 if (fs->cd->myrank == 0)
@@ -205,19 +239,6 @@ class NavierStokes(_fluid_particle_base):
                 '/statistics/xlines/vorticity',
                 'fs->rvorticity',
                 data_type = field_H5T)
-        self.stat_src += self.create_stat_output(
-                '/statistics/spectra/velocity_velocity',
-                'spec_velocity',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = fs->nshells;
-                    count[2] = 3;
-                    count[3] = 3;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/spectra/vorticity_vorticity',
-                'spec_vorticity')
         if self.QR_stats_on:
             self.stat_src += self.create_stat_output(
                     '/statistics/moments/trS2_Q_R',
@@ -264,13 +285,7 @@ class NavierStokes(_fluid_particle_base):
                         count[1] = QR2D_histogram_bins;
                         count[2] = QR2D_histogram_bins;
                         """)
-        self.stat_src += """
-                //begincpp
-                }
-                delete[] spec_velocity;
-                delete[] spec_vorticity;
-                //endcpp
-                """
+        self.stat_src += '}\n'
         if self.QR_stats_on:
             self.stat_src += """
                 //begincpp
@@ -284,7 +299,11 @@ class NavierStokes(_fluid_particle_base):
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype))
+        self.fluid_variables += (
+                'fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
+                'field<{0}, FFTW, THREE> *tmp_vec_field;\n'.format(self.C_dtype) +
+                'kspace<FFTW, SMOOTH> *kk_smooth;\n' +
+                'kspace<FFTW, TWO_THIRDS> *kk_two_thirds;\n')
         self.fluid_definitions += """
                     typedef struct {{
                         {0} re;
@@ -305,6 +324,16 @@ class NavierStokes(_fluid_particle_base):
                         dkx, dky, dkz,
                         dealias_type,
                         {1});
+                tmp_vec_field = new field<{0}, FFTW, THREE>(
+                        nx, ny, nz,
+                        MPI_COMM_WORLD,
+                        {1});
+                kk_smooth = new kspace<FFTW, SMOOTH>(
+                        tmp_vec_field->clayout,
+                        fs->dkx, fs->dky, fs->dkz);
+                kk_two_thirds = new kspace<FFTW, TWO_THIRDS>(
+                        tmp_vec_field->clayout,
+                        fs->dkx, fs->dky, fs->dkz);
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -324,7 +353,10 @@ class NavierStokes(_fluid_particle_base):
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
-                          'delete fs;\n')
+                          'delete fs;\n' +
+                          'delete tmp_vec_field;\n' +
+                          'delete kk_smooth;\n' +
+                          'delete kk_two_thirds;\n')
         return None
     def add_3D_rFFTW_field(
             self,
