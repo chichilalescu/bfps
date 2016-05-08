@@ -31,6 +31,7 @@ import bfps
 from .NavierStokes import NavierStokes
 from .FluidResize import FluidResize
 from .FluidConvert import FluidConvert
+from .NSManyParticles import NSManyParticles
 
 def main():
     parser = argparse.ArgumentParser(prog = 'bfps')
@@ -51,9 +52,12 @@ def main():
                  'FR-single',
                  'FR-double']
     FCoptions = ['FluidConvert']
+    NSMPopt = ['NSManyParticles',
+               'NSManyParticles-single',
+               'NSManyParticles-double']
     parser.add_argument(
             'base_class',
-            choices = NSoptions + FRoptions + FCoptions,
+            choices = NSoptions + FRoptions + FCoptions + NSMPopt,
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
@@ -70,6 +74,8 @@ def main():
         base_class = FluidResize
     elif opt.base_class in FCoptions:
         base_class = FluidConvert
+    elif opt.base_class in NSMPopt:
+        base_class = NSManyParticles
     c = base_class(fluid_precision = precision)
     c.launch(args = sys.argv[2:])
     return None
