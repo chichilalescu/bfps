@@ -27,6 +27,7 @@
 
 #from base import *
 import bfps
+from bfps.tools import particle_finite_diff_test as acceleration_test
 import sys
 
 import numpy as np
@@ -136,12 +137,20 @@ def plain(args):
     return None
 
 if __name__ == '__main__':
-    c = NSPlain()
-    c.launch(
+    c0 = NSPlain()
+    c0.launch(
             ['-n', '32',
              '--ncpu', '4',
              '--nparticles', '1000',
              '--niter_todo', '48',
              '--wd', 'data/single'] +
             sys.argv[1:])
+    c0.compute_statistics()
+    print ('Re = {0:.0f}'.format(c0.statistics['Re']))
+    print ('Rlambda = {0:.0f}'.format(c0.statistics['Rlambda']))
+    print ('Lint = {0:.4e}, etaK = {1:.4e}'.format(c0.statistics['Lint'], c0.statistics['etaK']))
+    print ('Tint = {0:.4e}, tauK = {1:.4e}'.format(c0.statistics['Tint'], c0.statistics['tauK']))
+    print ('kMetaK = {0:.4e}'.format(c0.statistics['kMeta']))
+    for s in range(c0.particle_species):
+        acceleration_test(c0, species = s, m = 1)
 
