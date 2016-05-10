@@ -158,6 +158,7 @@ field<rnumber, be, fc>::field(
             starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
             this->rlayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
+            this->npoints = this->rlayout->full_size / ncomp(fc);
             sizes[0] = nz; sizes[1] = ny; sizes[2] = nx+2;
             subsizes[0] = local_n0; subsizes[1] = ny; subsizes[2] = nx+2;
             starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
@@ -498,7 +499,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
             MPI_INT64_T, MPI_SUM, this->comm);
     for (int n=1; n < int(nmoments)-1; n++)
         for (int i=0; i<nvals; i++)
-            moments[n*nvals + i] /= this->rlayout->full_size;
+            moments[n*nvals + i] /= this->npoints;
     delete[] local_moments;
     delete[] local_hist;
     delete[] val_tmp;

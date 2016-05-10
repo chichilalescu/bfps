@@ -92,6 +92,7 @@ class field
         rnumber *data;
         bool real_space_representation;
         typedef rnumber cnumber[2];
+        hsize_t npoints;
     public:
         /* basic MPI information */
         int myrank, nprocs;
