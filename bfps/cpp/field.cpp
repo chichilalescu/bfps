@@ -582,7 +582,7 @@ void field<rnumber, be, fc>::compute_stats(
                 toffset,
                 max_estimate_vector);
         did_rspace = true;
-        this->ift();
+        this->dft();
         // normalize
         for (hsize_t tmp_index=0; tmp_index<this->rmemlayout->local_size; tmp_index++)
             this->data[tmp_index] /= this->npoints;
@@ -597,7 +597,7 @@ void field<rnumber, be, fc>::compute_stats(
             toffset);
     if (!did_rspace)
     {
-        this->dft();
+        this->ift();
         // normalization not required
         this->compute_rspace_stats(
                 group,

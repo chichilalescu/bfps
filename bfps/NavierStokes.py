@@ -714,9 +714,7 @@ class NavierStokes(_fluid_particle_base):
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
             vec_stat_datasets = ['velocity', 'vorticity']
-            if self.Lag_acc_stats_on:
-                vec_stats_datasets += ['Lagrangian_acceleration']
-            for k in ['velocity', 'vorticity']:
+            for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/xlines/' + k,
@@ -724,6 +722,9 @@ class NavierStokes(_fluid_particle_base):
                                      chunks = (time_chunk, self.parameters['nx'], 3),
                                      maxshape = (None, self.parameters['nx'], 3),
                                      dtype = self.dtype)
+            if self.Lag_acc_stats_on:
+                vec_stat_datasets += ['Lagrangian_acceleration']
+            for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
