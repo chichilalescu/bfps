@@ -548,6 +548,65 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     delete[] hist;
 }
 
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+template <kspace_dealias_type dt>
+void field<rnumber, be, fc>::compute_stats(
+        kspace<be, dt> *kk,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset,
+        const double max_estimate)
+{
+    std::vector<double> max_estimate_vector;
+    bool did_rspace = false;
+    switch(fc)
+    {
+        case ONE:
+            max_estimate_vector.resize(1, max_estimate);
+            break;
+        case THREE:
+            max_estimate_vector.resize(4, max_estimate);
+            max_estimate_vector[3] *= sqrt(3);
+            break;
+        case THREExTHREE:
+            max_estimate_vector.resize(9, max_estimate);
+            break;
+    }
+    if (this->real_space_representation)
+    {
+        this->compute_rspace_stats(
+                group,
+                dset_name,
+                toffset,
+                max_estimate_vector);
+        did_rspace = true;
+        this->ift();
+        // normalize
+        for (hsize_t tmp_index=0; tmp_index<this->rmemlayout->local_size; tmp_index++)
+            this->data[tmp_index] /= this->npoints;
+    }
+    // what follows gave me a headache until I found this link:
+    // http://stackoverflow.com/questions/8256636/expected-primary-expression-error-on-template-method-using
+    kk->template cospectrum<rnumber, fc>(
+            this->get_cdata(),
+            this->get_cdata(),
+            group,
+            dset_name + "_" + dset_name,
+            toffset);
+    if (!did_rspace)
+    {
+        this->dft();
+        // normalization not required
+        this->compute_rspace_stats(
+                group,
+                dset_name,
+                toffset,
+                max_estimate_vector);
+    }
+}
+
 template <field_backend be,
           kspace_dealias_type dt>
 template <field_components fc>
@@ -792,80 +851,43 @@ template kspace<FFTW, SMOOTH>::kspace<>(
         const field_layout<THREExTHREE> *,
         const double, const double, const double);
 
-template void kspace<FFTW, SMOOTH>::cospectrum<float, ONE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, SMOOTH>::cospectrum<double, ONE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
+template void field<float, FFTW, ONE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<float, FFTW, THREE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<float, FFTW, THREExTHREE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
 
-template void kspace<FFTW, SMOOTH>::cospectrum<float, THREE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, SMOOTH>::cospectrum<double, THREE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
+template void field<double, FFTW, ONE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<double, FFTW, THREE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<double, FFTW, THREExTHREE>::compute_stats<TWO_THIRDS>(
+        kspace<FFTW, TWO_THIRDS> *,
+        const hid_t, const std::string, const hsize_t, const double);
 
-template void kspace<FFTW, SMOOTH>::cospectrum<float, THREExTHREE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, SMOOTH>::cospectrum<double, THREExTHREE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, ONE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, ONE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
+template void field<float, FFTW, ONE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<float, FFTW, THREE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<float, FFTW, THREExTHREE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
 
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREExTHREE>(
-                const fftwf_complex *__restrict__ a,
-                const fftwf_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
-template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREExTHREE>(
-                const fftw_complex *__restrict__ a,
-                const fftw_complex *__restrict__ b,
-                const hid_t group,
-                const std::string dset_name,
-                const hsize_t toffset);
+template void field<double, FFTW, ONE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<double, FFTW, THREE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
+template void field<double, FFTW, THREExTHREE>::compute_stats<SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        const hid_t, const std::string, const hsize_t, const double);
 

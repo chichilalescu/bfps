@@ -82,6 +82,53 @@ class field_layout
         ~field_layout(){}
 };
 
+template <field_backend be,
+          kspace_dealias_type dt>
+class kspace
+{
+    public:
+        /* relevant field layout */
+        field_layout<ONE> *layout;
+
+        /* physical parameters */
+        double dkx, dky, dkz, dk, dk2;
+
+        /* mode and dealiasing information */
+        double kMx, kMy, kMz, kM, kM2;
+        double kMspec, kMspec2;
+        std::vector<double> kx, ky, kz;
+        std::unordered_map<int, double> dealias_filter;
+        std::vector<double> kshell;
+        std::vector<int64_t> nshell;
+        int nshells;
+
+        /* methods */
+        template <field_components fc>
+        kspace(
+                const field_layout<fc> *source_layout,
+                const double DKX = 1.0,
+                const double DKY = 1.0,
+                const double DKZ = 1.0);
+        ~kspace();
+
+        template <typename rnumber,
+                  field_components fc>
+        void low_pass(rnumber *__restrict__ a, const double kmax);
+
+        template <typename rnumber,
+                  field_components fc>
+        void dealias(rnumber *__restrict__ a);
+
+        template <typename rnumber,
+                  field_components fc>
+        void cospectrum(
+                const rnumber(* __restrict__ a)[2],
+                const rnumber(* __restrict__ b)[2],
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset);
+};
+
 template <typename rnumber,
           field_backend be,
           field_components fc>
@@ -162,53 +209,13 @@ class field
             this->real_space_representation = true;
             return *this;
         }
-};
-
-template <field_backend be,
-          kspace_dealias_type dt>
-class kspace
-{
-    public:
-        /* relevant field layout */
-        field_layout<ONE> *layout;
-
-        /* physical parameters */
-        double dkx, dky, dkz, dk, dk2;
-
-        /* mode and dealiasing information */
-        double kMx, kMy, kMz, kM, kM2;
-        double kMspec, kMspec2;
-        std::vector<double> kx, ky, kz;
-        std::unordered_map<int, double> dealias_filter;
-        std::vector<double> kshell;
-        std::vector<int64_t> nshell;
-        int nshells;
-
-        /* methods */
-        template <field_components fc>
-        kspace(
-                const field_layout<fc> *source_layout,
-                const double DKX = 1.0,
-                const double DKY = 1.0,
-                const double DKZ = 1.0);
-        ~kspace();
-
-        template <typename rnumber,
-                  field_components fc>
-        void low_pass(rnumber *__restrict__ a, const double kmax);
-
-        template <typename rnumber,
-                  field_components fc>
-        void dealias(rnumber *__restrict__ a);
-
-        template <typename rnumber,
-                  field_components fc>
-        void cospectrum(
-                const rnumber(* __restrict__ a)[2],
-                const rnumber(* __restrict__ b)[2],
+        template <kspace_dealias_type dt>
+        void compute_stats(
+                kspace<be, dt> *kk,
                 const hid_t group,
                 const std::string dset_name,
-                const hsize_t toffset);
+                const hsize_t toffset,
+                const double max_estimate);
 };
 
 /* real space loop */

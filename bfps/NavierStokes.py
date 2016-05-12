@@ -49,8 +49,10 @@ class NavierStokes(_fluid_particle_base):
             fftw_plan_rigor = 'FFTW_MEASURE',
             frozen_fields = False,
             use_fftw_wisdom = True,
-            QR_stats_on = False):
+            QR_stats_on = False,
+            Lag_acc_stats_on = False):
         self.QR_stats_on = QR_stats_on
+        self.Lag_acc_stats_on = Lag_acc_stats_on
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         _fluid_particle_base.__init__(
@@ -69,6 +71,7 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['histogram_bins'] = 256
         self.parameters['max_velocity_estimate'] = 1.0
         self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['max_Lag_acc_estimate'] = 1.0
         self.parameters['QR2D_histogram_bins'] = 64
         self.parameters['max_trS2_estimate'] = 1.0
         self.parameters['max_Q_estimate'] = 1.0
@@ -121,64 +124,69 @@ class NavierStokes(_fluid_particle_base):
                 switch(fs->dealias_type)
                 {{
                     case 0:
-                        kk_two_thirds->cospectrum<{0}, THREE>(
-                            tmp_vec_field->get_cdata(),
-                            tmp_vec_field->get_cdata(),
+                        tmp_vec_field->compute_stats(
+                            kk_two_thirds,
                             stat_group,
-                            "velocity_velocity",
-                            fs->iteration / niter_stat);
+                            "velocity",
+                            fs->iteration / niter_stat,
+                            max_velocity_estimate/sqrt(3));
                         break;
                     case 1:
-                        kk_smooth->cospectrum<{0}, THREE>(
-                            tmp_vec_field->get_cdata(),
-                            tmp_vec_field->get_cdata(),
+                        tmp_vec_field->compute_stats(
+                            kk_smooth,
                             stat_group,
-                            "velocity_velocity",
-                            fs->iteration / niter_stat);
+                            "velocity",
+                            fs->iteration / niter_stat,
+                            max_velocity_estimate/sqrt(3));
                         break;
                 }}
-                tmp_vec_field->ift();
-                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_velocity_estimate;
-                tmp_vec_field->compute_rspace_stats(
-                        stat_group,
-                        "velocity",
-                        fs->iteration / niter_stat,
-                        max_estimate_vector);
                 *tmp_vec_field = fs->cvorticity;
                 switch(fs->dealias_type)
                 {{
                     case 0:
-                        kk_two_thirds->cospectrum<{0}, THREE>(
-                            tmp_vec_field->get_cdata(),
-                            tmp_vec_field->get_cdata(),
+                        tmp_vec_field->compute_stats(
+                            kk_two_thirds,
                             stat_group,
-                            "vorticity_vorticity",
-                            fs->iteration / niter_stat);
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
                         break;
                     case 1:
-                        kk_smooth->cospectrum<{0}, THREE>(
-                            tmp_vec_field->get_cdata(),
-                            tmp_vec_field->get_cdata(),
+                        tmp_vec_field->compute_stats(
+                            kk_smooth,
                             stat_group,
-                            "vorticity_vorticity",
-                            fs->iteration / niter_stat);
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
                         break;
                 }}
-                tmp_vec_field->ift();
-                max_estimate_vector[0] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_vorticity_estimate;
-                tmp_vec_field->compute_rspace_stats(
-                        stat_group,
-                        "vorticity",
-                        fs->iteration / niter_stat,
-                        max_estimate_vector);
                 //endcpp
                 """.format(self.C_dtype)
+        if self.Lag_acc_stats_on:
+            self.stat_src += """
+                    //begincpp
+                    fs->compute_Lagrangian_acceleration(tmp_vec_field->get_cdata());
+                    switch(fs->dealias_type)
+                    {{
+                        case 0:
+                            tmp_vec_field->compute_stats(
+                                kk_two_thirds,
+                                stat_group,
+                                "Lagrangian_acceleration",
+                                fs->iteration / niter_stat,
+                                max_Lag_acc_estimate);
+                            break;
+                        case 1:
+                            tmp_vec_field->compute_stats(
+                                kk_smooth,
+                                stat_group,
+                                "Lagrangian_acceleration",
+                                fs->iteration / niter_stat,
+                                max_Lag_acc_estimate);
+                            break;
+                    }}
+                    //endcpp
+                    """.format(self.C_dtype)
         if self.QR_stats_on:
             self.stat_src += """
                 //begincpp
@@ -705,6 +713,9 @@ class NavierStokes(_fluid_particle_base):
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
+            vec_stat_datasets = ['velocity', 'vorticity']
+            if self.Lag_acc_stats_on:
+                vec_stats_datasets += ['Lagrangian_acceleration']
             for k in ['velocity', 'vorticity']:
                 time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
                 time_chunk = max(time_chunk, 1)
@@ -945,6 +956,11 @@ class NavierStokes(_fluid_particle_base):
                dest = 'QR_stats',
                help = 'add this option if you want to compute velocity gradient and QR stats')
         parser.add_argument(
+               '--Lag-acc-stats',
+               action = 'store_true',
+               dest = 'Lag_acc_stats',
+               help = 'add this option if you want to compute Lagrangian acceleration statistics')
+        parser.add_argument(
                '--kMeta',
                type = float,
                dest = 'kMeta',
@@ -1012,6 +1028,7 @@ class NavierStokes(_fluid_particle_base):
         """
         opt = _code.prepare_launch(self, args = args)
         self.QR_stats_on = opt.QR_stats
+        self.Lag_acc_stats_on = opt.Lag_acc_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
         # custom famplitude for 288 and 576
@@ -1031,6 +1048,8 @@ class NavierStokes(_fluid_particle_base):
             # add QR suffix to code name, since we now expect additional
             # datasets in the .h5 file
             self.name += '-QR'
+        if self.Lag_acc_stats_on:
+            self.name += '-Lag_acc'
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = os.path.realpath(opt.work_dir)
         self.pars_from_namespace(opt)
