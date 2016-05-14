@@ -636,19 +636,19 @@ kspace<be, dt>::kspace(
             this->ky.resize(this->layout->subsizes[0]);
             this->kz.resize(this->layout->sizes[1]);
             int i, ii;
-            for (i = 0; i<this->layout->sizes[2]; i++)
+            for (i = 0; i<int(this->layout->sizes[2]); i++)
                 this->kx[i] = i*this->dkx;
-            for (i = 0; i<this->layout->subsizes[0]; i++)
+            for (i = 0; i<int(this->layout->subsizes[0]); i++)
             {
                 ii = i + this->layout->starts[0];
-                if (ii <= this->layout->sizes[1]/2)
+                if (ii <= int(this->layout->sizes[1]/2))
                     this->ky[i] = this->dky*ii;
                 else
                     this->ky[i] = this->dky*(ii - int(this->layout->sizes[1]));
             }
-            for (i = 0; i<this->layout->sizes[1]; i++)
+            for (i = 0; i<int(this->layout->sizes[1]); i++)
             {
-                if (i <= this->layout->sizes[0]/2)
+                if (i <= int(this->layout->sizes[0]/2))
                     this->kz[i] = this->dkz*i;
                 else
                     this->kz[i] = this->dkz*(i - int(this->layout->sizes[0]));
@@ -775,8 +775,8 @@ void kspace<be, dt>::cospectrum(
             if (k2 <= this->kM2)
             {
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
-                for (int i=0; i<ncomp(fc); i++)
-                for (int j=0; j<ncomp(fc); j++)
+                for (hsize_t i=0; i<ncomp(fc); i++)
+                for (hsize_t j=0; j<ncomp(fc); j++)
                     spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
                     (a[ncomp(fc)*cindex + i][0] * b[ncomp(fc)*cindex + j][0]) +
                     (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
