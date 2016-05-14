@@ -204,7 +204,8 @@ setup(
                                                'install_info.pickle']},
         entry_points = {
             'console_scripts': [
-                'bfps = bfps.__main__:main'],
+                'bfps = bfps.__main__:main',
+                'bfps1 = bfps.__main__:main'],
             },
         version = VERSION,
 ########################################################################
