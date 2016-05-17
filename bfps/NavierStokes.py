@@ -72,6 +72,7 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['max_velocity_estimate'] = 1.0
         self.parameters['max_vorticity_estimate'] = 1.0
         self.parameters['max_Lag_acc_estimate'] = 1.0
+        self.parameters['max_pressure_estimate'] = 1.0
         self.parameters['QR2D_histogram_bins'] = 64
         self.parameters['max_trS2_estimate'] = 1.0
         self.parameters['max_Q_estimate'] = 1.0
@@ -146,19 +147,7 @@ class NavierStokes(_fluid_particle_base):
             self.stat_src += """
                     //begincpp
                     tmp_vec_field->real_space_representation = false;
-                    //fs->read('v', 'c');
                     fs->compute_Lagrangian_acceleration(tmp_vec_field->get_cdata());
-                    //tmp_vec_field->real_space_representation = true;
-                    //fs->compute_Lagrangian_acceleration(tmp_vec_field->get_rdata());
-                    //    std::vector<double> tmp_max_estimate_vector;
-                    //    tmp_max_estimate_vector.resize(4, max_Lag_acc_estimate);
-                    //    tmp_max_estimate_vector[3] *= sqrt(3);
-                    //tmp_vec_field->compute_rspace_stats(
-                    //        stat_group,
-                    //        "Lagrangian_acceleration",
-                    //        fs->iteration / niter_stat,
-                    //        tmp_max_estimate_vector);
-
                     switch(fs->dealias_type)
                     {
                         case 0:
@@ -176,6 +165,29 @@ class NavierStokes(_fluid_particle_base):
                                 "Lagrangian_acceleration",
                                 fs->iteration / niter_stat,
                                 max_Lag_acc_estimate);
+                            break;
+                    }
+                    tmp_scal_field->real_space_representation = false;
+                    fs->compute_velocity(fs->cvorticity);
+                    fs->ift_velocity();
+                    fs->compute_pressure(tmp_scal_field->get_cdata());
+                    switch(fs->dealias_type)
+                    {
+                        case 0:
+                            tmp_scal_field->compute_stats(
+                                kk_two_thirds,
+                                stat_group,
+                                "pressure",
+                                fs->iteration / niter_stat,
+                                max_pressure_estimate);
+                            break;
+                        case 1:
+                            tmp_scal_field->compute_stats(
+                                kk_smooth,
+                                stat_group,
+                                "pressure",
+                                fs->iteration / niter_stat,
+                                max_pressure_estimate);
                             break;
                     }
                     //endcpp
@@ -327,6 +339,7 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_variables += (
                 'fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
                 'field<{0}, FFTW, THREE> *tmp_vec_field;\n'.format(self.C_dtype) +
+                'field<{0}, FFTW, ONE> *tmp_scal_field;\n'.format(self.C_dtype) +
                 'kspace<FFTW, SMOOTH> *kk_smooth;\n' +
                 'kspace<FFTW, TWO_THIRDS> *kk_two_thirds;\n')
         self.fluid_definitions += """
@@ -350,6 +363,10 @@ class NavierStokes(_fluid_particle_base):
                         dealias_type,
                         {1});
                 tmp_vec_field = new field<{0}, FFTW, THREE>(
+                        nx, ny, nz,
+                        MPI_COMM_WORLD,
+                        {1});
+                tmp_scal_field = new field<{0}, FFTW, ONE>(
                         nx, ny, nz,
                         MPI_COMM_WORLD,
                         {1});
@@ -380,6 +397,7 @@ class NavierStokes(_fluid_particle_base):
                           self.fluid_output + '\n}\n' +
                           'delete fs;\n' +
                           'delete tmp_vec_field;\n' +
+                          'delete tmp_scal_field;\n' +
                           'delete kk_smooth;\n' +
                           'delete kk_two_thirds;\n')
         return None
@@ -741,6 +759,7 @@ class NavierStokes(_fluid_particle_base):
                                      dtype = self.dtype)
             if self.Lag_acc_stats_on:
                 vec_stat_datasets += ['Lagrangian_acceleration']
+                scal_stat_datasets = ['pressure']
             for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
@@ -768,6 +787,31 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  4),
+                                     dtype = np.int64)
+            for k in scal_stat_datasets:
+                time_chunk = 2**20//(8*nshells)
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/spectra/' + k + '_' + k,
+                                     (1, nshells),
+                                     chunks = (time_chunk, nshells),
+                                     maxshape = (None, nshells),
+                                     dtype = np.float64)
+                time_chunk = 2**20//(8*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/' + k,
+                                     (1, 10),
+                                     chunks = (time_chunk, 10),
+                                     maxshape = (None, 10),
+                                     dtype = np.float64)
+                time_chunk = 2**20//(8*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/' + k,
+                                     (1,
+                                      self.parameters['histogram_bins']),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins']),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins']),
                                      dtype = np.int64)
             if self.QR_stats_on:
                 time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
