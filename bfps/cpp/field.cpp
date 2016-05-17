@@ -590,13 +590,14 @@ void field<rnumber, be, fc>::compute_stats(
     // what follows gave me a headache until I found this link:
     // http://stackoverflow.com/questions/8256636/expected-primary-expression-error-on-template-method-using
     kk->template cospectrum<rnumber, fc>(
-            this->get_cdata(),
-            this->get_cdata(),
+            (cnumber*)this->data,
+            (cnumber*)this->data,
             group,
             dset_name + "_" + dset_name,
             toffset);
     if (!did_rspace)
     {
+        DEBUG_MSG("before ift %s %d\n", dset_name.c_str(), dt);
         this->ift();
         // normalization not required
         this->compute_rspace_stats(

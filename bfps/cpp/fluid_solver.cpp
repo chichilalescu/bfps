@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -797,6 +797,7 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R (*acceleration)[2]) \
     this->compute_pressure(pressure); \
     this->compute_velocity(this->cvorticity); \
     std::fill_n((R*)this->cv[1], 2*this->cd->local_size, 0.0); \
+    DEBUG_MSG("hello from Lagrangian acceleration\n"); \
     CLOOP_K2( \
             this, \
             if (k2 <= this->kM2) \

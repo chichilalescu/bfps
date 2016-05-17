@@ -122,7 +122,7 @@ class NavierStokes(_fluid_particle_base):
                 max_estimate_vector.resize(4);
                 *tmp_vec_field = fs->cvelocity;
                 switch(fs->dealias_type)
-                {{
+                {
                     case 0:
                         tmp_vec_field->compute_stats(
                             kk_two_thirds,
@@ -139,35 +139,28 @@ class NavierStokes(_fluid_particle_base):
                             fs->iteration / niter_stat,
                             max_velocity_estimate/sqrt(3));
                         break;
-                }}
-                *tmp_vec_field = fs->cvorticity;
-                switch(fs->dealias_type)
-                {{
-                    case 0:
-                        tmp_vec_field->compute_stats(
-                            kk_two_thirds,
-                            stat_group,
-                            "vorticity",
-                            fs->iteration / niter_stat,
-                            max_vorticity_estimate/sqrt(3));
-                        break;
-                    case 1:
-                        tmp_vec_field->compute_stats(
-                            kk_smooth,
-                            stat_group,
-                            "vorticity",
-                            fs->iteration / niter_stat,
-                            max_vorticity_estimate/sqrt(3));
-                        break;
-                }}
+                }
                 //endcpp
-                """.format(self.C_dtype)
+                """
         if self.Lag_acc_stats_on:
             self.stat_src += """
                     //begincpp
+                    tmp_vec_field->real_space_representation = false;
+                    //fs->read('v', 'c');
                     fs->compute_Lagrangian_acceleration(tmp_vec_field->get_cdata());
+                    //tmp_vec_field->real_space_representation = true;
+                    //fs->compute_Lagrangian_acceleration(tmp_vec_field->get_rdata());
+                    //    std::vector<double> tmp_max_estimate_vector;
+                    //    tmp_max_estimate_vector.resize(4, max_Lag_acc_estimate);
+                    //    tmp_max_estimate_vector[3] *= sqrt(3);
+                    //tmp_vec_field->compute_rspace_stats(
+                    //        stat_group,
+                    //        "Lagrangian_acceleration",
+                    //        fs->iteration / niter_stat,
+                    //        tmp_max_estimate_vector);
+
                     switch(fs->dealias_type)
-                    {{
+                    {
                         case 0:
                             tmp_vec_field->compute_stats(
                                 kk_two_thirds,
@@ -184,9 +177,33 @@ class NavierStokes(_fluid_particle_base):
                                 fs->iteration / niter_stat,
                                 max_Lag_acc_estimate);
                             break;
-                    }}
+                    }
                     //endcpp
-                    """.format(self.C_dtype)
+                    """
+        self.stat_src += """
+                //begincpp
+                *tmp_vec_field = fs->cvorticity;
+                switch(fs->dealias_type)
+                {
+                    case 0:
+                        tmp_vec_field->compute_stats(
+                            kk_two_thirds,
+                            stat_group,
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
+                        break;
+                    case 1:
+                        tmp_vec_field->compute_stats(
+                            kk_smooth,
+                            stat_group,
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
+                        break;
+                }
+                //endcpp
+                """
         if self.QR_stats_on:
             self.stat_src += """
                 //begincpp

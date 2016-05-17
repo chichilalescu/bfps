@@ -137,10 +137,10 @@ class field
     private:
         /* data arrays */
         rnumber *data;
-        bool real_space_representation;
         typedef rnumber cnumber[2];
         hsize_t npoints;
     public:
+        bool real_space_representation;
         /* basic MPI information */
         int myrank, nprocs;
         MPI_Comm comm;
@@ -183,11 +183,11 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
-        inline rnumber *__restrict__ get_rdata()
+        inline rnumber *get_rdata()
         {
             return this->data;
         }
-        inline cnumber *__restrict__ get_cdata()
+        inline cnumber *get_cdata()
         {
             return (cnumber*)this->data;
         }
