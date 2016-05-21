@@ -749,6 +749,7 @@ class NavierStokes(_fluid_particle_base):
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
             vec_stat_datasets = ['velocity', 'vorticity']
+            scal_stat_datasets = []
             for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
                 time_chunk = max(time_chunk, 1)
@@ -759,7 +760,7 @@ class NavierStokes(_fluid_particle_base):
                                      dtype = self.dtype)
             if self.Lag_acc_stats_on:
                 vec_stat_datasets += ['Lagrangian_acceleration']
-                scal_stat_datasets = ['pressure']
+                scal_stat_datasets += ['pressure']
             for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
