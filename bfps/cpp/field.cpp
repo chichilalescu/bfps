@@ -597,7 +597,6 @@ void field<rnumber, be, fc>::compute_stats(
             toffset);
     if (!did_rspace)
     {
-        DEBUG_MSG("before ift %s %d\n", dset_name.c_str(), dt);
         this->ift();
         // normalization not required
         this->compute_rspace_stats(
