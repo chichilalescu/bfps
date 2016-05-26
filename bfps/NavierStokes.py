@@ -658,7 +658,7 @@ class NavierStokes(_fluid_particle_base):
         .. math::
 
             U_{\\textrm{int}}(t) = \\sqrt{\\frac{2E(t)}{3}}, \\hskip .5cm
-            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
+            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2(t)} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
             T_{\\textrm{int}}(t) =
             \\frac{L_{\\textrm{int}}(t)}{U_{\\textrm{int}}(t)}
 
