@@ -168,11 +168,32 @@ class _base(object):
                 if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
                     ofile[group + '/' + k] = bytes(parameters[k], 'ascii')
                 else:
+                    ## this code to be used when h5py is fixed
+                    # apparently things do work as expected when
+                    # the "chunks" parameters is omitted. however,
+                    # the default chunk size is the initial size of
+                    # the dataset, which could be disastrous for performance...
+                    #if (type(parameters[k]) == np.ndarray):
+                    #    #ofile[group].create_dataset(
+                    #    #        k,
+                    #    #        parameters[k].shape,
+                    #    #        chunks = (128,),
+                    #    #        maxshape=(None),
+                    #    #        dtype = parameters[k].dtype)
+                    #    ofile[group + '/' + k][...] = parameters[k]
+                    #else:
                     ofile[group + '/' + k] = parameters[k]
             else:
                 if (type(parameters[k]) == str) and (sys.version_info[0] == 3):
                     ofile[group + '/' + k][...] = bytes(parameters[k], 'ascii')
                 else:
+                    if (type(parameters[k]) == np.ndarray):
+                        if ofile[group + '/' + k].shape[0] != parameters[k].shape[0]:
+                            del ofile[group + '/' + k]
+                            ofile[group + '/' + k] = parameters[k]
+                            #ofile[group + '/' + k].resize(parameters[k].shape)
+                        else:
+                            ofile[group + '/' + k][...] = parameters[k]
                     ofile[group + '/' + k][...] = parameters[k]
         ofile.close()
         return None
