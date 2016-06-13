@@ -851,6 +851,26 @@ template kspace<FFTW, SMOOTH>::kspace<>(
         const field_layout<THREExTHREE> *,
         const double, const double, const double);
 
+template void kspace<FFTW, SMOOTH>::low_pass<float, ONE>(
+   float *__restrict__ a,
+   const double kmax);
+template void kspace<FFTW, SMOOTH>::low_pass<float, THREE>(
+   float *__restrict__ a,
+   const double kmax);
+template void kspace<FFTW, SMOOTH>::low_pass<float, THREExTHREE>(
+   float *__restrict__ a,
+   const double kmax);
+
+template void kspace<FFTW, SMOOTH>::low_pass<double, ONE>(
+   double *__restrict__ a,
+   const double kmax);
+template void kspace<FFTW, SMOOTH>::low_pass<double, THREE>(
+   double *__restrict__ a,
+   const double kmax);
+template void kspace<FFTW, SMOOTH>::low_pass<double, THREExTHREE>(
+        double *__restrict__ a,
+        const double kmax);
+
 template void field<float, FFTW, ONE>::compute_stats<TWO_THIRDS>(
         kspace<FFTW, TWO_THIRDS> *,
         const hid_t, const std::string, const hsize_t, const double);
