@@ -177,6 +177,7 @@ class field
 
         void dft();
         void ift();
+        void normalize();
 
         void compute_rspace_stats(
                 const hid_t group,

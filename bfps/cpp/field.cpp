@@ -551,6 +551,15 @@ void field<rnumber, be, fc>::compute_rspace_stats(
 template <typename rnumber,
           field_backend be,
           field_components fc>
+void field<rnumber, be, fc>::normalize()
+{
+        for (hsize_t tmp_index=0; tmp_index<this->rmemlayout->local_size; tmp_index++)
+            this->data[tmp_index] /= this->npoints;
+}
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
 template <kspace_dealias_type dt>
 void field<rnumber, be, fc>::compute_stats(
         kspace<be, dt> *kk,
