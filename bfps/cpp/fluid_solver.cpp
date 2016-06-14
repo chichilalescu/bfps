@@ -828,7 +828,7 @@ void fluid_solver<R>::compute_Eulerian_acceleration(FFTW(complex) *acceleration)
             this, \
             tindex = 3*rindex; \
             for (int cc=0; cc<3; cc++) \
-                this->rv[1][tindex+cc] = -this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor; \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor; \
             ); \
     this->clean_up_real_space(this->rv[1], 3); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
@@ -857,7 +857,7 @@ void fluid_solver<R>::compute_Eulerian_acceleration(FFTW(complex) *acceleration)
             this, \
             tindex = 3*rindex; \
             for (int cc=0; cc<3; cc++) \
-                this->rv[1][tindex+cc] = -this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor; \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor; \
             ); \
     this->clean_up_real_space(this->rv[1], 3); \
     FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
