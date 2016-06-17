@@ -97,7 +97,8 @@ class fluid_solver:public fluid_solver_base<rnumber>
         void compute_vorticity(void);
         void compute_velocity(rnumber (*__restrict__ vorticity)[2]);
         void compute_pressure(rnumber (*__restrict__ pressure)[2]);
-        void compute_Eulerian_acceleration(rnumber *__restrict__ dst);
+        void compute_Eulerian_acceleration(rnumber (*__restrict__ dst)[2]);
+        void compute_Lagrangian_acceleration(rnumber (*__restrict__ dst)[2]);
         void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
         void ift_velocity();
         void dft_velocity();

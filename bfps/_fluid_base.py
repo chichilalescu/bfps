@@ -75,6 +75,7 @@ class _fluid_particle_base(_code):
         self.parameters['nparticles'] = 0
         self.parameters['dt'] = 0.01
         self.fluid_includes = '#include "fluid_solver.hpp"\n'
+        self.fluid_includes = '#include "field.hpp"\n'
         self.fluid_variables = ''
         self.fluid_definitions = ''
         self.fluid_start = ''
@@ -142,11 +143,6 @@ class _fluid_particle_base(_code):
         self.includes   += '#include <ctime>\n'
         self.variables  += (self.fluid_variables +
                             'hid_t particle_file;\n')
-        self.definitions+= self.fluid_definitions
-        if self.particle_species > 0:
-            self.includes    += self.particle_includes
-            self.variables   += self.particle_variables
-            self.definitions += self.particle_definitions
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
                              'hsize_t space;\n' +
@@ -159,6 +155,11 @@ class _fluid_particle_base(_code):
                              'H5Sclose(space);\n' +
                              'delete[] dims;\n' +
                              'return EXIT_SUCCESS;\n}\n')
+        self.definitions+= self.fluid_definitions
+        if self.particle_species > 0:
+            self.includes    += self.particle_includes
+            self.variables   += self.particle_variables
+            self.definitions += self.particle_definitions
         self.definitions += ('herr_t grow_statistics_dataset(hid_t o_id, const char *name, const H5O_info_t *info, void *op_data)\n{\n' +
                              'if (info->type == H5O_TYPE_DATASET)\n{\n' +
                              'hsize_t dset = H5Dopen(o_id, name, H5P_DEFAULT);\n' +

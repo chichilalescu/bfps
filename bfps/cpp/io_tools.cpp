@@ -24,80 +24,39 @@
 
 
 
-#include <mpi.h>
-#include <stdarg.h>
-#include <iostream>
 #include <typeinfo>
+#include <cassert>
 #include "io_tools.hpp"
 
-#ifndef BASE
 
-#define BASE
-
-static const int message_buffer_length = 2048;
-extern int myrank, nprocs;
-
-inline int MOD(int a, int n)
+template <typename number>
+std::vector<number> read_vector(
+        hid_t group,
+        std::string dset_name)
 {
-    return ((a%n) + n) % n;
+    std::vector<number> result;
+    hsize_t vector_length;
+    // first, read size of array
+    hid_t dset, dspace;
+    hid_t mem_dtype;
+    if (typeid(number) == typeid(int))
+        mem_dtype = H5Tcopy(H5T_NATIVE_INT);
+    else if (typeid(number) == typeid(double))
+        mem_dtype = H5Tcopy(H5T_NATIVE_DOUBLE);
+    dset = H5Dopen(group, dset_name.c_str(), H5P_DEFAULT);
+    dspace = H5Dget_space(dset);
+    assert(H5Sget_simple_extent_ndims(dspace) == 1);
+    H5Sget_simple_extent_dims(dspace, &vector_length, NULL);
+    result.resize(vector_length);
+    H5Dread(dset, mem_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &result.front());
+    H5Sclose(dspace);
+    H5Dclose(dset);
+    H5Tclose(mem_dtype);
+    return result;
 }
 
-#ifdef OMPI_MPI_H
-
-#define BFPS_MPICXX_DOUBLE_COMPLEX MPI_DOUBLE_COMPLEX
-
-#else
-
-#define BFPS_MPICXX_DOUBLE_COMPLEX MPI_C_DOUBLE_COMPLEX
-
-#endif//OMPI_MPI_H
-
-
-#ifndef NDEBUG
-
-static char debug_message_buffer[message_buffer_length];
-
-inline void DEBUG_MSG(const char * format, ...)
-{
-    va_list argptr;
-    va_start(argptr, format);
-    sprintf(
-            debug_message_buffer,
-            "cpu%.4d ",
-            myrank);
-    vsnprintf(
-            debug_message_buffer + 8,
-            message_buffer_length - 8,
-            format,
-            argptr);
-    va_end(argptr);
-    std::cerr << debug_message_buffer;
-}
-
-inline void DEBUG_MSG_WAIT(MPI_Comm communicator, const char * format, ...)
-{
-    va_list argptr;
-    va_start(argptr, format);
-    sprintf(
-            debug_message_buffer,
-            "cpu%.4d ",
-            myrank);
-    vsnprintf(
-            debug_message_buffer + 8,
-            message_buffer_length - 8,
-            format,
-            argptr);
-    va_end(argptr);
-    std::cerr << debug_message_buffer;
-    MPI_Barrier(communicator);
-}
-
-#else
-
-#define DEBUG_MSG(...)
-#define DEBUG_MSG_WAIT(...)
-
-#endif//NDEBUG
-
-#endif//BASE
+template std::vector<int> read_vector(
+        hid_t, std::string);
+template std::vector<double> read_vector(
+        hid_t, std::string);
 

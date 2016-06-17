@@ -25,8 +25,6 @@
 
 
 import os
-import argparse
-import numpy as np
 
 import bfps
 from ._fluid_base import _fluid_particle_base
