@@ -88,7 +88,8 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['field_descriptor',
+src_file_list = ['field',
+                 'field_descriptor',
                  'rFFTW_distributed_particles',
                  'distributed_particles',
                  'particles',
@@ -98,6 +99,7 @@ src_file_list = ['field_descriptor',
                  'interpolator_base',
                  'fluid_solver',
                  'fluid_solver_base',
+                 'io_tools',
                  'fftw_tools',
                  'spline_n1',
                  'spline_n2',
@@ -202,7 +204,8 @@ setup(
                                                'install_info.pickle']},
         entry_points = {
             'console_scripts': [
-                'bfps = bfps.__main__:main'],
+                'bfps = bfps.__main__:main',
+                'bfps1 = bfps.__main__:main'],
             },
         version = VERSION,
 ########################################################################

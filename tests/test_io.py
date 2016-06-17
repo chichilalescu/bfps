@@ -41,6 +41,8 @@ class test_io(_code):
         self.parameters['other_string_parameter'] = 'another test string'
         self.parameters['niter_todo'] = 0
         self.parameters['real_number'] = 1.21
+        self.parameters['real_array'] = np.array([1.3, 1.5, 0.4])
+        self.parameters['int_array'] = np.array([1, 3, 5, 4])
         self.main_start += self.cprint_pars()
         return None
 

@@ -49,8 +49,10 @@ class NavierStokes(_fluid_particle_base):
             fftw_plan_rigor = 'FFTW_MEASURE',
             frozen_fields = False,
             use_fftw_wisdom = True,
-            QR_stats_on = False):
+            QR_stats_on = False,
+            Lag_acc_stats_on = False):
         self.QR_stats_on = QR_stats_on
+        self.Lag_acc_stats_on = Lag_acc_stats_on
         self.frozen_fields = frozen_fields
         self.fftw_plan_rigor = fftw_plan_rigor
         _fluid_particle_base.__init__(
@@ -69,6 +71,8 @@ class NavierStokes(_fluid_particle_base):
         self.parameters['histogram_bins'] = 256
         self.parameters['max_velocity_estimate'] = 1.0
         self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['max_Lag_acc_estimate'] = 1.0
+        self.parameters['max_pressure_estimate'] = 1.0
         self.parameters['QR2D_histogram_bins'] = 64
         self.parameters['max_trS2_estimate'] = 1.0
         self.parameters['max_Q_estimate'] = 1.0
@@ -111,11 +115,105 @@ class NavierStokes(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
+                hid_t stat_group;
+                if (myrank == 0)
+                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
                 fs->compute_velocity(fs->cvorticity);
-                double *spec_velocity  = new double[fs->nshells*9];
-                double *spec_vorticity = new double[fs->nshells*9];
-                fs->cospectrum(fs->cvelocity, fs->cvelocity, spec_velocity);
-                fs->cospectrum(fs->cvorticity, fs->cvorticity, spec_vorticity);
+                std::vector<double> max_estimate_vector;
+                max_estimate_vector.resize(4);
+                *tmp_vec_field = fs->cvelocity;
+                switch(fs->dealias_type)
+                {
+                    case 0:
+                        tmp_vec_field->compute_stats(
+                            kk_two_thirds,
+                            stat_group,
+                            "velocity",
+                            fs->iteration / niter_stat,
+                            max_velocity_estimate/sqrt(3));
+                        break;
+                    case 1:
+                        tmp_vec_field->compute_stats(
+                            kk_smooth,
+                            stat_group,
+                            "velocity",
+                            fs->iteration / niter_stat,
+                            max_velocity_estimate/sqrt(3));
+                        break;
+                }
+                //endcpp
+                """
+        if self.Lag_acc_stats_on:
+            self.stat_src += """
+                    //begincpp
+                    tmp_vec_field->real_space_representation = false;
+                    fs->compute_Lagrangian_acceleration(tmp_vec_field->get_cdata());
+                    switch(fs->dealias_type)
+                    {
+                        case 0:
+                            tmp_vec_field->compute_stats(
+                                kk_two_thirds,
+                                stat_group,
+                                "Lagrangian_acceleration",
+                                fs->iteration / niter_stat,
+                                max_Lag_acc_estimate);
+                            break;
+                        case 1:
+                            tmp_vec_field->compute_stats(
+                                kk_smooth,
+                                stat_group,
+                                "Lagrangian_acceleration",
+                                fs->iteration / niter_stat,
+                                max_Lag_acc_estimate);
+                            break;
+                    }
+                    tmp_scal_field->real_space_representation = false;
+                    fs->compute_velocity(fs->cvorticity);
+                    fs->ift_velocity();
+                    fs->compute_pressure(tmp_scal_field->get_cdata());
+                    switch(fs->dealias_type)
+                    {
+                        case 0:
+                            tmp_scal_field->compute_stats(
+                                kk_two_thirds,
+                                stat_group,
+                                "pressure",
+                                fs->iteration / niter_stat,
+                                max_pressure_estimate);
+                            break;
+                        case 1:
+                            tmp_scal_field->compute_stats(
+                                kk_smooth,
+                                stat_group,
+                                "pressure",
+                                fs->iteration / niter_stat,
+                                max_pressure_estimate);
+                            break;
+                    }
+                    //endcpp
+                    """
+        self.stat_src += """
+                //begincpp
+                *tmp_vec_field = fs->cvorticity;
+                switch(fs->dealias_type)
+                {
+                    case 0:
+                        tmp_vec_field->compute_stats(
+                            kk_two_thirds,
+                            stat_group,
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
+                        break;
+                    case 1:
+                        tmp_vec_field->compute_stats(
+                            kk_smooth,
+                            stat_group,
+                            "vorticity",
+                            fs->iteration / niter_stat,
+                            max_vorticity_estimate/sqrt(3));
+                        break;
+                }
                 //endcpp
                 """
         if self.QR_stats_on:
@@ -147,33 +245,6 @@ class NavierStokes(_fluid_particle_base):
                 """
         self.stat_src += """
                 //begincpp
-                fs->ift_velocity();
-                hid_t stat_group;
-                if (myrank == 0)
-                    stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
-                std::vector<double> max_estimate_vector;
-                max_estimate_vector.resize(4);
-                max_estimate_vector[0] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_velocity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_velocity_estimate;
-                fs->compute_rspace_stats(
-                        fs->rvelocity,
-                        stat_group,
-                        "velocity",
-                        fs->iteration/niter_stat,
-                        max_estimate_vector);
-                fs->ift_vorticity();
-                max_estimate_vector[0] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[1] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[2] = max_vorticity_estimate/sqrt(3);
-                max_estimate_vector[3] = max_vorticity_estimate;
-                fs->compute_rspace_stats(
-                        fs->rvorticity,
-                        stat_group,
-                        "vorticity",
-                        fs->iteration/niter_stat,
-                        max_estimate_vector);
                 if (myrank == 0)
                     H5Gclose(stat_group);
                 if (fs->cd->myrank == 0)
@@ -205,19 +276,6 @@ class NavierStokes(_fluid_particle_base):
                 '/statistics/xlines/vorticity',
                 'fs->rvorticity',
                 data_type = field_H5T)
-        self.stat_src += self.create_stat_output(
-                '/statistics/spectra/velocity_velocity',
-                'spec_velocity',
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = fs->nshells;
-                    count[2] = 3;
-                    count[3] = 3;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/spectra/vorticity_vorticity',
-                'spec_vorticity')
         if self.QR_stats_on:
             self.stat_src += self.create_stat_output(
                     '/statistics/moments/trS2_Q_R',
@@ -264,13 +322,7 @@ class NavierStokes(_fluid_particle_base):
                         count[1] = QR2D_histogram_bins;
                         count[2] = QR2D_histogram_bins;
                         """)
-        self.stat_src += """
-                //begincpp
-                }
-                delete[] spec_velocity;
-                delete[] spec_vorticity;
-                //endcpp
-                """
+        self.stat_src += '}\n'
         if self.QR_stats_on:
             self.stat_src += """
                 //begincpp
@@ -284,7 +336,12 @@ class NavierStokes(_fluid_particle_base):
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
-        self.fluid_variables += ('fluid_solver<{0}> *fs;\n'.format(self.C_dtype))
+        self.fluid_variables += (
+                'fluid_solver<{0}> *fs;\n'.format(self.C_dtype) +
+                'field<{0}, FFTW, THREE> *tmp_vec_field;\n'.format(self.C_dtype) +
+                'field<{0}, FFTW, ONE> *tmp_scal_field;\n'.format(self.C_dtype) +
+                'kspace<FFTW, SMOOTH> *kk_smooth;\n' +
+                'kspace<FFTW, TWO_THIRDS> *kk_two_thirds;\n')
         self.fluid_definitions += """
                     typedef struct {{
                         {0} re;
@@ -305,6 +362,20 @@ class NavierStokes(_fluid_particle_base):
                         dkx, dky, dkz,
                         dealias_type,
                         {1});
+                tmp_vec_field = new field<{0}, FFTW, THREE>(
+                        nx, ny, nz,
+                        MPI_COMM_WORLD,
+                        {1});
+                tmp_scal_field = new field<{0}, FFTW, ONE>(
+                        nx, ny, nz,
+                        MPI_COMM_WORLD,
+                        {1});
+                kk_smooth = new kspace<FFTW, SMOOTH>(
+                        tmp_vec_field->clayout,
+                        fs->dkx, fs->dky, fs->dkz);
+                kk_two_thirds = new kspace<FFTW, TWO_THIRDS>(
+                        tmp_vec_field->clayout,
+                        fs->dkx, fs->dky, fs->dkz);
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -324,7 +395,11 @@ class NavierStokes(_fluid_particle_base):
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output + '\n}\n' +
-                          'delete fs;\n')
+                          'delete fs;\n' +
+                          'delete tmp_vec_field;\n' +
+                          'delete tmp_scal_field;\n' +
+                          'delete kk_smooth;\n' +
+                          'delete kk_two_thirds;\n')
         return None
     def add_3D_rFFTW_field(
             self,
@@ -583,7 +658,7 @@ class NavierStokes(_fluid_particle_base):
         .. math::
 
             U_{\\textrm{int}}(t) = \\sqrt{\\frac{2E(t)}{3}}, \\hskip .5cm
-            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
+            L_{\\textrm{int}}(t) = \\frac{\pi}{2U_{int}^2(t)} \\int \\frac{dk}{k} E(t, k), \\hskip .5cm
             T_{\\textrm{int}}(t) =
             \\frac{L_{\\textrm{int}}(t)}{U_{\\textrm{int}}(t)}
 
@@ -673,7 +748,9 @@ class NavierStokes(_fluid_particle_base):
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             kspace = self.get_kspace()
             nshells = kspace['nshell'].shape[0]
-            for k in ['velocity', 'vorticity']:
+            vec_stat_datasets = ['velocity', 'vorticity']
+            scal_stat_datasets = []
+            for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/xlines/' + k,
@@ -681,6 +758,10 @@ class NavierStokes(_fluid_particle_base):
                                      chunks = (time_chunk, self.parameters['nx'], 3),
                                      maxshape = (None, self.parameters['nx'], 3),
                                      dtype = self.dtype)
+            if self.Lag_acc_stats_on:
+                vec_stat_datasets += ['Lagrangian_acceleration']
+                scal_stat_datasets += ['pressure']
+            for k in vec_stat_datasets:
                 time_chunk = 2**20//(8*3*3*nshells)
                 time_chunk = max(time_chunk, 1)
                 ofile.create_dataset('statistics/spectra/' + k + '_' + k,
@@ -707,6 +788,31 @@ class NavierStokes(_fluid_particle_base):
                                      maxshape = (None,
                                                  self.parameters['histogram_bins'],
                                                  4),
+                                     dtype = np.int64)
+            for k in scal_stat_datasets:
+                time_chunk = 2**20//(8*nshells)
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/spectra/' + k + '_' + k,
+                                     (1, nshells),
+                                     chunks = (time_chunk, nshells),
+                                     maxshape = (None, nshells),
+                                     dtype = np.float64)
+                time_chunk = 2**20//(8*10)
+                time_chunk = max(time_chunk, 1)
+                a = ofile.create_dataset('statistics/moments/' + k,
+                                     (1, 10),
+                                     chunks = (time_chunk, 10),
+                                     maxshape = (None, 10),
+                                     dtype = np.float64)
+                time_chunk = 2**20//(8*self.parameters['histogram_bins'])
+                time_chunk = max(time_chunk, 1)
+                ofile.create_dataset('statistics/histograms/' + k,
+                                     (1,
+                                      self.parameters['histogram_bins']),
+                                     chunks = (time_chunk,
+                                               self.parameters['histogram_bins']),
+                                     maxshape = (None,
+                                                 self.parameters['histogram_bins']),
                                      dtype = np.int64)
             if self.QR_stats_on:
                 time_chunk = 2**20//(8*3*self.parameters['histogram_bins'])
@@ -913,6 +1019,11 @@ class NavierStokes(_fluid_particle_base):
                dest = 'QR_stats',
                help = 'add this option if you want to compute velocity gradient and QR stats')
         parser.add_argument(
+               '--Lag-acc-stats',
+               action = 'store_true',
+               dest = 'Lag_acc_stats',
+               help = 'add this option if you want to compute Lagrangian acceleration statistics')
+        parser.add_argument(
                '--kMeta',
                type = float,
                dest = 'kMeta',
@@ -980,6 +1091,7 @@ class NavierStokes(_fluid_particle_base):
         """
         opt = _code.prepare_launch(self, args = args)
         self.QR_stats_on = opt.QR_stats
+        self.Lag_acc_stats_on = opt.Lag_acc_stats
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
         # custom famplitude for 288 and 576
@@ -999,6 +1111,8 @@ class NavierStokes(_fluid_particle_base):
             # add QR suffix to code name, since we now expect additional
             # datasets in the .h5 file
             self.name += '-QR'
+        if self.Lag_acc_stats_on:
+            self.name += '-Lag_acc'
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = os.path.realpath(opt.work_dir)
         self.pars_from_namespace(opt)

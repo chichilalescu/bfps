@@ -24,80 +24,18 @@
 
 
 
-#include <mpi.h>
-#include <stdarg.h>
-#include <iostream>
-#include <typeinfo>
-#include "io_tools.hpp"
+#include <hdf5.h>
+#include <vector>
+#include <string>
 
-#ifndef BASE
+#ifndef IO_TOOLS
 
-#define BASE
+#define IO_TOOLS
 
-static const int message_buffer_length = 2048;
-extern int myrank, nprocs;
+template <typename number>
+std::vector<number> read_vector(
+        hid_t group,
+        std::string dset_name);
 
-inline int MOD(int a, int n)
-{
-    return ((a%n) + n) % n;
-}
-
-#ifdef OMPI_MPI_H
-
-#define BFPS_MPICXX_DOUBLE_COMPLEX MPI_DOUBLE_COMPLEX
-
-#else
-
-#define BFPS_MPICXX_DOUBLE_COMPLEX MPI_C_DOUBLE_COMPLEX
-
-#endif//OMPI_MPI_H
-
-
-#ifndef NDEBUG
-
-static char debug_message_buffer[message_buffer_length];
-
-inline void DEBUG_MSG(const char * format, ...)
-{
-    va_list argptr;
-    va_start(argptr, format);
-    sprintf(
-            debug_message_buffer,
-            "cpu%.4d ",
-            myrank);
-    vsnprintf(
-            debug_message_buffer + 8,
-            message_buffer_length - 8,
-            format,
-            argptr);
-    va_end(argptr);
-    std::cerr << debug_message_buffer;
-}
-
-inline void DEBUG_MSG_WAIT(MPI_Comm communicator, const char * format, ...)
-{
-    va_list argptr;
-    va_start(argptr, format);
-    sprintf(
-            debug_message_buffer,
-            "cpu%.4d ",
-            myrank);
-    vsnprintf(
-            debug_message_buffer + 8,
-            message_buffer_length - 8,
-            format,
-            argptr);
-    va_end(argptr);
-    std::cerr << debug_message_buffer;
-    MPI_Barrier(communicator);
-}
-
-#else
-
-#define DEBUG_MSG(...)
-#define DEBUG_MSG_WAIT(...)
-
-#endif//NDEBUG
-
-#endif//BASE
+#endif//IO_TOOLS
 

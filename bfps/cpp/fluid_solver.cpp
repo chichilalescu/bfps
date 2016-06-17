@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cassert>
 #include <cmath>
@@ -165,7 +165,6 @@ fluid_solver<R>::fluid_solver( \
 template<> \
 fluid_solver<R>::~fluid_solver() \
 { \
-    DEBUG_MSG("entered ~fluid_solver\n"); \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->r2c_vorticity);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->c2r_velocity );\
@@ -174,7 +173,6 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[1]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vc2r[2]);\
     FFTW(destroy_plan)(*(FFTW(plan)*)this->vr2c[2]);\
-    DEBUG_MSG("destroyed plans\n"); \
  \
     delete (FFTW(plan)*)this->c2r_vorticity;\
     delete (FFTW(plan)*)this->r2c_vorticity;\
@@ -184,7 +182,6 @@ fluid_solver<R>::~fluid_solver() \
     delete (FFTW(plan)*)this->vr2c[1];\
     delete (FFTW(plan)*)this->vc2r[2];\
     delete (FFTW(plan)*)this->vr2c[2];\
-    DEBUG_MSG("deleted plans\n"); \
  \
     FFTW(free)(this->cv[1]);\
     FFTW(free)(this->rv[1]);\
@@ -192,8 +189,6 @@ fluid_solver<R>::~fluid_solver() \
     FFTW(free)(this->rvorticity);\
     FFTW(free)(this->cvelocity);\
     FFTW(free)(this->rvelocity);\
-    DEBUG_MSG("freed arrays\n"); \
-    DEBUG_MSG("exiting ~fluid_solver\n"); \
 } \
  \
 template<> \
@@ -578,37 +573,6 @@ int fluid_solver<R>::write_renstrophy() \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_Eulerian_acceleration(R *acceleration) \
-{ \
-    this->omega_nonlin(0); \
-    CLOOP_K2( \
-            this, \
-            for (int cc=0; cc<3; cc++) \
-                for (int i=0; i<2; i++) \
-                    this->cv[1][3*cindex+cc][i] = this->cu[3*cindex+cc][i] - this->nu*k2*this->cv[0][3*cindex+cc][i]; \
-            ); \
-    CLOOP_K2( \
-            this, \
-            if (k2 <= this->kM2 && k2 > 0) \
-            { \
-                this->cv[2][3*cindex+0][0] = -(this->ky[yindex]*this->cv[1][3*cindex+2][1] - this->kz[zindex]*this->cv[1][3*cindex+1][1]) / k2; \
-                this->cv[2][3*cindex+1][0] = -(this->kz[zindex]*this->cv[1][3*cindex+0][1] - this->kx[xindex]*this->cv[1][3*cindex+2][1]) / k2; \
-                this->cv[2][3*cindex+2][0] = -(this->kx[xindex]*this->cv[1][3*cindex+1][1] - this->ky[yindex]*this->cv[1][3*cindex+0][1]) / k2; \
-                this->cv[2][3*cindex+0][1] =  (this->ky[yindex]*this->cv[1][3*cindex+2][0] - this->kz[zindex]*this->cv[1][3*cindex+1][0]) / k2; \
-                this->cv[2][3*cindex+1][1] =  (this->kz[zindex]*this->cv[1][3*cindex+0][0] - this->kx[xindex]*this->cv[1][3*cindex+2][0]) / k2; \
-                this->cv[2][3*cindex+2][1] =  (this->kx[xindex]*this->cv[1][3*cindex+1][0] - this->ky[yindex]*this->cv[1][3*cindex+0][0]) / k2; \
-            } \
-            ); \
-    if (this->cd->myrank == this->cd->rank[0]) \
-        std::fill_n((R*)(this->cv[2]), 6, 0.0); \
-    FFTW(execute)(*((FFTW(plan)*)this->vc2r[2])); \
-    std::copy( \
-            this->rv[2], \
-            this->rv[2] + 2*this->cd->local_size, \
-            acceleration); \
-} \
- \
-template<> \
 void fluid_solver<R>::compute_pressure(FFTW(complex) *pressure) \
 { \
     /* assume velocity is already in real space representation */ \
@@ -787,7 +751,7 @@ void fluid_solver<R>::compute_gradient_statistics( \
 } \
  \
 template<> \
-void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
+void fluid_solver<R>::compute_Lagrangian_acceleration(R (*acceleration)[2]) \
 { \
     ptrdiff_t tindex; \
     FFTW(complex) *pressure; \
@@ -822,12 +786,121 @@ void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
                 this->cv[1][tindex+2][1] -= this->kz[zindex]*pressure[cindex][0]; \
             } \
             ); \
+    std::copy( \
+            (R*)this->cv[1], \
+            (R*)(this->cv[1] + this->cd->local_size), \
+            (R*)acceleration); \
+    FFTW(free)(pressure); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_Eulerian_acceleration(FFTW(complex) *acceleration) \
+{ \
+    std::fill_n((R*)(acceleration), 2*this->cd->local_size, 0.0); \
+    ptrdiff_t tindex; \
+    this->compute_velocity(this->cvorticity); \
+    /* put in linear terms */ \
+    CLOOP_K2( \
+            this, \
+            if (k2 <= this->kM2) \
+            { \
+                tindex = 3*cindex; \
+                for (int cc=0; cc<3; cc++) \
+                    for (int i=0; i<2; i++) \
+                        acceleration[tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i]; \
+                if (strcmp(this->forcing_type, "linear") == 0) \
+                { \
+                    double knorm = sqrt(k2); \
+                    if ((this->fk0 <= knorm) && \
+                        (this->fk1 >= knorm)) \
+                    { \
+                        for (int c=0; c<3; c++) \
+                            for (int i=0; i<2; i++) \
+                                acceleration[tindex+c][i] += this->famplitude*this->cu[tindex+c][i]; \
+                    } \
+                } \
+            } \
+            ); \
+    this->ift_velocity(); \
+    /* compute uu */ \
+    /* 11 22 33 */ \
+    RLOOP ( \
+            this, \
+            tindex = 3*rindex; \
+            for (int cc=0; cc<3; cc++) \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor; \
+            ); \
+    this->clean_up_real_space(this->rv[1], 3); \
+    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    this->dealias(this->cv[1], 3); \
+    CLOOP_K2( \
+            this, \
+            if (k2 <= this->kM2) \
+            { \
+                tindex = 3*cindex; \
+                acceleration[tindex+0][0] += \
+                         this->kx[xindex]*this->cv[1][tindex+0][1]; \
+                acceleration[tindex+0][1] += \
+                        -this->kx[xindex]*this->cv[1][tindex+0][0]; \
+                acceleration[tindex+1][0] += \
+                         this->ky[yindex]*this->cv[1][tindex+1][1]; \
+                acceleration[tindex+1][1] += \
+                        -this->ky[yindex]*this->cv[1][tindex+1][0]; \
+                acceleration[tindex+2][0] += \
+                         this->kz[zindex]*this->cv[1][tindex+2][1]; \
+                acceleration[tindex+2][1] += \
+                        -this->kz[zindex]*this->cv[1][tindex+2][0]; \
+            } \
+            ); \
+    /* 12 23 31 */ \
+    RLOOP ( \
+            this, \
+            tindex = 3*rindex; \
+            for (int cc=0; cc<3; cc++) \
+                this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor; \
+            ); \
+    this->clean_up_real_space(this->rv[1], 3); \
+    FFTW(execute)(*((FFTW(plan)*)this->vr2c[1])); \
+    this->dealias(this->cv[1], 3); \
+    CLOOP_K2( \
+            this, \
+            if (k2 <= this->kM2) \
+            { \
+                tindex = 3*cindex; \
+                acceleration[tindex+0][0] += \
+                        (this->ky[yindex]*this->cv[1][tindex+0][1] + \
+                         this->kz[zindex]*this->cv[1][tindex+2][1]); \
+                acceleration[tindex+0][1] += \
+                      - (this->ky[yindex]*this->cv[1][tindex+0][0] + \
+                         this->kz[zindex]*this->cv[1][tindex+2][0]); \
+                acceleration[tindex+1][0] += \
+                        (this->kz[zindex]*this->cv[1][tindex+1][1] + \
+                         this->kx[xindex]*this->cv[1][tindex+0][1]); \
+                acceleration[tindex+1][1] += \
+                      - (this->kz[zindex]*this->cv[1][tindex+1][0] + \
+                         this->kx[xindex]*this->cv[1][tindex+0][0]); \
+                acceleration[tindex+2][0] += \
+                        (this->kx[xindex]*this->cv[1][tindex+2][1] + \
+                         this->ky[yindex]*this->cv[1][tindex+1][1]); \
+                acceleration[tindex+2][1] += \
+                      - (this->kx[xindex]*this->cv[1][tindex+2][0] + \
+                         this->ky[yindex]*this->cv[1][tindex+1][0]); \
+            } \
+            ); \
+    if (this->cd->myrank == this->cd->rank[0]) \
+        std::fill_n((R*)(acceleration), 6, 0.0); \
+    this->force_divfree(acceleration); \
+} \
+ \
+template<> \
+void fluid_solver<R>::compute_Lagrangian_acceleration(R *acceleration) \
+{ \
+    this->compute_Lagrangian_acceleration((FFTW(complex)*)acceleration); \
     FFTW(execute)(*((FFTW(plan)*)this->vc2r[1])); \
     std::copy( \
             this->rv[1], \
             this->rv[1] + 2*this->cd->local_size, \
             acceleration); \
-    FFTW(free)(pressure); \
 } \
  \
 template<> \
