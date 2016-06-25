@@ -1058,6 +1058,16 @@ class NavierStokes(_fluid_particle_base):
                type = float,
                dest = 'particle_cloud_size',
                default = 2*np.pi)
+        parser.add_argument(
+                '--neighbours',
+                type = int,
+                dest = 'neighbours',
+                default = 1)
+        parser.add_argument(
+                '--smoothness',
+                type = int,
+                dest = 'smoothness',
+                default = 1)
         return None
     def prepare_launch(
             self,
@@ -1132,8 +1142,8 @@ class NavierStokes(_fluid_particle_base):
                         name = 'rFFTW_acc')
                 self.add_interpolator(
                         name = 'cubic_spline',
-                        neighbours = 1,
-                        smoothness = 1,
+                        neighbours = opt.neighbours,
+                        smoothness = opt.smoothness,
                         class_name = 'rFFTW_interpolator')
                 self.add_particles(
                         integration_steps = [4],
