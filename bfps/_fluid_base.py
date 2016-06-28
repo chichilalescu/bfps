@@ -292,6 +292,9 @@ class _fluid_particle_base(_code):
             field = 'velocity',
             iteration = 0,
             filename = None):
+        """
+            :note: assumes field is a vector field
+        """
         if type(filename) == type(None):
             filename = os.path.join(
                     self.work_dir,
@@ -299,6 +302,7 @@ class _fluid_particle_base(_code):
         return np.memmap(
                 filename,
                 dtype = self.dtype,
+                mode = 'r',
                 shape = (self.parameters['nz'],
                          self.parameters['ny'],
                          self.parameters['nx'], 3))
