@@ -23,6 +23,7 @@
 **********************************************************************/
 
 
+#include <cmath>
 #include <cstdlib>
 #include <algorithm>
 #include <cassert>
