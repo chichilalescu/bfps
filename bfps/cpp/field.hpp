@@ -179,6 +179,13 @@ class field
         void ift();
         void normalize();
 
+        void compute_rspace_xincrement_stats(
+                const int xcells,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset,
+                const std::vector<double> max_estimate);
+
         void compute_rspace_stats(
                 const hid_t group,
                 const std::string dset_name,

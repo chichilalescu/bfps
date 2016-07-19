@@ -379,6 +379,45 @@ int field<rnumber, be, fc>::io(
     return EXIT_SUCCESS;
 }
 
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
+                const int xcells,
+                const hid_t group,
+                const std::string dset_name,
+                const hsize_t toffset,
+                const std::vector<double> max_estimate)
+{
+    assert(this->real_space_representation);
+    assert(fc == ONE || fc == THREE);
+    field<rnumber, be, fc> *tmp_field = new field<rnumber, be, fc>(
+            this->rlayout->sizes[2],
+            this->rlayout->sizes[1],
+            this->rlayout->sizes[0],
+            this->rlayout->comm);
+    tmp_field->real_space_representation = true;
+    FIELD_RLOOP(
+            this,
+            hsize_t rrindex = (xindex + xcells)%this->rlayout->sizes[2] + (
+                zindex * this->rlayout->subsizes[1] + yindex)*(
+                    this->rmemlayout->subsizes[2]);
+            for (int component=0; component < ncomp(fc); component++)
+                tmp_field->data[rindex*ncomp(fc) + component] =
+                    this->data[rrindex*ncomp(fc) + component] -
+                    this->data[rindex*ncomp(fc) + component];
+            );
+    tmp_field->compute_rspace_stats(
+            group,
+            dset_name,
+            toffset,
+            max_estimate);
+    delete tmp_field;
+}
+
+
+
 template <typename rnumber,
           field_backend be,
           field_components fc>
