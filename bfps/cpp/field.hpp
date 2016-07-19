@@ -226,6 +226,17 @@ class field
                 const double max_estimate);
 };
 
+template <typename rnumber,
+          field_backend be,
+          field_components fc1,
+          field_components fc2,
+          kspace_dealias_type dt>
+void compute_gradient(
+        kspace<be, dt> *kk,
+        field<rnumber, be, fc1> *source,
+        field<rnumber, be, fc2> *destination);
+
+
 /* real space loop */
 #define FIELD_RLOOP(obj, expression) \
  \
