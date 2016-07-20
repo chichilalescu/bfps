@@ -729,7 +729,7 @@ void fluid_solver<R>::compute_gradient_statistics( \
         tmp_max_estimate[1] = gradu_max_estimates[cc*3 + 1]; \
         tmp_max_estimate[2] = gradu_max_estimates[cc*3 + 2]; \
         this->compute_rspace_stats3( \
-                dx_u, \
+                dx_u + cc*2*this->cd->local_size, \
                 tmp_moments, \
                 tmp_hist, \
                 tmp_max_estimate, \
