@@ -403,7 +403,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
             hsize_t rrindex = (xindex + xcells)%this->rlayout->sizes[2] + (
                 zindex * this->rlayout->subsizes[1] + yindex)*(
                     this->rmemlayout->subsizes[2]);
-            for (int component=0; component < ncomp(fc); component++)
+            for (unsigned int component=0; component < ncomp(fc); component++)
                 tmp_field->data[rindex*ncomp(fc) + component] =
                     this->data[rrindex*ncomp(fc) + component] -
                     this->data[rindex*ncomp(fc) + component];
@@ -428,7 +428,6 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 const std::vector<double> max_estimate)
 {
     assert(this->real_space_representation);
-    assert(fc == ONE || fc == THREE);
     const unsigned int nmoments = 10;
     int nvals, nbins;
     if (this->myrank == 0)
@@ -887,7 +886,9 @@ void compute_gradient(
     KSPACE_CLOOP_K2(
             kk,
             if (k2 < kk->kM2)
-                for (int field_component = 0; field_component < ncomp(fc1); field_component++)
+                for (unsigned int field_component = 0;
+                     field_component < ncomp(fc1);
+                     field_component++)
                 {
                     dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
                         - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
