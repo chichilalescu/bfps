@@ -52,7 +52,7 @@ if not os.path.exists(os.path.join(bfpsfolder, 'host_information.py')):
     shutil.copyfile('./machine_settings_py.py', os.path.join(bfpsfolder, 'machine_settings.py'))
 sys.path.insert(0, bfpsfolder)
 # import stuff required for compilation of static library
-from machine_settings import include_dirs, library_dirs, extra_compile_args, extra_libraries
+from machine_settings import compiler, include_dirs, library_dirs, extra_compile_args, extra_libraries
 
 
 ### package versioning
@@ -147,6 +147,8 @@ def compile_bfps_library():
     if not os.path.isdir('obj'):
         os.makedirs('obj')
         need_to_compile = True
+    if not os.path.isfile('bfps/libbfps.a'):
+        need_to_compile = True
     else:
         ofile = 'bfps/libbfps.a'
         libtime = datetime.datetime.fromtimestamp(os.path.getctime(ofile))
@@ -165,7 +167,7 @@ def compile_bfps_library():
                                     (datetime.datetime.fromtimestamp(os.path.getctime(ofile)) <
                                      datetime.datetime.fromtimestamp(os.path.getctime(ifile))))
         if need_to_compile_file:
-            command_strings = ['g++', '-c']
+            command_strings = [compiler, '-c']
             command_strings += ['bfps/cpp/' + fname + '.cpp']
             command_strings += ['-o', 'obj/' + fname + '.o']
             command_strings += extra_compile_args
