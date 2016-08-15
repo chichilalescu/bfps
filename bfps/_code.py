@@ -264,15 +264,13 @@ class _code(_base):
         # use current working directory
         #script_file.write('#$ -cwd\n')
         # error file
-        if not type(err_file) == type(None):
-            script_file.write('# @ error = ' + err_file + '\n')
-        else:
-            script_file.write('# @ error = err.job.$(jobid)\n')
+        if type(err_file) == type(None):
+            err_file = 'err.job.$(jobid)'
+        script_file.write('# @ error = ' + os.path.join(self.work_dir, err_file) + '\n')
         # output file
-        if not type(out_file) == type(None):
-            script_file.write('# @ output = ' + out_file + '\n')
-        else:
-            script_file.write('# @ output = out.job.$(jobid)\n')
+        if type(out_file) == type(None):
+            out_file = 'out.job.$(jobid)'
+        script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('# @ resources = ConsumableCpus(1)\n')
