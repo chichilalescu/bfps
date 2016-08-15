@@ -123,7 +123,7 @@ class _base(object):
             elif type(self.parameters[key[i]]) == str:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %s\\n", ' + key[i] + ');\n'
             elif type(self.parameters[key[i]]) == np.ndarray:
-                src_txt += ('for (int array_counter=0; array_counter<' +
+                src_txt += ('for (unsigned int array_counter=0; array_counter<' +
                             key[i] +
                             '.size(); array_counter++)\n' +
                             '{\n' +
