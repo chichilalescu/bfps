@@ -403,7 +403,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
             hsize_t rrindex = (xindex + xcells)%this->rlayout->sizes[2] + (
                 zindex * this->rlayout->subsizes[1] + yindex)*(
                     this->rmemlayout->subsizes[2]);
-            for (int component=0; component < ncomp(fc); component++)
+            for (unsigned int component=0; component < ncomp(fc); component++)
                 tmp_field->data[rindex*ncomp(fc) + component] =
                     this->data[rrindex*ncomp(fc) + component] -
                     this->data[rindex*ncomp(fc) + component];
@@ -428,7 +428,6 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 const std::vector<double> max_estimate)
 {
     assert(this->real_space_representation);
-    assert(fc == ONE || fc == THREE);
     const unsigned int nmoments = 10;
     int nvals, nbins;
     if (this->myrank == 0)
@@ -870,6 +869,43 @@ void kspace<be, dt>::cospectrum(
     }
 }
 
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc1,
+          field_components fc2,
+          kspace_dealias_type dt>
+void compute_gradient(
+        kspace<be, dt> *kk,
+        field<rnumber, be, fc1> *src,
+        field<rnumber, be, fc2> *dst)
+{
+    assert(!src->real_space_representation);
+    assert((fc1 == ONE && fc2 == THREE) ||
+           (fc1 == THREE && fc2 == THREExTHREE));
+    KSPACE_CLOOP_K2(
+            kk,
+            if (k2 < kk->kM2)
+                for (unsigned int field_component = 0;
+                     field_component < ncomp(fc1);
+                     field_component++)
+                {
+                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
+                        - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
+                          kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
+                        - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
+                          kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
+                        - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
+                          kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                }
+            );
+}
+
 template class field<float, FFTW, ONE>;
 template class field<float, FFTW, THREE>;
 template class field<float, FFTW, THREExTHREE>;
@@ -959,4 +995,13 @@ template void field<double, FFTW, THREE>::compute_stats<SMOOTH>(
 template void field<double, FFTW, THREExTHREE>::compute_stats<SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         const hid_t, const std::string, const hsize_t, const double);
+
+template void compute_gradient<float, FFTW, THREE, THREExTHREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<float, FFTW, THREE> *,
+        field<float, FFTW, THREExTHREE> *);
+template void compute_gradient<double, FFTW, THREE, THREExTHREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<double, FFTW, THREE> *,
+        field<double, FFTW, THREExTHREE> *);
 
