@@ -146,10 +146,11 @@ class field
         MPI_Comm comm;
 
         /* descriptions of field layout and distribution */
-        /* for the FFTW backend, at least, the real space field requires more
+        /*
+         * for the FFTW backend, at least, the real space field requires more
          * space to be allocated than strictly needed for the data, hence the
          * two layout descriptors.
-         * */
+         */
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 
         /* FFT plans */
