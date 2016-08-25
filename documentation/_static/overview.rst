@@ -2,6 +2,65 @@
 Overview and Tutorial
 =====================
 
+----------------
+General comments
+----------------
+
+The purpose of this code is to run pseudo-spectral DNS of turbulence,
+and integrate particle trajectories in the resulting fields.
+In brief, the main aim of the code is to simplify the launching of
+compute jobs and postprocessing, up to and including the generation of
+publication-ready figures.
+
+For research, people routinely write code from scratch because research
+goals change to a point where modifying the previous code is too
+expensive.
+With bfps, the desire is to identify core functionality that should be
+implemented in a library.
+The core library can then be used by many problem-specific codes.
+
+In this sense, the structuring of the code-base is non-standard.
+The core functionality is implemented in C++ (classes useful for
+describing working with fields or sets of particles), while a python
+wrapper is used for generating "main" programmes to be linked against
+the core library.
+The core library uses MPI for parallelization, and the python wrapper
+compiles this core library when being installed.
+The compilation environment can be configured for different
+machines as required.
+
+Python3 "wrapper"
+-----------------
+
+In principle, users of the code should only need to use python3 for
+launching jobs and postprocessing data.
+While python2 compatibility should not be too hard to maintain, the
+usage of strings makes it a bit cumbersome ---
+the code makes extensive usage of strings for `HDF5` I/O.
+
+Classes defined in the python package can be used to generate executable
+codes, compile/launch them, and then for accessing and postprocessing
+data.
+Obviously, postprocessing methods can be optimized with C extensions or
+otherwise, as needed.
+
+Code generation is quite straightforward, with C++ code snippets handled
+as strings in the python code, such that they can be combined in
+different ways.
+
+Once a "main" file has been written, it is compiled and linked against
+the core library.
+Depending on machine-specific settings, the code can then be launched
+directly, or job scripts appropriate for queueing systems are generated
+and submitted.
+
+C++ core library
+----------------
+
+A small set of base classes are implemented.
+
+[ some details to be added here ]
+
 ---------
 Equations
 ---------
