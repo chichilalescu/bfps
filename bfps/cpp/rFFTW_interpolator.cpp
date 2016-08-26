@@ -103,6 +103,37 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
 }
 
 template <class rnumber, int interp_neighbours>
+void rFFTW_interpolator<rnumber, interp_neighbours>::sample_tensor(
+        const rnumber *tensor_field,
+        const int nparticles,
+        const int pdimension,
+        const double *__restrict__ x,
+        double *__restrict__ y,
+        const int *deriv)
+{
+    /* get grid coordinates */
+    int *xg = new int[3*nparticles];
+    double *xx = new double[3*nparticles];
+    double *yy =  new double[9*nparticles];
+    std::fill_n(yy, 3*nparticles, 0.0);
+    this->get_grid_coordinates(nparticles, pdimension, x, xg, xx);
+    /* perform interpolation */
+    for (int p=0; p<nparticles; p++)
+        if (this->compute[xg[p*3+2]])
+            this->tensor_1point(tensor_field, xg + p*3, xx + p*3, yy + p*9, deriv);
+    MPI_Allreduce(
+            yy,
+            y,
+            9*nparticles,
+            MPI_DOUBLE,
+            MPI_SUM,
+            this->descriptor->comm);
+    delete[] yy;
+    delete[] xg;
+    delete[] xx;
+}
+
+template <class rnumber, int interp_neighbours>
 void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
         const int *xg,
         const double *xx,
@@ -142,6 +173,53 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
                         dest[c] += this->field[tindex+c]*(bz[iz+interp_neighbours]*
                                                           by[iy+interp_neighbours]*
                                                           bx[ix+interp_neighbours]);
+                }
+            }
+        }
+    }
+}
+
+template <class rnumber, int interp_neighbours>
+void rFFTW_interpolator<rnumber, interp_neighbours>::tensor_1point(
+        const rnumber *tensor_field,
+        const int *xg,
+        const double *xx,
+        double *dest,
+        const int *deriv)
+{
+    double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
+    if (deriv == NULL)
+    {
+        this->compute_beta(0, xx[0], bx);
+        this->compute_beta(0, xx[1], by);
+        this->compute_beta(0, xx[2], bz);
+    }
+    else
+    {
+        this->compute_beta(deriv[0], xx[0], bx);
+        this->compute_beta(deriv[1], xx[1], by);
+        this->compute_beta(deriv[2], xx[2], bz);
+    }
+    std::fill_n(dest, 9, 0);
+    ptrdiff_t bigiz, bigiy, bigix;
+    for (int iz = -interp_neighbours; iz <= interp_neighbours+1; iz++)
+    {
+        bigiz = ptrdiff_t(((xg[2]+iz) + this->descriptor->sizes[0]) % this->descriptor->sizes[0]);
+        if (this->descriptor->myrank == this->descriptor->rank[bigiz])
+        {
+            for (int iy = -interp_neighbours; iy <= interp_neighbours+1; iy++)
+            {
+                bigiy = ptrdiff_t(MOD(xg[1]+iy, this->descriptor->sizes[1]));
+                for (int ix = -interp_neighbours; ix <= interp_neighbours+1; ix++)
+                {
+                    bigix = ptrdiff_t(MOD(xg[0]+ix, this->descriptor->sizes[2]));
+                    ptrdiff_t tindex = (((bigiz-this->descriptor->starts[0])*this->descriptor->sizes[1] +
+                                         bigiy)*(this->descriptor->sizes[2]+2) +
+                                         bigix)*9;
+                    for (int c=0; c<9; c++)
+                        dest[c] += tensor_field[tindex+c]*(bz[iz+interp_neighbours]*
+                                                           by[iy+interp_neighbours]*
+                                                           bx[ix+interp_neighbours]);
                 }
             }
         }

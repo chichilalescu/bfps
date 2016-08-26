@@ -78,6 +78,22 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
                 const double *__restrict__ xx,
                 double *__restrict__ dest,
                 const int *deriv = NULL);
+
+        void sample_tensor(
+                const rnumber *tensor_field,
+                const int nparticles,
+                const int pdimension,
+                const double *__restrict__ x,
+                double *__restrict__ y,
+                const int *deriv = NULL);
+
+        void tensor_1point(
+                const rnumber *tensor_field,
+                const int *__restrict__ xg,
+                const double *__restrict__ xx,
+                double *__restrict__ dest,
+                const int *deriv = NULL);
+
 };
 
 #endif//RFFTW_INTERPOLATOR
