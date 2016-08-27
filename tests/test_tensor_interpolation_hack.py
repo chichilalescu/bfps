@@ -3,6 +3,9 @@ import bfps
 def main():
     c = bfps.NavierStokes()
     c.fill_up_fluid_code()
+    c.parameters['nx'] = 32
+    c.parameters['ny'] = 32
+    c.parameters['nz'] = 32
     c.parameters['nparticles'] = 100
     c.parameters['niter_todo'] = 1
     c.parameters['niter_out'] = 1

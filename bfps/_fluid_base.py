@@ -168,7 +168,7 @@ class _fluid_particle_base(_code):
                              'return 0;\n}\n')
         self.definitions += ('herr_t grow_particle_datasets(hid_t g_id, const char *name, const H5L_info_t *info, void *op_data)\n{\n' +
                              'hsize_t dset;\n')
-        for key in ['state', 'velocity', 'acceleration']:
+        for key in ['state', 'velocity', 'acceleration', 'velocity_gradient']:
             self.definitions += ('if (H5Lexists(g_id, "{0}", H5P_DEFAULT))\n'.format(key) +
                                  '{\n' +
                                  'dset = H5Dopen(g_id, "{0}", H5P_DEFAULT);\n'.format(key) +

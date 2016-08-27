@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <algorithm>
 #include <cassert>
@@ -422,11 +422,14 @@ void particles_io_base<particle_type>::write_point3Dx3D_chunk(
             this->hdf5_state_dims.size(),
             &mem_dims.front(),
             NULL);
-    hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()];
+    hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()+1];
     offset[0] = this->iteration / this->traj_skip;
     for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-1];
     offset[this->hdf5_state_dims.size()-1] = 0;
+    offset[this->hdf5_state_dims.size()] = 0;
+    DEBUG_MSG("point3Dx3D write offsets are %d %d %d %d\n",
+            offset[0], offset[1], offset[2], offset[3]);
     H5Sselect_hyperslab(
             rspace,
             H5S_SELECT_SET,

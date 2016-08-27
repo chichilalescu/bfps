@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cmath>
 #include <cassert>
@@ -693,6 +693,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     double *data = new double[this->nparticles*state_dimension(POINT3Dx3D)];
     double *yy = new double[this->nparticles*state_dimension(POINT3Dx3D)];
     int pindex = 0;
+    DEBUG_MSG("number of chunks is %d\n", this->get_number_of_chunks());
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*state_dimension(POINT3Dx3D), 0);
