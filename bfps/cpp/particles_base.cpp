@@ -233,7 +233,7 @@ void particles_io_base<particle_type>::read_state_chunk(
         const int cindex,
         double *data)
 {
-    DEBUG_MSG("entered read_state_chunk\n");
+    //DEBUG_MSG("entered read_state_chunk\n");
     hid_t dset = H5Dopen(this->hdf5_group_id, "state", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_state_chunks);
@@ -259,7 +259,7 @@ void particles_io_base<particle_type>::read_state_chunk(
     H5Sclose(rspace);
     H5Dclose(dset);
     delete[] offset;
-    DEBUG_MSG("exiting read_state_chunk\n");
+    //DEBUG_MSG("exiting read_state_chunk\n");
 }
 
 template <particle_types particle_type>
@@ -357,8 +357,8 @@ void particles_io_base<particle_type>::write_rhs_chunk(
     for (unsigned int i=2; i<this->hdf5_rhs_dims.size()-1; i++)
         offset[i] = this->chunk_offsets[cindex][i-2];
     offset[this->hdf5_rhs_dims.size()-1] = 0;
-    DEBUG_MSG("rhs write offsets are %d %d %d %d\n",
-            offset[0], offset[1], offset[2], offset[3]);
+    //DEBUG_MSG("rhs write offsets are %d %d %d %d\n",
+    //        offset[0], offset[1], offset[2], offset[3]);
     H5Sselect_hyperslab(
             rspace,
             H5S_SELECT_SET,
@@ -417,9 +417,9 @@ void particles_io_base<particle_type>::write_point3Dx3D_chunk(
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_state_chunks);
     mem_dims[0] = 1;
-    mem_dims[mem_dims.size()-1] = 9;
+    mem_dims.push_back(3);
     hid_t mspace = H5Screate_simple(
-            this->hdf5_state_dims.size(),
+            mem_dims.size(),
             &mem_dims.front(),
             NULL);
     hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()+1];
