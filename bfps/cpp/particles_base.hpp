@@ -34,14 +34,15 @@
 #define PARTICLES_BASE
 
 /* particle types */
-enum particle_types {POINT3D, VELOCITY_TRACER};
+enum particle_types {POINT3D, VELOCITY_TRACER, POINT3Dx3D};
 
 /* space dimension */
 constexpr unsigned int state_dimension(particle_types particle_type)
 {
     return ((particle_type == POINT3D) ? 3 : (
-            (particle_type == VELOCITY_TRACER) ? 3 :
-            3));
+            (particle_type == VELOCITY_TRACER) ? 3 : (
+            (particle_type == POINT3Dx3D) ? 9 :
+            -1)));
 }
 
 /* 1 particle state type */

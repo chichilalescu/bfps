@@ -81,6 +81,12 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 const std::unordered_map<int, std::unordered_set<int>> &dp,
                 std::unordered_map<int, single_particle_state<POINT3D>> &y);
+        void sample_tensor(
+                rnumber *tensor_field,
+                rFFTW_interpolator<rnumber, interp_neighbours> *field,
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                const std::unordered_map<int, std::unordered_set<int>> &dp,
+                std::unordered_map<int, single_particle_state<POINT3Dx3D>> &y);
         void get_rhs(
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 const std::unordered_map<int, std::unordered_set<int>> &dp,

@@ -213,6 +213,75 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample_tensor(
+        rnumber *tensor_field,
+        rFFTW_interpolator<rnumber, interp_neighbours> *field,
+        const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        const std::unordered_map<int, std::unordered_set<int>> &dp,
+        std::unordered_map<int, single_particle_state<POINT3Dx3D>> &y)
+{
+    double *yyy;
+    double *yy;
+    y.clear();
+    /* local z domain */
+    yy = new double[9];
+    for (auto p: dp.at(0))
+    {
+        int xgrid[3];
+        double xfrac[3];
+        field->get_grid_coordinates(x.find(p)->second.data, xgrid, xfrac);
+        field->tensor_1point(tensor_field, xgrid, xfrac, yy);
+        y[p] = yy;
+    }
+    delete[] yy;
+    /* boundary z domains */
+    int domain_index;
+    for (int rankpair = 0; rankpair < this->nprocs; rankpair++)
+    {
+        if (this->myrank == rankpair)
+            domain_index = 1;
+        if (this->myrank == MOD(rankpair+1, this->nprocs))
+            domain_index = -1;
+        if (this->myrank == rankpair ||
+            this->myrank == MOD(rankpair+1, this->nprocs))
+        {
+            yy = new double[9*dp.at(domain_index).size()];
+            yyy = new double[9*dp.at(domain_index).size()];
+            int tindex;
+            tindex = 0;
+            // can this sorting be done more efficiently?
+            std::set<int> ordered_dp;
+            for (auto p: dp.at(domain_index))
+                ordered_dp.insert(p);
+
+            for (auto p: ordered_dp)
+            {
+                int xgrid[3];
+                double xfrac[3];
+                field->get_grid_coordinates(x.at(p).data, xgrid, xfrac);
+                field->tensor_1point(tensor_field, xgrid, xfrac, yy + tindex*9);
+                tindex++;
+            }
+            MPI_Allreduce(
+                    yy,
+                    yyy,
+                    9*dp.at(domain_index).size(),
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    this->domain_comm[domain_index]);
+            tindex = 0;
+            for (auto p: ordered_dp)
+            {
+                y[p] = yyy + tindex*9;
+                tindex++;
+            }
+            delete[] yy;
+            delete[] yyy;
+        }
+    }
+}
+
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         const std::unordered_map<int, std::unordered_set<int>> &dp,

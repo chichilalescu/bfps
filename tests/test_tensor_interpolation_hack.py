@@ -41,6 +41,11 @@ def main():
             vec_field,
             vec_gradient);
         vec_gradient->ift();
+
+//        interp->interpolate_tensor(
+//            vec_gradient->get_rdata(),
+//            nparticles,
+
         delete vec_field;
         delete vec_gradient;
         }}
