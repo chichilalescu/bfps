@@ -117,6 +117,11 @@ class particles_io_base
                 const int cindex,
                 const double *data);
 
+        void write_point3Dx3D_chunk(
+                const std::string dset_name,
+                const int cindex,
+                const double *data);
+
     public:
         int iteration;
 

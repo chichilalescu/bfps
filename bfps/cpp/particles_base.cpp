@@ -407,8 +407,43 @@ void particles_io_base<particle_type>::write_point3D_chunk(
     delete[] offset;
 }
 
+template <particle_types particle_type>
+void particles_io_base<particle_type>::write_point3Dx3D_chunk(
+        const std::string dset_name,
+        const int cindex,
+        const double *data)
+{
+    hid_t dset = H5Dopen(this->hdf5_group_id, dset_name.c_str(), H5P_DEFAULT);
+    hid_t rspace = H5Dget_space(dset);
+    std::vector<hsize_t> mem_dims(this->hdf5_state_chunks);
+    mem_dims[0] = 1;
+    mem_dims[mem_dims.size()-1] = 9;
+    hid_t mspace = H5Screate_simple(
+            this->hdf5_state_dims.size(),
+            &mem_dims.front(),
+            NULL);
+    hsize_t *offset = new hsize_t[this->hdf5_state_dims.size()];
+    offset[0] = this->iteration / this->traj_skip;
+    for (unsigned int i=1; i<this->hdf5_state_dims.size()-1; i++)
+        offset[i] = this->chunk_offsets[cindex][i-1];
+    offset[this->hdf5_state_dims.size()-1] = 0;
+    H5Sselect_hyperslab(
+            rspace,
+            H5S_SELECT_SET,
+            offset,
+            NULL,
+            &mem_dims.front(),
+            NULL);
+    H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, data);
+    H5Sclose(mspace);
+    H5Sclose(rspace);
+    H5Dclose(dset);
+    delete[] offset;
+}
+
 /*****************************************************************************/
 template class single_particle_state<POINT3D>;
+template class single_particle_state<POINT3Dx3D>;
 template class single_particle_state<VELOCITY_TRACER>;
 
 template class particles_io_base<VELOCITY_TRACER>;

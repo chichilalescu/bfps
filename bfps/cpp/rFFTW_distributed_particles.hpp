@@ -76,6 +76,10 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
         void sample(
                 rFFTW_interpolator<rnumber, interp_neighbours> *field,
                 const char *dset_name);
+        void sample_tensor(
+                rnumber *tensor_field,
+                rFFTW_interpolator<rnumber, interp_neighbours> *field,
+                const char *dset_name);
         void sample(
                 rFFTW_interpolator<rnumber, interp_neighbours> *field,
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
@@ -107,6 +111,9 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
         void write(
                 const char *dset_name,
                 std::unordered_map<int, single_particle_state<POINT3D>> &y);
+        void write(
+                const char *dset_name,
+                std::unordered_map<int, single_particle_state<POINT3Dx3D>> &y);
         void write(
                 const char *dset_name,
                 std::unordered_map<int, single_particle_state<particle_type>> &y);

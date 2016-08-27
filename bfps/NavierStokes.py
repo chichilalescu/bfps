@@ -937,6 +937,12 @@ class NavierStokes(_fluid_particle_base):
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
                         (time_chunk, 1) + pbase_shape[1:] + (3,))
+                create_particle_dataset(
+                        ofile,
+                        '/tracers{0}/velocity_gradient'.format(s),
+                        (1,) + pbase_shape + (3,3),
+                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,3),
+                        (time_chunk, 1) + pbase_shape[1:] + (3,3))
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     create_particle_dataset(
                             ofile,

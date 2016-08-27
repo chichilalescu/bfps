@@ -310,6 +310,17 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample_tensor(
+        rnumber *tensor_field,
+        rFFTW_interpolator<rnumber, interp_neighbours> *interpolator,
+        const char *dset_name)
+{
+    std::unordered_map<int, single_particle_state<POINT3Dx3D>> y;
+    this->sample_tensor(tensor_field, interpolator, this->state, this->domain_particles, y);
+    this->write(dset_name, y);
+}
+
+template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::roll_rhs()
 {
     for (int i=this->integration_steps-2; i>=0; i--)
@@ -669,6 +680,41 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
                 this->comm);
         if (this->myrank == 0)
             this->write_point3D_chunk(dset_name, cindex, data);
+    }
+    delete[] yy;
+    delete[] data;
+}
+
+template <particle_types particle_type, class rnumber, int interp_neighbours>
+void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
+        const char *dset_name,
+        std::unordered_map<int, single_particle_state<POINT3Dx3D>> &y)
+{
+    double *data = new double[this->nparticles*state_dimension(POINT3Dx3D)];
+    double *yy = new double[this->nparticles*state_dimension(POINT3Dx3D)];
+    int pindex = 0;
+    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+    {
+        std::fill_n(yy, this->chunk_size*state_dimension(POINT3Dx3D), 0);
+        for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
+        {
+            if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+                this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
+            {
+                std::copy(y[pindex].data,
+                          y[pindex].data + state_dimension(POINT3Dx3D),
+                          yy + p*state_dimension(POINT3Dx3D));
+            }
+        }
+        MPI_Allreduce(
+                yy,
+                data,
+                state_dimension(POINT3Dx3D)*this->chunk_size,
+                MPI_DOUBLE,
+                MPI_SUM,
+                this->comm);
+        if (this->myrank == 0)
+            this->write_point3Dx3D_chunk(dset_name, cindex, data);
     }
     delete[] yy;
     delete[] data;

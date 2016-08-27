@@ -42,9 +42,7 @@ def main():
             vec_gradient);
         vec_gradient->ift();
 
-//        interp->interpolate_tensor(
-//            vec_gradient->get_rdata(),
-//            nparticles,
+        ps0->sample_tensor(vec_gradient->get_rdata(), interp, "velocity_gradient");
 
         delete vec_field;
         delete vec_gradient;
