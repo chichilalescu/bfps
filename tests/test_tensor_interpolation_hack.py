@@ -4,6 +4,10 @@ def main():
     c = bfps.NavierStokes()
     c.fill_up_fluid_code()
     c.parameters['nparticles'] = 100
+    c.parameters['niter_todo'] = 1
+    c.parameters['niter_out'] = 1
+    c.parameters['niter_stat'] = 1
+    c.parameters['niter_part'] = 1
     c.add_interpolator(
             name = 'interp',
             class_name = 'rFFTW_interpolator')
@@ -12,7 +16,7 @@ def main():
             class_name = 'rFFTW_distributed_particles')
     # now add tensor interpolation hack
     c.particle_stat_src += """
-        {
+        {{
         field<float, FFTW, THREE> *vec_field;
         field<float, FFTW, THREExTHREE> *vec_gradient;
         kspace<FFTW, SMOOTH> *kk_smooth;
@@ -23,12 +27,12 @@ def main():
         vec_field = new field<float, FFTW, THREE>(
                 nx, ny, nz,
                 MPI_COMM_WORLD,
-                {1});
+                {0});
 
         vec_gradient = new field<float, FFTW, THREExTHREE>(
                 nx, ny, nz,
                 MPI_COMM_WORLD,
-                {1});
+                {0});
 
         *vec_field = fs->rvelocity;
         vec_field->dft();
@@ -39,10 +43,13 @@ def main():
         vec_gradient->ift();
         delete vec_field;
         delete vec_gradient;
-        }
+        }}
                            """.format(c.fftw_plan_rigor)
     c.finalize_code()
     c.write_src()
+    c.write_par()
+    c.set_host_info({'type' : 'pc'})
+    c.run(ncpu = 2)
     return None
 
 if __name__ == '__main__':
