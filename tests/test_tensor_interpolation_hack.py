@@ -54,6 +54,7 @@ def main():
     c.finalize_code()
     c.write_src()
     c.write_par()
+    c.generate_tracer_state(species = 0)
     c.set_host_info({'type' : 'pc'})
     c.run(ncpu = 2)
     return None

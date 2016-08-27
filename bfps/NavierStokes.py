@@ -925,31 +925,39 @@ class NavierStokes(_fluid_particle_base):
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
+                maxshape = (h5py.h5s.UNLIMITED,) + pbase_shape + (3,)
+                chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
+                if len(pbase_shape) == 1:
+                    chunks = (time_chunk, ) + pbase_shape + (3,)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
-                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
+                        maxshape,
+                        chunks)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
-                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
-                create_particle_dataset(
-                        ofile,
-                        '/tracers{0}/velocity_gradient'.format(s),
-                        (1,) + pbase_shape + (3,3),
-                        (h5py.h5s.UNLIMITED,) + pbase_shape + (3,3),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,3))
+                        maxshape,
+                        chunks)
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     create_particle_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
-                            (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            (time_chunk, 1) + pbase_shape[1:] + (3,))
+                            maxshape,
+                            chunks)
+                maxshape = (h5py.h5s.UNLIMITED,) + pbase_shape + (3,3)
+                chunks = (time_chunk, 1) + pbase_shape[1:] + (3,3)
+                if len(pbase_shape) == 1:
+                    chunks = (time_chunk, ) + pbase_shape + (3,3)
+                create_particle_dataset(
+                        ofile,
+                        '/tracers{0}/velocity_gradient'.format(s),
+                        (1,) + pbase_shape + (3,3),
+                        maxshape,
+                        chunks)
         return None
     def add_particle_fields(
             self,
