@@ -446,7 +446,8 @@ class NavierStokes(_fluid_particle_base):
             interpolator = 'field_interpolator',
             frozen_particles = False,
             acc_name = None,
-            class_name = 'particles'):
+            class_name = 'particles',
+            sample_gradient = False):
         """Adds code for tracking a series of particle species, each
         consisting of `nparticles` particles.
 
@@ -568,6 +569,42 @@ class NavierStokes(_fluid_particle_base):
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
+            if sample_gradient:
+                self.particle_stat_src += """
+                    {{
+                    //begincpp
+                    field<{0}, FFTW, THREE> *vec_field;
+                    field<{0}, FFTW, THREExTHREE> *vec_gradient;
+                    kspace<FFTW, SMOOTH> *kk_smooth;
+
+                    kk_smooth = new kspace<FFTW, SMOOTH>(
+                            tmp_vec_field->clayout,
+                            fs->dkx, fs->dky, fs->dkz);
+                    vec_field = new field<{0}, FFTW, THREE>(
+                            nx, ny, nz,
+                            MPI_COMM_WORLD,
+                            {1});
+
+                    vec_gradient = new field<{0}, FFTW, THREExTHREE>(
+                            nx, ny, nz,
+                            MPI_COMM_WORLD,
+                            {1});
+
+                    *vec_field = fs->rvelocity;
+                    vec_field->dft();
+                    compute_gradient(
+                        kk_smooth,
+                        vec_field,
+                        vec_gradient);
+                    vec_gradient->ift();
+
+                    ps0->sample_tensor(vec_gradient->get_rdata(), {2}, "velocity_gradient");
+
+                    delete vec_field;
+                    delete vec_gradient;
+                    //endcpp
+                    }}
+                    """.format(self.C_dtype, self.fftw_plan_rigor, interpolator[s])
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
@@ -1082,6 +1119,11 @@ class NavierStokes(_fluid_particle_base):
                 type = int,
                 dest = 'smoothness',
                 default = 1)
+        parser.add_argument(
+               '--sample_gradient',
+               action = 'store_true',
+               dest = 'sample_gradient',
+               help = 'add this option if you want to sample advecting field gradients')
         return None
     def prepare_launch(
             self,
@@ -1163,7 +1205,8 @@ class NavierStokes(_fluid_particle_base):
                         integration_steps = [4],
                         interpolator = 'cubic_spline',
                         acc_name = 'rFFTW_acc',
-                        class_name = 'rFFTW_distributed_particles')
+                        class_name = 'rFFTW_distributed_particles',
+                        sample_gradient = opt.sample_gradient)
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
