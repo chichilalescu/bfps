@@ -570,7 +570,7 @@ class NavierStokes(_fluid_particle_base):
                 self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
             if sample_gradient:
-                self.particle_stat_src += """
+                output_vel_acc += """
                     {{
                     //begincpp
                     field<{0}, FFTW, THREE> *vec_field;
@@ -597,6 +597,7 @@ class NavierStokes(_fluid_particle_base):
                         vec_field,
                         vec_gradient);
                     vec_gradient->ift();
+                    vec_gradient->normalize();
 
                     ps0->sample_tensor(vec_gradient->get_rdata(), {2}, "velocity_gradient");
 
