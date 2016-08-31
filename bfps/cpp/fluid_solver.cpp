@@ -389,6 +389,7 @@ void fluid_solver<R>::step(double dt) \
             ); \
  \
     this->force_divfree(this->cvorticity); \
+    this->symmetrize(this->cvorticity, 3); \
     this->iteration++; \
 } \
  \
