@@ -123,7 +123,7 @@ class _base(object):
             elif type(self.parameters[key[i]]) == str:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %s\\n", ' + key[i] + ');\n'
             elif type(self.parameters[key[i]]) == np.ndarray:
-                src_txt += ('for (int array_counter=0; array_counter<' +
+                src_txt += ('for (unsigned int array_counter=0; array_counter<' +
                             key[i] +
                             '.size(); array_counter++)\n' +
                             '{\n' +
@@ -265,6 +265,12 @@ class _base(object):
                 '--wd',
                 type = str, dest = 'work_dir',
                 default = './')
+        parser.add_argument(
+                '--minutes',
+                type = int,
+                dest = 'minutes',
+                default = 5,
+                help = 'If environment supports it, this is the requested wall-clock-limit.')
         return None
     def parameters_to_parser_arguments(
             self,

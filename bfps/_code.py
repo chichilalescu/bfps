@@ -147,7 +147,7 @@ class _code(_base):
         libraries = ['bfps']
         libraries += bfps.install_info['libraries']
 
-        command_strings = ['g++']
+        command_strings = [bfps.install_info['compiler']]
         command_strings += [self.name + '.cpp', '-o', self.name]
         command_strings += bfps.install_info['extra_compile_args']
         command_strings += ['-I' + idir for idir in bfps.install_info['include_dirs']]
@@ -168,8 +168,8 @@ class _code(_base):
             ncpu = 2,
             out_file = 'out_file',
             err_file = 'err_file',
-            hours = 1,
-            minutes = 0,
+            hours = 0,
+            minutes = 10,
             njobs = 1):
         self.read_parameters()
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
@@ -214,6 +214,32 @@ class _code(_base):
                 subprocess.call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
                 job_name_list.append(suffix)
+        elif self.host_info['type'] == 'IBMLoadLeveler':
+            suffix = self.simname + '_{0}'.format(iter0)
+            job_script_name = 'run_' + suffix + '.sh'
+            if (njobs == 1):
+                self.write_IBMLoadLeveler_file_single_job(
+                    file_name     = os.path.join(self.work_dir, job_script_name),
+                    nprocesses    = ncpu,
+                    name_of_run   = suffix,
+                    command_atoms = command_atoms[3:],
+                    hours         = hours,
+                    minutes       = minutes,
+                    out_file      = out_file + '_' + suffix,
+                    err_file      = err_file + '_' + suffix)
+            else:
+                self.write_IBMLoadLeveler_file_many_job(
+                    file_name     = os.path.join(self.work_dir, job_script_name),
+                    nprocesses    = ncpu,
+                    name_of_run   = suffix,
+                    command_atoms = command_atoms[3:],
+                    hours         = hours,
+                    minutes       = minutes,
+                    out_file      = out_file + '_' + suffix,
+                    err_file      = err_file + '_' + suffix,
+                    njobs = njobs)
+            submit_atoms = ['llsubmit']
+            subprocess.call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
@@ -225,6 +251,113 @@ class _code(_base):
                                 stdout = open(out_file + '_' + suffix, 'w'),
                                 stderr = open(err_file + '_' + suffix, 'w'))
             os.chdir(current_dir)
+        return None
+    def write_IBMLoadLeveler_file_single_job(
+            self,
+            file_name = None,
+            nprocesses = None,
+            name_of_run = None,
+            command_atoms = [],
+            hours = None,
+            minutes = None,
+            out_file = None,
+            err_file = None):
+        script_file = open(file_name, 'w')
+        script_file.write('# @ shell=/bin/bash\n')
+        # error file
+        if type(err_file) == type(None):
+            err_file = 'err.job.$(jobid)'
+        script_file.write('# @ error = ' + os.path.join(self.work_dir, err_file) + '\n')
+        # output file
+        if type(out_file) == type(None):
+            out_file = 'out.job.$(jobid)'
+        script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
+        script_file.write('# @ job_type = parallel\n')
+        script_file.write('# @ node_usage = not_shared\n')
+        script_file.write('# @ resources = ConsumableCpus(1)\n')
+        script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
+        script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
+        assert(type(self.host_info['environment']) != type(None))
+        if self.host_info['environment'] == '16node':
+            tasks_per_node = 16
+            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
+        script_file.write('# @ node = {0}\n'.format(number_of_nodes))
+        script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
+        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+        if (first_node_tasks > 0):
+            script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
+        script_file.write('# @ queue\n')
+        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          '\n')
+        script_file.write('echo "Start time is `date`"\n')
+        script_file.write('cd ' + self.work_dir + '\n')
+        script_file.write('poe ' +
+                os.path.join(
+                    self.work_dir,
+                    command_atoms[0]) +
+                ' ' +
+                ' '.join(command_atoms[1:]) +
+                '\n')
+        script_file.write('echo "End time is `date`"\n')
+        script_file.write('exit 0\n')
+        script_file.close()
+        return None
+    def write_IBMLoadLeveler_file_many_job(
+            self,
+            file_name = None,
+            nprocesses = None,
+            name_of_run = None,
+            command_atoms = [],
+            hours = None,
+            minutes = None,
+            out_file = None,
+            err_file = None,
+            njobs = 2):
+        assert(type(self.host_info['environment']) != type(None))
+        script_file = open(file_name, 'w')
+        script_file.write('# @ shell=/bin/bash\n')
+        # error file
+        if type(err_file) == type(None):
+            err_file = 'err.job.$(jobid).$(stepid)'
+        script_file.write('# @ error = ' + os.path.join(self.work_dir, err_file) + '\n')
+        # output file
+        if type(out_file) == type(None):
+            out_file = 'out.job.$(jobid).$(stepid)'
+        script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
+        script_file.write('# @ job_type = parallel\n')
+        script_file.write('# @ node_usage = not_shared\n')
+        script_file.write('#\n')
+        if self.host_info['environment'] == '16node':
+            tasks_per_node = 16
+            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
+        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+        for job in range(njobs):
+            script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
+            script_file.write('# @ resources = ConsumableCpus(1)\n')
+            script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
+            script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
+            script_file.write('# @ node = {0}\n'.format(number_of_nodes))
+            script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
+            if (first_node_tasks > 0):
+                script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
+            script_file.write('# @ queue\n')
+        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          '\n')
+        script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
+        script_file.write('echo "Start time is `date`"\n')
+        script_file.write('cd ' + self.work_dir + '\n')
+        script_file.write('poe ' +
+                os.path.join(
+                    self.work_dir,
+                    command_atoms[0]) +
+                ' ' +
+                ' '.join(command_atoms[1:]) +
+                '\n')
+        script_file.write('echo "End time is `date`"\n')
+        script_file.write('exit 0\n')
+        script_file.close()
         return None
     def write_sge_file(
             self,

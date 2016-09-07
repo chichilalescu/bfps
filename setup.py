@@ -133,6 +133,7 @@ libraries += extra_libraries
 pickle.dump(
         {'include_dirs' : include_dirs,
          'library_dirs' : library_dirs,
+         'compiler'     : compiler,
          'extra_compile_args' : extra_compile_args,
          'libraries' : libraries,
          'install_date' : now,
