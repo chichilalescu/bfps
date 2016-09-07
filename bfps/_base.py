@@ -265,6 +265,12 @@ class _base(object):
                 '--wd',
                 type = str, dest = 'work_dir',
                 default = './')
+        parser.add_argument(
+                '--minutes',
+                type = int,
+                dest = 'minutes',
+                default = 5,
+                help = 'If environment supports it, this is the requested wall-clock-limit.')
         return None
     def parameters_to_parser_arguments(
             self,

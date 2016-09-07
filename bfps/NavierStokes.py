@@ -1205,6 +1205,8 @@ class NavierStokes(_fluid_particle_base):
                            amplitude = 0.05)
         self.run(
                 ncpu = opt.ncpu,
-                njobs = opt.njobs)
+                njobs = opt.njobs,
+                hours = opt.minutes // 60,
+                minutes = opt.minutes % 60)
         return None
 
