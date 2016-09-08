@@ -214,6 +214,32 @@ class _code(_base):
                 subprocess.call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
                 job_name_list.append(suffix)
+        if self.host_info['type'] == 'SLURM':
+            job_id_list = []
+            for j in range(njobs):
+                suffix = self.simname + '_{0}'.format(iter0 + j*self.parameters['niter_todo'])
+                qsub_script_name = 'run_' + suffix + '.sh'
+                self.write_slurm_file(
+                    file_name     = os.path.join(self.work_dir, qsub_script_name),
+                    nprocesses    = ncpu,
+                    name_of_run   = suffix,
+                    command_atoms = command_atoms[3:],
+                    hours         = hours,
+                    minutes       = minutes,
+                    out_file      = out_file + '_' + suffix,
+                    err_file      = err_file + '_' + suffix)
+                os.chdir(self.work_dir)
+                qsub_atoms = ['sbatch']
+                if len(job_id_list) >= 1:
+                    qsub_atoms += ['--dependency=afterok:{0}'.format(job_id_list[-1])]
+                p = subprocess.Popen(
+                    qsub_atoms + [qsub_script_name],
+                    stdout = subprocess.PIPE)
+                out, err = p.communicate()
+                p.terminate()
+                job_id_list.append(int(out.split()[-1]))
+                print(job_id_list)
+                os.chdir(current_dir)
         elif self.host_info['type'] == 'IBMLoadLeveler':
             suffix = self.simname + '_{0}'.format(iter0)
             job_script_name = 'run_' + suffix + '.sh'
@@ -396,6 +422,51 @@ class _code(_base):
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '" ' +
                           '-n {0} {1}\n'.format(nprocesses, ' '.join(command_atoms)))
+        script_file.write('echo "End time is `date`"\n')
+        script_file.write('exit 0\n')
+        script_file.close()
+        return None
+    def write_slurm_file(
+            self,
+            file_name = None,
+            nprocesses = None,
+            name_of_run = None,
+            command_atoms = [],
+            hours = None,
+            minutes = None,
+            out_file = None,
+            err_file = None):
+        script_file = open(file_name, 'w')
+        script_file.write('#!/bin/bash -l\n')
+        # job name
+        script_file.write('#SBATCH -J {0}\n'.format(name_of_run))
+        # use current working directory
+        script_file.write('#SBATCH -D ./\n')
+        # error file
+        if not type(err_file) == type(None):
+            script_file.write('#SBATCH -e ' + err_file + '\n')
+        # output file
+        if not type(out_file) == type(None):
+            script_file.write('#SBATCH -o ' + out_file + '\n')
+        script_file.write('#SBATCH --partition={0}\n'.format(
+                self.host_info['environment']))
+        nodes = nprocesses // self.host_info['deltanprocs']
+        if (nodes == 0):
+            nodes = 1
+            tasks_per_node = nprocesses
+        else:
+            assert(nprocesses % self.host_info['deltanprocs'] == 0)
+            tasks_per_node = self.host_info['deltanprocs']
+        script_file.write('#SBATCH --nodes={0}\n'.format(nodes))
+        script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(tasks_per_node))
+        script_file.write('#SBATCH --ntasks-per-core=1\n')
+        script_file.write('#SBATCH --mail-type=none\n')
+        script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
+        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          '\n')
+        script_file.write('echo "Start time is `date`"\n')
+        script_file.write('srun {0}\n'.format(' '.join(command_atoms)))
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
         script_file.close()
