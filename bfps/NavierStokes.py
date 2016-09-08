@@ -1138,6 +1138,7 @@ class NavierStokes(_fluid_particle_base):
             opt.nparticles = 0
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
+                self.name += '-particles'
                 self.add_3D_rFFTW_field(
                         name = 'rFFTW_acc')
                 self.add_interpolator(
