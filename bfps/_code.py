@@ -238,7 +238,6 @@ class _code(_base):
                 out, err = p.communicate()
                 p.terminate()
                 job_id_list.append(int(out.split()[-1]))
-                print(job_id_list)
                 os.chdir(current_dir)
         elif self.host_info['type'] == 'IBMLoadLeveler':
             suffix = self.simname + '_{0}'.format(iter0)
