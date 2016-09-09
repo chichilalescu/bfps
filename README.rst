@@ -12,11 +12,14 @@ Parameters and statistics are stored in HDF5 format, together with code
 information, so simulation data should be "future proof" --- suggestions
 of possible improvements to the current approach are always welcome.
 
+The primary aim of bfps is to reduce the time spent on setting up and
+baby sitting DNS, as well as simplify the analysis of the generated
+data.
 The wish is that this Python package provides an easy and general way
 of constructing efficient specialized DNS C++ codes for different
 turbulence problems encountered in research.
 At the same time, the package should provide a unified way of
-postprocessing data, and accessing the postprocessing results.
+postprocessing, and accessing the postprocessing results.
 The code therefore consists of two main parts: the pure C++ code, a set
 of loosely related "building blocks", and the Python code, which can
 generate C++ code using the pure classes, but with a significant degree
@@ -34,10 +37,10 @@ the user's machine, or submitted to a queue on a cluster.
 Installation
 ------------
 
-So far, the code has been run on an ubuntu 14.04 machine, an opensuse
-13.2 desktop, and a reasonably standard linux cluster (biggest run so
-far was 1344^3 on 16 nodes of 12 cores each, with about 24 seconds per
-time step).
+So far, the code has been run on laptops, desktops, and a couple of
+clusters (biggest run so far was 1536^3 on 16 nodes of 32 cores each,
+with about 11 seconds per time step, for a simple incompressible
+Navier-Stokes problem).
 Postprocessing data may not be very computationally intensive, depending
 on the amount of data involved.
 
@@ -62,8 +65,8 @@ The file `machine_settings_py.py` should be modified
 appropriately for your machine (otherwise the `build` command will most
 likely fail).
 This file will be copied the first time you run `setup.py` into
-`$HOME/.config/bfps/machine_settings.py`, where it will be imported from
-afterwards.
+`$HOME/.config/bfps/machine_settings.py`, **where it will be imported from
+afterwards** --- any future edits **must** be made to the new file.
 You may, obviously, edit it afterwards and rerun the build command as
 needed.
 
@@ -99,9 +102,7 @@ Comments
 * particles: initialization of multistep solvers is done with lower
   order methods, so direct convergence tests will fail.
 
-* Code is used mainly with Python 3.4, but Python 2.7
-  compatibility should be kept since mayavi (well, vtk actually) only
-  works on Python 2.
-  Until vtk becomes compatible with Python 3.x, any Python 2.7
-  incompatibilites can be reported as bugs.
+* Code is used mainly with Python 3.4 and 3.5.
+  In principle it should be easy to maintain compatibility with Python
+  2.7.x, but as of `bfps 1.8` this is no longer a main concern.
 
