@@ -136,6 +136,8 @@ class FluidResize(_fluid_particle_base):
         for k in ['dst_nx', 'dst_ny', 'dst_nz']:
             if type(cmd_line_pars[k]) == type(None):
                 cmd_line_pars[k] = opt.m
+        # the 3 dst_ni have been updated in opt itself at this point
+        # I'm not sure if this code is future-proof...
         self.parameters['niter_todo'] = 0
         self.pars_from_namespace(opt)
         src_file = os.path.join(
@@ -144,10 +146,11 @@ class FluidResize(_fluid_particle_base):
         read_file = os.path.join(
                 self.work_dir,
                 opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
-        self.set_host_info(bfps.host_info)
         self.write_par(iter0 = opt.src_iteration)
         if not os.path.exists(read_file):
             os.symlink(src_file, read_file)
-        self.run(ncpu = opt.ncpu)
+        self.run(ncpu = opt.ncpu,
+                 hours = opt.minutes // 60,
+                 minutes = opt.minutes % 60)
         return None
 
