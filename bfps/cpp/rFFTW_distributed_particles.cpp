@@ -32,6 +32,8 @@
 #include <string>
 #include <sstream>
 #include <set>
+#include <algorithm>
+#include <ctime>
 
 #include "base.hpp"
 #include "rFFTW_distributed_particles.hpp"
@@ -157,6 +159,9 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const std::unordered_map<int, std::unordered_set<int>> &dp,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    clock_t time0, time1;
+    double time_difference, local_time_difference;
+    time0 = clock();
     double *yyy;
     double *yy;
     y.clear();
@@ -184,11 +189,15 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             int tindex;
             tindex = 0;
             // can this sorting be done more efficiently?
-            std::set<int> ordered_dp;
+            std::vector<int> ordered_dp;
+            ordered_dp.reserve(dp.at(domain_index).size());
             for (auto p: dp.at(domain_index))
-                ordered_dp.insert(p);
+                ordered_dp.push_back(p);
+            //std::set<int> ordered_dp(dp.at(domain_index));
+            std::sort(ordered_dp.begin(), ordered_dp.end());
 
             for (auto p: ordered_dp)
+            //for (auto p: dp.at(domain_index))
             {
                 (*field)(x.at(p).data, yy + tindex*3);
                 tindex++;
@@ -202,6 +211,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
                     this->domain_comm[domain_index]);
             tindex = 0;
             for (auto p: ordered_dp)
+            //for (auto p: dp.at(domain_index))
             {
                 y[p] = yyy + tindex*3;
                 tindex++;
@@ -210,6 +220,11 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             delete[] yyy;
         }
     }
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "sample took " << time_difference/nprocs << " seconds" << std::endl;
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
@@ -253,6 +268,9 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
         std::unordered_map<int, std::unordered_set<int>> &dp)
 {
+    clock_t time0, time1;
+    double time_difference, local_time_difference;
+    time0 = clock();
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
     std::unordered_map<int, std::unordered_set<int>> newdp;
@@ -285,6 +303,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     ro[1] = 1;
     /* particles to send, particles to receive */
     std::vector<int> ps[2], pr[2];
+    for (int tcounter = 0; tcounter < 2; tcounter++)
+    {
+        ps[tcounter].reserve(newdp[dindex[tcounter]].size());
+    }
     /* number of particles to send, number of particles to receive */
     int nps[2], npr[2];
     int rsrc, rdst;
@@ -416,6 +438,11 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     //    }
 #endif
     //DEBUG_MSG("exiting redistribute\n");
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "sample took " << time_difference/nprocs << " seconds" << std::endl;
 }
 
 
