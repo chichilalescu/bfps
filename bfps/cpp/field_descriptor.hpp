@@ -26,6 +26,7 @@
 
 #include <mpi.h>
 #include <fftw3-mpi.h>
+#include "fftw_interface.hpp"
 
 #ifndef FIELD_DESCRIPTOR
 
@@ -85,14 +86,14 @@ class field_descriptor
                 rnumber *input,
                 rnumber *output);
         int transpose(
-                cnumber *input,
-                cnumber *output = NULL);
+                typename fftw_interface<rnumber>::complex *input,
+                typename fftw_interface<rnumber>::complex *output = NULL);
 
         int interleave(
                 rnumber *input,
                 int dim);
         int interleave(
-                cnumber *input,
+                typename fftw_interface<rnumber>::complex *input,
                 int dim);
 };
 
