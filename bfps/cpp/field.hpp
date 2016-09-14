@@ -224,6 +224,14 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const double max_estimate);
+        inline void impose_zero_mode()
+        {
+            if (this->clayout->myrank == this->clayout->rank[0][0] &&
+                this->real_space_representation == false)
+            {
+                std::fill_n(this->data, 2*ncomp(fc), 0.0);
+            }
+        }
 };
 
 template <typename rnumber,
