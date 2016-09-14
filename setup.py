@@ -111,7 +111,8 @@ src_file_list = ['field',
 
 header_list = (['cpp/base.hpp'] +
                ['cpp/' + fname + '.hpp'
-                for fname in src_file_list])
+                for fname in src_file_list] + 
+               ['cpp/fftw_interface.hpp'])
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in (['bfps/cpp/' + ff + '.cpp' for ff in src_file_list] +
