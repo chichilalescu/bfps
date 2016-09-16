@@ -280,7 +280,7 @@ public:
             nbEventsPerProc.reset(new int[nbProcess]);
         }
         const int myNbEvents = myEvents.size();
-        retMpi = MPI_Gather(&myNbEvents, 1, MPI_INT,
+        retMpi = MPI_Gather(const_cast<int*>(&myNbEvents), 1, MPI_INT,
                        nbEventsPerProc.get(), 1, MPI_INT,
                        0, inComm);
         assert(retMpi == MPI_SUCCESS);
