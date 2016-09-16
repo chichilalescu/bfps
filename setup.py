@@ -132,22 +132,13 @@ libraries += extra_libraries
 
 
 
-### save compiling information
-pickle.dump(
-        {'include_dirs' : include_dirs,
-         'library_dirs' : library_dirs,
-         'compiler'     : compiler,
-         'extra_compile_args' : extra_compile_args,
-         'libraries' : libraries,
-         'install_date' : now,
-         'VERSION' : VERSION,
-         'git_revision' : git_revision},
-        open('bfps/install_info.pickle', 'wb'),
-        protocol = 2)
-
-
-
-def compile_bfps_library():
+def compile_bfps_library(
+        use_timingoutput = False,
+        extra_compile_args = None):
+    """
+        use_timingoutput sets the USE_TIMINGOUTPUT definition,
+        thus scope timers are being output.
+    """
     if not os.path.isdir('obj'):
         os.makedirs('obj')
         need_to_compile = True
@@ -161,6 +152,8 @@ def compile_bfps_library():
             latest = max(latest,
                          datetime.datetime.fromtimestamp(os.path.getctime('bfps/' + fname)))
         need_to_compile = (latest > libtime)
+    if use_timingoutput:
+        extra_compile_args += ['-DUSE_TIMINGOUTPUT']
     for fname in src_file_list:
         ifile = 'bfps/cpp/' + fname + '.cpp'
         ofile = 'obj/' + fname + '.o'
@@ -178,19 +171,43 @@ def compile_bfps_library():
             command_strings += ['-I' + idir for idir in include_dirs]
             command_strings.append('-Ibfps/cpp/')
             print(' '.join(command_strings))
-            assert(subprocess.call(command_strings) == 0)
+            subprocess.check_call(command_strings)
     command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
     command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
     print(' '.join(command_strings))
-    assert(subprocess.call(command_strings) == 0)
+    subprocess.check_call(command_strings)
+
+    ### save compiling information
+    pickle.dump(
+            {'include_dirs' : include_dirs,
+             'library_dirs' : library_dirs,
+             'compiler'     : compiler,
+             'extra_compile_args' : extra_compile_args,
+             'libraries' : libraries,
+             'install_date' : now,
+             'VERSION' : VERSION,
+             'git_revision' : git_revision},
+            open('bfps/install_info.pickle', 'wb'),
+            protocol = 2)
     return None
+
 
 from distutils.command.build import build as DistutilsBuild
 from distutils.command.install import install as DistutilsInstall
 
 class CustomBuild(DistutilsBuild):
+    description = 'Compile bfps library.'
+    user_options = [
+            ('timing-output=', None, 'Toggle timing output.'),
+            ]
+    def initialize_options(self):
+        self.timing_output = 0
+    def finalize_options(self):
+        self.timing_output = (int(self.timing_output) == 1)
     def run(self):
-        compile_bfps_library()
+        compile_bfps_library(
+                use_timingoutput = self.timing_output,
+                extra_compile_args = extra_compile_args)
         DistutilsBuild.run(self)
 
 # this custom install leads to a broken installation. no idea why...
@@ -198,6 +215,7 @@ class CustomInstall(DistutilsInstall):
     def run(self):
         compile_bfps_library()
         DistutilsInstall.run(self)
+        return None
 
 from setuptools import setup
 
