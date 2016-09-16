@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cassert>
 #include "field.hpp"
+#include "scope_timer.hpp"
 
 template <field_components fc>
 field_layout<fc>::field_layout(
@@ -36,6 +37,7 @@ field_layout<fc>::field_layout(
         const hsize_t *STARTS,
         const MPI_Comm COMM_TO_USE)
 {
+    TIMEZONE("field_layout::field_layout");
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
@@ -116,6 +118,7 @@ field<rnumber, be, fc>::field(
                 const MPI_Comm COMM_TO_USE,
                 const unsigned FFTW_PLAN_RIGOR)
 {
+    TIMEZONE("field_layout::field");
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
@@ -276,6 +279,7 @@ int field<rnumber, be, fc>::io(
         const int toffset,
         const bool read)
 {
+    TIMEZONE("field_layout::io");
     hid_t file_id, dset_id, plist_id;
     hid_t dset_type;
     bool io_for_real = false;
@@ -390,6 +394,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
                 const hsize_t toffset,
                 const std::vector<double> max_estimate)
 {
+    TIMEZONE("field_layout::compute_rspace_xincrement_stats");
     assert(this->real_space_representation);
     assert(fc == ONE || fc == THREE);
     field<rnumber, be, fc> *tmp_field = new field<rnumber, be, fc>(
@@ -427,6 +432,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 const hsize_t toffset,
                 const std::vector<double> max_estimate)
 {
+    TIMEZONE("field_layout::compute_rspace_stats");
     assert(this->real_space_representation);
     const unsigned int nmoments = 10;
     int nvals, nbins;
@@ -607,6 +613,7 @@ void field<rnumber, be, fc>::compute_stats(
         const hsize_t toffset,
         const double max_estimate)
 {
+    TIMEZONE("field_layout::compute_stats");
     std::vector<double> max_estimate_vector;
     bool did_rspace = false;
     switch(fc)
@@ -664,6 +671,7 @@ kspace<be, dt>::kspace(
         const double DKY,
         const double DKZ)
 {
+    TIMEZONE("field_layout::kspace");
     /* get layout */
     this->layout = new field_layout<ONE>(
             source_layout->sizes,
@@ -815,6 +823,7 @@ void kspace<be, dt>::cospectrum(
         const std::string dset_name,
         const hsize_t toffset)
 {
+    TIMEZONE("field_layout::cospectrum");
     std::vector<double> spec, spec_local;
     spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
@@ -880,6 +889,7 @@ void compute_gradient(
         field<rnumber, be, fc1> *src,
         field<rnumber, be, fc2> *dst)
 {
+    TIMEZONE("field_layout::compute_gradient");
     assert(!src->real_space_representation);
     assert((fc1 == ONE && fc2 == THREE) ||
            (fc1 == THREE && fc2 == THREExTHREE));

@@ -31,6 +31,7 @@
 #include <cstring>
 #include "fluid_solver.hpp"
 #include "fftw_tools.hpp"
+#include "scope_timer.hpp"
 
 
 
@@ -65,6 +66,7 @@ fluid_solver<rnumber>::fluid_solver(
                                         DEALIAS_TYPE,
                                         FFTW_PLAN_RIGOR)
 {
+    TIMEZONE("fluid_solver::fluid_solver");
     this->cvorticity = fftw_interface<rnumber>::alloc_complex(this->cd->local_size);
     this->cvelocity  = fftw_interface<rnumber>::alloc_complex(this->cd->local_size);
     this->rvorticity = fftw_interface<rnumber>::alloc_real(this->cd->local_size*2);
@@ -192,6 +194,7 @@ fluid_solver<rnumber>::~fluid_solver()
 template <class rnumber>
 void fluid_solver<rnumber>::compute_vorticity()
 {
+    TIMEZONE("fluid_solver::compute_vorticity");
     ptrdiff_t tindex;
     CLOOP_K2(
                 this,
@@ -216,6 +219,7 @@ void fluid_solver<rnumber>::compute_vorticity()
 template <class rnumber>
 void fluid_solver<rnumber>::compute_velocity(rnumber (*__restrict__ vorticity)[2])
 {
+    TIMEZONE("fluid_solver::compute_velocity");
     ptrdiff_t tindex;
     CLOOP_K2(
                 this,
@@ -240,12 +244,14 @@ void fluid_solver<rnumber>::compute_velocity(rnumber (*__restrict__ vorticity)[2
 template <class rnumber>
 void fluid_solver<rnumber>::ift_velocity()
 {
+    TIMEZONE("fluid_solver::ift_velocity");
     fftw_interface<rnumber>::execute(*(this->c2r_velocity ));
 }
 
 template <class rnumber>
 void fluid_solver<rnumber>::ift_vorticity()
 {
+    TIMEZONE("fluid_solver::ift_vorticity");
     std::fill_n(this->rvorticity, this->cd->local_size*2, 0.0);
     fftw_interface<rnumber>::execute(*(this->c2r_vorticity ));
 }
@@ -253,12 +259,14 @@ void fluid_solver<rnumber>::ift_vorticity()
 template <class rnumber>
 void fluid_solver<rnumber>::dft_velocity()
 {
+    TIMEZONE("fluid_solver::dft_velocity");
     fftw_interface<rnumber>::execute(*(this->r2c_velocity ));
 }
 
 template <class rnumber>
 void fluid_solver<rnumber>::dft_vorticity()
 {
+    TIMEZONE("fluid_solver::dft_vorticity");
     std::fill_n((rnumber*)this->cvorticity, this->cd->local_size*2, 0.0);
     fftw_interface<rnumber>::execute(*(this->r2c_vorticity ));
 }
@@ -267,6 +275,7 @@ template <class rnumber>
 void fluid_solver<rnumber>::add_forcing(
         rnumber (*__restrict__ acc_field)[2], rnumber (*__restrict__ vort_field)[2], rnumber factor)
 {
+    TIMEZONE("fluid_solver::add_forcing");
     if (strcmp(this->forcing_type, "none") == 0)
         return;
     if (strcmp(this->forcing_type, "Kolmogorov") == 0)
@@ -308,6 +317,7 @@ template <class rnumber>
 void fluid_solver<rnumber>::omega_nonlin(
         int src)
 {
+    TIMEZONE("fluid_solver::omega_nonlin");
     assert(src >= 0 && src < 3);
     this->compute_velocity(this->cv[src]);
     /* get fields from Fourier space to real space */
@@ -355,6 +365,7 @@ void fluid_solver<rnumber>::omega_nonlin(
 template <class rnumber>
 void fluid_solver<rnumber>::step(double dt)
 {
+    TIMEZONE("fluid_solver::step");
     double factor0, factor1;
     std::fill_n((rnumber*)this->cv[1], this->cd->local_size*2, 0.0);
     this->omega_nonlin(0);
@@ -410,6 +421,7 @@ void fluid_solver<rnumber>::step(double dt)
 template <class rnumber>
 int fluid_solver<rnumber>::read(char field, char representation)
 {
+    TIMEZONE("fluid_solver::read");
     char fname[512];
     int read_result;
     if (field == 'v')
@@ -450,6 +462,7 @@ int fluid_solver<rnumber>::read(char field, char representation)
 template <class rnumber>
 int fluid_solver<rnumber>::write(char field, char representation)
 {
+    TIMEZONE("fluid_solver::write");
     char fname[512];
     if ((field == 'v') && (representation == 'c'))
     {
@@ -482,6 +495,7 @@ int fluid_solver<rnumber>::write(char field, char representation)
 template <class rnumber>
 int fluid_solver<rnumber>::write_rTrS2()
 {
+    TIMEZONE("fluid_solver::write_rTrS2");
     char fname[512];
     this->fill_up_filename("rTrS2", fname);
     typename fftw_interface<rnumber>::complex *ca;
@@ -554,6 +568,7 @@ int fluid_solver<rnumber>::write_rTrS2()
 template <class rnumber>
 int fluid_solver<rnumber>::write_renstrophy()
 {
+    TIMEZONE("fluid_solver::write_renstrophy");
     char fname[512];
     this->fill_up_filename("renstrophy", fname);
     rnumber *enstrophy = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
@@ -594,6 +609,7 @@ int fluid_solver<rnumber>::write_renstrophy()
 template <class rnumber>
 void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2])
 {
+    TIMEZONE("fluid_solver::compute_pressure");
     /* assume velocity is already in real space representation */
     ptrdiff_t tindex;
 
@@ -669,6 +685,7 @@ double gradu_max_estimates[],
 int nbins,
 int QR2D_nbins)
 {
+    TIMEZONE("fluid_solver::compute_gradient_statistics");
     typename fftw_interface<rnumber>::complex *ca;
     rnumber *ra;
     ca = fftw_interface<rnumber>::alloc_complex(this->cd->local_size*3);
@@ -782,6 +799,7 @@ int QR2D_nbins)
 template <class rnumber>
 void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber (*acceleration)[2])
 {
+    TIMEZONE("fluid_solver::compute_Lagrangian_acceleration");
     ptrdiff_t tindex;
     typename fftw_interface<rnumber>::complex *pressure;
     pressure = fftw_interface<rnumber>::alloc_complex(this->cd->local_size/3);
@@ -827,6 +845,7 @@ void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber (*accelerati
 template <class rnumber>
 void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__ acceleration)[2])
 {
+    TIMEZONE("fluid_solver::compute_Eulerian_acceleration");
     std::fill_n((rnumber*)(acceleration), 2*this->cd->local_size, 0.0);
     ptrdiff_t tindex;
     this->compute_velocity(this->cvorticity);
@@ -936,6 +955,7 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
 template <class rnumber>
 void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber *__restrict__ acceleration)
 {
+    TIMEZONE("fluid_solver::compute_Lagrangian_acceleration");
     this->compute_Lagrangian_acceleration((typename fftw_interface<rnumber>::complex*)acceleration);
     fftw_interface<rnumber>::execute(*(this->vc2r[1]));
     std::copy(
@@ -947,6 +967,7 @@ void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber *__restrict_
 template <class rnumber>
 int fluid_solver<rnumber>::write_rpressure()
 {
+    TIMEZONE("fluid_solver::write_rpressure");
     char fname[512];
     typename fftw_interface<rnumber>::complex *pressure;
     pressure = fftw_interface<rnumber>::alloc_complex(this->cd->local_size/3);

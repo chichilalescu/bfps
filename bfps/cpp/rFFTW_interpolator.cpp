@@ -28,6 +28,7 @@
 
 #include <cmath>
 #include "rFFTW_interpolator.hpp"
+#include "scope_timer.hpp"
 
 template <class rnumber, int interp_neighbours>
 rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
@@ -80,6 +81,7 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::sample(
         double *__restrict__ y,
         const int *deriv)
 {
+    TIMEZONE("rFFTW_interpolator::sample");
     /* get grid coordinates */
     int *xg = new int[3*nparticles];
     double *xx = new double[3*nparticles];
@@ -109,6 +111,7 @@ void rFFTW_interpolator<rnumber, interp_neighbours>::operator()(
         double *dest,
         const int *deriv)
 {
+    TIMEZONE("rFFTW_interpolator::operator()");
     double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
     if (deriv == NULL)
     {

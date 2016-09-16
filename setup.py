@@ -107,12 +107,14 @@ src_file_list = ['field',
                  'spline_n4',
                  'spline_n5',
                  'spline_n6',
-                 'Lagrange_polys']
+                 'Lagrange_polys',
+                 'scope_timer']
 
 header_list = (['cpp/base.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list] + 
-               ['cpp/fftw_interface.hpp'])
+               ['cpp/fftw_interface.hpp'] + 
+               ['cpp/bfps_timer.hpp'])
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in (['bfps/cpp/' + ff + '.cpp' for ff in src_file_list] +

@@ -35,6 +35,7 @@
 #include "base.hpp"
 #include "distributed_particles.hpp"
 #include "fftw_tools.hpp"
+#include "scope_timer.hpp"
 
 
 extern int myrank, nprocs;
@@ -121,6 +122,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::redistrib
         std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals)
 {
+    TIMEZONE("distributed_particles::redistribute");
     //DEBUG_MSG("entered redistribute\n");
     /* neighbouring rank offsets */
     int ro[2];
@@ -312,6 +314,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBash
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
+    TIMEZONE("distributed_particles::step");
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
                             this->iteration+1 :
                             this->integration_steps);
@@ -368,6 +371,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    TIMEZONE("distributed_particles::write");
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
@@ -399,6 +403,7 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
+    TIMEZONE("distributed_particles::write2");
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)

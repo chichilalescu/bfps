@@ -36,6 +36,7 @@
 #include "base.hpp"
 #include "rFFTW_distributed_particles.hpp"
 #include "fftw_tools.hpp"
+#include "scope_timer.hpp"
 
 
 extern int myrank, nprocs;
@@ -52,6 +53,7 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
             data_file_id,
             FIELD->descriptor->comm)
 {
+    TIMEZONE("rFFTW_distributed_particles::rFFTW_distributed_particles");
     /* check that integration_steps has a valid value.
      * If NDEBUG is defined, "assert" doesn't do anything.
      * With NDEBUG defined, and an invalid INTEGRATION_STEPS,
@@ -157,6 +159,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const std::unordered_map<int, std::unordered_set<int>> &dp,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    TIMEZONE("rFFTW_distributed_particles::sample");
     double *yyy;
     double *yy;
     y.clear();
@@ -253,6 +256,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
         std::unordered_map<int, std::unordered_set<int>> &dp)
 {
+    TIMEZONE("rFFTW_distributed_particles::redistribute");
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
     std::unordered_map<int, std::unordered_set<int>> newdp;
@@ -521,6 +525,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sor
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
+    TIMEZONE("rFFTW_distributed_particles::read");
     double *temp = new double[this->chunk_size*state_dimension(particle_type)];
     int tmpint1, tmpint2;
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
@@ -575,6 +580,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    TIMEZONE("rFFTW_distributed_particles::write");
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
     int pindex = 0;
@@ -609,6 +615,7 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
+    TIMEZONE("rFFTW_distributed_particles::write2");
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
     int pindex = 0;

@@ -53,6 +53,7 @@ class _code(_base):
                 //begincpp
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
+                #include "scope_timer.hpp"
                 #include <iostream>
                 #include <hdf5.h>
                 #include <string>
@@ -97,12 +98,15 @@ class _code(_base):
                         DEBUG_MSG("when setting stat_file cache I got %d\\n", cache_err);
                         stat_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
                     }
+                    {
+                        TIMEZONE("code::main_start");
                 //endcpp
                 """
         for ostream in ['cout', 'cerr']:
             self.main_start += 'if (myrank == 0) std::{1} << "{0}" << std::endl;'.format(self.version_message, ostream).replace('\n', '\\n') + '\n'
         self.main_end = """
                 //begincpp
+                    }
                     // clean up
                     if (myrank == 0)
                     {
@@ -113,6 +117,10 @@ class _code(_base):
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
+                    #ifdef USE_TIMINGOUTPUT
+                    global_timer_manager.show(MPI_COMM_WORLD);
+                    global_timer_manager.showMpi(MPI_COMM_WORLD);
+                    #endif
                     MPI_Finalize();
                     return EXIT_SUCCESS;
                 }
