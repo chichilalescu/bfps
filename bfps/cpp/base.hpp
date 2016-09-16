@@ -133,8 +133,5 @@ inline void DEBUG_MSG_WAIT(MPI_Comm communicator, const char * format, ...)
 
 #endif//NDEBUG
 
-// To print timingzone
-#define USE_TIMINGOUTPUT
-
 #endif//BASE
 

@@ -58,21 +58,21 @@ Use a console; navigate to the ``bfps`` folder, and type:
 **Full installation**
 
 If you want to run simulations on the machine where you're installing,
-you will need to call `build` before installing.
+you will need to call `compile_library` before installing.
 Your machine needs to have an MPI compiler installed, the HDF5 C library
 and FFTW >= 3.4.
 The file `machine_settings_py.py` should be modified
-appropriately for your machine (otherwise the `build` command will most
+appropriately for your machine (otherwise the `compile_library` command will most
 likely fail).
 This file will be copied the first time you run `setup.py` into
 `$HOME/.config/bfps/machine_settings.py`, **where it will be imported from
 afterwards** --- any future edits **must** be made to the new file.
-You may, obviously, edit it afterwards and rerun the build command as
+You may, obviously, edit it afterwards and rerun the `compile_library` command as
 needed.
 
 .. code:: bash
 
-    python setup.py build
+    python setup.py compile_library
     python setup.py install
 
 -------------
