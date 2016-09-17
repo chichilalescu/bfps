@@ -36,6 +36,7 @@
 #include <unordered_map>
 #include <mpi.h>
 #include <cstring>
+#include <stdexcept>
 
 #include "base.hpp"
 #include "bfps_timer.hpp"
