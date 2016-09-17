@@ -224,7 +224,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
     local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
     time_difference = 0.0;
     MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "sample took " << time_difference/nprocs << " seconds" << std::endl;
+    if (myrank == 0) std::cerr << "sample took " << time_difference/this->nprocs << " seconds" << std::endl;
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
@@ -239,8 +239,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get
         case VELOCITY_TRACER:
             this->sample(this->vel, x, dp, yy);
             y.clear();
-            for (auto &pp: x)
-                y[pp.first] = yy[pp.first].data;
+            y.reserve(yy.size());
+            y.rehash(this->nparticles);
+            for (auto &pp: yy)
+                y[pp.first] = pp.second.data;
             break;
     }
 }
@@ -268,9 +270,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
         std::unordered_map<int, std::unordered_set<int>> &dp)
 {
-    clock_t time0, time1;
-    double time_difference, local_time_difference;
-    time0 = clock();
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
     std::unordered_map<int, std::unordered_set<int>> newdp;
@@ -438,11 +437,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     //    }
 #endif
     //DEBUG_MSG("exiting redistribute\n");
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "sample took " << time_difference/nprocs << " seconds" << std::endl;
 }
 
 
@@ -451,47 +445,80 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
+    clock_t time0, time1;
+    double time_difference, local_time_difference;
+    time0 = clock();
     this->get_rhs(this->state, this->domain_particles, this->rhs[0]);
-    for (auto &pp: this->state)
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "rhs took " << time_difference/this->nprocs << " seconds" << std::endl;
+#define AdamsBashforth_LOOP_PREAMBLE \
+    for (auto &pp: this->state) \
         for (unsigned int i=0; i<state_dimension(particle_type); i++)
-            switch(nsteps)
-            {
-                case 1:
-                    pp.second[i] += this->dt*this->rhs[0][pp.first][i];
-                    break;
-                case 2:
-                    pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
-                                            -   this->rhs[1][pp.first][i])/2;
-                    break;
-                case 3:
-                    pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
-                                            - 16*this->rhs[1][pp.first][i]
-                                            +  5*this->rhs[2][pp.first][i])/12;
-                    break;
-                case 4:
-                    pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
-                                            - 59*this->rhs[1][pp.first][i]
-                                            + 37*this->rhs[2][pp.first][i]
-                                            -  9*this->rhs[3][pp.first][i])/24;
-                    break;
-                case 5:
-                    pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
-                                            - 2774*this->rhs[1][pp.first][i]
-                                            + 2616*this->rhs[2][pp.first][i]
-                                            - 1274*this->rhs[3][pp.first][i]
-                                            +  251*this->rhs[4][pp.first][i])/720;
-                    break;
-                case 6:
-                    pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
-                                            - 7923*this->rhs[1][pp.first][i]
-                                            + 9982*this->rhs[2][pp.first][i]
-                                            - 7298*this->rhs[3][pp.first][i]
-                                            + 2877*this->rhs[4][pp.first][i]
-                                            -  475*this->rhs[5][pp.first][i])/1440;
-                    break;
-            }
+    time0 = clock();
+    switch(nsteps)
+    {
+        case 1:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*this->rhs[0][pp.first][i];
+            break;
+        case 2:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*(3*this->rhs[0][pp.first][i]
+                                    -   this->rhs[1][pp.first][i])/2;
+            break;
+        case 3:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*(23*this->rhs[0][pp.first][i]
+                                    - 16*this->rhs[1][pp.first][i]
+                                    +  5*this->rhs[2][pp.first][i])/12;
+            break;
+        case 4:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*(55*this->rhs[0][pp.first][i]
+                                    - 59*this->rhs[1][pp.first][i]
+                                    + 37*this->rhs[2][pp.first][i]
+                                    -  9*this->rhs[3][pp.first][i])/24;
+            break;
+        case 5:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*(1901*this->rhs[0][pp.first][i]
+                                    - 2774*this->rhs[1][pp.first][i]
+                                    + 2616*this->rhs[2][pp.first][i]
+                                    - 1274*this->rhs[3][pp.first][i]
+                                    +  251*this->rhs[4][pp.first][i])/720;
+            break;
+        case 6:
+            AdamsBashforth_LOOP_PREAMBLE
+            pp.second[i] += this->dt*(4277*this->rhs[0][pp.first][i]
+                                    - 7923*this->rhs[1][pp.first][i]
+                                    + 9982*this->rhs[2][pp.first][i]
+                                    - 7298*this->rhs[3][pp.first][i]
+                                    + 2877*this->rhs[4][pp.first][i]
+                                    -  475*this->rhs[5][pp.first][i])/1440;
+            break;
+    }
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "Adams Bashforth took " << time_difference/this->nprocs << " seconds" << std::endl;
+    time0 = clock();
     this->redistribute(this->state, this->rhs, this->domain_particles);
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "redistribute took " << time_difference/this->nprocs << " seconds" << std::endl;
+    time0 = clock();
     this->roll_rhs();
+    time1 = clock();
+    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
+    time_difference = 0.0;
+    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if (myrank == 0) std::cerr << "roll_rhs took " << time_difference/this->nprocs << " seconds" << std::endl;
 }
 
 
