@@ -118,7 +118,7 @@ field<rnumber, be, fc>::field(
                 const MPI_Comm COMM_TO_USE,
                 const unsigned FFTW_PLAN_RIGOR)
 {
-    TIMEZONE("field_layout::field");
+    TIMEZONE("field::field");
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
@@ -251,6 +251,7 @@ template <typename rnumber,
           field_components fc>
 void field<rnumber, be, fc>::ift()
 {
+    TIMEZONE("field::ift");
     if (typeid(rnumber) == typeid(float))
         fftwf_execute(*((fftwf_plan*)this->c2r_plan));
     else if (typeid(rnumber) == typeid(double))
@@ -279,7 +280,7 @@ int field<rnumber, be, fc>::io(
         const int toffset,
         const bool read)
 {
-    TIMEZONE("field_layout::io");
+    TIMEZONE("field::io");
     hid_t file_id, dset_id, plist_id;
     hid_t dset_type;
     bool io_for_real = false;
@@ -394,7 +395,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
                 const hsize_t toffset,
                 const std::vector<double> max_estimate)
 {
-    TIMEZONE("field_layout::compute_rspace_xincrement_stats");
+    TIMEZONE("field::compute_rspace_xincrement_stats");
     assert(this->real_space_representation);
     assert(fc == ONE || fc == THREE);
     field<rnumber, be, fc> *tmp_field = new field<rnumber, be, fc>(
@@ -432,7 +433,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 const hsize_t toffset,
                 const std::vector<double> max_estimate)
 {
-    TIMEZONE("field_layout::compute_rspace_stats");
+    TIMEZONE("field::compute_rspace_stats");
     assert(this->real_space_representation);
     const unsigned int nmoments = 10;
     int nvals, nbins;
@@ -472,8 +473,11 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         H5Sclose(wspace);
         H5Dclose(dset);
     }
-    MPI_Bcast(&nvals, 1, MPI_INT, 0, this->comm);
-    MPI_Bcast(&nbins, 1, MPI_INT, 0, this->comm);
+    {
+        TIMEZONE("MPI_Bcast");
+        MPI_Bcast(&nvals, 1, MPI_INT, 0, this->comm);
+        MPI_Bcast(&nbins, 1, MPI_INT, 0, this->comm);
+    }
     assert(nvals == int(max_estimate.size()));
     double *moments = new double[nmoments*nvals];
     double *local_moments = new double[nmoments*nvals];
@@ -488,7 +492,9 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     std::fill_n(local_hist, nbins*nvals, 0);
     std::fill_n(local_moments, nmoments*nvals, 0);
     if (nvals == 4) local_moments[3] = max_estimate[3];
-    FIELD_RLOOP(
+    {
+        TIMEZONE("FIELD_RLOOP");
+        FIELD_RLOOP(
             this,
             std::fill_n(pow_tmp, nvals, 1.0);
             if (nvals == int(4)) val_tmp[3] = 0.0;
@@ -522,26 +528,30 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 for (int i=0; i<nvals; i++)
                     local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
             );
-    MPI_Allreduce(
-            (void*)local_moments,
-            (void*)moments,
-            nvals,
-            MPI_DOUBLE, MPI_MIN, this->comm);
-    MPI_Allreduce(
-            (void*)(local_moments + nvals),
-            (void*)(moments+nvals),
-            (nmoments-2)*nvals,
-            MPI_DOUBLE, MPI_SUM, this->comm);
-    MPI_Allreduce(
-            (void*)(local_moments + (nmoments-1)*nvals),
-            (void*)(moments+(nmoments-1)*nvals),
-            nvals,
-            MPI_DOUBLE, MPI_MAX, this->comm);
-    MPI_Allreduce(
-            (void*)local_hist,
-            (void*)hist,
-            nbins*nvals,
-            MPI_INT64_T, MPI_SUM, this->comm);
+    }
+    {
+        TIMEZONE("MPI_Allreduce");
+        MPI_Allreduce(
+                (void*)local_moments,
+                (void*)moments,
+                nvals,
+                MPI_DOUBLE, MPI_MIN, this->comm);
+        MPI_Allreduce(
+                (void*)(local_moments + nvals),
+                (void*)(moments+nvals),
+                (nmoments-2)*nvals,
+                MPI_DOUBLE, MPI_SUM, this->comm);
+        MPI_Allreduce(
+                (void*)(local_moments + (nmoments-1)*nvals),
+                (void*)(moments+(nmoments-1)*nvals),
+                nvals,
+                MPI_DOUBLE, MPI_MAX, this->comm);
+        MPI_Allreduce(
+                (void*)local_hist,
+                (void*)hist,
+                nbins*nvals,
+                MPI_INT64_T, MPI_SUM, this->comm);
+    }
     for (int n=1; n < int(nmoments)-1; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->npoints;
@@ -552,6 +562,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     delete[] pow_tmp;
     if (this->myrank == 0)
     {
+        TIMEZONE("root-work");
         hid_t dset, wspace, mspace;
         hsize_t count[ndim(fc)-1], offset[ndim(fc)-1], dims[ndim(fc)-1];
         dset = H5Dopen(group, ("moments/" + dset_name).c_str(), H5P_DEFAULT);
@@ -613,7 +624,7 @@ void field<rnumber, be, fc>::compute_stats(
         const hsize_t toffset,
         const double max_estimate)
 {
-    TIMEZONE("field_layout::compute_stats");
+    TIMEZONE("field::compute_stats");
     std::vector<double> max_estimate_vector;
     bool did_rspace = false;
     switch(fc)
@@ -631,6 +642,7 @@ void field<rnumber, be, fc>::compute_stats(
     }
     if (this->real_space_representation)
     {
+        TIMEZONE("field::compute_stats::compute_rspace_stats");
         this->compute_rspace_stats(
                 group,
                 dset_name,
@@ -639,6 +651,7 @@ void field<rnumber, be, fc>::compute_stats(
         did_rspace = true;
         this->dft();
         // normalize
+        TIMEZONE("field::normalize");
         for (hsize_t tmp_index=0; tmp_index<this->rmemlayout->local_size; tmp_index++)
             this->data[tmp_index] /= this->npoints;
     }
@@ -671,7 +684,7 @@ kspace<be, dt>::kspace(
         const double DKY,
         const double DKZ)
 {
-    TIMEZONE("field_layout::kspace");
+    TIMEZONE("field::kspace");
     /* get layout */
     this->layout = new field_layout<ONE>(
             source_layout->sizes,
@@ -823,7 +836,7 @@ void kspace<be, dt>::cospectrum(
         const std::string dset_name,
         const hsize_t toffset)
 {
-    TIMEZONE("field_layout::cospectrum");
+    TIMEZONE("field::cospectrum");
     std::vector<double> spec, spec_local;
     spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
@@ -889,7 +902,7 @@ void compute_gradient(
         field<rnumber, be, fc1> *src,
         field<rnumber, be, fc2> *dst)
 {
-    TIMEZONE("field_layout::compute_gradient");
+    TIMEZONE("compute_gradient");
     assert(!src->real_space_representation);
     assert((fc1 == ONE && fc2 == THREE) ||
            (fc1 == THREE && fc2 == THREExTHREE));

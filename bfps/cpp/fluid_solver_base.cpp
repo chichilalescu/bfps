@@ -43,6 +43,7 @@ void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *d
 template <class rnumber>
 void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 {
+    TIMEZONE("fluid_solver_base::clean_up_real_space");
     for (ptrdiff_t rindex = 0; rindex < this->cd->local_size*2; rindex += howmany*(this->rd->subsizes[2]+2))
         std::fill_n(a+rindex+this->rd->subsizes[2]*howmany, 2*howmany, 0.0);
 }

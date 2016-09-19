@@ -321,43 +321,55 @@ void fluid_solver<rnumber>::omega_nonlin(
     assert(src >= 0 && src < 3);
     this->compute_velocity(this->cv[src]);
     /* get fields from Fourier space to real space */
-    fftw_interface<rnumber>::execute(*(this->c2r_velocity ));
-    fftw_interface<rnumber>::execute(*(this->vc2r[src]));
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::fftw");
+        fftw_interface<rnumber>::execute(*(this->c2r_velocity ));
+        fftw_interface<rnumber>::execute(*(this->vc2r[src]));
+    }
     /* compute cross product $u \times \omega$, and normalize */
     rnumber tmp[3][2];
     ptrdiff_t tindex;
-    RLOOP (
-                this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
-        for (int cc=0; cc<3; cc++)
-            tmp[cc][0] = (this->ru[tindex+(cc+1)%3]*this->rv[src][tindex+(cc+2)%3] -
-                    this->ru[tindex+(cc+2)%3]*this->rv[src][tindex+(cc+1)%3]);
-        for (int cc=0; cc<3; cc++)
-            this->ru[(3*rindex)+cc] = tmp[cc][0] / this->normalization_factor;
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::RLOOP");
+        RLOOP (
+                    this,
+                    [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+            tindex = 3*rindex;
+            for (int cc=0; cc<3; cc++)
+                tmp[cc][0] = (this->ru[tindex+(cc+1)%3]*this->rv[src][tindex+(cc+2)%3] -
+                        this->ru[tindex+(cc+2)%3]*this->rv[src][tindex+(cc+1)%3]);
+            for (int cc=0; cc<3; cc++)
+                this->ru[(3*rindex)+cc] = tmp[cc][0] / this->normalization_factor;
+        }
+        );
     }
-    );
     /* go back to Fourier space */
     this->clean_up_real_space(this->ru, 3);
-    fftw_interface<rnumber>::execute(*(this->r2c_velocity ));
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::fftw-2");
+        fftw_interface<rnumber>::execute(*(this->r2c_velocity ));
+    }
     this->dealias(this->cu, 3);
     /* $\imath k \times Fourier(u \times \omega)$ */
-    CLOOP(
-                this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*cindex;
-        {
-            tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]);
-            tmp[1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]);
-            tmp[2][0] = -(this->kx[xindex]*this->cu[tindex+1][1] - this->ky[yindex]*this->cu[tindex+0][1]);
-            tmp[0][1] =  (this->ky[yindex]*this->cu[tindex+2][0] - this->kz[zindex]*this->cu[tindex+1][0]);
-            tmp[1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]);
-            tmp[2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]);
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::CLOOP");
+        CLOOP(
+                    this,
+                    [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+            tindex = 3*cindex;
+            {
+                tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]);
+                tmp[1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]);
+                tmp[2][0] = -(this->kx[xindex]*this->cu[tindex+1][1] - this->ky[yindex]*this->cu[tindex+0][1]);
+                tmp[0][1] =  (this->ky[yindex]*this->cu[tindex+2][0] - this->kz[zindex]*this->cu[tindex+1][0]);
+                tmp[1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]);
+                tmp[2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]);
+            }
+            for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
+                this->cu[tindex+cc][i] = tmp[cc][i];
         }
-        for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-            this->cu[tindex+cc][i] = tmp[cc][i];
+        );
     }
-    );
     this->add_forcing(this->cu, this->cv[src], 1.0);
     this->force_divfree(this->cu);
 }
