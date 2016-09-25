@@ -28,6 +28,36 @@ import sys
 import math
 import numpy as np
 
+import h5py
+
+def create_alloc_early_dataset(
+        data_file,
+        dset_name,
+        dset_shape,
+        dset_maxshape,
+        dset_chunks,
+        # maybe something more general can be used here
+        dset_dtype = h5py.h5t.IEEE_F64LE):
+    # create the dataspace.
+    space_id = h5py.h5s.create_simple(
+            dset_shape,
+            dset_maxshape)
+    # create the dataset creation property list.
+    dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
+    # set the allocation time to "early".
+    dcpl.set_alloc_time(h5py.h5d.ALLOC_TIME_EARLY)
+    dcpl.set_chunk(dset_chunks)
+    # and now create dataset
+    if sys.version_info[0] == 3:
+        dset_name = dset_name.encode()
+    return h5py.h5d.create(
+            data_file.id,
+            dset_name,
+            dset_dtype,
+            space_id,
+            dcpl,
+            h5py.h5p.DEFAULT)
+
 def generate_data_3D_uniform(
         n0, n1, n2,
         dtype = np.complex128,

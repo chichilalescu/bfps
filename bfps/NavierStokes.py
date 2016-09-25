@@ -31,6 +31,7 @@ import h5py
 import argparse
 
 import bfps
+import bfps.tools
 from ._code import _code
 from ._fluid_base import _fluid_particle_base
 
@@ -873,33 +874,6 @@ class NavierStokes(_fluid_particle_base):
                                      dtype = np.int64)
         if self.particle_species == 0:
             return None
-        def create_particle_dataset(
-                data_file,
-                dset_name,
-                dset_shape,
-                dset_maxshape,
-                dset_chunks,
-                # maybe something more general can be used here
-                dset_dtype = h5py.h5t.IEEE_F64LE):
-            # create the dataspace.
-            space_id = h5py.h5s.create_simple(
-                    dset_shape,
-                    dset_maxshape)
-            # create the dataset creation property list.
-            dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
-            # set the allocation time to "early".
-            dcpl.set_alloc_time(h5py.h5d.ALLOC_TIME_EARLY)
-            dcpl.set_chunk(dset_chunks)
-            # and now create dataset
-            if sys.version_info[0] == 3:
-                dset_name = dset_name.encode()
-            return h5py.h5d.create(
-                    data_file.id,
-                    dset_name,
-                    dset_dtype,
-                    space_id,
-                    dcpl,
-                    h5py.h5p.DEFAULT)
 
         if type(particle_ic) == type(None):
             pbase_shape = (self.parameters['nparticles'],)
@@ -921,29 +895,33 @@ class NavierStokes(_fluid_particle_base):
                         pbase_shape + (3,))
                 maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
                 chunks = (time_chunk, 1, 1) + dims[3:]
-                create_particle_dataset(
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
-                create_particle_dataset(
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
                         (time_chunk, 1) + pbase_shape[1:] + (3,))
-                create_particle_dataset(
+                # "velocity" is sampled, single precision is enough
+                # for the results we are interested in.
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
+                        (time_chunk, 1) + pbase_shape[1:] + (3,),
+                        dset_dtype = h5py.h5t.IEEE_F32LE)
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
-                    create_particle_dataset(
+                    bfps.tools.create_alloc_early_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
                             (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            (time_chunk, 1) + pbase_shape[1:] + (3,))
+                            (time_chunk, 1) + pbase_shape[1:] + (3,),
+                            dset_dtype = h5py.h5t.IEEE_F32LE)
         return None
     def add_particle_fields(
             self,
