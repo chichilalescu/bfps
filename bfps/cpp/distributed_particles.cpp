@@ -24,7 +24,7 @@
 
 
 
-#define NDEBUG
+//#define NDEBUG
 
 #include <cmath>
 #include <cassert>
@@ -73,14 +73,13 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
-    double *yy = new double[3];
+    std::array<double, 3> yy;
     y.clear();
     for (auto &pp: x)
     {
-        (*field)(pp.second.data, yy);
-        y[pp.first] = yy;
+        (*field)(pp.second.data, &yy.front());
+        y[pp.first] = &yy.front();
     }
-    delete[] yy;
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
@@ -416,7 +415,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
             if (pp != this->state.end())
                 std::copy(pp->second.data,
                           pp->second.data + state_dimension(particle_type),
-                          temp0 + pp->first*state_dimension(particle_type));
+                          temp0 + p*state_dimension(particle_type));
         }
         MPI_Allreduce(
                 temp0,
@@ -438,7 +437,7 @@ void distributed_particles<particle_type, rnumber, interp_neighbours>::write(
                     if (pp != this->rhs[i].end())
                         std::copy(pp->second.data,
                                   pp->second.data + state_dimension(particle_type),
-                                  temp0 + pp->first*state_dimension(particle_type));
+                                  temp0 + p*state_dimension(particle_type));
                 }
                 MPI_Allreduce(
                         temp0,
