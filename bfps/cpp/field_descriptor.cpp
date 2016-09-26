@@ -57,13 +57,14 @@ field_descriptor<rnumber>::field_descriptor(
     int tsizes   [ndims];
     int tsubsizes[ndims];
     int tstarts  [ndims];
-    ptrdiff_t *nfftw = new ptrdiff_t[ndims];
+    std::vector<ptrdiff_t> nfftw;
+    nfftw.resize(ndims);
     ptrdiff_t local_n0, local_0_start;
     for (int i = 0; i < this->ndims; i++)
         nfftw[i] = n[i];
     this->local_size = fftw_mpi_local_size_many(
                 this->ndims,
-                nfftw,
+                &nfftw.front(),
                 1,
                 FFTW_MPI_DEFAULT_BLOCK,
                 this->comm,
