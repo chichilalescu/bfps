@@ -370,8 +370,14 @@ void fluid_solver<rnumber>::omega_nonlin(
         }
         );
     }
-    this->add_forcing(this->cu, this->cv[src], 1.0);
-    this->force_divfree(this->cu);
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::add_forcing");
+        this->add_forcing(this->cu, this->cv[src], 1.0);
+    }
+    {
+        TIMEZONE("fluid_solver::omega_nonlin::force_divfree");
+        this->force_divfree(this->cu);
+    }
 }
 
 template <class rnumber>
