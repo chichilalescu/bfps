@@ -269,28 +269,34 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
     std::unordered_map<int, std::unordered_set<int>> newdp;
-    this->sort_into_domains(x, newdp);
+    {
+        TIMEZONE("sort_into_domains");
+        this->sort_into_domains(x, newdp);
+    }
     /* take care of particles that are leaving the shared domains */
     int dindex[2] = {-1, 1};
     // for each D of the 2 shared domains
-    for (int di=0; di<2; di++)
-        // for all particles previously in D
-        for (auto p: dp[dindex[di]])
-        {
-            // if the particle is no longer in D
-            if (newdp[dindex[di]].find(p) == newdp[dindex[di]].end())
+    {
+        TIMEZONE("Loop1");
+        for (int di=0; di<2; di++)
+            // for all particles previously in D
+            for (auto p: dp[dindex[di]])
             {
-                // and the particle is not in the local domain
-                if (newdp[0].find(p) == newdp[0].end())
+                // if the particle is no longer in D
+                if (newdp[dindex[di]].find(p) == newdp[dindex[di]].end())
                 {
-                    // remove the particle from the local list
-                    x.erase(p);
-                    for (unsigned int i=0; i<vals.size(); i++)
-                        vals[i].erase(p);
+                    // and the particle is not in the local domain
+                    if (newdp[0].find(p) == newdp[0].end())
+                    {
+                        // remove the particle from the local list
+                        x.erase(p);
+                        for (unsigned int i=0; i<vals.size(); i++)
+                            vals[i].erase(p);
+                    }
+                    // if the particle is in the local domain, do nothing
                 }
-                // if the particle is in the local domain, do nothing
             }
-        }
+    }
     /* take care of particles that are entering the shared domains */
     /* neighbouring rank offsets */
     int ro[2];
@@ -306,12 +312,15 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     int nps[2], npr[2];
     int rsrc, rdst;
     /* get list of id-s to send */
-    for (auto &p: dp[0])
     {
-        for (int di=0; di<2; di++)
+        TIMEZONE("Loop2");
+        for (auto &p: dp[0])
         {
-            if (newdp[dindex[di]].find(p) != newdp[dindex[di]].end())
-                ps[di].push_back(p);
+            for (int di=0; di<2; di++)
+            {
+                if (newdp[dindex[di]].find(p) != newdp[dindex[di]].end())
+                    ps[di].push_back(p);
+            }
         }
     }
     /* prepare data for send recv */
@@ -321,7 +330,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
         for (int i=0; i<2; i++)
         {
             rdst = MOD(rsrc+ro[i], this->nprocs);
-            if (this->myrank == rsrc)
+            if (this->myrank == rsrc){
+                TIMEZONE("MPI_Send");
                 MPI_Send(
                         nps+i,
                         1,
@@ -329,7 +339,9 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                         rdst,
                         2*(rsrc*this->nprocs + rdst)+i,
                         this->comm);
-            if (this->myrank == rdst)
+            }
+            if (this->myrank == rdst){
+                TIMEZONE("MPI_Recv");
                 MPI_Recv(
                         npr+1-i,
                         1,
@@ -338,6 +350,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
                         2*(rsrc*this->nprocs + rdst)+i,
                         this->comm,
                         MPI_STATUS_IGNORE);
+            }
         }
     //DEBUG_MSG("I have to send %d %d particles\n", nps[0], nps[1]);
     //DEBUG_MSG("I have to recv %d %d particles\n", npr[0], npr[1]);
@@ -355,6 +368,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
             rdst = MOD(rsrc+ro[i], this->nprocs);
             if (this->myrank == rsrc && nps[i] > 0)
             {
+                TIMEZONE("this->myrank == rsrc && nps[i] > 0");
                 MPI_Send(
                         &ps[i].front(),
                         nps[i],
@@ -386,6 +400,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
             }
             if (this->myrank == rdst && npr[1-i] > 0)
             {
+                TIMEZONE("this->myrank == rdst && npr[1-i] > 0");
                 MPI_Recv(
                         &pr[1-i].front(),
                         npr[1-i],
@@ -418,8 +433,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
     delete[] buffer;
     // x has been changed, so newdp is obsolete
     // we need to sort into domains again
-    this->sort_into_domains(x, dp);
-
+    {
+        TIMEZONE("sort_into_domains2");
+        this->sort_into_domains(x, dp);
+    }
 
 #ifndef NDEBUG
     /* check that all particles at x are local */
@@ -495,6 +512,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::step()
 {
+    TIMEZONE("rFFTW_distributed_particles::step");
     this->AdamsBashforth((this->iteration < this->integration_steps) ?
                           this->iteration+1 :
                           this->integration_steps);
@@ -507,6 +525,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sor
         const std::unordered_map<int, single_particle_state<particle_type>> &x,
         std::unordered_map<int, std::unordered_set<int>> &dp)
 {
+    TIMEZONE("rFFTW_distributed_particles::sort_into_domains");
     int tmpint1, tmpint2;
     dp.clear();
     dp[-1] = std::unordered_set<int>();
@@ -551,14 +570,19 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //read state
-        if (this->myrank == 0)
+        if (this->myrank == 0){
+            TIMEZONE("read_state_chunk");
             this->read_state_chunk(cindex, temp);
-        MPI_Bcast(
+        }
+        {
+            TIMEZONE("MPI_Bcast");
+            MPI_Bcast(
                 temp,
                 this->chunk_size*state_dimension(particle_type),
                 MPI_DOUBLE,
                 0,
                 this->comm);
+        }
         for (unsigned int p=0; p<this->chunk_size; p++)
         {
             if (this->vel->get_rank_info(temp[state_dimension(particle_type)*p+2], tmpint1, tmpint2))
@@ -567,17 +591,23 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
             }
         }
         //read rhs
-        if (this->iteration > 0)
+        if (this->iteration > 0){
+            TIMEZONE("this->iteration > 0");
             for (int i=0; i<this->integration_steps; i++)
             {
-                if (this->myrank == 0)
+                if (this->myrank == 0){
+                    TIMEZONE("read_rhs_chunk");
                     this->read_rhs_chunk(cindex, i, temp);
-                MPI_Bcast(
+                }
+                {
+                    TIMEZONE("MPI_Bcast");
+                    MPI_Bcast(
                         temp,
                         this->chunk_size*state_dimension(particle_type),
                         MPI_DOUBLE,
                         0,
                         this->comm);
+                }
                 for (unsigned int p=0; p<this->chunk_size; p++)
                 {
                     auto pp = this->state.find(p+cindex*this->chunk_size);
@@ -585,6 +615,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
                         this->rhs[i][p+cindex*this->chunk_size] = temp + state_dimension(particle_type)*p;
                 }
             }
+        }
     }
     this->sort_into_domains(this->state, this->domain_particles);
     DEBUG_MSG("%s->state.size = %ld\n", this->name.c_str(), this->state.size());
@@ -617,15 +648,20 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
                           yy + p*3);
             }
         }
-        MPI_Allreduce(
+        {
+            TIMEZONE("MPI_Allreduce");
+            MPI_Allreduce(
                 yy,
                 data,
                 3*this->chunk_size,
                 MPI_DOUBLE,
                 MPI_SUM,
                 this->comm);
-        if (this->myrank == 0)
+        }
+        if (this->myrank == 0){
+            TIMEZONE("write_point3D_chunk");
             this->write_point3D_chunk(dset_name, cindex, data);
+        }
     }
     delete[] yy;
     delete[] data;
@@ -649,22 +685,29 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
             if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
                 this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
             {
+                TIMEZONE("std::copy");
                 std::copy(this->state[pindex].data,
                           this->state[pindex].data + state_dimension(particle_type),
                           temp0 + p*state_dimension(particle_type));
             }
         }
-        MPI_Allreduce(
-                temp0,
-                temp1,
-                state_dimension(particle_type)*this->chunk_size,
-                MPI_DOUBLE,
-                MPI_SUM,
-                this->comm);
-        if (this->myrank == 0)
+        {
+            TIMEZONE("MPI_Allreduce");
+            MPI_Allreduce(
+                    temp0,
+                    temp1,
+                    state_dimension(particle_type)*this->chunk_size,
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    this->comm);
+        }
+        if (this->myrank == 0){
+            TIMEZONE("write_state_chunk");
             this->write_state_chunk(cindex, temp1);
+        }
         //write rhs
-        if (write_rhs)
+        if (write_rhs){
+            TIMEZONE("write_rhs");
             for (int i=0; i<this->integration_steps; i++)
             {
                 std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
@@ -674,21 +717,28 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
                     if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
                         this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
                     {
+                        TIMEZONE("std::copy");
                         std::copy(this->rhs[i][pindex].data,
                                   this->rhs[i][pindex].data + state_dimension(particle_type),
                                   temp0 + p*state_dimension(particle_type));
                     }
                 }
-                MPI_Allreduce(
+                {
+                    TIMEZONE("MPI_Allreduce");
+                    MPI_Allreduce(
                         temp0,
                         temp1,
                         state_dimension(particle_type)*this->chunk_size,
                         MPI_DOUBLE,
                         MPI_SUM,
                         this->comm);
-                if (this->myrank == 0)
+                }
+                if (this->myrank == 0){
+                    TIMEZONE("write_rhs_chunk");
                     this->write_rhs_chunk(cindex, i, temp1);
+                }
             }
+        }
     }
     delete[] temp0;
     delete[] temp1;
