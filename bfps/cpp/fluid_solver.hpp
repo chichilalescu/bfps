@@ -55,12 +55,12 @@ class fluid_solver:public fluid_solver_base<rnumber>
         typename fluid_solver_base<rnumber>::cnumber *cu, *cv[4];
 
         /* plans */
-        void *c2r_vorticity;
-        void *r2c_vorticity;
-        void *c2r_velocity;
-        void *r2c_velocity;
-        void *uc2r, *ur2c;
-        void *vr2c[3], *vc2r[3];
+        typename fftw_interface<rnumber>::plan *c2r_vorticity;
+        typename fftw_interface<rnumber>::plan *r2c_vorticity;
+        typename fftw_interface<rnumber>::plan *c2r_velocity;
+        typename fftw_interface<rnumber>::plan *r2c_velocity;
+        typename fftw_interface<rnumber>::plan *uc2r, *ur2c;
+        typename fftw_interface<rnumber>::plan *vr2c[3], *vc2r[3];
 
         /* physical parameters */
         double nu;

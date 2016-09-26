@@ -95,6 +95,7 @@ class _fluid_particle_base(_code):
                 //begincpp
                 if (myrank == 0 && iteration == 0)
                 {
+                    TIMEZONE("fuild_base::store_kspace");
                     hsize_t dims[4];
                     hid_t space, dset;
                     // store kspace information

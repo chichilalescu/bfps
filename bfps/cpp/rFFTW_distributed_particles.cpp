@@ -38,6 +38,7 @@
 #include "base.hpp"
 #include "rFFTW_distributed_particles.hpp"
 #include "fftw_tools.hpp"
+#include "scope_timer.hpp"
 
 
 extern int myrank, nprocs;
@@ -54,6 +55,7 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
             data_file_id,
             FIELD->descriptor->comm)
 {
+    TIMEZONE("rFFTW_distributed_particles::rFFTW_distributed_particles");
     /* check that integration_steps has a valid value.
      * If NDEBUG is defined, "assert" doesn't do anything.
      * With NDEBUG defined, and an invalid INTEGRATION_STEPS,
@@ -159,9 +161,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         const std::unordered_map<int, std::unordered_set<int>> &dp,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
-    clock_t time0, time1;
-    double time_difference, local_time_difference;
-    time0 = clock();
+    TIMEZONE("rFFTW_distributed_particles::sample");
     double *yyy;
     double *yy;
     y.clear();
@@ -220,11 +220,6 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             delete[] yyy;
         }
     }
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "sample took " << time_difference/this->nprocs << " seconds" << std::endl;
 }
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
@@ -270,6 +265,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::red
         std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
         std::unordered_map<int, std::unordered_set<int>> &dp)
 {
+    TIMEZONE("rFFTW_distributed_particles::redistribute");
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
     std::unordered_map<int, std::unordered_set<int>> newdp;
@@ -445,19 +441,10 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::AdamsBashforth(
         const int nsteps)
 {
-    clock_t time0, time1;
-    double time_difference, local_time_difference;
-    time0 = clock();
     this->get_rhs(this->state, this->domain_particles, this->rhs[0]);
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "rhs took " << time_difference/this->nprocs << " seconds" << std::endl;
 #define AdamsBashforth_LOOP_PREAMBLE \
     for (auto &pp: this->state) \
         for (unsigned int i=0; i<state_dimension(particle_type); i++)
-    time0 = clock();
     switch(nsteps)
     {
         case 1:
@@ -500,25 +487,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::Ada
                                     -  475*this->rhs[5][pp.first][i])/1440;
             break;
     }
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "Adams Bashforth took " << time_difference/this->nprocs << " seconds" << std::endl;
-    time0 = clock();
     this->redistribute(this->state, this->rhs, this->domain_particles);
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "redistribute took " << time_difference/this->nprocs << " seconds" << std::endl;
-    time0 = clock();
     this->roll_rhs();
-    time1 = clock();
-    local_time_difference = ((unsigned int)(time1 - time0))/((double)CLOCKS_PER_SEC);
-    time_difference = 0.0;
-    MPI_Allreduce(&local_time_difference, &time_difference, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if (myrank == 0) std::cerr << "roll_rhs took " << time_difference/this->nprocs << " seconds" << std::endl;
 }
 
 
@@ -575,6 +545,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sor
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::read()
 {
+    TIMEZONE("rFFTW_distributed_particles::read");
     double *temp = new double[this->chunk_size*state_dimension(particle_type)];
     int tmpint1, tmpint2;
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
@@ -629,6 +600,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         const char *dset_name,
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
+    TIMEZONE("rFFTW_distributed_particles::write");
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
     int pindex = 0;
@@ -663,6 +635,7 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const bool write_rhs)
 {
+    TIMEZONE("rFFTW_distributed_particles::write2");
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
     int pindex = 0;

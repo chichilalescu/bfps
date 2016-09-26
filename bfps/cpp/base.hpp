@@ -42,6 +42,9 @@ inline int MOD(int a, int n)
     return ((a%n) + n) % n;
 }
 
+/////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////
+
 #ifdef OMPI_MPI_H
 
 #define BFPS_MPICXX_DOUBLE_COMPLEX MPI_DOUBLE_COMPLEX
@@ -52,6 +55,37 @@ inline int MOD(int a, int n)
 
 #endif//OMPI_MPI_H
 
+template <class realtype>
+class mpi_real_type;
+
+template <>
+class mpi_real_type<float>
+{
+public:
+    static constexpr MPI_Datatype real(){
+        return MPI_FLOAT;
+    }
+
+    static constexpr MPI_Datatype complex(){
+        return MPI_COMPLEX;
+    }
+};
+
+template <>
+class mpi_real_type<double>
+{
+public:
+    static constexpr MPI_Datatype real(){
+        return MPI_DOUBLE;
+    }
+
+    static constexpr MPI_Datatype complex(){
+        return BFPS_MPICXX_DOUBLE_COMPLEX;
+    }
+};
+
+/////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////
 
 #ifndef NDEBUG
 
