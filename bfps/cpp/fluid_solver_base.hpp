@@ -30,6 +30,7 @@
 #include <vector>
 #include "base.hpp"
 #include "field_descriptor.hpp"
+#include "scope_timer.hpp"
 
 #ifndef FLUID_SOLVER_BASE
 
@@ -138,6 +139,7 @@ class fluid_solver_base
 template <class ObjectType, class FuncType>
 void CLOOP(ObjectType* obj, FuncType expression)
 {
+    TIMEZONE("CLOOP");
     ptrdiff_t cindex = 0;
     for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
     for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
@@ -151,6 +153,7 @@ void CLOOP(ObjectType* obj, FuncType expression)
 template <class ObjectType, class FuncType>
 void CLOOP_NXMODES(ObjectType* obj, FuncType expression)
 {
+    TIMEZONE("CLOOP_NXMODES");
     ptrdiff_t cindex = 0;
     for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
     for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
@@ -172,6 +175,7 @@ void CLOOP_NXMODES(ObjectType* obj, FuncType expression)
 template <class ObjectType, class FuncType>
 void CLOOP_K2(ObjectType* obj, FuncType expression)
 {
+    TIMEZONE("CLOOP_K2");
     double k2;
     ptrdiff_t cindex = 0;
     for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)

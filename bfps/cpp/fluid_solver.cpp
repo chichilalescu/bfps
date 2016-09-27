@@ -641,7 +641,10 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
     }
     );
     this->clean_up_real_space(this->rv[1], 3);
-    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    {
+        TIMEZONE("fftw_interface<rnumber>::execute");
+        fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    }
     this->dealias(this->cv[1], 3);
     CLOOP_K2(
                 this,
@@ -670,7 +673,10 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
     }
     );
     this->clean_up_real_space(this->rv[1], 3);
-    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    {
+        TIMEZONE("fftw_interface<rnumber>::execute");
+        fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    }
     this->dealias(this->cv[1], 3);
     CLOOP_K2(
                 this,

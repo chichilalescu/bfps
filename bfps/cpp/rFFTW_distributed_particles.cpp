@@ -188,21 +188,27 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             tindex = 0;
             // can this sorting be done more efficiently?
             std::set<int> ordered_dp;
-            for (auto p: dp.at(domain_index))
-                ordered_dp.insert(p);
+            {
+                TIMEZONE("rFFTW_distributed_particles::sample::ordered_dp");
+                for (auto p: dp.at(domain_index))
+                    ordered_dp.insert(p);
+            }
 
             for (auto p: ordered_dp)
             {
                 (*field)(x.at(p).data, yy + tindex*3);
                 tindex++;
             }
-            MPI_Allreduce(
+            {
+                TIMEZONE("rFFTW_distributed_particles::sample::MPI_Allreduce");
+                MPI_Allreduce(
                     yy,
                     yyy,
                     3*dp.at(domain_index).size(),
                     MPI_DOUBLE,
                     MPI_SUM,
                     this->domain_comm[domain_index]);
+            }
             tindex = 0;
             for (auto p: ordered_dp)
             {
