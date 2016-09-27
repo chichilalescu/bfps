@@ -920,30 +920,37 @@ class NavierStokes(_fluid_particle_base):
                          self.parameters['tracers{0}_integration_steps'.format(s)]) +
                         pbase_shape + (3,))
                 maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
-                chunks = (time_chunk, 1, 1) + dims[3:]
+                if len(pbase_shape) > 1:
+                    chunks = (time_chunk, 1, 1) + dims[3:]
+                else:
+                    chunks = (time_chunk, 1) + dims[2:]
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
+                if len(pbase_shape) > 1:
+                    chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
+                else:
+                    chunks = (time_chunk, pbase_shape[0], 3)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
+                        chunks)
                 create_particle_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
+                        chunks)
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     create_particle_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
                             (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            (time_chunk, 1) + pbase_shape[1:] + (3,))
+                            chunks)
         return None
     def add_particle_fields(
             self,
