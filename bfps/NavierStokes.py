@@ -894,25 +894,31 @@ class NavierStokes(_fluid_particle_base):
                          self.parameters['tracers{0}_integration_steps'.format(s)]) +
                         pbase_shape + (3,))
                 maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
+                if len(pbase_shape) > 1:
+                    chunks = (time_chunk, 1, 1) + dims[3:]
+                else:
+                    chunks = (time_chunk, 1) + dims[2:]
                 chunks = (time_chunk, 1, 1) + dims[3:]
                 bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
+                if len(pbase_shape) > 1:
+                    chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
+                else:
+                    chunks = (time_chunk, pbase_shape[0], 3)
                 bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,))
-                # "velocity" is sampled, single precision is enough
-                # for the results we are interested in.
+                        chunks)
                 bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        (time_chunk, 1) + pbase_shape[1:] + (3,),
+                        chunks,
                         dset_dtype = h5py.h5t.IEEE_F32LE)
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
                     bfps.tools.create_alloc_early_dataset(
@@ -920,7 +926,7 @@ class NavierStokes(_fluid_particle_base):
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
                             (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            (time_chunk, 1) + pbase_shape[1:] + (3,),
+                            chunks,
                             dset_dtype = h5py.h5t.IEEE_F32LE)
         return None
     def add_particle_fields(
