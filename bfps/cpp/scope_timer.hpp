@@ -227,6 +227,10 @@ public:
             }
         }
         outputStream.flush();
+        // Force the output more
+        if(&outputStream == &std::cout){
+            fflush(stdout);
+        }
 
         if((&outputStream == &std::cout || &outputStream == &std::clog) && myrank != 0){
             // Print in reverse order
