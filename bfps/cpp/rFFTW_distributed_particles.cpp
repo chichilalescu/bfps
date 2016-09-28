@@ -618,8 +618,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     TIMEZONE("rFFTW_distributed_particles::write");
-    double *data = new double[this->nparticles*3];
-    double *yy = new double[this->nparticles*3];
+    double *data = new double[this->chunk_size*3];
+    double *yy = new double[this->chunk_size*3];
     int pindex = 0;
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
