@@ -178,7 +178,7 @@ public:
         assert(currentEventsStack.size() == 1);
     }
 
-    void show(const MPI_Comm inComm) const {
+    void showDistributed(const MPI_Comm inComm) const {
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
@@ -188,8 +188,10 @@ public:
         if((&outputStream == &std::cout || &outputStream == &std::clog) && myrank != nbProcess-1){
             // Print in reverse order
             char tmp;
-            MPI_Recv(&tmp, 1, MPI_BYTE, myrank+1, 99, inComm, MPI_STATUS_IGNORE);
+            retMpi = MPI_Recv(&tmp, 1, MPI_BYTE, myrank+1, 99, inComm, MPI_STATUS_IGNORE);
+            assert(retMpi == MPI_SUCCESS);
         }
+        outputStream.flush();
 
         std::stack<std::pair<int, const std::shared_ptr<CoreEvent>>> events;
 
@@ -227,15 +229,82 @@ public:
             }
         }
         outputStream.flush();
-        // Force the output more
-        if(&outputStream == &std::cout){
-            fflush(stdout);
-        }
 
         if((&outputStream == &std::cout || &outputStream == &std::clog) && myrank != 0){
             // Print in reverse order
             char tmp;
-            MPI_Send(&tmp, 1, MPI_BYTE, myrank-1, 99, inComm);
+            retMpi = MPI_Send(&tmp, 1, MPI_BYTE, myrank-1, 99, inComm);
+            assert(retMpi == MPI_SUCCESS);
+        }
+    }
+
+    void show(const MPI_Comm inComm) const {
+        int myRank, nbProcess;
+        int retMpi = MPI_Comm_rank( inComm, &myRank);
+        assert(retMpi == MPI_SUCCESS);
+        retMpi = MPI_Comm_size( inComm, &nbProcess);
+        assert(retMpi == MPI_SUCCESS);
+
+        std::stringstream myResults;
+
+        std::stack<std::pair<int, const std::shared_ptr<CoreEvent>>> events;
+
+        for (int idx = static_cast<int>(root->getChildren().size()) - 1; idx >= 0; --idx) {
+            events.push({0, root->getChildren()[idx]});
+        }
+
+        myResults << "[TIMING-" <<  myRank<< "] Local times.\n";
+        myResults << "[TIMING-" <<  myRank<< "] :" << root->getName() << "\n";
+
+        while (events.size()) {
+            const std::pair<int, const std::shared_ptr<CoreEvent>> eventToShow =
+                    events.top();
+            events.pop();
+
+            myResults << "[TIMING-" <<  myRank<< "] ";
+
+            int offsetTab = eventToShow.first;
+            while (offsetTab--) {
+                myResults << "\t";
+            }
+            myResults << "@" << eventToShow.second->getName() << " = " << eventToShow.second->getDuration() << "s";
+            if (eventToShow.second->getOccurrence() != 1) {
+                myResults << " (Min = " << eventToShow.second->getMin() << "s ; Max = " << eventToShow.second->getMax()
+                             << "s ; Average = " << eventToShow.second->getAverage() << "s ; Occurrence = "
+                             << eventToShow.second->getOccurrence() << ")";
+            }
+
+            myResults << "\n";
+            for (int idx =
+                 static_cast<int>(eventToShow.second->getChildren().size()) - 1;
+                 idx >= 0; --idx) {
+                events.push(
+                {eventToShow.first + 1, eventToShow.second->getChildren()[idx]});
+            }
+        }
+
+        if(myrank != 0){
+            const std::string strOutput = myResults.str();
+            int sizeOutput = strOutput.length();
+            retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
+            assert(retMpi == MPI_SUCCESS);
+            retMpi = MPI_Send(strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
+            assert(retMpi == MPI_SUCCESS);
+        }
+        else{
+            std::vector<char> buffer;
+            for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
+                int sizeRecv;
+                retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
+                assert(retMpi == MPI_SUCCESS);
+                buffer.resize(sizeRecv+1);
+                retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
+                assert(retMpi == MPI_SUCCESS);
+                buffer[sizeRecv]='\0';
+                outputStream << buffer.data();
+            }
+            outputStream << myResults.str();
+            outputStream.flush();
         }
     }
 
