@@ -288,7 +288,7 @@ public:
             int sizeOutput = strOutput.length();
             retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
             assert(retMpi == MPI_SUCCESS);
-            retMpi = MPI_Send(strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
+            retMpi = MPI_Send((void*)strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
             assert(retMpi == MPI_SUCCESS);
         }
         else{
