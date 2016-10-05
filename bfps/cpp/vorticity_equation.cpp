@@ -31,6 +31,7 @@
 #include <cstring>
 #include "fftw_tools.hpp"
 #include "vorticity_equation.hpp"
+#include "scope_timer.hpp"
 
 
 
@@ -278,6 +279,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::step(double dt)
 {
+    TIMEZONE("vorticity_equation::step");
     double factor0, factor1;
     *this->v[1] = 0.0;
     this->omega_nonlin(0);
