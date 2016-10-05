@@ -32,7 +32,7 @@
 #include "base.hpp"
 #include "fluid_solver_base.hpp"
 #include "fftw_tools.hpp"
-
+#include "scope_timer.hpp"
 
 template <class rnumber>
 void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *destination)
@@ -43,6 +43,7 @@ void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *d
 template <class rnumber>
 void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 {
+    TIMEZONE("fluid_solver_base::clean_up_real_space");
     for (ptrdiff_t rindex = 0; rindex < this->cd->local_size*2; rindex += howmany*(this->rd->subsizes[2]+2))
         std::fill_n(a+rindex+this->rd->subsizes[2]*howmany, 2*howmany, 0.0);
 }
@@ -65,6 +66,7 @@ double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
 template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec)
 {
+    TIMEZONE("fluid_solver_base::cospectrum");
     double *cospec_local = fftw_alloc_real(this->nshells*9);
     std::fill_n(cospec_local, this->nshells*9, 0);
     int tmp_int;
@@ -95,6 +97,7 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
 template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
+    TIMEZONE("fluid_solver_base::cospectrum2");
     double *cospec_local = fftw_alloc_real(this->nshells*9);
     std::fill_n(cospec_local, this->nshells*9, 0);
     double factor = 1;
@@ -138,6 +141,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         const hsize_t toffset,
         const std::vector<double> max_estimate)
 {
+    TIMEZONE("fluid_solver_base::compute_rspace_stats");
     const int nmoments = 10;
     int nvals, nbins;
     if (this->rd->myrank == 0)
@@ -286,6 +290,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         double max_estimate[],
         const int nbins)
 {
+    TIMEZONE("fluid_solver_base::compute_rspace_stats");
     double *local_moments = fftw_alloc_real(10*nvals);
     double val_tmp[nvals], binsize[nvals], pow_tmp[nvals];
     ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
@@ -361,6 +366,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
 template <class rnumber>
 void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, const double k2exponent)
 {
+    TIMEZONE("fluid_solver_base::write_spectrum");
     double *spec = fftw_alloc_real(this->nshells);
     this->cospectrum(a, a, spec, k2exponent);
     if (this->cd->myrank == 0)
@@ -391,6 +397,7 @@ fluid_solver_base<rnumber>::fluid_solver_base(
         int DEALIAS_TYPE,
         unsigned FFTW_PLAN_RIGOR)
 {
+    TIMEZONE("fluid_solver_base::fluid_solver_base");
     strncpy(this->name, NAME, 256);
     this->name[255] = '\0';
     this->iteration = 0;
@@ -524,6 +531,7 @@ fluid_solver_base<rnumber>::~fluid_solver_base()
 template <class rnumber>
 void fluid_solver_base<rnumber>::low_pass_Fourier(cnumber *a, const int howmany, const double kmax)
 {
+    TIMEZONE("fluid_solver_base::low_pass_Fourier");
     const double km2 = kmax*kmax;
     const int howmany2 = 2*howmany;
     /*DEBUG_MSG("entered low_pass_Fourier, kmax=%lg km2=%lg howmany2=%d\n", kmax, km2, howmany2);*/
@@ -545,6 +553,7 @@ void fluid_solver_base<rnumber>::low_pass_Fourier(cnumber *a, const int howmany,
 template <class rnumber>
 void fluid_solver_base<rnumber>::dealias(cnumber *a, const int howmany)
 {
+    TIMEZONE("fluid_solver_base::dealias");
     if (this->dealias_type == 0)
     {
         this->low_pass_Fourier(a, howmany, this->kM);
@@ -566,6 +575,7 @@ void fluid_solver_base<rnumber>::dealias(cnumber *a, const int howmany)
 template <class rnumber>
 void fluid_solver_base<rnumber>::force_divfree(cnumber *a)
 {
+    TIMEZONE("fluid_solver_base::force_divfree");
     cnumber tval;
     CLOOP_K2(
                 this,
@@ -594,6 +604,7 @@ void fluid_solver_base<rnumber>::force_divfree(cnumber *a)
 template <class rnumber>
 void fluid_solver_base<rnumber>::compute_vector_gradient(cnumber *A, cnumber *cvec)
 {
+    TIMEZONE("fluid_solver_base::compute_vector_gradient");
     ptrdiff_t tindex;
     std::fill_n((rnumber*)A, 3*2*this->cd->local_size, 0.0);
     cnumber *dx_u, *dy_u, *dz_u;
@@ -624,6 +635,7 @@ void fluid_solver_base<rnumber>::compute_vector_gradient(cnumber *A, cnumber *cv
 template <class rnumber>
 void fluid_solver_base<rnumber>::symmetrize(cnumber *data, const int howmany)
 {
+    TIMEZONE("fluid_solver_base::symmetrize");
     ptrdiff_t ii, cc;
     MPI_Status *mpistatus = new MPI_Status;
     if (this->cd->myrank == this->cd->rank[0])

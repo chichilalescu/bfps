@@ -84,6 +84,7 @@ class _base(object):
                    'char fname[256];\n' +
                    'hsize_t dims[1];\n' +
                    'char *string_data;\n' +
+                   #'char string_data[512];\n' +
                    'sprintf(fname, "%s.h5", simname);\n' +
                    'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
         for i in range(len(key)):
@@ -94,11 +95,14 @@ class _base(object):
             elif type(parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
                             'memtype = H5Dget_type(dset);\n' +
-                            'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
-                            'string_data = (char*)malloc(dims[0]*sizeof(char));\n' +
+                            #'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
+                            #'DEBUG_MSG("dims[0] = %ld\\n", dims[0]);\n' +
+                            'string_data = (char*)malloc(512*sizeof(char));\n' +
                             'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
                             'sprintf({0}, "%s", string_data);\n'.format(key[i]) +
-                            'free(string_data);\n' +
+                            #'DEBUG_MSG("{0} = %s\\n", {0});\n'.format(key[i]) +
+                            #'delete[] string_data;\n' +
+                            'free(string_data);\n'
                             'H5Sclose(space);\n' +
                             'H5Tclose(memtype);\n')
             elif type(parameters[key[i]]) == np.ndarray:

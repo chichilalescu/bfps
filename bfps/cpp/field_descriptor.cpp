@@ -32,7 +32,7 @@
 #include "base.hpp"
 #include "field_descriptor.hpp"
 #include "fftw_interface.hpp"
-
+#include "scope_timer.hpp"
 
 /*****************************************************************************/
 /* macro for specializations to numeric types compatible with FFTW           */
@@ -45,6 +45,7 @@ field_descriptor<rnumber>::field_descriptor(
         MPI_Datatype element_type,
         MPI_Comm COMM_TO_USE)
 {
+    TIMEZONE("field_descriptor");
     DEBUG_MSG("entered field_descriptor::field_descriptor\n");
     this->comm = COMM_TO_USE;
     MPI_Comm_rank(this->comm, &this->myrank);
@@ -56,13 +57,14 @@ field_descriptor<rnumber>::field_descriptor(
     int tsizes   [ndims];
     int tsubsizes[ndims];
     int tstarts  [ndims];
-    ptrdiff_t *nfftw = new ptrdiff_t[ndims];
+    std::vector<ptrdiff_t> nfftw;
+    nfftw.resize(ndims);
     ptrdiff_t local_n0, local_0_start;
     for (int i = 0; i < this->ndims; i++)
         nfftw[i] = n[i];
     this->local_size = fftw_mpi_local_size_many(
                 this->ndims,
-                nfftw,
+                &nfftw.front(),
                 1,
                 FFTW_MPI_DEFAULT_BLOCK,
                 this->comm,
@@ -239,6 +241,7 @@ int field_descriptor<rnumber>::read(
         const char *fname,
         void *buffer)
 {
+    TIMEZONE("field_descriptor::read");
     DEBUG_MSG("entered field_descriptor::read\n");
     char representation[] = "native";
     if (this->subsizes[0] > 0)
@@ -287,6 +290,7 @@ int field_descriptor<rnumber>::write(
         const char *fname,
         void *buffer)
 {
+    TIMEZONE("field_descriptor::write");
     char representation[] = "native";
     if (this->subsizes[0] > 0)
     {
@@ -329,6 +333,7 @@ int field_descriptor<rnumber>::transpose(
         rnumber *input,
         rnumber *output)
 {
+    TIMEZONE("field_descriptor::transpose");
     /* IMPORTANT NOTE:
      for 3D transposition, the input data is messed up */
     typename fftw_interface<rnumber>::plan tplan;
@@ -367,6 +372,7 @@ int field_descriptor<rnumber>::transpose(
         typename fftw_interface<rnumber>::complex *input,
         typename fftw_interface<rnumber>::complex *output)
 {
+    TIMEZONE("field_descriptor::transpose2");
     switch (this->ndims)
     {
     case 2:
@@ -422,6 +428,7 @@ int field_descriptor<rnumber>::interleave(
         rnumber *a,
         int dim)
 {
+     TIMEZONE("field_descriptor::interleav");
     /* the following is copied from
  * http://agentzlerich.blogspot.com/2010/01/using-fftw-for-in-place-matrix.html
  * */
@@ -453,6 +460,7 @@ int field_descriptor<rnumber>::interleave(
         typename fftw_interface<rnumber>::complex *a,
         int dim)
 {
+     TIMEZONE("field_descriptor::interleave2");
     typename fftw_interface<rnumber>::iodim howmany_dims[2];
     howmany_dims[0].n  = dim;
     howmany_dims[0].is = this->local_size;
@@ -479,6 +487,7 @@ int field_descriptor<rnumber>::interleave(
 template <class rnumber>
 field_descriptor<rnumber>* field_descriptor<rnumber>::get_transpose()
 {
+    TIMEZONE("field_descriptor::get_transpose");
     int n[this->ndims];
     for (int i=0; i<this->ndims; i++)
         n[i] = this->sizes[this->ndims - i - 1];
