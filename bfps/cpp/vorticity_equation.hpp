@@ -37,8 +37,9 @@ extern int myrank, nprocs;
 
 
 /* container for field descriptor, fields themselves, parameters, etc
- * using the same big macro idea that they're using in fftw3.h
- * I feel like I should quote:  Ugh.
+ * This particular class is only meant as a stepping stone to a proper solver
+ * that only uses the field class (and related layout and kspace classes), and
+ * HDF5 for I/O.
  * */
 
 template <typename rnumber,
@@ -71,7 +72,7 @@ class vorticity_equation
         double fk0, fk1;   // for band forcing
         char forcing_type[128];
 
-        /* methods */
+        /* constructor, destructor */
         vorticity_equation(
                 const char *NAME,
                 int nx,
@@ -82,6 +83,30 @@ class vorticity_equation
                 double DKZ = 1.0,
                 unsigned FFTW_PLAN_RIGOR = FFTW_MEASURE);
         ~vorticity_equation(void);
+
+        /* solver essential methods */
+        void omega_nonlin(int src);
+        void step(double dt);
+        void impose_zero_modes(void);
+        void add_forcing(field<rnumber, be, THREE> *dst,
+                         field<rnumber, be, THREE> *src_vorticity,
+                         rnumber factor);
+        void compute_vorticity(void);
+        void compute_velocity(field<rnumber, be, THREE> *vorticity);
+
+        /* binary I/O stuff */
+        inline void fill_up_filename(const char *base_name, char *full_name)
+        {
+            sprintf(full_name, "%s_%s_i%.5x", this->name, base_name, this->iteration);
+        }
+        int read(char field, char representation);
+        int write(char field, char representation);
+
+        /* statistics and general postprocessing */
+        void compute_pressure(field<rnumber, be, ONE> *pressure);
+        //void compute_Eulerian_acceleration(rnumber (*__restrict__ dst)[2]);
+        //void compute_Lagrangian_acceleration(rnumber (*__restrict__ dst)[2]);
+        //void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
 
         //void compute_gradient_statistics(
         //        rnumber (*__restrict__ vec)[2],
@@ -94,27 +119,6 @@ class vorticity_equation
         //        double gradu_max_estimates[9],
         //        const int nbins_1D = 256,
         //        const int nbins_2D = 64);
-
-        void compute_vorticity(void);
-        void compute_velocity(field<rnumber, be, THREE> *vorticity);
-        void compute_pressure(field<rnumber, be, ONE> *pressure);
-        //void compute_Eulerian_acceleration(rnumber (*__restrict__ dst)[2]);
-        //void compute_Lagrangian_acceleration(rnumber (*__restrict__ dst)[2]);
-        //void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
-        void omega_nonlin(int src);
-        void step(double dt);
-        void impose_zero_modes(void);
-        void add_forcing(field<rnumber, be, THREE> *dst,
-                         field<rnumber, be, THREE> *src_vorticity,
-                         rnumber factor);
-
-        /* I/O stuff */
-        inline void fill_up_filename(const char *base_name, char *full_name)
-        {
-            sprintf(full_name, "%s_%s_i%.5x", this->name, base_name, this->iteration);
-        }
-        int read(char field, char representation);
-        int write(char field, char representation);
         //int write_rTrS2();
         //int write_renstrophy();
         //int write_rpressure();

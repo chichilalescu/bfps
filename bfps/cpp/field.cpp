@@ -404,8 +404,11 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
             this->rlayout->sizes[0],
             this->rlayout->comm);
     tmp_field->real_space_representation = true;
-    FIELD_RLOOP(
-            this,
+    this->RLOOP(
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
             hsize_t rrindex = (xindex + xcells)%this->rlayout->sizes[2] + (
                 zindex * this->rlayout->subsizes[1] + yindex)*(
                     this->rmemlayout->subsizes[2]);
@@ -413,7 +416,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
                 tmp_field->data[rindex*ncomp(fc) + component] =
                     this->data[rrindex*ncomp(fc) + component] -
                     this->data[rindex*ncomp(fc) + component];
-            );
+                    });
     tmp_field->compute_rspace_stats(
             group,
             dset_name,
@@ -493,9 +496,12 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     std::fill_n(local_moments, nmoments*nvals, 0);
     if (nvals == 4) local_moments[3] = max_estimate[3];
     {
-        TIMEZONE("FIELD_RLOOP");
-        FIELD_RLOOP(
-            this,
+        TIMEZONE("field::RLOOP");
+        this->RLOOP(
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
             std::fill_n(pow_tmp, nvals, 1.0);
             if (nvals == int(4)) val_tmp[3] = 0.0;
             for (unsigned int i=0; i<ncomp(fc); i++)
@@ -527,7 +533,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
             for (int n=1; n < int(nmoments)-1; n++)
                 for (int i=0; i<nvals; i++)
                     local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
-            );
+                });
     }
     {
         TIMEZONE("MPI_Allreduce");
@@ -836,18 +842,23 @@ kspace<be, dt>::kspace(
     kshell_local.resize(this->nshells, 0);
     std::vector<int64_t> nshell_local;
     nshell_local.resize(this->nshells, 0);
-    double knorm;
-    KSPACE_CLOOP_K2_NXMODES(
-            this,
+    this->CLOOP_K2_NXMODES(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2,
+                int nxmodes){
             if (k2 < this->kM2)
             {
-                knorm = sqrt(k2);
+                double knorm = sqrt(k2);
                 nshell_local[int(knorm/this->dk)] += nxmodes;
                 kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
             }
-            if (dt == TWO_THIRDS)
-                this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
-            );
+            if (dt == SMOOTH)
+                this->dealias_filter[int(round(k2 / this->dk2))] = \
+                    exp(-36.0 * pow(k2/this->kM2, 18.));
+                });
     MPI_Allreduce(
             &nshell_local.front(),
             &this->nshell.front(),
@@ -876,11 +887,15 @@ template <typename rnumber,
 void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
 {
     const double km2 = kmax*kmax;
-    KSPACE_CLOOP_K2(
-            this,
+    this->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
             if (k2 >= km2)
                 std::fill_n(a + 2*ncomp(fc)*cindex, 2*ncomp(fc), 0);
-            );
+                });
 }
 
 template <field_backend be,
@@ -892,15 +907,19 @@ void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restri
     switch(be)
     {
         case TWO_THIRDS:
-            this->low_pass<rnumber, fc>(a, this->kM);
+            this->low_pass<rnumber, fc>((rnumber*)a, this->kM);
             break;
         case SMOOTH:
-            KSPACE_CLOOP_K2(
-                    this,
+            this->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
                     double tval = this->dealias_filter[int(round(k2 / this->dk2))];
                     for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
-                        a[2*ncomp(fc)*cindex + tcounter] *= tval;
-                    );
+                        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= tval;
+                        });
             break;
     }
 }
@@ -954,8 +973,13 @@ void kspace<be, dt>::cospectrum(
     std::vector<double> spec, spec_local;
     spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
-    KSPACE_CLOOP_K2_NXMODES(
-            this,
+    this->CLOOP_K2_NXMODES(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2,
+                int nxmodes){
             if (k2 <= this->kM2)
             {
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
@@ -965,7 +989,7 @@ void kspace<be, dt>::cospectrum(
                     (a[ncomp(fc)*cindex + i][0] * b[ncomp(fc)*cindex + j][0]) +
                     (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
             }
-            );
+            });
     MPI_Allreduce(
             &spec_local.front(),
             &spec.front(),
@@ -1020,8 +1044,12 @@ void compute_gradient(
     assert(!src->real_space_representation);
     assert((fc1 == ONE && fc2 == THREE) ||
            (fc1 == THREE && fc2 == THREExTHREE));
-    KSPACE_CLOOP_K2(
-            kk,
+    kk->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
             if (k2 < kk->kM2)
                 for (unsigned int field_component = 0;
                      field_component < ncomp(fc1);
@@ -1040,7 +1068,7 @@ void compute_gradient(
                     dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
                           kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
                 }
-            );
+            });
 }
 
 template class field<float, FFTW, ONE>;

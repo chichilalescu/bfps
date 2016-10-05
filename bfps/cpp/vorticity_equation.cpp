@@ -377,7 +377,7 @@ int vorticity_equation<rnumber, be>::read(char field, char representation)
         this->fill_up_filename("cvelocity", fname);
         read_result = this->cd->read(fname, this->cvelocity);
         this->kk->template low_pass<rnumber, THREE>(this->cvelocity->get_rdata(), this->kk->kM);
-        //compute vorticity
+        this->compute_vorticity();
         this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
         this->cvorticity->symmetrize();
         return read_result;
