@@ -31,6 +31,7 @@
 #include <vector>
 #include <string>
 #include "base.hpp"
+#include "fftw_interface.hpp"
 
 #ifndef FIELD
 
@@ -117,7 +118,7 @@ class kspace
 
         template <typename rnumber,
                   field_components fc>
-        void dealias(rnumber *__restrict__ a);
+        void dealias(typename fftw_interface<rnumber>::complex *__restrict__ a);
 
         template <typename rnumber,
                   field_components fc>
@@ -127,6 +128,36 @@ class kspace
                 const hid_t group,
                 const std::string dset_name,
                 const hsize_t toffset);
+        template <class func_type>
+        void CLOOP(func_type expression)
+        {
+            ptrdiff_t cindex = 0;
+            for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++)
+            for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++)
+            for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
+                {
+                    expression(cindex, xindex, yindex, zindex);
+                    cindex++;
+                }
+        }
+        template <class func_type>
+        void CLOOP_K2(func_type expression)
+        {
+            double k2;
+            ptrdiff_t cindex = 0;
+            for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++)
+            for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++)
+            for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
+                {
+                    k2 = (this->kx[xindex]*this->kx[xindex] +
+                          this->ky[yindex]*this->ky[yindex] +
+                          this->kz[zindex]*this->kz[zindex]);
+                    expression(cindex, xindex, yindex, zindex, k2);
+                    cindex++;
+                }
+        }
+        template <typename rnumber>
+        void force_divfree(typename fftw_interface<rnumber>::complex *__restrict__ a);
 };
 
 template <typename rnumber,
@@ -138,8 +169,8 @@ class field
         /* data arrays */
         rnumber *data;
         typedef rnumber cnumber[2];
-        hsize_t npoints;
     public:
+        hsize_t npoints;
         bool real_space_representation;
         /* basic MPI information */
         int myrank, nprocs;
@@ -178,6 +209,7 @@ class field
         void dft();
         void ift();
         void normalize();
+        void symmetrize();
 
         void compute_rspace_xincrement_stats(
                 const int xcells,
@@ -217,6 +249,15 @@ class field
             this->real_space_representation = true;
             return *this;
         }
+
+        inline field<rnumber, be, fc>& operator=(const rnumber value)
+        {
+            std::fill_n(this->data,
+                        this->rmemlayout->local_size,
+                        value);
+            return *this;
+        }
+
         template <kspace_dealias_type dt>
         void compute_stats(
                 kspace<be, dt> *kk,
@@ -230,6 +271,27 @@ class field
                 this->real_space_representation == false)
             {
                 std::fill_n(this->data, 2*ncomp(fc), 0.0);
+            }
+        }
+        template <class func_type>
+        void RLOOP(func_type expression)
+        {
+            switch(be)
+            {
+                case FFTW:
+                    for (hsize_t zindex = 0; zindex < this->rlayout->subsizes[0]; zindex++)
+                    for (hsize_t yindex = 0; yindex < this->rlayout->subsizes[1]; yindex++)
+                    {
+                        ptrdiff_t rindex = (
+                                zindex * this->rlayout->subsizes[1] + yindex)*(
+                                    this->rmemlayout->subsizes[2]);
+                        for (hsize_t xindex = 0; xindex < this->rlayout->subsizes[2]; xindex++)
+                        {
+                            expression(rindex, xindex, yindex, zindex);
+                            rindex++;
+                        }
+                    }
+                    break;
             }
         }
 };

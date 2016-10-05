@@ -616,6 +616,86 @@ void field<rnumber, be, fc>::normalize()
 template <typename rnumber,
           field_backend be,
           field_components fc>
+void field<rnumber, be, fc>::symmetrize()
+{
+    TIMEZONE("field::symmetrize");
+    assert(!this->real_space_representation);
+    ptrdiff_t ii, cc;
+    typename fftw_interface<rnumber>::complex *data = this->get_cdata();
+    MPI_Status *mpistatus = new MPI_Status;
+    if (this->myrank == this->clayout->rank[0][0])
+    {
+        for (cc = 0; cc < ncomp(fc); cc++)
+            data[cc][1] = 0.0;
+        for (ii = 1; ii < this->clayout->sizes[1]/2; ii++)
+            for (cc = 0; cc < ncomp(fc); cc++) {
+                ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[0] =
+                 (*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[0];
+                ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[1] =
+                -(*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[1];
+            }
+    }
+    typename fftw_interface<rnumber>::complex *buffer;
+    buffer = fftw_interface<rnumber>::alloc_complex(ncomp(fc)*this->clayout->sizes[1]);
+    ptrdiff_t yy;
+    /*ptrdiff_t tindex;*/
+    int ranksrc, rankdst;
+    for (yy = 1; yy < this->clayout->sizes[0]/2; yy++) {
+        ranksrc = this->clayout->rank[0][yy];
+        rankdst = this->clayout->rank[0][this->clayout->sizes[0] - yy];
+        if (this->clayout->myrank == ranksrc)
+            for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+                for (cc = 0; cc < ncomp(fc); cc++)
+                    for (int imag_comp=0; imag_comp<2; imag_comp++)
+                        (*(buffer + ncomp(fc)*ii+cc))[imag_comp] =
+                            (*(data + ncomp(fc)*((yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[imag_comp];
+        if (ranksrc != rankdst)
+        {
+            if (this->clayout->myrank == ranksrc)
+                MPI_Send((void*)buffer,
+                         ncomp(fc)*this->clayout->sizes[1], mpi_real_type<rnumber>::complex(), rankdst, yy,
+                        this->clayout->comm);
+            if (this->clayout->myrank == rankdst)
+                MPI_Recv((void*)buffer,
+                         ncomp(fc)*this->clayout->sizes[1], mpi_real_type<rnumber>::complex(), ranksrc, yy,
+                        this->clayout->comm, mpistatus);
+        }
+        if (this->clayout->myrank == rankdst)
+        {
+            for (ii = 1; ii < this->clayout->sizes[1]; ii++)
+                for (cc = 0; cc < ncomp(fc); cc++)
+                {
+                    (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[0] =
+                            (*(buffer + ncomp(fc)*(this->clayout->sizes[1]-ii)+cc))[0];
+                    (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[1] =
+                            -(*(buffer + ncomp(fc)*(this->clayout->sizes[1]-ii)+cc))[1];
+                }
+            for (cc = 0; cc < ncomp(fc); cc++)
+            {
+                (*((data + cc + ncomp(fc)*(this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2])))[0] =  (*(buffer + cc))[0];
+                (*((data + cc + ncomp(fc)*(this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2])))[1] = -(*(buffer + cc))[1];
+            }
+        }
+    }
+    fftw_interface<rnumber>::free(buffer);
+    delete mpistatus;
+    /* put asymmetric data to 0 */
+    /*if (this->clayout->myrank == this->clayout->rank[0][this->clayout->sizes[0]/2])
+    {
+        tindex = ncomp(fc)*(this->clayout->sizes[0]/2 - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2];
+        for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+        {
+            std::fill_n((rnumber*)(data + tindex), ncomp(fc)*2*this->clayout->sizes[2], 0.0);
+            tindex += ncomp(fc)*this->clayout->sizes[2];
+        }
+    }
+    tindex = ncomp(fc)*();
+    std::fill_n((rnumber*)(data + tindex), ncomp(fc)*2, 0.0);*/
+}
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
 template <kspace_dealias_type dt>
 void field<rnumber, be, fc>::compute_stats(
         kspace<be, dt> *kk,
@@ -807,7 +887,7 @@ template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
-void kspace<be, dt>::dealias(rnumber *__restrict__ a)
+void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restrict__ a)
 {
     switch(be)
     {
@@ -823,6 +903,40 @@ void kspace<be, dt>::dealias(rnumber *__restrict__ a)
                     );
             break;
     }
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber>
+void kspace<be, dt>::force_divfree(typename fftw_interface<rnumber>::complex *__restrict__ a)
+{
+    TIMEZONE("kspace::force_divfree");
+    typename fftw_interface<rnumber>::complex tval;
+    this->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+                if (k2 > 0)
+        {
+            tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) +
+                       this->ky[yindex]*((*(a + cindex*3+1))[0]) +
+                       this->kz[zindex]*((*(a + cindex*3+2))[0]) ) / k2;
+            tval[1] = (this->kx[xindex]*((*(a + cindex*3  ))[1]) +
+                       this->ky[yindex]*((*(a + cindex*3+1))[1]) +
+                       this->kz[zindex]*((*(a + cindex*3+2))[1]) ) / k2;
+            for (int imag_part=0; imag_part<2; imag_part++)
+            {
+                a[cindex*3  ][imag_part] -= tval[imag_part]*this->kx[xindex];
+                a[cindex*3+1][imag_part] -= tval[imag_part]*this->ky[yindex];
+                a[cindex*3+2][imag_part] -= tval[imag_part]*this->kz[zindex];
+            }
+        }
+                }
+    );
+    if (this->cd->myrank == this->cd->rank[0])
+        std::fill_n((rnumber*)(a), 6, 0.0);
 }
 
 template <field_backend be,
