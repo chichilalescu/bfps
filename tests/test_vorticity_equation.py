@@ -90,7 +90,8 @@ class NSVE(_fluid_particle_base):
                 //begincpp
                 if (myrank == 0 && iteration == 0)
                 {
-                    TIMEZONE("fuild_base::store_kspace");
+                    DEBUG_MSG("about to store kspace\\n");
+                    TIMEZONE("fluid_base::store_kspace");
                     hsize_t dims[4];
                     hid_t space, dset;
                     // store kspace information
@@ -120,6 +121,7 @@ class NSVE(_fluid_particle_base):
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->dk);
                     H5Dclose(dset);
                     //H5Fclose(parameter_file);
+                    DEBUG_MSG("finished storing kspace\\n");
                 }
                 //endcpp
                 """
@@ -150,6 +152,7 @@ class NSVE(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
+                DEBUG_MSG("inside stat src\\n");
                 hid_t stat_group;
                 if (myrank == 0)
                     stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
@@ -363,6 +366,7 @@ class NSVE(_fluid_particle_base):
         self.fluid_start += """
                 //begincpp
                 char fname[512];
+                DEBUG_MSG("about to allocate vorticity equation\\n");
                 fs = new vorticity_equation<{0}, FFTW>(
                         simname,
                         nx, ny, nz,
@@ -376,6 +380,7 @@ class NSVE(_fluid_particle_base):
                         nx, ny, nz,
                         MPI_COMM_WORLD,
                         {1});
+                DEBUG_MSG("finished allocating stuff\\n");
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -383,7 +388,9 @@ class NSVE(_fluid_particle_base):
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
+                DEBUG_MSG("before reading\\n");
                 fs->read('v', 'c');
+                DEBUG_MSG("after reading\\n");
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         self.fluid_start += self.store_kspace
@@ -1194,7 +1201,7 @@ def main():
             ['-n', '32',
              '--ncpu', '4',
              '--niter_todo', '48',
-             '--wd', 'data/single'] +
+             '--wd', './'] +
             sys.argv[1:])
     return None
 

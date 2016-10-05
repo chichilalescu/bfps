@@ -152,6 +152,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_velocity(field<rnumber, be, THREE> *vorticity)
 {
+    this->u->real_space_representation = false;
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
@@ -226,6 +227,7 @@ template <class rnumber,
 void vorticity_equation<rnumber, be>::omega_nonlin(
         int src)
 {
+    DEBUG_MSG("vorticity_equation::omega_nonlin(%d)\n", src);
     assert(src >= 0 && src < 3);
     this->compute_velocity(this->v[src]);
     /* get fields from Fourier space to real space */
@@ -279,6 +281,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::step(double dt)
 {
+    DEBUG_MSG("vorticity_equation::step\n");
     TIMEZONE("vorticity_equation::step");
     double factor0, factor1;
     *this->v[1] = 0.0;
@@ -355,7 +358,8 @@ int vorticity_equation<rnumber, be>::read(char field, char representation)
         if (representation == 'c')
         {
             this->fill_up_filename("cvorticity", fname);
-            read_result = this->cd->read(fname, (void*)this->cvorticity);
+            this->cvorticity->real_space_representation = false;
+            read_result = this->cd->read(fname, this->cvorticity->get_cdata());
             if (read_result != EXIT_SUCCESS)
                 return read_result;
         }
@@ -377,7 +381,7 @@ int vorticity_equation<rnumber, be>::read(char field, char representation)
     if ((field == 'u') && (representation == 'c'))
     {
         this->fill_up_filename("cvelocity", fname);
-        read_result = this->cd->read(fname, this->cvelocity);
+        read_result = this->cd->read(fname, this->cvelocity->get_cdata());
         this->kk->template low_pass<rnumber, THREE>(this->cvelocity->get_rdata(), this->kk->kM);
         this->compute_vorticity();
         this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
