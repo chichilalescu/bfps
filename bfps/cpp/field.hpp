@@ -96,7 +96,6 @@ class kspace
 
         /* mode and dealiasing information */
         double kMx, kMy, kMz, kM, kM2;
-        double kMspec, kMspec2;
         std::vector<double> kx, ky, kz;
         std::unordered_map<int, double> dealias_filter;
         std::vector<double> kshell;

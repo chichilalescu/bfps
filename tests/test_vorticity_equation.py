@@ -115,7 +115,7 @@ class NSVE(_fluid_particle_base):
                     H5Dwrite(dset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->nshell.front());
                     H5Dclose(dset);
                     dset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
-                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kMspec);
+                    H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kM);
                     H5Dclose(dset);
                     dset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->dk);
@@ -1195,14 +1195,34 @@ class NSVE(_fluid_particle_base):
                 minutes = opt.minutes % 60)
         return None
 
+from bfps_addons import NSReader
+
 def main():
-    c = NSVE()
-    c.launch(
-            ['-n', '32',
-             '--ncpu', '4',
-             '--niter_todo', '48',
-             '--wd', './'] +
-            sys.argv[1:])
+    #c = bfps.NavierStokes()
+    #c.launch(
+    #        ['-n', '72',
+    #         '--simname', 'fluid_solver',
+    #         '--ncpu', '4',
+    #         '--niter_todo', '128',
+    #         '--niter_out', '32',
+    #         '--niter_stat', '1',
+    #         '--wd', './'] +
+    #        sys.argv[1:])
+    #c = NSVE()
+    #c.launch(
+    #        ['-n', '72',
+    #         '--simname', 'vorticity_equation',
+    #         '--src-wd', './',
+    #         '--src-simname', 'fluid_solver',
+    #         '--src-iteration', '0',
+    #         '--ncpu', '4',
+    #         '--niter_todo', '128',
+    #         '--niter_out', '32',
+    #         '--niter_stat', '1',
+    #         '--wd', './'] +
+    #        sys.argv[1:])
+    c0 = NSReader(simname = 'fluid_solver')
+    c1 = NSReader(simname = 'vorticity_equation')
     return None
 
 if __name__ == '__main__':
