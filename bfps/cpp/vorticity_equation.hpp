@@ -105,7 +105,7 @@ class vorticity_equation
         /* statistics and general postprocessing */
         void compute_pressure(field<rnumber, be, ONE> *pressure);
         //void compute_Eulerian_acceleration(rnumber (*__restrict__ dst)[2]);
-        //void compute_Lagrangian_acceleration(rnumber (*__restrict__ dst)[2]);
+        void compute_Lagrangian_acceleration(field<rnumber, be, THREE> *acceleration);
         //void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
 
         //void compute_gradient_statistics(

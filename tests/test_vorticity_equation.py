@@ -409,9 +409,14 @@ class NSVE(_fluid_particle_base):
     def add_3D_rFFTW_field(
             self,
             name = 'rFFTW_acc'):
-        self.fluid_variables += 'typename fftw_interface<{0}>::complex *{1};\n'.format(self.C_dtype, name)
-        self.fluid_start += '{0} = fftw_interface<{1}>::alloc_real(2*fs->cd->local_size);\n'.format(name, self.C_dtype)
-        self.fluid_end   += 'fftw_interface<{0}>::free({1});\n'.format(self.C_dtype, name)
+        self.fluid_variables += 'field<{0}, FFTW, THREE> *{1};\n'.format(self.C_dtype, name)
+        self.fluid_start += ('{0} = new field<{1}, FFTW, THREE>('
+                             'fs->cvelocity->rlayout->sizes[2],'
+                             'fs->cvelocity->rlayout->sizes[1],'
+                             'fs->cvelocity->rlayout->sizes[0],'
+                             'fs->cvelocity->rlayout->comm,'
+                             'fs->cvelocity->fftw_plan_rigor);\n').format(name, self.C_dtype)
+        self.fluid_end   += 'delete {0};\n'.format(name)
         return None
     def add_interpolator(
             self,
@@ -509,10 +514,11 @@ class NSVE(_fluid_particle_base):
         output_vel_acc += 'fs->compute_velocity(fs->cvorticity);\n'
         if not type(kcut) == list:
             output_vel_acc += 'fs->cvelocity->ift();\n'
-        #if not type(acc_name) == type(None):
-        #    # array for putting sampled acceleration in
-        #    # must compute acceleration
-        #    output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
+        if not type(acc_name) == type(None):
+            # array for putting sampled acceleration in
+            # must compute acceleration
+            output_vel_acc += ('fs->compute_Lagrangian_acceleration({0});\n' +
+                               '{0}->ift();\n').format(acc_name)
         for s in range(nspecies):
             if type(kcut) == list:
                 output_vel_acc += 'fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_rdata(), {1});\n'.format(self.C_dtype, kcut[s])
@@ -521,11 +527,11 @@ class NSVE(_fluid_particle_base):
                 {0}->read_rFFTW(fs->cvelocity->get_rdata());
                 ps{1}->sample({0}, "velocity");
                 """.format(interpolator[s], s0 + s)
-            #if not type(acc_name) == type(None):
-            #    output_vel_acc += """
-            #        {0}->read_rFFTW({1});
-            #        ps{2}->sample({0}, "acceleration");
-            #        """.format(interpolator[s], acc_name, s0 + s)
+            if not type(acc_name) == type(None):
+                output_vel_acc += """
+                    {0}->read_rFFTW({1}->get_rdata());
+                    ps{2}->sample({0}, "acceleration");
+                    """.format(interpolator[s], acc_name, s0 + s)
         output_vel_acc += '}\n'
 
         #### initialize, stepping and finalize code
@@ -1123,8 +1129,8 @@ class NSVE(_fluid_particle_base):
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
                 self.name += '-particles'
-                #self.add_3D_rFFTW_field(
-                #        name = 'rFFTW_acc')
+                self.add_3D_rFFTW_field(
+                        name = 'rFFTW_acc')
                 self.add_interpolator(
                         name = 'cubic_spline',
                         neighbours = opt.neighbours,
@@ -1133,7 +1139,7 @@ class NSVE(_fluid_particle_base):
                 self.add_particles(
                         integration_steps = [4],
                         interpolator = 'cubic_spline',
-                        #acc_name = 'rFFTW_acc',
+                        acc_name = 'rFFTW_acc',
                         class_name = 'rFFTW_distributed_particles')
         self.finalize_code()
         self.launch_jobs(opt = opt)
@@ -1228,11 +1234,13 @@ def main():
     c1 = NSReader(simname = 'vorticity_equation')
     pf0 = c0.get_particle_file()
     pf1 = c0.get_particle_file()
-    assert(np.max(np.abs(pf0['tracers0/state'].value - pf1['tracers0/state'].value)) < 1e-6)
+    assert(np.max(np.abs(pf0['tracers0/acceleration'].value -
+                         pf1['tracers0/acceleration'].value)) /
+           np.mean(np.abs(pf0['tracers0/acceleration'].value)) < 1e-6)
     f = plt.figure(figsize = (6, 6))
     a = f.add_subplot(111)
-    a.plot(pf0['tracers0/state'][:, :, 0],
-           pf0['tracers0/state'][:, :, 1])
+    a.plot(pf0['tracers0/acceleration'][:, :, 0],
+           pf0['tracers0/acceleration'][:, :, 1])
     f.tight_layout()
     f.savefig('traj.pdf')
     return None

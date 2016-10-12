@@ -757,52 +757,56 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
 //    delete[] tmp_hist;
 //    fftw_interface<rnumber>::free(ca);
 //}
-//
-//template <class rnumber,
-//          field_backend be>
-//void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(rnumber (*acceleration)[2])
-//{
-//    ptrdiff_t tindex;
-//    typename fftw_interface<rnumber>::complex *pressure;
-//    pressure = fftw_interface<rnumber>::alloc_complex(this->cd->local_size/3);
-//    this->compute_velocity(this->cvorticity);
-//    this->ift_velocity();
-//    this->compute_pressure(pressure);
-//    this->compute_velocity(this->cvorticity);
-//    std::fill_n((rnumber*)this->cv[1], 2*this->cd->local_size, 0.0);
-//    CLOOP_K2(
-//                this,
-//                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-//        if (k2 <= this->kM2)
-//        {
-//            tindex = 3*cindex;
-//            for (int cc=0; cc<3; cc++)
-//                for (int i=0; i<2; i++)
-//                    this->cv[1][tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i];
-//            if (strcmp(this->forcing_type, "linear") == 0)
-//            {
-//                double knorm = sqrt(k2);
-//                if ((this->fk0 <= knorm) &&
-//                        (this->fk1 >= knorm))
-//                    for (int c=0; c<3; c++)
-//                        for (int i=0; i<2; i++)
-//                            this->cv[1][tindex+c][i] += this->famplitude*this->cu[tindex+c][i];
-//            }
-//            this->cv[1][tindex+0][0] += this->kx[xindex]*pressure[cindex][1];
-//            this->cv[1][tindex+1][0] += this->ky[yindex]*pressure[cindex][1];
-//            this->cv[1][tindex+2][0] += this->kz[zindex]*pressure[cindex][1];
-//            this->cv[1][tindex+0][1] -= this->kx[xindex]*pressure[cindex][0];
-//            this->cv[1][tindex+1][1] -= this->ky[yindex]*pressure[cindex][0];
-//            this->cv[1][tindex+2][1] -= this->kz[zindex]*pressure[cindex][0];
-//        }
-//    }
-//    );
-//    std::copy(
-//                (rnumber*)this->cv[1],
-//            (rnumber*)(this->cv[1] + this->cd->local_size),
-//            (rnumber*)acceleration);
-//    fftw_interface<rnumber>::free(pressure);
-//}
+
+template <class rnumber,
+          field_backend be>
+void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(
+        field<rnumber, be, THREE> *acceleration)
+{
+    field<rnumber, be, ONE> *pressure = new field<rnumber, be, ONE>(
+            this->cvelocity->rlayout->sizes[2],
+            this->cvelocity->rlayout->sizes[1],
+            this->cvelocity->rlayout->sizes[0],
+            this->cvelocity->rlayout->comm,
+            this->cvelocity->fftw_plan_rigor);
+    this->compute_velocity(this->cvorticity);
+    this->cvelocity->ift();
+    this->compute_pressure(pressure);
+    this->compute_velocity(this->cvorticity);
+    acceleration->real_space_representation = false;
+    this->kk->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+        if (k2 <= this->kk->kM2)
+        {
+            ptrdiff_t tindex = 3*cindex;
+            for (int cc=0; cc<3; cc++)
+                for (int i=0; i<2; i++)
+                    acceleration->get_cdata()[tindex+cc][i] = \
+                        - this->nu*k2*this->cvelocity->get_cdata()[tindex+cc][i];
+            if (strcmp(this->forcing_type, "linear") == 0)
+            {
+                double knorm = sqrt(k2);
+                if ((this->fk0 <= knorm) &&
+                        (this->fk1 >= knorm))
+                    for (int c=0; c<3; c++)
+                        for (int i=0; i<2; i++)
+                            acceleration->get_cdata()[tindex+c][i] += \
+                                this->famplitude*this->cvelocity->get_cdata()[tindex+c][i];
+            }
+            acceleration->get_cdata()[tindex+0][0] += this->kk->kx[xindex]*pressure->get_cdata()[cindex][1];
+            acceleration->get_cdata()[tindex+1][0] += this->kk->ky[yindex]*pressure->get_cdata()[cindex][1];
+            acceleration->get_cdata()[tindex+2][0] += this->kk->kz[zindex]*pressure->get_cdata()[cindex][1];
+            acceleration->get_cdata()[tindex+0][1] -= this->kk->kx[xindex]*pressure->get_cdata()[cindex][0];
+            acceleration->get_cdata()[tindex+1][1] -= this->kk->ky[yindex]*pressure->get_cdata()[cindex][0];
+            acceleration->get_cdata()[tindex+2][1] -= this->kk->kz[zindex]*pressure->get_cdata()[cindex][0];
+        }
+        });
+    delete pressure;
+}
 
 //template <class rnumber,
 //          field_backend be>
