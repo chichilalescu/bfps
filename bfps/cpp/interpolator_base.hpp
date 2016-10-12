@@ -25,6 +25,7 @@
 
 
 #include "fluid_solver_base.hpp"
+#include "vorticity_equation.hpp"
 #include "spline_n1.hpp"
 #include "spline_n2.hpp"
 #include "spline_n3.hpp"
@@ -57,6 +58,10 @@ class interpolator_base
 
         interpolator_base(
                 fluid_solver_base<rnumber> *FSOLVER,
+                base_polynomial_values BETA_POLYS);
+
+        interpolator_base(
+                vorticity_equation<rnumber, FFTW> *FSOLVER,
                 base_polynomial_values BETA_POLYS);
         virtual ~interpolator_base(){}
 

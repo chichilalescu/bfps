@@ -45,17 +45,17 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 distributed_particles<particle_type, rnumber, interp_neighbours>::distributed_particles(
         const char *NAME,
         const hid_t data_file_id,
-        interpolator<rnumber, interp_neighbours> *FIELD,
+        interpolator<rnumber, interp_neighbours> *VEL,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
             TRAJ_SKIP,
             data_file_id,
-            FIELD->descriptor->comm)
+            VEL->descriptor->comm)
 {
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
-    this->vel = FIELD;
+    this->vel = VEL;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
     this->state.reserve(2*this->nparticles / this->nprocs);

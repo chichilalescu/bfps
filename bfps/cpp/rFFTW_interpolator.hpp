@@ -27,6 +27,7 @@
 #include "field_descriptor.hpp"
 #include "fftw_tools.hpp"
 #include "fluid_solver_base.hpp"
+#include "vorticity_equation.hpp"
 #include "interpolator_base.hpp"
 
 #ifndef RFFTW_INTERPOLATOR
@@ -52,6 +53,11 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
 
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
+                base_polynomial_values BETA_POLYS,
+                rnumber *FIELD_DATA);
+
+        rFFTW_interpolator(
+                vorticity_equation<rnumber, FFTW> *FSOLVER,
                 base_polynomial_values BETA_POLYS,
                 rnumber *FIELD_DATA);
         ~rFFTW_interpolator();

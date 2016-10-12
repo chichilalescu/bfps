@@ -406,173 +406,173 @@ class NSVE(_fluid_particle_base):
                           'delete tmp_vec_field;\n' +
                           'delete tmp_scal_field;\n')
         return None
-    #def add_3D_rFFTW_field(
-    #        self,
-    #        name = 'rFFTW_acc'):
-    #    self.fluid_variables += 'typename fftw_interface<{0}>::complex *{1};\n'.format(self.C_dtype, name)
-    #    self.fluid_start += '{0} = fftw_interface<{1}>::alloc_real(2*fs->cd->local_size);\n'.format(name, self.C_dtype)
-    #    self.fluid_end   += 'fftw_interface<{0}>::free({1});\n'.format(self.C_dtype, name)
-    #    return None
-    #def add_interpolator(
-    #        self,
-    #        interp_type = 'spline',
-    #        neighbours = 1,
-    #        smoothness = 1,
-    #        name = 'field_interpolator',
-    #        field_name = 'fs->rvelocity',
-    #        class_name = 'rFFTW_interpolator'):
-    #    self.fluid_includes += '#include "{0}.hpp"\n'.format(class_name)
-    #    self.fluid_variables += '{0} <{1}, {2}> *{3};\n'.format(
-    #            class_name, self.C_dtype, neighbours, name)
-    #    self.parameters[name + '_type'] = interp_type
-    #    self.parameters[name + '_neighbours'] = neighbours
-    #    if interp_type == 'spline':
-    #        self.parameters[name + '_smoothness'] = smoothness
-    #        beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
-    #    elif interp_type == 'Lagrange':
-    #        beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
-    #    self.fluid_start += '{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n'.format(
-    #            name,
-    #            class_name,
-    #            self.C_dtype,
-    #            neighbours,
-    #            beta_name,
-    #            field_name)
-    #    self.fluid_end += 'delete {0};\n'.format(name)
-    #    return None
-    #def add_particles(
-    #        self,
-    #        integration_steps = 2,
-    #        kcut = None,
-    #        interpolator = 'field_interpolator',
-    #        frozen_particles = False,
-    #        acc_name = None,
-    #        class_name = 'particles'):
-    #    """Adds code for tracking a series of particle species, each
-    #    consisting of `nparticles` particles.
+    def add_3D_rFFTW_field(
+            self,
+            name = 'rFFTW_acc'):
+        self.fluid_variables += 'typename fftw_interface<{0}>::complex *{1};\n'.format(self.C_dtype, name)
+        self.fluid_start += '{0} = fftw_interface<{1}>::alloc_real(2*fs->cd->local_size);\n'.format(name, self.C_dtype)
+        self.fluid_end   += 'fftw_interface<{0}>::free({1});\n'.format(self.C_dtype, name)
+        return None
+    def add_interpolator(
+            self,
+            interp_type = 'spline',
+            neighbours = 1,
+            smoothness = 1,
+            name = 'field_interpolator',
+            field_name = 'fs->cvelocity->get_rdata()',
+            class_name = 'rFFTW_interpolator'):
+        self.fluid_includes += '#include "{0}.hpp"\n'.format(class_name)
+        self.fluid_variables += '{0} <{1}, {2}> *{3};\n'.format(
+                class_name, self.C_dtype, neighbours, name)
+        self.parameters[name + '_type'] = interp_type
+        self.parameters[name + '_neighbours'] = neighbours
+        if interp_type == 'spline':
+            self.parameters[name + '_smoothness'] = smoothness
+            beta_name = 'beta_n{0}_m{1}'.format(neighbours, smoothness)
+        elif interp_type == 'Lagrange':
+            beta_name = 'beta_Lagrange_n{0}'.format(neighbours)
+        self.fluid_start += '{0} = new {1}<{2}, {3}>(fs, {4}, {5});\n'.format(
+                name,
+                class_name,
+                self.C_dtype,
+                neighbours,
+                beta_name,
+                field_name)
+        self.fluid_end += 'delete {0};\n'.format(name)
+        return None
+    def add_particles(
+            self,
+            integration_steps = 2,
+            kcut = None,
+            interpolator = 'field_interpolator',
+            frozen_particles = False,
+            acc_name = None,
+            class_name = 'particles'):
+        """Adds code for tracking a series of particle species, each
+        consisting of `nparticles` particles.
 
-    #    :type integration_steps: int, list of int
-    #    :type kcut: None (default), str, list of str
-    #    :type interpolator: str, list of str
-    #    :type frozen_particles: bool
-    #    :type acc_name: str
+        :type integration_steps: int, list of int
+        :type kcut: None (default), str, list of str
+        :type interpolator: str, list of str
+        :type frozen_particles: bool
+        :type acc_name: str
 
-    #    .. warning:: if not None, kcut must be a list of decreasing
-    #                 wavenumbers, since filtering is done sequentially
-    #                 on the same complex FFTW field.
-    #    """
-    #    if self.dtype == np.float32:
-    #        FFTW = 'fftwf'
-    #    elif self.dtype == np.float64:
-    #        FFTW = 'fftw'
-    #    s0 = self.particle_species
-    #    if type(integration_steps) == int:
-    #        integration_steps = [integration_steps]
-    #    if type(kcut) == str:
-    #        kcut = [kcut]
-    #    if type(interpolator) == str:
-    #        interpolator = [interpolator]
-    #    nspecies = max(len(integration_steps), len(interpolator))
-    #    if type(kcut) == list:
-    #        nspecies = max(nspecies, len(kcut))
-    #    if len(integration_steps) == 1:
-    #        integration_steps = [integration_steps[0] for s in range(nspecies)]
-    #    if len(interpolator) == 1:
-    #        interpolator = [interpolator[0] for s in range(nspecies)]
-    #    if type(kcut) == list:
-    #        if len(kcut) == 1:
-    #            kcut = [kcut[0] for s in range(nspecies)]
-    #    assert(len(integration_steps) == nspecies)
-    #    assert(len(interpolator) == nspecies)
-    #    if type(kcut) == list:
-    #        assert(len(kcut) == nspecies)
-    #    for s in range(nspecies):
-    #        neighbours = self.parameters[interpolator[s] + '_neighbours']
-    #        if type(kcut) == list:
-    #            self.parameters['tracers{0}_kcut'.format(s0 + s)] = kcut[s]
-    #        self.parameters['tracers{0}_interpolator'.format(s0 + s)] = interpolator[s]
-    #        self.parameters['tracers{0}_acc_on'.format(s0 + s)] = int(not type(acc_name) == type(None))
-    #        self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
-    #        self.file_datasets_grow += """
-    #                    //begincpp
-    #                    group = H5Gopen(particle_file, "/tracers{0}", H5P_DEFAULT);
-    #                    grow_particle_datasets(group, "", NULL, NULL);
-    #                    H5Gclose(group);
-    #                    //endcpp
-    #                    """.format(s0 + s)
+        .. warning:: if not None, kcut must be a list of decreasing
+                     wavenumbers, since filtering is done sequentially
+                     on the same complex FFTW field.
+        """
+        if self.dtype == np.float32:
+            FFTW = 'fftwf'
+        elif self.dtype == np.float64:
+            FFTW = 'fftw'
+        s0 = self.particle_species
+        if type(integration_steps) == int:
+            integration_steps = [integration_steps]
+        if type(kcut) == str:
+            kcut = [kcut]
+        if type(interpolator) == str:
+            interpolator = [interpolator]
+        nspecies = max(len(integration_steps), len(interpolator))
+        if type(kcut) == list:
+            nspecies = max(nspecies, len(kcut))
+        if len(integration_steps) == 1:
+            integration_steps = [integration_steps[0] for s in range(nspecies)]
+        if len(interpolator) == 1:
+            interpolator = [interpolator[0] for s in range(nspecies)]
+        if type(kcut) == list:
+            if len(kcut) == 1:
+                kcut = [kcut[0] for s in range(nspecies)]
+        assert(len(integration_steps) == nspecies)
+        assert(len(interpolator) == nspecies)
+        if type(kcut) == list:
+            assert(len(kcut) == nspecies)
+        for s in range(nspecies):
+            neighbours = self.parameters[interpolator[s] + '_neighbours']
+            if type(kcut) == list:
+                self.parameters['tracers{0}_kcut'.format(s0 + s)] = kcut[s]
+            self.parameters['tracers{0}_interpolator'.format(s0 + s)] = interpolator[s]
+            self.parameters['tracers{0}_acc_on'.format(s0 + s)] = int(not type(acc_name) == type(None))
+            self.parameters['tracers{0}_integration_steps'.format(s0 + s)] = integration_steps[s]
+            self.file_datasets_grow += """
+                        //begincpp
+                        group = H5Gopen(particle_file, "/tracers{0}", H5P_DEFAULT);
+                        grow_particle_datasets(group, "", NULL, NULL);
+                        H5Gclose(group);
+                        //endcpp
+                        """.format(s0 + s)
 
-    #    #### code that outputs statistics
-    #    output_vel_acc = '{\n'
-    #    # array for putting sampled velocity in
-    #    # must compute velocity, just in case it was messed up by some
-    #    # other particle species before the stats
-    #    output_vel_acc += 'fs->compute_velocity(fs->cvorticity);\n'
-    #    if not type(kcut) == list:
-    #        output_vel_acc += 'fs->ift_velocity();\n'
-    #    if not type(acc_name) == type(None):
-    #        # array for putting sampled acceleration in
-    #        # must compute acceleration
-    #        output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
-    #    for s in range(nspecies):
-    #        if type(kcut) == list:
-    #            output_vel_acc += 'fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s])
-    #            output_vel_acc += 'fs->ift_velocity();\n'
-    #        output_vel_acc += """
-    #            {0}->read_rFFTW(fs->rvelocity);
-    #            ps{1}->sample({0}, "velocity");
-    #            """.format(interpolator[s], s0 + s)
-    #        if not type(acc_name) == type(None):
-    #            output_vel_acc += """
-    #                {0}->read_rFFTW({1});
-    #                ps{2}->sample({0}, "acceleration");
-    #                """.format(interpolator[s], acc_name, s0 + s)
-    #    output_vel_acc += '}\n'
+        #### code that outputs statistics
+        output_vel_acc = '{\n'
+        # array for putting sampled velocity in
+        # must compute velocity, just in case it was messed up by some
+        # other particle species before the stats
+        output_vel_acc += 'fs->compute_velocity(fs->cvorticity);\n'
+        if not type(kcut) == list:
+            output_vel_acc += 'fs->cvelocity->ift();\n'
+        #if not type(acc_name) == type(None):
+        #    # array for putting sampled acceleration in
+        #    # must compute acceleration
+        #    output_vel_acc += 'fs->compute_Lagrangian_acceleration({0});\n'.format(acc_name)
+        for s in range(nspecies):
+            if type(kcut) == list:
+                output_vel_acc += 'fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_rdata(), {1});\n'.format(self.C_dtype, kcut[s])
+                output_vel_acc += 'fs->cvorticity->ift();\n'
+            output_vel_acc += """
+                {0}->read_rFFTW(fs->cvelocity->get_rdata());
+                ps{1}->sample({0}, "velocity");
+                """.format(interpolator[s], s0 + s)
+            #if not type(acc_name) == type(None):
+            #    output_vel_acc += """
+            #        {0}->read_rFFTW({1});
+            #        ps{2}->sample({0}, "acceleration");
+            #        """.format(interpolator[s], acc_name, s0 + s)
+        output_vel_acc += '}\n'
 
-    #    #### initialize, stepping and finalize code
-    #    if not type(kcut) == list:
-    #        update_fields = ('fs->compute_velocity(fs->cvorticity);\n' +
-    #                         'fs->ift_velocity();\n')
-    #        self.particle_start += update_fields
-    #        self.particle_loop  += update_fields
-    #    else:
-    #        self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
-    #    self.particle_includes += '#include "{0}.hpp"\n'.format(class_name)
-    #    self.particle_stat_src += (
-    #            'if (ps0->iteration % niter_part == 0)\n' +
-    #            '{\n')
-    #    for s in range(nspecies):
-    #        neighbours = self.parameters[interpolator[s] + '_neighbours']
-    #        self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
-    #        self.particle_end += ('ps{0}->write();\n' +
-    #                              'delete ps{0};\n').format(s0 + s)
-    #        self.particle_variables += '{0}<VELOCITY_TRACER, {1}, {2}> *ps{3};\n'.format(
-    #                class_name,
-    #                self.C_dtype,
-    #                neighbours,
-    #                s0 + s)
-    #        self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
-    #                                'fname, particle_file, {4},\n' +
-    #                                'niter_part, tracers{0}_integration_steps);\n').format(
-    #                                        s0 + s,
-    #                                        class_name,
-    #                                        self.C_dtype,
-    #                                        neighbours,
-    #                                        interpolator[s])
-    #        self.particle_start += ('ps{0}->dt = dt;\n' +
-    #                                'ps{0}->iteration = iteration;\n' +
-    #                                'ps{0}->read();\n').format(s0 + s)
-    #        if not frozen_particles:
-    #            if type(kcut) == list:
-    #                update_field = ('fs->low_pass_Fourier(fs->cvelocity, 3, {0});\n'.format(kcut[s]) +
-    #                                'fs->ift_velocity();\n')
-    #                self.particle_loop += update_field
-    #            self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
-    #            self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
-    #        self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
-    #    self.particle_stat_src += output_vel_acc
-    #    self.particle_stat_src += '}\n'
-    #    self.particle_species += nspecies
-    #    return None
+        #### initialize, stepping and finalize code
+        if not type(kcut) == list:
+            update_fields = ('fs->compute_velocity(fs->cvorticity);\n' +
+                             'fs->cvelocity->ift();\n')
+            self.particle_start += update_fields
+            self.particle_loop  += update_fields
+        else:
+            self.particle_loop += 'fs->compute_velocity(fs->cvorticity);\n'
+        self.particle_includes += '#include "{0}.hpp"\n'.format(class_name)
+        self.particle_stat_src += (
+                'if (ps0->iteration % niter_part == 0)\n' +
+                '{\n')
+        for s in range(nspecies):
+            neighbours = self.parameters[interpolator[s] + '_neighbours']
+            self.particle_start += 'sprintf(fname, "tracers{0}");\n'.format(s0 + s)
+            self.particle_end += ('ps{0}->write();\n' +
+                                  'delete ps{0};\n').format(s0 + s)
+            self.particle_variables += '{0}<VELOCITY_TRACER, {1}, {2}> *ps{3};\n'.format(
+                    class_name,
+                    self.C_dtype,
+                    neighbours,
+                    s0 + s)
+            self.particle_start += ('ps{0} = new {1}<VELOCITY_TRACER, {2}, {3}>(\n' +
+                                    'fname, particle_file, {4},\n' +
+                                    'niter_part, tracers{0}_integration_steps);\n').format(
+                                            s0 + s,
+                                            class_name,
+                                            self.C_dtype,
+                                            neighbours,
+                                            interpolator[s])
+            self.particle_start += ('ps{0}->dt = dt;\n' +
+                                    'ps{0}->iteration = iteration;\n' +
+                                    'ps{0}->read();\n').format(s0 + s)
+            if not frozen_particles:
+                if type(kcut) == list:
+                    update_field = ('fs->kk->template low_pass<{0}, THREE>(fs->cvelocity, {1});\n'.format(self.C_dtype, kcut[s]) +
+                                    'fs->cvelocity->ift();\n')
+                    self.particle_loop += update_field
+                self.particle_loop += '{0}->read_rFFTW(fs->cvelocity->get_rdata());\n'.format(interpolator[s])
+                self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
+            self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
+        self.particle_stat_src += output_vel_acc
+        self.particle_stat_src += '}\n'
+        self.particle_species += nspecies
+        return None
     def get_postprocess_file_name(self):
         return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
     def get_postprocess_file(self):
@@ -1123,8 +1123,8 @@ class NSVE(_fluid_particle_base):
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
                 self.name += '-particles'
-                self.add_3D_rFFTW_field(
-                        name = 'rFFTW_acc')
+                #self.add_3D_rFFTW_field(
+                #        name = 'rFFTW_acc')
                 self.add_interpolator(
                         name = 'cubic_spline',
                         neighbours = opt.neighbours,
@@ -1133,7 +1133,7 @@ class NSVE(_fluid_particle_base):
                 self.add_particles(
                         integration_steps = [4],
                         interpolator = 'cubic_spline',
-                        acc_name = 'rFFTW_acc',
+                        #acc_name = 'rFFTW_acc',
                         class_name = 'rFFTW_distributed_particles')
         self.finalize_code()
         self.launch_jobs(opt = opt)
@@ -1203,24 +1203,26 @@ def main():
     #        ['-n', '72',
     #         '--simname', 'fluid_solver',
     #         '--ncpu', '4',
+    #         '--nparticles', '100',
     #         '--niter_todo', '128',
     #         '--niter_out', '32',
-    #         '--niter_stat', '1',
+    #        '--niter_stat', '1',
     #         '--wd', './'] +
     #        sys.argv[1:])
-    #c = NSVE()
-    #c.launch(
-    #        ['-n', '72',
-    #         '--simname', 'vorticity_equation',
-    #         '--src-wd', './',
-    #         '--src-simname', 'fluid_solver',
-    #         '--src-iteration', '0',
-    #         '--ncpu', '4',
-    #         '--niter_todo', '128',
-    #         '--niter_out', '32',
-    #         '--niter_stat', '1',
-    #         '--wd', './'] +
-    #        sys.argv[1:])
+    c = NSVE()
+    c.launch(
+            ['-n', '72',
+             '--simname', 'vorticity_equation',
+             '--src-wd', './',
+             '--src-simname', 'fluid_solver',
+             '--src-iteration', '0',
+             '--ncpu', '4',
+             '--nparticles', '100',
+             '--niter_todo', '128',
+             '--niter_out', '32',
+             '--niter_stat', '1',
+             '--wd', './'] +
+            sys.argv[1:])
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
     return None
