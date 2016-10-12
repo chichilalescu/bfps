@@ -1196,6 +1196,7 @@ class NSVE(_fluid_particle_base):
         return None
 
 from bfps_addons import NSReader
+import matplotlib.pyplot as plt
 
 def main():
     #c = bfps.NavierStokes()
@@ -1209,22 +1210,31 @@ def main():
     #        '--niter_stat', '1',
     #         '--wd', './'] +
     #        sys.argv[1:])
-    c = NSVE()
-    c.launch(
-            ['-n', '72',
-             '--simname', 'vorticity_equation',
-             '--src-wd', './',
-             '--src-simname', 'fluid_solver',
-             '--src-iteration', '0',
-             '--ncpu', '4',
-             '--nparticles', '100',
-             '--niter_todo', '128',
-             '--niter_out', '32',
-             '--niter_stat', '1',
-             '--wd', './'] +
-            sys.argv[1:])
+    #c = NSVE()
+    #c.launch(
+    #        ['-n', '72',
+    #         '--simname', 'vorticity_equation',
+    #         '--src-wd', './',
+    #         '--src-simname', 'fluid_solver',
+    #         '--src-iteration', '0',
+    #         '--ncpu', '4',
+    #         '--nparticles', '100',
+    #         '--niter_todo', '128',
+    #         '--niter_out', '32',
+    #         '--niter_stat', '1',
+    #         '--wd', './'] +
+    #        sys.argv[1:])
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
+    pf0 = c0.get_particle_file()
+    pf1 = c0.get_particle_file()
+    assert(np.max(np.abs(pf0['tracers0/state'].value - pf1['tracers0/state'].value)) < 1e-6)
+    f = plt.figure(figsize = (6, 6))
+    a = f.add_subplot(111)
+    a.plot(pf0['tracers0/state'][:, :, 0],
+           pf0['tracers0/state'][:, :, 1])
+    f.tight_layout()
+    f.savefig('traj.pdf')
     return None
 
 if __name__ == '__main__':
