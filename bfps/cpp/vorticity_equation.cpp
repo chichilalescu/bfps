@@ -39,6 +39,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::impose_zero_modes()
 {
+    TIMEZONE("vorticity_equation::impose_zero_modes");
     this->u->impose_zero_mode();
     this->v[0]->impose_zero_mode();
     this->v[1]->impose_zero_mode();
@@ -57,6 +58,7 @@ vorticity_equation<rnumber, be>::vorticity_equation(
         double DKZ,
         unsigned FFTW_PLAN_RIGOR)
 {
+    TIMEZONE("vorticity_equation::vorticity_equation");
     /* initialize name and basic stuff */
     strncpy(this->name, NAME, 256);
     this->name[255] = '\0';
@@ -112,6 +114,7 @@ template <class rnumber,
           field_backend be>
 vorticity_equation<rnumber, be>::~vorticity_equation()
 {
+    TIMEZONE("vorticity_equation::~vorticity_equation");
     delete this->kk;
     delete this->cvorticity;
     delete this->rvorticity;
@@ -125,6 +128,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_vorticity()
 {
+    TIMEZONE("vorticity_equation::compute_vorticity");
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
@@ -152,6 +156,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_velocity(field<rnumber, be, THREE> *vorticity)
 {
+    TIMEZONE("vorticity_equation::compute_velocity");
     this->u->real_space_representation = false;
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
@@ -183,6 +188,7 @@ void vorticity_equation<rnumber, be>::add_forcing(
         field<rnumber, be, THREE> *vort_field,
         rnumber factor)
 {
+    TIMEZONE("vorticity_equation::add_forcing");
     if (strcmp(this->forcing_type, "none") == 0)
         return;
     if (strcmp(this->forcing_type, "Kolmogorov") == 0)
@@ -351,6 +357,7 @@ template <class rnumber,
           field_backend be>
 int vorticity_equation<rnumber, be>::read(char field, char representation)
 {
+    TIMEZONE("vorticity_equation::read");
     char fname[512];
     int read_result;
     if (field == 'v')
@@ -401,6 +408,7 @@ template <class rnumber,
           field_backend be>
 int vorticity_equation<rnumber, be>::write(char field, char representation)
 {
+    TIMEZONE("vorticity_equation::write");
     char fname[512];
     if ((field == 'v') && (representation == 'c'))
     {
@@ -550,6 +558,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *pressure)
 {
+    TIMEZONE("vorticity_equation::compute_pressure");
     /* assume velocity is already in real space representation */
 
     this->v[1]->real_space_representation = true;
