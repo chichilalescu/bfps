@@ -70,11 +70,19 @@ class _code(_base):
                 //begincpp
                 int main(int argc, char *argv[])
                 {
-                    MPI_Init(&argc, &argv);
+                    int mpiprovided;
+                    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &mpiprovided);
+                    assert(mpiprovided >= MPI_THREAD_FUNNELED);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                    fftw_init_threads();
+                    fftwf_init_threads();
                     fftw_mpi_init();
                     fftwf_mpi_init();
+                    const int nbThreads = (getenv("FFTW_NUM_THREADS")?atoi(getenv("FFTW_NUM_THREADS")):32);
+                    DEBUG_MSG("Number of threads for the FFTW = %d\\n", nbThreads);
+                    std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
+                    fftw_plan_with_nthreads(nbThreads);
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
@@ -154,6 +162,8 @@ class _code(_base):
                           '{0}\n'.format(bfps.dist_loc))
         libraries = ['bfps']
         libraries += bfps.install_info['libraries']
+        libraries += ['fftw3_threads']
+        libraries += ['fftw3f_threads']
 
         command_strings = [bfps.install_info['compiler']]
         command_strings += [self.name + '.cpp', '-o', self.name]
@@ -465,8 +475,8 @@ class _code(_base):
             assert(nprocesses % self.host_info['deltanprocs'] == 0)
             tasks_per_node = self.host_info['deltanprocs']
         script_file.write('#SBATCH --nodes={0}\n'.format(nodes))
-        script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(tasks_per_node))
-        script_file.write('#SBATCH --ntasks-per-core=1\n')
+        script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(1)) # tasks_per_node
+        script_file.write('#SBATCH --cpus-per-task={0}\n'.format(self.host_info['deltanprocs']))
         script_file.write('#SBATCH --mail-type=none\n')
         script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
