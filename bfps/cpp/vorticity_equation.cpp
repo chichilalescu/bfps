@@ -440,120 +440,6 @@ int vorticity_equation<rnumber, be>::write(char field, char representation)
     return EXIT_FAILURE;
 }
 
-//template <class rnumber,
-//          field_backend be>
-//int vorticity_equation<rnumber, be>::write_rTrS2()
-//{
-//    char fname[512];
-//    this->fill_up_filename("rTrS2", fname);
-//    typename fftw_interface<rnumber>::complex *ca;
-//    rnumber *ra;
-//    ca = fftw_interface<rnumber>::alloc_complex(this->cd->local_size*3);
-//    ra = (rnumber*)(ca);
-//    this->compute_velocity(this->cvorticity);
-//    this->compute_vector_gradient(ca, this->cvelocity);
-//    for (int cc=0; cc<3; cc++)
-//    {
-//        std::copy(
-//                    (rnumber*)(ca + cc*this->cd->local_size),
-//                    (rnumber*)(ca + (cc+1)*this->cd->local_size),
-//                    (rnumber*)this->cv[1]);
-//        fftw_interface<rnumber>::execute(*(this->vc2r[1]));
-//        std::copy(
-//                    this->rv[1],
-//                this->rv[1] + this->cd->local_size*2,
-//                ra + cc*this->cd->local_size*2);
-//    }
-//    /* velocity gradient is now stored, in real space, in ra */
-//    rnumber *dx_u, *dy_u, *dz_u;
-//    dx_u = ra;
-//    dy_u = ra + 2*this->cd->local_size;
-//    dz_u = ra + 4*this->cd->local_size;
-//    rnumber *trS2 = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
-//    double average_local = 0;
-//    RLOOP(
-//                this,
-//                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-//        rnumber AxxAxx;
-//        rnumber AyyAyy;
-//        rnumber AzzAzz;
-//        rnumber Sxy;
-//        rnumber Syz;
-//        rnumber Szx;
-//        ptrdiff_t tindex = 3*rindex;
-//        AxxAxx = dx_u[tindex+0]*dx_u[tindex+0];
-//        AyyAyy = dy_u[tindex+1]*dy_u[tindex+1];
-//        AzzAzz = dz_u[tindex+2]*dz_u[tindex+2];
-//        Sxy = dx_u[tindex+1]+dy_u[tindex+0];
-//        Syz = dy_u[tindex+2]+dz_u[tindex+1];
-//        Szx = dz_u[tindex+0]+dx_u[tindex+2];
-//        trS2[rindex] = (AxxAxx + AyyAyy + AzzAzz +
-//                        (Sxy*Sxy + Syz*Syz + Szx*Szx)/2);
-//        average_local += trS2[rindex];
-//    }
-//    );
-//    double average;
-//    MPI_Allreduce(
-//                &average_local,
-//                &average,
-//                1,
-//                MPI_DOUBLE, MPI_SUM, this->cd->comm);
-//    DEBUG_MSG("average TrS2 is %g\n", average);
-//    fftw_interface<rnumber>::free(ca);
-//    /* output goes here */
-//    int ntmp[3];
-//    ntmp[0] = this->rd->sizes[0];
-//    ntmp[1] = this->rd->sizes[1];
-//    ntmp[2] = this->rd->sizes[2];
-//    field_descriptor<rnumber> *scalar_descriptor = new field_descriptor<rnumber>(3, ntmp, mpi_real_type<rnumber>::real(), this->cd->comm);
-//    clip_zero_padding<rnumber>(scalar_descriptor, trS2, 1);
-//    int return_value = scalar_descriptor->write(fname, trS2);
-//    delete scalar_descriptor;
-//    fftw_interface<rnumber>::free(trS2);
-//    return return_value;
-//}
-//
-//template <class rnumber,
-//          field_backend be>
-//int vorticity_equation<rnumber, be>::write_renstrophy()
-//{
-//    char fname[512];
-//    this->fill_up_filename("renstrophy", fname);
-//    rnumber *enstrophy = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
-//    this->ift_vorticity();
-//    double average_local = 0;
-//    RLOOP(
-//                this,
-//                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-//        ptrdiff_t tindex = 3*rindex;
-//        enstrophy[rindex] = (
-//                    this->rvorticity[tindex+0]*this->rvorticity[tindex+0] +
-//                this->rvorticity[tindex+1]*this->rvorticity[tindex+1] +
-//                this->rvorticity[tindex+2]*this->rvorticity[tindex+2]
-//                )/2;
-//        average_local += enstrophy[rindex];
-//    }
-//    );
-//    double average;
-//    MPI_Allreduce(
-//                &average_local,
-//                &average,
-//                1,
-//                MPI_DOUBLE, MPI_SUM, this->cd->comm);
-//    DEBUG_MSG("average enstrophy is %g\n", average);
-//    /* output goes here */
-//    int ntmp[3];
-//    ntmp[0] = this->rd->sizes[0];
-//    ntmp[1] = this->rd->sizes[1];
-//    ntmp[2] = this->rd->sizes[2];
-//    field_descriptor<rnumber> *scalar_descriptor = new field_descriptor<rnumber>(3, ntmp, mpi_real_type<rnumber>::real(), this->cd->comm);
-//    clip_zero_padding<rnumber>(scalar_descriptor, enstrophy, 1);
-//    int return_value = scalar_descriptor->write(fname, enstrophy);
-//    delete scalar_descriptor;
-//    fftw_interface<rnumber>::free(enstrophy);
-//    return return_value;
-//}
-
 template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *pressure)
@@ -634,130 +520,6 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
     );
 }
 
-//template <class rnumber,
-//          field_backend be>
-//void vorticity_equation<rnumber, be>::compute_gradient_statistics(
-//        rnumber (*__restrict__ vec)[2],
-//double *gradu_moments,
-//double *trS2QR_moments,
-//ptrdiff_t *gradu_hist,
-//ptrdiff_t *trS2QR_hist,
-//ptrdiff_t *QR2D_hist,
-//double trS2QR_max_estimates[],
-//double gradu_max_estimates[],
-//int nbins,
-//int QR2D_nbins)
-//{
-//    typename fftw_interface<rnumber>::complex *ca;
-//    rnumber *ra;
-//    ca = fftw_interface<rnumber>::alloc_complex(this->cd->local_size*3);
-//    ra = (rnumber*)(ca);
-//    this->compute_vector_gradient(ca, vec);
-//    for (int cc=0; cc<3; cc++)
-//    {
-//        std::copy(
-//                    (rnumber*)(ca + cc*this->cd->local_size),
-//                    (rnumber*)(ca + (cc+1)*this->cd->local_size),
-//                    (rnumber*)this->cv[1]);
-//        fftw_interface<rnumber>::execute(*(this->vc2r[1]));
-//        std::copy(
-//                    this->rv[1],
-//                this->rv[1] + this->cd->local_size*2,
-//                ra + cc*this->cd->local_size*2);
-//    }
-//    /* velocity gradient is now stored, in real space, in ra */
-//    std::fill_n(this->rv[1], 2*this->cd->local_size, 0.0);
-//    rnumber *dx_u, *dy_u, *dz_u;
-//    dx_u = ra;
-//    dy_u = ra + 2*this->cd->local_size;
-//    dz_u = ra + 4*this->cd->local_size;
-//    double binsize[2];
-//    double tmp_max_estimate[3];
-//    tmp_max_estimate[0] = trS2QR_max_estimates[0];
-//    tmp_max_estimate[1] = trS2QR_max_estimates[1];
-//    tmp_max_estimate[2] = trS2QR_max_estimates[2];
-//    binsize[0] = 2*tmp_max_estimate[2] / QR2D_nbins;
-//    binsize[1] = 2*tmp_max_estimate[1] / QR2D_nbins;
-//    ptrdiff_t *local_hist = new ptrdiff_t[QR2D_nbins*QR2D_nbins];
-//    std::fill_n(local_hist, QR2D_nbins*QR2D_nbins, 0);
-//    RLOOP(
-//                this,
-//                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-//        rnumber AxxAxx;
-//        rnumber AyyAyy;
-//        rnumber AzzAzz;
-//        rnumber AxyAyx;
-//        rnumber AyzAzy;
-//        rnumber AzxAxz;
-//        rnumber Sxy;
-//        rnumber Syz;
-//        rnumber Szx;
-//        ptrdiff_t tindex = 3*rindex;
-//        AxxAxx = dx_u[tindex+0]*dx_u[tindex+0];
-//        AyyAyy = dy_u[tindex+1]*dy_u[tindex+1];
-//        AzzAzz = dz_u[tindex+2]*dz_u[tindex+2];
-//        AxyAyx = dx_u[tindex+1]*dy_u[tindex+0];
-//        AyzAzy = dy_u[tindex+2]*dz_u[tindex+1];
-//        AzxAxz = dz_u[tindex+0]*dx_u[tindex+2];
-//        this->rv[1][tindex+1] = - (AxxAxx + AyyAyy + AzzAzz)/2 - AxyAyx - AyzAzy - AzxAxz;
-//        this->rv[1][tindex+2] = - (dx_u[tindex+0]*(AxxAxx/3 + AxyAyx + AzxAxz) +
-//                dy_u[tindex+1]*(AyyAyy/3 + AxyAyx + AyzAzy) +
-//                dz_u[tindex+2]*(AzzAzz/3 + AzxAxz + AyzAzy) +
-//                dx_u[tindex+1]*dy_u[tindex+2]*dz_u[tindex+0] +
-//                dx_u[tindex+2]*dy_u[tindex+0]*dz_u[tindex+1]);
-//        int bin0 = int(floor((this->rv[1][tindex+2] + tmp_max_estimate[2]) / binsize[0]));
-//        int bin1 = int(floor((this->rv[1][tindex+1] + tmp_max_estimate[1]) / binsize[1]));
-//        if ((bin0 >= 0 && bin0 < QR2D_nbins) &&
-//                (bin1 >= 0 && bin1 < QR2D_nbins))
-//            local_hist[bin1*QR2D_nbins + bin0]++;
-//        Sxy = dx_u[tindex+1]+dy_u[tindex+0];
-//        Syz = dy_u[tindex+2]+dz_u[tindex+1];
-//        Szx = dz_u[tindex+0]+dx_u[tindex+2];
-//        this->rv[1][tindex] = (AxxAxx + AyyAyy + AzzAzz +
-//                               (Sxy*Sxy + Syz*Syz + Szx*Szx)/2);
-//    }
-//    );
-//    MPI_Allreduce(
-//                local_hist,
-//                QR2D_hist,
-//                QR2D_nbins * QR2D_nbins,
-//                MPI_INT64_T, MPI_SUM, this->cd->comm);
-//    delete[] local_hist;
-//    this->compute_rspace_stats3(
-//                this->rv[1],
-//            trS2QR_moments,
-//            trS2QR_hist,
-//            tmp_max_estimate,
-//            nbins);
-//    double *tmp_moments = new double[10*3];
-//    ptrdiff_t *tmp_hist = new ptrdiff_t[nbins*3];
-//    for (int cc=0; cc<3; cc++)
-//    {
-//        tmp_max_estimate[0] = gradu_max_estimates[cc*3 + 0];
-//        tmp_max_estimate[1] = gradu_max_estimates[cc*3 + 1];
-//        tmp_max_estimate[2] = gradu_max_estimates[cc*3 + 2];
-//        this->compute_rspace_stats3(
-//                    dx_u + cc*2*this->cd->local_size,
-//                    tmp_moments,
-//                    tmp_hist,
-//                    tmp_max_estimate,
-//                    nbins);
-//        for (int n = 0; n < 10; n++)
-//            for (int i = 0; i < 3 ; i++)
-//            {
-//                gradu_moments[(n*3 + cc)*3 + i] = tmp_moments[n*3 + i];
-//            }
-//        for (int n = 0; n < nbins; n++)
-//            for (int i = 0; i < 3; i++)
-//            {
-//                gradu_hist[(n*3 + cc)*3 + i] = tmp_hist[n*3 + i];
-//            }
-//    }
-//    delete[] tmp_moments;
-//    delete[] tmp_hist;
-//    fftw_interface<rnumber>::free(ca);
-//}
-
 template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(
@@ -808,162 +570,124 @@ void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(
     delete pressure;
 }
 
-//template <class rnumber,
-//          field_backend be>
-//void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(rnumber (*__restrict__ acceleration)[2])
-//{
-//    std::fill_n((rnumber*)(acceleration), 2*this->cd->local_size, 0.0);
-//    this->compute_velocity(this->cvorticity);
-//    /* put in linear terms */
-//    this->kk->CLOOP_K2(
-//                [&](ptrdiff_t cindex,
-//                    ptrdiff_t xindex,
-//                    ptrdiff_t yindex,
-//                    ptrdiff_t zindex,
-//                    double k2){
-//        if (k2 <= this->kk->kM2)
-//        {
-//            ptrdiff_t tindex = 3*cindex;
-//            for (int cc=0; cc<3; cc++)
-//                for (int i=0; i<2; i++)
-//                    acceleration[tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i];
-//            if (strcmp(this->forcing_type, "linear") == 0)
-//            {
-//                double knorm = sqrt(k2);
-//                if ((this->fk0 <= knorm) &&
-//                        (this->fk1 >= knorm))
-//                {
-//                    for (int c=0; c<3; c++)
-//                        for (int i=0; i<2; i++)
-//                            acceleration[tindex+c][i] += this->famplitude*this->cu[tindex+c][i];
-//                }
-//            }
-//        }
-//    }
-//    );
-//    this->ift_velocity();
-//    /* compute uu */
-//    /* 11 22 33 */
-//    RLOOP (
-//                this,
-//                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-//        tindex = 3*rindex;
-//        for (int cc=0; cc<3; cc++)
-//            this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor;
-//    }
-//    );
-//    this->clean_up_real_space(this->rv[1], 3);
-//    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
-//    this->dealias(this->cv[1], 3);
-//    CLOOP_K2(
-//                this,
-//                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-//        if (k2 <= this->kM2)
-//        {
-//            tindex = 3*cindex;
-//            acceleration[tindex+0][0] +=
-//                    this->kx[xindex]*this->cv[1][tindex+0][1];
-//            acceleration[tindex+0][1] +=
-//                    -this->kx[xindex]*this->cv[1][tindex+0][0];
-//            acceleration[tindex+1][0] +=
-//                    this->ky[yindex]*this->cv[1][tindex+1][1];
-//            acceleration[tindex+1][1] +=
-//                    -this->ky[yindex]*this->cv[1][tindex+1][0];
-//            acceleration[tindex+2][0] +=
-//                    this->kz[zindex]*this->cv[1][tindex+2][1];
-//            acceleration[tindex+2][1] +=
-//                    -this->kz[zindex]*this->cv[1][tindex+2][0];
-//        }
-//    }
-//    );
-//    /* 12 23 31 */
-//    RLOOP (
-//                this,
-//                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-//        tindex = 3*rindex;
-//        for (int cc=0; cc<3; cc++)
-//            this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor;
-//    }
-//    );
-//    this->clean_up_real_space(this->rv[1], 3);
-//    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
-//    this->dealias(this->cv[1], 3);
-//    CLOOP_K2(
-//                this,
-//                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-//        if (k2 <= this->kM2)
-//        {
-//            tindex = 3*cindex;
-//            acceleration[tindex+0][0] +=
-//                    (this->ky[yindex]*this->cv[1][tindex+0][1] +
-//                    this->kz[zindex]*this->cv[1][tindex+2][1]);
-//            acceleration[tindex+0][1] +=
-//                    - (this->ky[yindex]*this->cv[1][tindex+0][0] +
-//                    this->kz[zindex]*this->cv[1][tindex+2][0]);
-//            acceleration[tindex+1][0] +=
-//                    (this->kz[zindex]*this->cv[1][tindex+1][1] +
-//                    this->kx[xindex]*this->cv[1][tindex+0][1]);
-//            acceleration[tindex+1][1] +=
-//                    - (this->kz[zindex]*this->cv[1][tindex+1][0] +
-//                    this->kx[xindex]*this->cv[1][tindex+0][0]);
-//            acceleration[tindex+2][0] +=
-//                    (this->kx[xindex]*this->cv[1][tindex+2][1] +
-//                    this->ky[yindex]*this->cv[1][tindex+1][1]);
-//            acceleration[tindex+2][1] +=
-//                    - (this->kx[xindex]*this->cv[1][tindex+2][0] +
-//                    this->ky[yindex]*this->cv[1][tindex+1][0]);
-//        }
-//    }
-//    );
-//    if (this->cd->myrank == this->cd->rank[0])
-//        std::fill_n((rnumber*)(acceleration), 6, 0.0);
-//    this->force_divfree(acceleration);
-//}
-//
-//template <class rnumber,
-//          field_backend be>
-//void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(rnumber *__restrict__ acceleration)
-//{
-//    this->compute_Lagrangian_acceleration((typename fftw_interface<rnumber>::complex*)acceleration);
-//    fftw_interface<rnumber>::execute(*(this->vc2r[1]));
-//    std::copy(
-//                this->rv[1],
-//            this->rv[1] + 2*this->cd->local_size,
-//            acceleration);
-//}
-//
-//template <class rnumber,
-//          field_backend be>
-//int vorticity_equation<rnumber, be>::write_rpressure()
-//{
-//    char fname[512];
-//    typename fftw_interface<rnumber>::complex *pressure;
-//    pressure = fftw_interface<rnumber>::alloc_complex(this->cd->local_size/3);
-//    this->compute_velocity(this->cvorticity);
-//    this->ift_velocity();
-//    this->compute_pressure(pressure);
-//    this->fill_up_filename("rpressure", fname);
-//    rnumber *rpressure = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
-//    typename fftw_interface<rnumber>::plan c2r;
-//    c2r = fftw_interface<rnumber>::mpi_plan_dft_c2r_3d(
-//                this->rd->sizes[0], this->rd->sizes[1], this->rd->sizes[2],
-//            pressure, rpressure, this->cd->comm,
-//            this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-//    fftw_interface<rnumber>::execute(c2r);
-//    /* output goes here */
-//    int ntmp[3];
-//    ntmp[0] = this->rd->sizes[0];
-//    ntmp[1] = this->rd->sizes[1];
-//    ntmp[2] = this->rd->sizes[2];
-//    field_descriptor<rnumber> *scalar_descriptor = new field_descriptor<rnumber>(3, ntmp, mpi_real_type<rnumber>::real(), this->cd->comm);
-//    clip_zero_padding<rnumber>(scalar_descriptor, rpressure, 1);
-//    int return_value = scalar_descriptor->write(fname, rpressure);
-//    delete scalar_descriptor;
-//    fftw_interface<rnumber>::destroy_plan(c2r);
-//    fftw_interface<rnumber>::free(pressure);
-//    fftw_interface<rnumber>::free(rpressure);
-//    return return_value;
-//}
+template <class rnumber,
+          field_backend be>
+void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
+        field<rnumber, be, THREE> *acceleration)
+{
+    this->compute_velocity(this->cvorticity);
+    acceleration->real_space_representation = false;
+    /* put in linear terms */
+    this->kk->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+        if (k2 <= this->kk->kM2)
+        {
+            ptrdiff_t tindex = 3*cindex;
+            for (int cc=0; cc<3; cc++)
+                for (int i=0; i<2; i++)
+                    acceleration->get_cdata()[tindex+cc][i] = \
+                        - this->nu*k2*this->cvelocity->get_cdata()[tindex+cc][i];
+            if (strcmp(this->forcing_type, "linear") == 0)
+            {
+                double knorm = sqrt(k2);
+                if ((this->fk0 <= knorm) &&
+                        (this->fk1 >= knorm))
+                {
+                    for (int c=0; c<3; c++)
+                        for (int i=0; i<2; i++)
+                            acceleration->get_cdata()[tindex+c][i] += \
+                                this->famplitude*this->cvelocity->get_cdata()[tindex+c][i];
+                }
+            }
+        }
+    }
+    );
+    this->cvelocity->ift();
+    /* compute uu */
+    /* 11 22 33 */
+    this->cvelocity->RLOOP (
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
+        ptrdiff_t tindex = 3*rindex;
+        for (int cc=0; cc<3; cc++)
+            this->rv[1][tindex+cc] = \
+                this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor;
+    }
+    );
+    this->clean_up_real_space(this->rv[1], 3);
+    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    this->dealias(this->cv[1], 3);
+    CLOOP_K2(
+                this,
+                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+        if (k2 <= this->kM2)
+        {
+            tindex = 3*cindex;
+            acceleration[tindex+0][0] +=
+                    this->kx[xindex]*this->cv[1][tindex+0][1];
+            acceleration[tindex+0][1] +=
+                    -this->kx[xindex]*this->cv[1][tindex+0][0];
+            acceleration[tindex+1][0] +=
+                    this->ky[yindex]*this->cv[1][tindex+1][1];
+            acceleration[tindex+1][1] +=
+                    -this->ky[yindex]*this->cv[1][tindex+1][0];
+            acceleration[tindex+2][0] +=
+                    this->kz[zindex]*this->cv[1][tindex+2][1];
+            acceleration[tindex+2][1] +=
+                    -this->kz[zindex]*this->cv[1][tindex+2][0];
+        }
+    }
+    );
+    /* 12 23 31 */
+    RLOOP (
+                this,
+                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+        tindex = 3*rindex;
+        for (int cc=0; cc<3; cc++)
+            this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor;
+    }
+    );
+    this->clean_up_real_space(this->rv[1], 3);
+    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
+    this->dealias(this->cv[1], 3);
+    CLOOP_K2(
+                this,
+                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+        if (k2 <= this->kM2)
+        {
+            tindex = 3*cindex;
+            acceleration[tindex+0][0] +=
+                    (this->ky[yindex]*this->cv[1][tindex+0][1] +
+                    this->kz[zindex]*this->cv[1][tindex+2][1]);
+            acceleration[tindex+0][1] +=
+                    - (this->ky[yindex]*this->cv[1][tindex+0][0] +
+                    this->kz[zindex]*this->cv[1][tindex+2][0]);
+            acceleration[tindex+1][0] +=
+                    (this->kz[zindex]*this->cv[1][tindex+1][1] +
+                    this->kx[xindex]*this->cv[1][tindex+0][1]);
+            acceleration[tindex+1][1] +=
+                    - (this->kz[zindex]*this->cv[1][tindex+1][0] +
+                    this->kx[xindex]*this->cv[1][tindex+0][0]);
+            acceleration[tindex+2][0] +=
+                    (this->kx[xindex]*this->cv[1][tindex+2][1] +
+                    this->ky[yindex]*this->cv[1][tindex+1][1]);
+            acceleration[tindex+2][1] +=
+                    - (this->kx[xindex]*this->cv[1][tindex+2][0] +
+                    this->ky[yindex]*this->cv[1][tindex+1][0]);
+        }
+    }
+    );
+    if (this->cd->myrank == this->cd->rank[0])
+        std::fill_n((rnumber*)(acceleration), 6, 0.0);
+    this->force_divfree(acceleration);
+}
+
 
 /*****************************************************************************/
 

@@ -104,24 +104,8 @@ class vorticity_equation
 
         /* statistics and general postprocessing */
         void compute_pressure(field<rnumber, be, ONE> *pressure);
-        //void compute_Eulerian_acceleration(rnumber (*__restrict__ dst)[2]);
+        void compute_Eulerian_acceleration(field<rnumber, be, THREE> *acceleration);
         void compute_Lagrangian_acceleration(field<rnumber, be, THREE> *acceleration);
-        //void compute_Lagrangian_acceleration(rnumber *__restrict__ dst);
-
-        //void compute_gradient_statistics(
-        //        rnumber (*__restrict__ vec)[2],
-        //        double *__restrict__ gradu_moments,
-        //        double *__restrict__ trS2_Q_R_moments,
-        //        ptrdiff_t *__restrict__ gradu_histograms,
-        //        ptrdiff_t *__restrict__ trS2_Q_R_histograms,
-        //        ptrdiff_t *__restrict__ QR2D_histogram,
-        //        double trS2_Q_R_max_estimates[3],
-        //        double gradu_max_estimates[9],
-        //        const int nbins_1D = 256,
-        //        const int nbins_2D = 64);
-        //int write_rTrS2();
-        //int write_renstrophy();
-        //int write_rpressure();
 };
 
 #endif//VORTICITY_EQUATION
