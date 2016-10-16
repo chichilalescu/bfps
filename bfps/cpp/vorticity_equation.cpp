@@ -609,6 +609,7 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
     this->cvelocity->ift();
     /* compute uu */
     /* 11 22 33 */
+    this->v[1]->real_space_representation = true;
     this->cvelocity->RLOOP (
                 [&](ptrdiff_t rindex,
                     ptrdiff_t xindex,
@@ -616,76 +617,84 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
                     ptrdiff_t zindex){
         ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->rv[1][tindex+cc] = \
-                this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor;
+            this->v[1]->get_rdata()[tindex+cc] = \
+                this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+cc] / this->cvelocity->npoints;
     }
     );
-    this->clean_up_real_space(this->rv[1], 3);
-    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
-    this->dealias(this->cv[1], 3);
-    CLOOP_K2(
-                this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-        if (k2 <= this->kM2)
+    this->v[1]->dft();
+    this->kk->template dealias<rnumber, THREE>(this->v[1]->get_cdata());
+    this->kk->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+        if (k2 <= this->kk->kM2)
         {
-            tindex = 3*cindex;
-            acceleration[tindex+0][0] +=
-                    this->kx[xindex]*this->cv[1][tindex+0][1];
-            acceleration[tindex+0][1] +=
-                    -this->kx[xindex]*this->cv[1][tindex+0][0];
-            acceleration[tindex+1][0] +=
-                    this->ky[yindex]*this->cv[1][tindex+1][1];
-            acceleration[tindex+1][1] +=
-                    -this->ky[yindex]*this->cv[1][tindex+1][0];
-            acceleration[tindex+2][0] +=
-                    this->kz[zindex]*this->cv[1][tindex+2][1];
-            acceleration[tindex+2][1] +=
-                    -this->kz[zindex]*this->cv[1][tindex+2][0];
+            ptrdiff_t tindex = 3*cindex;
+            acceleration->get_cdata()[tindex+0][0] +=
+                    this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+0][1];
+            acceleration->get_cdata()[tindex+0][1] +=
+                   -this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+0][0];
+            acceleration->get_cdata()[tindex+1][0] +=
+                    this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+1][1];
+            acceleration->get_cdata()[tindex+1][1] +=
+                   -this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+1][0];
+            acceleration->get_cdata()[tindex+2][0] +=
+                    this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+2][1];
+            acceleration->get_cdata()[tindex+2][1] +=
+                   -this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+2][0];
         }
     }
     );
     /* 12 23 31 */
-    RLOOP (
-                this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
+    this->v[1]->real_space_representation = true;
+    this->cvelocity->RLOOP (
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
+        ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor;
+            this->v[1]->get_rdata()[tindex+cc] = \
+            this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+(cc+1)%3] / this->cvelocity->npoints;
     }
     );
-    this->clean_up_real_space(this->rv[1], 3);
-    fftw_interface<rnumber>::execute(*(this->vr2c[1]));
-    this->dealias(this->cv[1], 3);
-    CLOOP_K2(
-                this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-        if (k2 <= this->kM2)
+    this->v[1]->dft();
+    this->kk->template dealias<rnumber, THREE>(this->v[1]->get_cdata());
+    this->kk->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+        if (k2 <= this->kk->kM2)
         {
-            tindex = 3*cindex;
-            acceleration[tindex+0][0] +=
-                    (this->ky[yindex]*this->cv[1][tindex+0][1] +
-                    this->kz[zindex]*this->cv[1][tindex+2][1]);
-            acceleration[tindex+0][1] +=
-                    - (this->ky[yindex]*this->cv[1][tindex+0][0] +
-                    this->kz[zindex]*this->cv[1][tindex+2][0]);
-            acceleration[tindex+1][0] +=
-                    (this->kz[zindex]*this->cv[1][tindex+1][1] +
-                    this->kx[xindex]*this->cv[1][tindex+0][1]);
-            acceleration[tindex+1][1] +=
-                    - (this->kz[zindex]*this->cv[1][tindex+1][0] +
-                    this->kx[xindex]*this->cv[1][tindex+0][0]);
-            acceleration[tindex+2][0] +=
-                    (this->kx[xindex]*this->cv[1][tindex+2][1] +
-                    this->ky[yindex]*this->cv[1][tindex+1][1]);
-            acceleration[tindex+2][1] +=
-                    - (this->kx[xindex]*this->cv[1][tindex+2][0] +
-                    this->ky[yindex]*this->cv[1][tindex+1][0]);
+            ptrdiff_t tindex = 3*cindex;
+            acceleration->get_cdata()[tindex+0][0] +=
+                    (this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+0][1] +
+                     this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+2][1]);
+            acceleration->get_cdata()[tindex+0][1] +=
+                  - (this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+0][0] +
+                     this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+2][0]);
+            acceleration->get_cdata()[tindex+1][0] +=
+                    (this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+1][1] +
+                     this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+0][1]);
+            acceleration->get_cdata()[tindex+1][1] +=
+                  - (this->kk->kz[zindex]*this->v[1]->get_cdata()[tindex+1][0] +
+                     this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+0][0]);
+            acceleration->get_cdata()[tindex+2][0] +=
+                    (this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+2][1] +
+                     this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+1][1]);
+            acceleration->get_cdata()[tindex+2][1] +=
+                  - (this->kk->kx[xindex]*this->v[1]->get_cdata()[tindex+2][0] +
+                     this->kk->ky[yindex]*this->v[1]->get_cdata()[tindex+1][0]);
         }
     }
     );
-    if (this->cd->myrank == this->cd->rank[0])
-        std::fill_n((rnumber*)(acceleration), 6, 0.0);
-    this->force_divfree(acceleration);
+    if (this->kk->layout->myrank == this->kk->layout->rank[0][0])
+        std::fill_n((rnumber*)(acceleration->get_cdata()), 6, 0.0);
+    this->kk->template force_divfree<rnumber>(acceleration->get_cdata());
 }
 
 
