@@ -173,42 +173,22 @@ field<rnumber, be, fc>::field(
             starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
             this->clayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
-            this->data = (rnumber*)fftw_malloc(
-                    sizeof(rnumber)*this->rmemlayout->local_size);
-            if(typeid(rnumber) == typeid(float))
-            {
-                this->c2r_plan = new fftwf_plan;
-                this->r2c_plan = new fftwf_plan;
-                *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (fftwf_complex*)this->data, (float*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                *((fftwf_plan*)this->r2c_plan) = fftwf_mpi_plan_many_dft_r2c(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (float*)this->data, (fftwf_complex*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-            }
-            if (typeid(rnumber) == typeid(double))
-            {
-                this->c2r_plan = new fftw_plan;
-                this->r2c_plan = new fftw_plan;
-                *((fftw_plan*)this->c2r_plan) = fftw_mpi_plan_many_dft_c2r(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (fftw_complex*)this->data, (double*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                *((fftw_plan*)this->r2c_plan) = fftw_mpi_plan_many_dft_r2c(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (double*)this->data, (fftw_complex*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-            }
+            this->data = fftw_interface<rnumber>::alloc_real(
+                    this->rmemlayout->local_size);
+            this->c2r_plan = fftw_interface<rnumber>::mpi_plan_many_dft_c2r(
+                    3, nfftw, ncomp(fc),
+                    FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                    (typename fftw_interface<rnumber>::complex*)this->data,
+                    this->data,
+                    this->comm,
+                    this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+            this->r2c_plan = fftw_interface<rnumber>::mpi_plan_many_dft_r2c(
+                    3, nfftw, ncomp(fc),
+                    FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                    this->data,
+                    (typename fftw_interface<rnumber>::complex*)this->data,
+                    this->comm,
+                    this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
             break;
     }
 }
@@ -227,21 +207,9 @@ field<rnumber, be, fc>::~field()
             delete this->rlayout;
             delete this->rmemlayout;
             delete this->clayout;
-            fftw_free(this->data);
-            if (typeid(rnumber) == typeid(float))
-            {
-                fftwf_destroy_plan(*(fftwf_plan*)this->c2r_plan);
-                delete (fftwf_plan*)this->c2r_plan;
-                fftwf_destroy_plan(*(fftwf_plan*)this->r2c_plan);
-                delete (fftwf_plan*)this->r2c_plan;
-            }
-            else if (typeid(rnumber) == typeid(double))
-            {
-                fftw_destroy_plan(*(fftw_plan*)this->c2r_plan);
-                delete (fftw_plan*)this->c2r_plan;
-                fftw_destroy_plan(*(fftw_plan*)this->r2c_plan);
-                delete (fftw_plan*)this->r2c_plan;
-            }
+            fftw_interface<rnumber>::free(this->data);
+            fftw_interface<rnumber>::destroy_plan(this->c2r_plan);
+            fftw_interface<rnumber>::destroy_plan(this->r2c_plan);
             break;
     }
 }
@@ -252,10 +220,7 @@ template <typename rnumber,
 void field<rnumber, be, fc>::ift()
 {
     TIMEZONE("field::ift");
-    if (typeid(rnumber) == typeid(float))
-        fftwf_execute(*((fftwf_plan*)this->c2r_plan));
-    else if (typeid(rnumber) == typeid(double))
-        fftw_execute(*((fftw_plan*)this->c2r_plan));
+    fftw_interface<rnumber>::execute(this->c2r_plan);
     this->real_space_representation = true;
 }
 
@@ -264,10 +229,8 @@ template <typename rnumber,
           field_components fc>
 void field<rnumber, be, fc>::dft()
 {
-    if (typeid(rnumber) == typeid(float))
-        fftwf_execute(*((fftwf_plan*)this->r2c_plan));
-    else if (typeid(rnumber) == typeid(double))
-        fftw_execute(*((fftw_plan*)this->r2c_plan));
+    TIMEZONE("field::dft");
+    fftw_interface<rnumber>::execute(this->r2c_plan);
     this->real_space_representation = false;
 }
 

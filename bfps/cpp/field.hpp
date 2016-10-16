@@ -24,18 +24,16 @@
 
 
 
-#include <mpi.h>
 #include <hdf5.h>
-#include <fftw3-mpi.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
 #include "base.hpp"
 #include "fftw_interface.hpp"
 
-#ifndef FIELD
+#ifndef FIELD_HPP
 
-#define FIELD
+#define FIELD_HPP
 
 enum field_backend {FFTW};
 enum field_components {ONE, THREE, THREExTHREE};
@@ -206,8 +204,8 @@ class field
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 
         /* FFT plans */
-        void *c2r_plan;
-        void *r2c_plan;
+        typename fftw_interface<rnumber>::plan c2r_plan;
+        typename fftw_interface<rnumber>::plan r2c_plan;
         unsigned fftw_plan_rigor;
 
         /* HDF5 data types for arrays */
@@ -328,5 +326,5 @@ void compute_gradient(
         field<rnumber, be, fc1> *source,
         field<rnumber, be, fc2> *destination);
 
-#endif//FIELD
+#endif//FIELD_HPP
 
