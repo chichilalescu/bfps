@@ -744,8 +744,8 @@ void field<rnumber, be, fc>::compute_stats(
     // what follows gave me a headache until I found this link:
     // http://stackoverflow.com/questions/8256636/expected-primary-expression-error-on-template-method-using
     kk->template cospectrum<rnumber, fc>(
-            (cnumber*)this->data,
-            (cnumber*)this->data,
+            (typename fftw_interface<rnumber>::complex*)this->data,
+            (typename fftw_interface<rnumber>::complex*)this->data,
             group,
             dset_name + "_" + dset_name,
             toffset);

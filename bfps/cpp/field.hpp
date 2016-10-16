@@ -190,8 +190,7 @@ class field
 {
     private:
         /* data arrays */
-        rnumber *data;
-        typedef rnumber cnumber[2];
+        rnumber *__restrict__ data;
     public:
         hsize_t npoints;
         bool real_space_representation;
@@ -246,16 +245,16 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
-        inline rnumber *get_rdata()
+        inline rnumber *__restrict__ get_rdata()
         {
             return this->data;
         }
-        inline cnumber *get_cdata()
+        inline typename fftw_interface<rnumber>::complex *__restrict__ get_cdata()
         {
-            return (cnumber*)this->data;
+            return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;
         }
 
-        inline field<rnumber, be, fc>& operator=(const cnumber *__restrict__ source)
+        inline field<rnumber, be, fc>& operator=(const typename fftw_interface<rnumber>::complex *__restrict__ source)
         {
             std::copy((rnumber*)source,
                       (rnumber*)(source + this->clayout->local_size),
