@@ -59,6 +59,7 @@ class _code(_base):
                 #include <string>
                 #include <cstring>
                 #include <fftw3-mpi.h>
+				#include <omp.h>
                 //endcpp
                 """
         self.variables = 'int myrank, nprocs;\n'
@@ -79,10 +80,11 @@ class _code(_base):
                     fftwf_init_threads();
                     fftw_mpi_init();
                     fftwf_mpi_init();
-                    const int nbThreads = (getenv("FFTW_NUM_THREADS")?atoi(getenv("FFTW_NUM_THREADS")):32);
+                    const int nbThreads = omp_get_max_threads();
                     DEBUG_MSG("Number of threads for the FFTW = %d\\n", nbThreads);
                     std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
                     fftw_plan_with_nthreads(nbThreads);
+                    fftwf_plan_with_nthreads(nbThreads);
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
@@ -162,8 +164,8 @@ class _code(_base):
                           '{0}\n'.format(bfps.dist_loc))
         libraries = ['bfps']
         libraries += bfps.install_info['libraries']
-        libraries += ['fftw3_threads']
-        libraries += ['fftw3f_threads']
+        libraries += ['fftw3_omp']
+        libraries += ['fftw3f_omp']
 
         command_strings = [bfps.install_info['compiler']]
         command_strings += [self.name + '.cpp', '-o', self.name]
@@ -174,6 +176,7 @@ class _code(_base):
         command_strings.append('-L' + bfps.lib_dir)
         for libname in libraries:
             command_strings += ['-l' + libname]
+        command_strings += ['-fopenmp']
         self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
         return subprocess.call(command_strings)
@@ -479,6 +482,7 @@ class _code(_base):
         script_file.write('#SBATCH --cpus-per-task={0}\n'.format(self.host_info['deltanprocs']))
         script_file.write('#SBATCH --mail-type=none\n')
         script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
+        script_file.write('export OMP_NUM_THREADS={0}\n'.format(self.host_info['deltanprocs']))
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
