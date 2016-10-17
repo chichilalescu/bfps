@@ -478,11 +478,23 @@ class _code(_base):
             assert(nprocesses % self.host_info['deltanprocs'] == 0)
             tasks_per_node = self.host_info['deltanprocs']
         script_file.write('#SBATCH --nodes={0}\n'.format(nodes))
-        script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(1)) # tasks_per_node
-        script_file.write('#SBATCH --cpus-per-task={0}\n'.format(self.host_info['deltanprocs']))
+        
+        nbprocesspernode = int(os.environ['NB_PROC_PER_NODE'])
+        print('NB_PROC_PER_NODE ', nbprocesspernode)
+        if (isinstance( nbprocesspernode, int ) and  nbprocesspernode == 1) :
+            script_file.write('#SBATCH --ntasks-per-node=1\n') # tasks_per_node
+            script_file.write('#SBATCH --cpus-per-task={0}\n'.format(self.host_info['deltanprocs']))
+        elif (isinstance( nbprocesspernode, int ) and int(int(self.host_info['deltanprocs'])/nbprocesspernode)*nbprocesspernode == int(self.host_info['deltanprocs'])) :
+            script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(nbprocesspernode))
+            script_file.write('#SBATCH --cpus-per-task={0}\n'.format(int(int(self.host_info['deltanprocs'])/nbprocesspernode)))
+        else :
+            print('Bad NB_PROC_PER_NODE ', nbprocesspernode)
+            exit(99)
+
         script_file.write('#SBATCH --mail-type=none\n')
         script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
-        script_file.write('export OMP_NUM_THREADS={0}\n'.format(self.host_info['deltanprocs']))
+        script_file.write('export OMP_NUM_THREADS={0}\n'.format(int(int(self.host_info['deltanprocs'])/nbprocesspernode)))
+        script_file.write('export OMP_PLACES=cores\n')
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
