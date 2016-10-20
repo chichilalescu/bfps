@@ -80,11 +80,13 @@ class field
                 const int toffset,
                 const bool read = true);
 
+        /* essential FFT stuff */
         void dft();
         void ift();
         void normalize();
         void symmetrize();
 
+        /* stats */
         void compute_rspace_xincrement_stats(
                 const int xcells,
                 const hid_t group,
@@ -97,13 +99,54 @@ class field
                 const std::string dset_name,
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
+
+        /* acess data */
         inline rnumber *__restrict__ get_rdata()
         {
             return this->data;
         }
+
         inline typename fftw_interface<rnumber>::complex *__restrict__ get_cdata()
         {
             return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;
+        }
+
+        inline rnumber &rval(ptrdiff_t rindex, int component = 0)
+        {
+            assert(fc == ONE || fc == THREE);
+            assert(component >= 0 && component <ncomp(fc));
+            return *(this->data + rindex*ncomp(fc) + component);
+        }
+
+        inline rnumber &rval(ptrdiff_t rindex, int comp1, int comp0)
+        {
+            assert(fc == THREExTHREE);
+            assert(comp1 >= 0 && comp1 < 3);
+            assert(comp0 >= 0 && comp0 < 3);
+            return *(this->data + ((rindex*3 + comp1)*3 + comp0));
+        }
+
+        inline rnumber &cval(ptrdiff_t cindex, int imag)
+        {
+            assert(fc == ONE);
+            assert(imag == 0 || imag == 1);
+            return *(this->data + cindex*2 + imag);
+        }
+
+        inline rnumber &cval(ptrdiff_t cindex, int component, int imag)
+        {
+            assert(fc == THREE);
+            assert(imag == 0 || imag == 1);
+            return *(this->data + (cindex*ncomp(fc) + component)*2 + imag);
+        }
+
+        inline rnumber &cval(ptrdiff_t cindex, int comp1, int comp0, int imag)
+        {
+            assert(fc == THREExTHREE);
+            assert(comp1 >= 0 && comp1 < 3);
+            assert(comp0 >= 0 && comp0 < 3);
+            assert(imag == 0 || imag == 1);
+            return *(this->data + ((cindex*3 + comp1)*3+comp0)*2 + imag);
         }
 
         inline field<rnumber, be, fc>& operator=(const typename fftw_interface<rnumber>::complex *__restrict__ source)

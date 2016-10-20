@@ -668,24 +668,41 @@ void compute_gradient(
                 ptrdiff_t yindex,
                 ptrdiff_t zindex,
                 double k2){
-            if (k2 < kk->kM2)
-                for (unsigned int field_component = 0;
-                     field_component < ncomp(fc1);
-                     field_component++)
-                {
-                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
-                        - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
-                          kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
-                        - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
-                          kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
-                        - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
-                          kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                }
+            if (k2 < kk->kM2) switch(fc1)
+            {
+                case ONE:
+                    dst->cval(cindex, 0, 0) = -kk->kx[xindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 0, 1) =  kk->kx[xindex]*src->cval(cindex, 0);
+                    dst->cval(cindex, 1, 0) = -kk->ky[yindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 1, 1) =  kk->ky[yindex]*src->cval(cindex, 0);
+                    dst->cval(cindex, 2, 0) = -kk->kz[zindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 2, 1) =  kk->kz[zindex]*src->cval(cindex, 0);
+                    break;
+                case THREE:
+                    for (unsigned int field_component = 0;
+                         field_component < ncomp(fc1);
+                         field_component++)
+                    {
+                        dst->cval(cindex, 0, field_component, 0) = -kk->kx[xindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 0, field_component, 1) =  kk->kx[xindex]*src->cval(cindex, field_component, 0);
+                        dst->cval(cindex, 1, field_component, 0) = -kk->ky[yindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 1, field_component, 1) =  kk->ky[yindex]*src->cval(cindex, field_component, 0);
+                        dst->cval(cindex, 2, field_component, 0) = -kk->kz[zindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 2, field_component, 1) =  kk->kz[zindex]*src->cval(cindex, field_component, 0);
+                    }
+                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
+                //    - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
+                //      kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
+                //    - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
+                //      kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
+                //    - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
+                //      kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+            }
             });
 }
 
