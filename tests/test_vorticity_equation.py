@@ -1216,20 +1216,20 @@ def main():
     #        '--niter_stat', '1',
     #         '--wd', './'] +
     #        sys.argv[1:])
-    #c = NSVE()
-    #c.launch(
-    #        ['-n', '72',
-    #         '--simname', 'vorticity_equation',
-    #         '--src-wd', './',
-    #         '--src-simname', 'fluid_solver',
-    #         '--src-iteration', '0',
-    #         '--ncpu', '4',
-    #         '--nparticles', '100',
-    #         '--niter_todo', '128',
-    #         '--niter_out', '32',
-    #         '--niter_stat', '1',
-    #         '--wd', './'] +
-    #        sys.argv[1:])
+    c = NSVE()
+    c.launch(
+            ['-n', '72',
+             '--simname', 'vorticity_equation',
+             '--src-wd', './',
+             '--src-simname', 'fluid_solver',
+             '--src-iteration', '0',
+             '--ncpu', '4',
+             '--nparticles', '100',
+             '--niter_todo', '128',
+             '--niter_out', '32',
+             '--niter_stat', '1',
+             '--wd', './'] +
+            sys.argv[1:])
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
     pf0 = c0.get_particle_file()

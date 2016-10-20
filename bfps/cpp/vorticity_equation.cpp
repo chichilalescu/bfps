@@ -249,11 +249,15 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
         ptrdiff_t tindex = 3*rindex;
+        rnumber tmp[3];
         for (int cc=0; cc<3; cc++)
-            tmp[cc][0] = (this->u->get_rdata()[tindex+(cc+1)%3]*this->rvorticity->get_rdata()[tindex+(cc+2)%3] -
-                          this->u->get_rdata()[tindex+(cc+2)%3]*this->rvorticity->get_rdata()[tindex+(cc+1)%3]);
+            tmp[cc] = (this->u->rval(rindex,(cc+1)%3)*this->rvorticity->rval(rindex,(cc+2)%3) -
+                       this->u->rval(rindex,(cc+2)%3)*this->rvorticity->rval(rindex,(cc+1)%3));
+            //tmp[cc][0] = (this->u->get_rdata()[tindex+(cc+1)%3]*this->rvorticity->get_rdata()[tindex+(cc+2)%3] -
+            //              this->u->get_rdata()[tindex+(cc+2)%3]*this->rvorticity->get_rdata()[tindex+(cc+1)%3]);
         for (int cc=0; cc<3; cc++)
-            this->u->get_rdata()[(3*rindex)+cc] = tmp[cc][0] / this->u->npoints;
+            this->u->rval(rindex,cc) = tmp[cc] / this->u->npoints;
+            //this->u->get_rdata()[(3*rindex)+cc] = tmp[cc][0] / this->u->npoints;
     }
     );
     /* go back to Fourier space */
@@ -454,9 +458,10 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
-        ptrdiff_t tindex = 3*rindex;
+        //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+cc];
+            this->v[1]->rval(rindex,cc) = this->u->rval(rindex,cc)*this->u->rval(rindex,cc);
+            //this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+cc];
         }
         );
     //this->clean_up_real_space(this->rv[1], 3);
@@ -490,9 +495,10 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
-        ptrdiff_t tindex = 3*rindex;
+        //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+(cc+1)%3];
+            this->v[1]->rval(rindex,cc) = this->u->rval(rindex,cc)*this->u->rval(rindex,(cc+1)%3);
+            //this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+(cc+1)%3];
     }
     );
     //this->clean_up_real_space(this->rv[1], 3);
@@ -615,10 +621,12 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
-        ptrdiff_t tindex = 3*rindex;
+        //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->v[1]->get_rdata()[tindex+cc] = \
-                this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+cc] / this->cvelocity->npoints;
+            this->v[1]->rval(rindex,cc) = \
+                this->cvelocity->rval(rindex,cc)*this->cvelocity->rval(rindex,cc) / this->cvelocity->npoints;
+            //this->v[1]->get_rdata()[tindex+cc] = \
+            //    this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+cc] / this->cvelocity->npoints;
     }
     );
     this->v[1]->dft();
@@ -654,10 +662,12 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
-        ptrdiff_t tindex = 3*rindex;
+        //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
-            this->v[1]->get_rdata()[tindex+cc] = \
-            this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+(cc+1)%3] / this->cvelocity->npoints;
+            this->v[1]->rval(rindex,cc) = \
+                this->cvelocity->rval(rindex,cc)*this->cvelocity->rval(rindex,(cc+1)%3) / this->cvelocity->npoints;
+//            this->v[1]->get_rdata()[tindex+cc] = \
+//            this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+(cc+1)%3] / this->cvelocity->npoints;
     }
     );
     this->v[1]->dft();

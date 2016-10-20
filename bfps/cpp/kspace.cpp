@@ -358,6 +358,80 @@ template void kspace<FFTW, SMOOTH>::dealias<double, THREE>(
 template void kspace<FFTW, SMOOTH>::dealias<double, THREExTHREE>(
         typename fftw_interface<double>::complex *__restrict__ a);
 
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, ONE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<float, THREExTHREE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, ONE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, TWO_THIRDS>::cospectrum<double, THREExTHREE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+
+template void kspace<FFTW, SMOOTH>::cospectrum<float, ONE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<float, THREExTHREE>(
+        const typename fftw_interface<float>::complex *__restrict__ a,
+        const typename fftw_interface<float>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, ONE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+template void kspace<FFTW, SMOOTH>::cospectrum<double, THREExTHREE>(
+        const typename fftw_interface<double>::complex *__restrict__ a,
+        const typename fftw_interface<double>::complex *__restrict__ b,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset);
+
 template void kspace<FFTW, SMOOTH>::force_divfree<float>(
        typename fftw_interface<float>::complex *__restrict__ a);
 template void kspace<FFTW, SMOOTH>::force_divfree<double>(
