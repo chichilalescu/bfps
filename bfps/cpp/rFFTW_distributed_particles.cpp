@@ -634,20 +634,31 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     TIMEZONE("rFFTW_distributed_particles::write");
     double *data = new double[this->nparticles*3];
     double *yy = new double[this->nparticles*3];
-    int pindex = 0;
+    //int pindex = 0;
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
-        for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
-        {
-            if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
-                this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
-            {
-                std::copy(y[pindex].data,
-                          y[pindex].data + 3,
-                          yy + p*3);
-            }
-        }
+        //for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
+        //{
+        //    if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+        //        this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
+        //    {
+        //        std::copy(y[pindex].data,
+        //                  y[pindex].data + 3,
+        //                  yy + p*3);
+        //    }
+        //}
+        for (int s = -1; s <= 0; s++)
+             for (auto &pp: this->domain_particles[s])
+             {
+                 if (pp >= cindex*this->chunk_size &&
+                     pp < (cindex+1)*this->chunk_size)
+                {
+                    std::copy(y[pp].data,
+                              y[pp].data + 3,
+                              yy + (pp-cindex*this->chunk_size)*3);
+                }
+             }
         {
             TIMEZONE("MPI_Allreduce");
             MPI_Allreduce(
@@ -674,23 +685,34 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
     TIMEZONE("rFFTW_distributed_particles::write2");
     double *temp0 = new double[this->chunk_size*state_dimension(particle_type)];
     double *temp1 = new double[this->chunk_size*state_dimension(particle_type)];
-    int pindex = 0;
+    //int pindex = 0;
     for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         //write state
         std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
-        pindex = cindex*this->chunk_size;
-        for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
-        {
-            if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
-                this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
-            {
-                TIMEZONE("std::copy");
-                std::copy(this->state[pindex].data,
-                          this->state[pindex].data + state_dimension(particle_type),
-                          temp0 + p*state_dimension(particle_type));
-            }
-        }
+        //pindex = cindex*this->chunk_size;
+        //for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
+        //{
+        //    if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+        //        this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
+        //    {
+        //        TIMEZONE("std::copy");
+        //        std::copy(this->state[pindex].data,
+        //                  this->state[pindex].data + state_dimension(particle_type),
+        //                  temp0 + p*state_dimension(particle_type));
+        //    }
+        //}
+        for (int s = -1; s <= 0; s++)
+             for (auto &pp: this->domain_particles[s])
+             {
+                 if (pp >= cindex*this->chunk_size &&
+                     pp < (cindex+1)*this->chunk_size)
+                {
+                    std::copy(this->state[pp].data,
+                              this->state[pp].data + state_dimension(particle_type),
+                              temp0 + (pp-cindex*this->chunk_size)*state_dimension(particle_type));
+                }
+             }
         {
             TIMEZONE("MPI_Allreduce");
             MPI_Allreduce(
@@ -711,18 +733,29 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
             for (int i=0; i<this->integration_steps; i++)
             {
                 std::fill_n(temp0, state_dimension(particle_type)*this->chunk_size, 0);
-                pindex = cindex*this->chunk_size;
-                for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
-                {
-                    if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
-                        this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
-                    {
-                        TIMEZONE("std::copy");
-                        std::copy(this->rhs[i][pindex].data,
-                                  this->rhs[i][pindex].data + state_dimension(particle_type),
-                                  temp0 + p*state_dimension(particle_type));
-                    }
-                }
+                //pindex = cindex*this->chunk_size;
+                //for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
+                //{
+                //    if (this->domain_particles[-1].find(pindex) != this->domain_particles[-1].end() ||
+                //        this->domain_particles[ 0].find(pindex) != this->domain_particles[ 0].end())
+                //    {
+                //        TIMEZONE("std::copy");
+                //        std::copy(this->rhs[i][pindex].data,
+                //                  this->rhs[i][pindex].data + state_dimension(particle_type),
+                //                  temp0 + p*state_dimension(particle_type));
+                //    }
+                //}
+                for (int s = -1; s <= 0; s++)
+                     for (auto &pp: this->domain_particles[s])
+                     {
+                         if (pp >= cindex*this->chunk_size &&
+                             pp < (cindex+1)*this->chunk_size)
+                        {
+                            std::copy(this->rhs[i][pp].data,
+                                      this->rhs[i][pp].data + state_dimension(particle_type),
+                                      temp0 + (pp-cindex*this->chunk_size)*state_dimension(particle_type));
+                        }
+                     }
                 {
                     TIMEZONE("MPI_Allreduce");
                     MPI_Allreduce(
