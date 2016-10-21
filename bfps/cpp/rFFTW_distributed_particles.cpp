@@ -81,9 +81,9 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->vel = FIELD;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
-    //this->state.reserve(2*this->nparticles / this->nprocs);
-    //for (unsigned int i=0; i<this->rhs.size(); i++)
-    //    this->rhs[i].reserve(2*this->nparticles / this->nprocs);
+    this->state.reserve(2*this->nparticles / this->nprocs);
+    for (unsigned int i=0; i<this->rhs.size(); i++)
+        this->rhs[i].reserve(2*this->nparticles / this->nprocs);
 
     /* build communicators and stuff for interpolation */
 
@@ -93,21 +93,21 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->domain_nprocs[ 1] = 2; // domain in common with higher z CPU
 
     /* initialize domain bins */
-    this->domain_particles[-1] = std::set<int>();
-    this->domain_particles[ 0] = std::set<int>();
-    this->domain_particles[ 1] = std::set<int>();
-    //this->domain_particles[-1].reserve(unsigned(
-    //            1.5*(interp_neighbours*2+2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
-    //this->domain_particles[ 1].reserve(unsigned(
-    //            1.5*(interp_neighbours*2+2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
-    //this->domain_particles[ 0].reserve(unsigned(
-    //            1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
+    this->domain_particles[-1] = std::unordered_set<int>();
+    this->domain_particles[ 0] = std::unordered_set<int>();
+    this->domain_particles[ 1] = std::unordered_set<int>();
+    this->domain_particles[-1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    this->domain_particles[ 1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    this->domain_particles[ 0].reserve(unsigned(
+                1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
+                float(this->nparticles) /
+                this->nprocs));
 
     int color, key;
     MPI_Comm tmpcomm;
@@ -157,9 +157,9 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::~rFFTW_d
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sample(
         rFFTW_interpolator<rnumber, interp_neighbours> *field,
-        const std::map<int, single_particle_state<particle_type>> &x,
-        const std::map<int, std::set<int>> &dp,
-        std::map<int, single_particle_state<POINT3D>> &y)
+        const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        const std::unordered_map<int, std::unordered_set<int>> &dp,
+        std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     TIMEZONE("rFFTW_distributed_particles::sample");
     double *yyy;
@@ -224,18 +224,18 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::get_rhs(
-        const std::map<int, single_particle_state<particle_type>> &x,
-        const std::map<int, std::set<int>> &dp,
-        std::map<int, single_particle_state<particle_type>> &y)
+        const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        const std::unordered_map<int, std::unordered_set<int>> &dp,
+        std::unordered_map<int, single_particle_state<particle_type>> &y)
 {
-    std::map<int, single_particle_state<POINT3D>> yy;
+    std::unordered_map<int, single_particle_state<POINT3D>> yy;
     switch(particle_type)
     {
         case VELOCITY_TRACER:
             this->sample(this->vel, x, dp, yy);
             y.clear();
-            //y.reserve(yy.size());
-            //y.rehash(this->nparticles);
+            y.reserve(yy.size());
+            y.rehash(this->nparticles);
             for (auto &pp: yy)
                 y[pp.first] = pp.second.data;
             break;
@@ -247,7 +247,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
         rFFTW_interpolator<rnumber, interp_neighbours> *field,
         const char *dset_name)
 {
-    std::map<int, single_particle_state<POINT3D>> y;
+    std::unordered_map<int, single_particle_state<POINT3D>> y;
     this->sample(field, this->state, this->domain_particles, y);
     this->write(dset_name, y);
 }
@@ -261,14 +261,14 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rol
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::redistribute(
-        std::map<int, single_particle_state<particle_type>> &x,
-        std::vector<std::map<int, single_particle_state<particle_type>>> &vals,
-        std::map<int, std::set<int>> &dp)
+        std::unordered_map<int, single_particle_state<particle_type>> &x,
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
+        std::unordered_map<int, std::unordered_set<int>> &dp)
 {
     TIMEZONE("rFFTW_distributed_particles::redistribute");
     //DEBUG_MSG("entered redistribute\n");
     /* get new distribution of particles */
-    std::map<int, std::set<int>> newdp;
+    std::unordered_map<int, std::unordered_set<int>> newdp;
     {
         TIMEZONE("sort_into_domains");
         this->sort_into_domains(x, newdp);
@@ -522,27 +522,27 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::ste
 
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sort_into_domains(
-        const std::map<int, single_particle_state<particle_type>> &x,
-        std::map<int, std::set<int>> &dp)
+        const std::unordered_map<int, single_particle_state<particle_type>> &x,
+        std::unordered_map<int, std::unordered_set<int>> &dp)
 {
     TIMEZONE("rFFTW_distributed_particles::sort_into_domains");
     int tmpint1, tmpint2;
     dp.clear();
-    dp[-1] = std::set<int>();
-    dp[ 0] = std::set<int>();
-    dp[ 1] = std::set<int>();
-    //dp[-1].reserve(unsigned(
-    //            1.5*(interp_neighbours*2+2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
-    //dp[ 1].reserve(unsigned(
-    //            1.5*(interp_neighbours*2+2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
-    //dp[ 0].reserve(unsigned(
-    //            1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
-    //            float(this->nparticles) /
-    //            this->nprocs));
+    dp[-1] = std::unordered_set<int>();
+    dp[ 0] = std::unordered_set<int>();
+    dp[ 1] = std::unordered_set<int>();
+    dp[-1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    dp[ 1].reserve(unsigned(
+                1.5*(interp_neighbours*2+2)*
+                float(this->nparticles) /
+                this->nprocs));
+    dp[ 0].reserve(unsigned(
+                1.5*(this->vel->descriptor->subsizes[0] - interp_neighbours*2-2)*
+                float(this->nparticles) /
+                this->nprocs));
     for (auto &xx: x)
     {
         if (this->vel->get_rank_info(xx.second.data[2], tmpint1, tmpint2))
@@ -629,7 +629,7 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rea
 template <particle_types particle_type, class rnumber, int interp_neighbours>
 void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::write(
         const char *dset_name,
-        std::map<int, single_particle_state<POINT3D>> &y)
+        std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     TIMEZONE("rFFTW_distributed_particles::write");
     double *data = new double[this->nparticles*3];

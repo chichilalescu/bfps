@@ -27,8 +27,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <map>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <hdf5.h>
 #include "base.hpp"
@@ -44,11 +44,11 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 class rFFTW_distributed_particles: public particles_io_base<particle_type>
 {
     private:
-        std::map<int, single_particle_state<particle_type>> state;
-        std::vector<std::map<int, single_particle_state<particle_type>>> rhs;
-        std::map<int, int> domain_nprocs;
-        std::map<int, MPI_Comm> domain_comm;
-        std::map<int, std::set<int>> domain_particles;
+        std::unordered_map<int, single_particle_state<particle_type>> state;
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
+        std::unordered_map<int, int> domain_nprocs;
+        std::unordered_map<int, MPI_Comm> domain_comm;
+        std::unordered_map<int, std::unordered_set<int>> domain_particles;
 
     public:
         int integration_steps;
@@ -78,32 +78,32 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
                 const char *dset_name);
         void sample(
                 rFFTW_interpolator<rnumber, interp_neighbours> *field,
-                const std::map<int, single_particle_state<particle_type>> &x,
-                const std::map<int, std::set<int>> &dp,
-                std::map<int, single_particle_state<POINT3D>> &y);
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                const std::unordered_map<int, std::unordered_set<int>> &dp,
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void get_rhs(
-                const std::map<int, single_particle_state<particle_type>> &x,
-                const std::map<int, std::set<int>> &dp,
-                std::map<int, single_particle_state<particle_type>> &y);
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                const std::unordered_map<int, std::unordered_set<int>> &dp,
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
 
 
         void sort_into_domains(
-                const std::map<int, single_particle_state<particle_type>> &x,
-                std::map<int, std::set<int>> &dp);
+                const std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::unordered_map<int, std::unordered_set<int>> &dp);
         void redistribute(
-                std::map<int, single_particle_state<particle_type>> &x,
-                std::vector<std::map<int, single_particle_state<particle_type>>> &vals,
-                std::map<int, std::set<int>> &dp);
+                std::unordered_map<int, single_particle_state<particle_type>> &x,
+                std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,
+                std::unordered_map<int, std::unordered_set<int>> &dp);
 
 
         /* input/output */
         void read();
         void write(
                 const char *dset_name,
-                std::map<int, single_particle_state<POINT3D>> &y);
+                std::unordered_map<int, single_particle_state<POINT3D>> &y);
         void write(
                 const char *dset_name,
-                std::map<int, single_particle_state<particle_type>> &y);
+                std::unordered_map<int, single_particle_state<particle_type>> &y);
         void write(const bool write_rhs = true);
 
         /* solvers */
