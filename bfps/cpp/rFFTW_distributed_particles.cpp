@@ -190,11 +190,14 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
             tindex = 0;
             // can this sorting be done more efficiently?
             std::vector<int> ordered_dp;
+            {
+                TIMEZONE("rFFTW_distributed_particles::sample::ordered_dp");
             ordered_dp.reserve(dp.at(domain_index).size());
             for (auto p: dp.at(domain_index))
                 ordered_dp.push_back(p);
             //std::set<int> ordered_dp(dp.at(domain_index));
             std::sort(ordered_dp.begin(), ordered_dp.end());
+            }
 
             for (auto p: ordered_dp)
             //for (auto p: dp.at(domain_index))
@@ -202,13 +205,16 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::sam
                 (*field)(x.at(p).data, yy + tindex*3);
                 tindex++;
             }
-            MPI_Allreduce(
+            {
+                TIMEZONE("rFFTW_distributed_particles::sample::MPI_Allreduce");
+                MPI_Allreduce(
                     yy,
                     yyy,
                     3*dp.at(domain_index).size(),
                     MPI_DOUBLE,
                     MPI_SUM,
                     this->domain_comm[domain_index]);
+            }
             tindex = 0;
             for (auto p: ordered_dp)
             //for (auto p: dp.at(domain_index))
@@ -632,10 +638,10 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         std::unordered_map<int, single_particle_state<POINT3D>> &y)
 {
     TIMEZONE("rFFTW_distributed_particles::write");
-    double *data = new double[this->nparticles*3];
-    double *yy = new double[this->nparticles*3];
+    double *data = new double[this->chunk_size*3];
+    double *yy = new double[this->chunk_size*3];
     //int pindex = 0;
-    for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
+   for (unsigned int cindex=0; cindex<this->get_number_of_chunks(); cindex++)
     {
         std::fill_n(yy, this->chunk_size*3, 0);
         //for (unsigned int p=0; p<this->chunk_size; p++, pindex++)
