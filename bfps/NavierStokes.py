@@ -898,7 +898,6 @@ class NavierStokes(_fluid_particle_base):
                     chunks = (time_chunk, 1, 1) + dims[3:]
                 else:
                     chunks = (time_chunk, 1) + dims[2:]
-                chunks = (time_chunk, 1, 1) + dims[3:]
                 bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
@@ -913,6 +912,8 @@ class NavierStokes(_fluid_particle_base):
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
                         chunks)
+                # "velocity" is sampled, single precision is enough
+                # for the results we are interested in.
                 bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
