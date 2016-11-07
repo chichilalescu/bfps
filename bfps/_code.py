@@ -320,16 +320,35 @@ class _code(_base):
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
-        script_file.write('# @ resources = ConsumableCpus(1)\n')
+
+
+        if self.host_info['environment'] == '16node':
+            nb_cpus_per_node = 16
+        if self.host_info['environment'] == '20node':
+            nb_cpus_per_node = 20
+
+        try:
+            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
+        except :
+           nb_process_per_node=nb_cpus_per_node
+        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
+        
+        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+
+        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
+            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
+
+        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
+        number_of_nodes = int((nprocesses+nb_process_per_node-1)/nb_process_per_node)
+
+        first_node_tasks = nprocesses - (number_of_nodes-1)*nb_process_per_node
+
+        script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
         script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
         script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
         assert(type(self.host_info['environment']) != type(None))
-        if self.host_info['environment'] == '16node':
-            tasks_per_node = 16
-            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
         script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-        script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
-        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+        script_file.write('# @ tasks_per_node = {0}\n'.format(nb_process_per_node))
         if (first_node_tasks > 0):
             script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
         script_file.write('# @ queue\n')
@@ -374,17 +393,36 @@ class _code(_base):
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('#\n')
+
+
         if self.host_info['environment'] == '16node':
-            tasks_per_node = 16
-            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
-        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+            nb_cpus_per_node = 16
+        if self.host_info['environment'] == '20node':
+            nb_cpus_per_node = 20
+
+        try:
+            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
+        except :
+           nb_process_per_node=nb_cpus_per_node
+        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
+        
+        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+
+        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
+            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
+
+        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
+        number_of_nodes = int((nprocesses+nb_process_per_node-1)/nb_process_per_node)
+
+        first_node_tasks = nprocesses - (number_of_nodes-1)*nb_process_per_node
+
         for job in range(njobs):
             script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
-            script_file.write('# @ resources = ConsumableCpus(1)\n')
+            script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
             script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
             script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
             script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-            script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
+            script_file.write('# @ tasks_per_node = {0}\n'.format(nb_tasks_per_node))
             if (first_node_tasks > 0):
                 script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
             script_file.write('# @ queue\n')
