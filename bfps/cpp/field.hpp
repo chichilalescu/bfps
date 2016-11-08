@@ -166,7 +166,7 @@ class field
                 const int ny,
                 const int nz,
                 const MPI_Comm COMM_TO_USE,
-                const unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
+                const unsigned FFTW_PLAN_RIGOR = FFTW_PATIENT);
         ~field();
 
         int io(
@@ -238,70 +238,72 @@ void compute_gradient(
 
 
 /* real space loop */
-#define FIELD_RLOOP(obj, expression) \
- \
-{ \
-    switch (be) \
-    { \
-        case FFTW: \
-            for (hsize_t zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++) \
-            for (hsize_t yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++) \
-            { \
-                ptrdiff_t rindex = ( \
-                        zindex * obj->rlayout->subsizes[1] + yindex)*( \
-                            obj->rmemlayout->subsizes[2]); \
-            for (hsize_t xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++) \
-                { \
-                    expression; \
-                    rindex++; \
-                } \
-            } \
-            break; \
-    } \
+template <field_backend be, class ObjectType, class FuncType>
+void FIELD_RLOOP(ObjectType* obj, FuncType expression)
+{
+    switch (be)
+    {
+        case FFTW:
+            for (hsize_t zindex = 0; zindex < obj->rlayout->subsizes[0]; zindex++)
+            for (hsize_t yindex = 0; yindex < obj->rlayout->subsizes[1]; yindex++)
+            {
+                ptrdiff_t rindex = (
+                        zindex * obj->rlayout->subsizes[1] + yindex)*(
+                            obj->rmemlayout->subsizes[2]);
+            for (hsize_t xindex = 0; xindex < obj->rlayout->subsizes[2]; xindex++)
+                {
+                    expression(zindex, yindex, rindex, xindex);
+                    rindex++;
+                }
+            }
+            break;
+    }
 }
 
-#define KSPACE_CLOOP_K2(obj, expression) \
- \
-{ \
-    double k2; \
-    ptrdiff_t cindex = 0; \
-    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++) \
-    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++) \
-    for (hsize_t xindex = 0; xindex < obj->layout->subsizes[2]; xindex++) \
-        { \
-            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
-                  obj->ky[yindex]*obj->ky[yindex] + \
-                  obj->kz[zindex]*obj->kz[zindex]); \
-            expression; \
-            cindex++; \
-        } \
+template <class ObjectType, class FuncType>
+void KSPACE_CLOOP_K2(ObjectType* obj, FuncType expression)
+
+{
+    double k2;
+    ptrdiff_t cindex = 0;
+    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++)
+    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++)
+    for (hsize_t xindex = 0; xindex < obj->layout->subsizes[2]; xindex++)
+        {
+            k2 = (obj->kx[xindex]*obj->kx[xindex] +
+                  obj->ky[yindex]*obj->ky[yindex] +
+                  obj->kz[zindex]*obj->kz[zindex]);
+            expression(cindex, yindex, zindex, xindex, k2);
+            cindex++;
+        }
 }
 
-#define KSPACE_CLOOP_K2_NXMODES(obj, expression) \
- \
-{ \
-    double k2; \
-    ptrdiff_t cindex = 0; \
-    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++) \
-    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++) \
-    { \
-        int nxmodes = 1; \
-        hsize_t xindex = 0; \
-        k2 = (obj->kx[xindex]*obj->kx[xindex] + \
-              obj->ky[yindex]*obj->ky[yindex] + \
-              obj->kz[zindex]*obj->kz[zindex]); \
-        expression; \
-        cindex++; \
-        nxmodes = 2; \
-    for (xindex = 1; xindex < obj->layout->subsizes[2]; xindex++) \
-        { \
-            k2 = (obj->kx[xindex]*obj->kx[xindex] + \
-                  obj->ky[yindex]*obj->ky[yindex] + \
-                  obj->kz[zindex]*obj->kz[zindex]); \
-            expression; \
-            cindex++; \
-        } \
-    } \
+template <class ObjectType, class FuncType>
+void KSPACE_CLOOP_K2_NXMODES(ObjectType* obj, FuncType expression)
+
+{
+    double k2;
+    ptrdiff_t cindex = 0;
+    for (hsize_t yindex = 0; yindex < obj->layout->subsizes[0]; yindex++)
+    for (hsize_t zindex = 0; zindex < obj->layout->subsizes[1]; zindex++)
+    {
+        int nxmodes = 1;
+        hsize_t xindex = 0;
+        k2 = (obj->kx[xindex]*obj->kx[xindex] +
+              obj->ky[yindex]*obj->ky[yindex] +
+              obj->kz[zindex]*obj->kz[zindex]);
+        expression(cindex, yindex, zindex, nxmodes, xindex, k2);
+        cindex++;
+        nxmodes = 2;
+    for (xindex = 1; xindex < obj->layout->subsizes[2]; xindex++)
+        {
+            k2 = (obj->kx[xindex]*obj->kx[xindex] +
+                  obj->ky[yindex]*obj->ky[yindex] +
+                  obj->kz[zindex]*obj->kz[zindex]);
+            expression(cindex, yindex, zindex, nxmodes, xindex, k2);
+            cindex++;
+        }
+    }
 }
 
 #endif//FIELD
