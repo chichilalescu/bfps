@@ -321,11 +321,7 @@ class _code(_base):
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
 
-
-        if self.host_info['environment'] == '16node':
-            nb_cpus_per_node = 16
-        if self.host_info['environment'] == '20node':
-            nb_cpus_per_node = 20
+        nb_cpus_per_node = 20
 
         try:
             nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
@@ -393,12 +389,8 @@ class _code(_base):
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('#\n')
-
-
-        if self.host_info['environment'] == '16node':
-            nb_cpus_per_node = 16
-        if self.host_info['environment'] == '20node':
-            nb_cpus_per_node = 20
+        
+        nb_cpus_per_node = 20
 
         try:
             nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
