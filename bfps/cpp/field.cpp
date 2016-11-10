@@ -29,6 +29,7 @@
 #include <cassert>
 #include "field.hpp"
 #include "scope_timer.hpp"
+#include "shared_array.hpp"
 
 template <field_components fc>
 field_layout<fc>::field_layout(
@@ -480,23 +481,31 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     }
     assert(nvals == int(max_estimate.size()));
     double *moments = new double[nmoments*nvals];
-    double *local_moments = new double[nmoments*nvals];
-    double *val_tmp = new double[nvals];
+    shared_array<double> local_moments_threaded(nmoments*nvals, [&](double* local_moments){
+        std::fill_n(local_moments, nmoments*nvals, 0);
+        if (nvals == 4) local_moments[3] = max_estimate[3];
+    });
+
+    shared_array<double> val_tmp_threaded(nvals);
+
+    // Unchanged by the threads
     double *binsize = new double[nvals];
-    double *pow_tmp = new double[nvals];
-    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
-    int bin;
     for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*nvals, 0);
-    std::fill_n(local_moments, nmoments*nvals, 0);
-    if (nvals == 4) local_moments[3] = max_estimate[3];
+
+
+    shared_array<ptrdiff_t> local_hist_threaded(nbins*nvals,[&](ptrdiff_t* local_hist){
+        std::fill_n(local_hist, nbins*nvals, 0);
+    });
+
     {
         TIMEZONE("FIELD_RLOOP");
         FIELD_RLOOP<be>(
             this,[&](hsize_t /*zindex*/, hsize_t /*yindex*/, ptrdiff_t rindex, hsize_t /*xindex*/){
-            std::fill_n(pow_tmp, nvals, 1.0);
+            double *local_moments = local_moments_threaded.getMine();
+            double *val_tmp = val_tmp_threaded.getMine();
+            ptrdiff_t *local_hist = local_hist_threaded.getMine();
+
             if (nvals == int(4)) val_tmp[3] = 0.0;
             for (unsigned int i=0; i<ncomp(fc); i++)
             {
@@ -510,7 +519,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     local_moments[0*nvals+3] = val_tmp[3];
                 if (val_tmp[3] > local_moments[9*nvals+3])
                     local_moments[9*nvals+3] = val_tmp[3];
-                bin = int(floor(val_tmp[3]*2/binsize[3]));
+                int bin = int(floor(val_tmp[3]*2/binsize[3]));
                 if (bin >= 0 && bin < nbins)
                     local_hist[bin*nvals+3]++;
             }
@@ -520,34 +529,41 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     local_moments[0*nvals+i] = val_tmp[i];
                 if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
                     local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
-                bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+                int bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
                 if (bin >= 0 && bin < nbins)
                     local_hist[bin*nvals+i]++;
             }
-            for (int n=1; n < int(nmoments)-1; n++)
-                for (int i=0; i<nvals; i++)
-                    local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+            for (int n=1; n < int(nmoments)-1; n++){
+                double pow_tmp = 1;
+                for (int i=0; i<nvals; i++){
+                    local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
+                }
+            }
         });
+        local_moments_threaded.mergeParallel();
+        local_hist_threaded.mergeParallel();
     }
+
+    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
     {
         TIMEZONE("MPI_Allreduce");
         MPI_Allreduce(
-                (void*)local_moments,
+                (void*)local_moments_threaded.getMasterData(),
                 (void*)moments,
                 nvals,
                 MPI_DOUBLE, MPI_MIN, this->comm);
         MPI_Allreduce(
-                (void*)(local_moments + nvals),
+                (void*)(local_moments_threaded.getMasterData() + nvals),
                 (void*)(moments+nvals),
                 (nmoments-2)*nvals,
                 MPI_DOUBLE, MPI_SUM, this->comm);
         MPI_Allreduce(
-                (void*)(local_moments + (nmoments-1)*nvals),
+                (void*)(local_moments_threaded.getMasterData() + (nmoments-1)*nvals),
                 (void*)(moments+(nmoments-1)*nvals),
                 nvals,
                 MPI_DOUBLE, MPI_MAX, this->comm);
         MPI_Allreduce(
-                (void*)local_hist,
+                (void*)local_hist_threaded.getMasterData(),
                 (void*)hist,
                 nbins*nvals,
                 MPI_INT64_T, MPI_SUM, this->comm);
@@ -555,11 +571,8 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     for (int n=1; n < int(nmoments)-1; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->npoints;
-    delete[] local_moments;
-    delete[] local_hist;
-    delete[] val_tmp;
+
     delete[] binsize;
-    delete[] pow_tmp;
     if (this->myrank == 0)
     {
         TIMEZONE("root-work");
@@ -752,29 +765,39 @@ kspace<be, dt>::kspace(
     this->nshells = int(this->kM / this->dk) + 2;
     this->kshell.resize(this->nshells, 0);
     this->nshell.resize(this->nshells, 0);
-    std::vector<double> kshell_local;
-    kshell_local.resize(this->nshells, 0);
-    std::vector<int64_t> nshell_local;
-    nshell_local.resize(this->nshells, 0);
-    double knorm;
+
+    shared_array<double> kshell_local_threaded(this->nshells, [&](double* kshell_local){
+        std::fill_n(kshell_local, this->nshells, 0);
+    });
+
+    shared_array<int64_t> nshell_local_threaded(this->nshells, [&](int64_t* nshell_local){
+        std::fill_n(nshell_local, this->nshells, 0);
+    });
+
     KSPACE_CLOOP_K2_NXMODES(
             this,[&](ptrdiff_t /*cindex*/, hsize_t /*yindex*/, hsize_t /*zindex*/, int nxmodes, hsize_t /*xindex*/, double k2){
-            if (k2 < this->kM2)
-            {
-                knorm = sqrt(k2);
-                nshell_local[int(knorm/this->dk)] += nxmodes;
-                kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
-            }
-            if (dt == TWO_THIRDS)
-                this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+                if (k2 < this->kM2)
+                {
+                    double knorm = sqrt(k2);
+                    nshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes;
+                    kshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
+                }
+                if (dt == TWO_THIRDS){
+                    // Should not be any race condition here it is a "write"
+                    this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+                }
             });
+
+    nshell_local_threaded.mergeParallel();
+    kshell_local_threaded.mergeParallel();
+
     MPI_Allreduce(
-            &nshell_local.front(),
+            nshell_local_threaded.getMasterData(),
             &this->nshell.front(),
             this->nshells,
             MPI_INT64_T, MPI_SUM, this->layout->comm);
     MPI_Allreduce(
-            &kshell_local.front(),
+            kshell_local_threaded.getMasterData(),
             &this->kshell.front(),
             this->nshells,
             MPI_DOUBLE, MPI_SUM, this->layout->comm);
@@ -798,8 +821,10 @@ void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
     const double km2 = kmax*kmax;
     KSPACE_CLOOP_K2(
             this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, hsize_t /*xindex*/, double k2){
-            if (k2 >= km2)
+            // There is not race condition because it is write
+            if (k2 >= km2){
                 std::fill_n(a + 2*ncomp(fc)*cindex, 2*ncomp(fc), 0);
+            }
     });
 }
 
@@ -818,8 +843,11 @@ void kspace<be, dt>::dealias(rnumber *__restrict__ a)
             KSPACE_CLOOP_K2(
                     this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, hsize_t /*xindex*/, double k2){
                     double tval = this->dealias_filter[int(round(k2 / this->dk2))];
-                    for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                    // There is no overlap between threads here because cindex is thread-safe index
+                    // and push for a jump of 2*ncomp(fc)
+                    for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++){
                         a[2*ncomp(fc)*cindex + tcounter] *= tval;
+                    }
             });
             break;
     }
@@ -837,13 +865,18 @@ void kspace<be, dt>::cospectrum(
         const hsize_t toffset)
 {
     TIMEZONE("field::cospectrum");
-    std::vector<double> spec, spec_local;
+    std::vector<double> spec;
     spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
-    spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+
+    shared_array<double> spec_local_threaded(this->nshells*ncomp(fc)*ncomp(fc), [&](double* spec_local){
+        std::fill_n(spec_local, this->nshells*ncomp(fc)*ncomp(fc), 0);
+    });
+
     KSPACE_CLOOP_K2_NXMODES(
             this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, int nxmodes, hsize_t /*xindex*/, double k2){
             if (k2 <= this->kM2)
             {
+                double* spec_local = spec_local_threaded.getMine();
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
                 for (hsize_t i=0; i<ncomp(fc); i++)
                 for (hsize_t j=0; j<ncomp(fc); j++)
@@ -852,8 +885,10 @@ void kspace<be, dt>::cospectrum(
                     (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
             }
     });
+    spec_local_threaded.mergeParallel();
+
     MPI_Allreduce(
-            &spec_local.front(),
+            spec_local_threaded.getMasterData(),
             &spec.front(),
             spec.size(),
             MPI_DOUBLE, MPI_SUM, this->layout->comm);
@@ -913,6 +948,7 @@ void compute_gradient(
                      field_component < ncomp(fc1);
                      field_component++)
                 {
+                    // There must not be any race condition because it is write
                     dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
                         - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
                     dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
