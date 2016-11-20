@@ -209,13 +209,15 @@ void vorticity_equation<rnumber, be>::add_forcing(
         ptrdiff_t cindex;
         if (this->cd->myrank == this->cd->rank[this->fmode])
         {
-            cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3;
-            dst->get_cdata()[cindex+2][0] -= this->famplitude*factor/2;
+            cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2];
+            dst->cval(cindex,2, 0) -= this->famplitude*factor/2;
+            //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
         if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode])
         {
-            cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2]*3;
-            dst->get_cdata()[cindex+2][0] -= this->famplitude*factor/2;
+            cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2];
+            dst->cval(cindex, 2, 0) -= this->famplitude*factor/2;
+            //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
         return;
     }
@@ -301,7 +303,8 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
         //    tmp[2][1] =  (this->kk->kx[xindex]*this->u->get_cdata()[tindex+1][0] - this->kk->ky[yindex]*this->u->get_cdata()[tindex+0][0]);
         //}
         for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-            this->u->get_cdata()[3*cindex+cc][i] = tmp[cc][i];
+            this->u->cval(cindex, cc, i) = tmp[cc][i];
+            //this->u->get_cdata()[3*cindex+cc][i] = tmp[cc][i];
     }
     );
     this->add_forcing(this->u, this->v[src], 1.0);
@@ -327,9 +330,12 @@ void vorticity_equation<rnumber, be>::step(double dt)
         {
             factor0 = exp(-this->nu * k2 * dt);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-                this->v[1]->get_cdata()[3*cindex+cc][i] = (
-                        this->v[0]->get_cdata()[3*cindex+cc][i] +
-                        dt*this->u->get_cdata()[3*cindex+cc][i])*factor0;
+                this->v[1]->cval(cindex,cc,i) = (
+                        this->v[0]->cval(cindex,cc,i) +
+                        dt*this->u->cval(cindex,cc,i))*factor0;
+                //this->v[1]->get_cdata()[3*cindex+cc][i] = (
+                //        this->v[0]->get_cdata()[3*cindex+cc][i] +
+                //        dt*this->u->get_cdata()[3*cindex+cc][i])*factor0;
         }
     }
     );
@@ -346,10 +352,14 @@ void vorticity_equation<rnumber, be>::step(double dt)
             factor0 = exp(-this->nu * k2 * dt/2);
             factor1 = exp( this->nu * k2 * dt/2);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-                this->v[2]->get_cdata()[3*cindex+cc][i] = (
-                        3*this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
-                        (this->v[1]->get_cdata()[3*cindex+cc][i] +
-                         dt*this->u->get_cdata()[3*cindex+cc][i])*factor1)*0.25;
+                this->v[2]->cval(cindex, cc, i) = (
+                        3*this->v[0]->cval(cindex,cc,i)*factor0 +
+                        ( this->v[1]->cval(cindex,cc,i) +
+                         dt*this->u->cval(cindex,cc,i))*factor1)*0.25;
+                //this->v[2]->get_cdata()[3*cindex+cc][i] = (
+                //        3*this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
+                //        (this->v[1]->get_cdata()[3*cindex+cc][i] +
+                //         dt*this->u->get_cdata()[3*cindex+cc][i])*factor1)*0.25;
         }
     }
     );
@@ -365,10 +375,14 @@ void vorticity_equation<rnumber, be>::step(double dt)
         {
             factor0 = exp(-this->nu * k2 * dt * 0.5);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-                this->v[3]->get_cdata()[3*cindex+cc][i] = (
-                        this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
-                        2*(this->v[2]->get_cdata()[3*cindex+cc][i] +
-                           dt*this->u->get_cdata()[3*cindex+cc][i]))*factor0/3;
+                this->v[3]->cval(cindex,cc,i) = (
+                        this->v[0]->cval(cindex,cc,i)*factor0 +
+                        2*(this->v[2]->cval(cindex,cc,i) +
+                           dt*this->u->cval(cindex,cc,i)))*factor0/3;
+                //this->v[3]->get_cdata()[3*cindex+cc][i] = (
+                //        this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
+                //        2*(this->v[2]->get_cdata()[3*cindex+cc][i] +
+                //           dt*this->u->get_cdata()[3*cindex+cc][i]))*factor0/3;
         }
     }
     );
