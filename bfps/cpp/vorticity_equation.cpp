@@ -129,6 +129,7 @@ template <class rnumber,
 void vorticity_equation<rnumber, be>::compute_vorticity()
 {
     TIMEZONE("vorticity_equation::compute_vorticity");
+    this->cvorticity->real_space_representation = false;
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
