@@ -353,6 +353,7 @@ class _code(_base):
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('cd ' + self.work_dir + '\n')
+        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('poe ' +
                 os.path.join(
                     self.work_dir,
@@ -423,6 +424,7 @@ class _code(_base):
                           '\n')
         script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
         script_file.write('poe ' +
                 os.path.join(

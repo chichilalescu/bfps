@@ -513,6 +513,8 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     int64_t *nshell_local = new int64_t[this->nshells];
     std::fill_n(nshell_local, this->nshells, 0.0);
 
+    std::vector<std::unordered_map<int, double>> Fourier_filter_threaded(omp_get_max_threads());
+
     CLOOP_K2_NXMODES(
                 this,
 
@@ -524,8 +526,15 @@ fluid_solver_base<rnumber>::fluid_solver_base(
             nshell_local[int(knorm/this->dk)] += nxmodes;
             kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
         }
-        this->Fourier_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
+        Fourier_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
     );
+
+    // Merge results
+    for(int idxMerge = 0 ; idxMerge < int(Fourier_filter_threaded.size()) ; ++idxMerge){
+        for(const auto kv : Fourier_filter_threaded[idxMerge]){
+            this->Fourier_filter[kv.first] = kv.second;
+        }
+    }
 
     MPI_Allreduce(
                 (void*)(nshell_local),

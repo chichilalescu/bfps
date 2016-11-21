@@ -774,6 +774,8 @@ kspace<be, dt>::kspace(
         std::fill_n(nshell_local, this->nshells, 0);
     });
 
+    std::vector<std::unordered_map<int, double>> dealias_filter_threaded(omp_get_max_threads());
+
     KSPACE_CLOOP_K2_NXMODES(
             this,[&](ptrdiff_t /*cindex*/, hsize_t /*yindex*/, hsize_t /*zindex*/, int nxmodes, hsize_t /*xindex*/, double k2){
                 if (k2 < this->kM2)
@@ -784,9 +786,15 @@ kspace<be, dt>::kspace(
                 }
                 if (dt == TWO_THIRDS){
                     // Should not be any race condition here it is a "write"
-                    this->dealias_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+                    dealias_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
                 }
             });
+
+    for(int idxMerge = 0 ; idxMerge < int(dealias_filter_threaded.size()) ; ++idxMerge){
+        for(const auto kv : dealias_filter_threaded[idxMerge]){
+            this->dealias_filter[kv.first] = kv.second;
+        }
+    }
 
     nshell_local_threaded.mergeParallel();
     kshell_local_threaded.mergeParallel();
