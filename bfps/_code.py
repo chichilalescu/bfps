@@ -130,6 +130,7 @@ class _code(_base):
                     #ifdef USE_TIMINGOUTPUT
                     global_timer_manager.show(MPI_COMM_WORLD);
                     global_timer_manager.showMpi(MPI_COMM_WORLD);
+                    global_timer_manager.showHtml(MPI_COMM_WORLD);
                     #endif
                     MPI_Finalize();
                     return EXIT_SUCCESS;
@@ -353,7 +354,7 @@ class _code(_base):
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('cd ' + self.work_dir + '\n')
-        script_file.write('cp -s ../*.h5 ./\n')
+#        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('poe ' +
                 os.path.join(
                     self.work_dir,
@@ -424,7 +425,7 @@ class _code(_base):
                           '\n')
         script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
         script_file.write('echo "Start time is `date`"\n')
-        script_file.write('cp -s ../*.h5 ./\n')
+#        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
         script_file.write('poe ' +
                 os.path.join(
@@ -531,6 +532,8 @@ class _code(_base):
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('cd ' + self.work_dir + '\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('srun {0}\n'.format(' '.join(command_atoms)))
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
