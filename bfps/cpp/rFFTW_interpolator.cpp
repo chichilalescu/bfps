@@ -55,17 +55,17 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         base_polynomial_values BETA_POLYS,
         rnumber *FIELD_POINTER) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
-    this->field_size = 2*fs->cd->local_size;
-    this->field = FIELD_POINTER;
-
-
-    // generate compute array
-    this->compute = new bool[this->descriptor->sizes[0]];
-    std::fill_n(this->compute, this->descriptor->sizes[0], false);
-    for (int iz = this->descriptor->starts[0]-interp_neighbours-1;
-            iz <= this->descriptor->starts[0]+this->descriptor->subsizes[0]+interp_neighbours;
-            iz++)
-        this->compute[((iz + this->descriptor->sizes[0]) % this->descriptor->sizes[0])] = true;
+//    this->field_size = 2*fs->cd->local_size;
+//    this->field = FIELD_POINTER;
+//
+//
+//    // generate compute array
+//    this->compute = new bool[this->descriptor->sizes[0]];
+//    std::fill_n(this->compute, this->descriptor->sizes[0], false);
+//    for (int iz = this->descriptor->starts[0]-interp_neighbours-1;
+//            iz <= this->descriptor->starts[0]+this->descriptor->subsizes[0]+interp_neighbours;
+//            iz++)
+//        this->compute[((iz + this->descriptor->sizes[0]) % this->descriptor->sizes[0])] = true;
 }
 
 template <class rnumber, int interp_neighbours>

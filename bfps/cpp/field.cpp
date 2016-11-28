@@ -23,6 +23,7 @@
 **********************************************************************/
 
 
+#include <sys/stat.h>
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
@@ -92,8 +93,8 @@ field<rnumber, be, fc>::field(
             starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
             this->rmemlayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
-            sizes[0] = nz; sizes[1] = ny; sizes[2] = nx/2+1;
-            subsizes[0] = local_n1; subsizes[1] = ny; subsizes[2] = nx/2+1;
+            sizes[0] = ny; sizes[1] = nz; sizes[2] = nx/2+1;
+            subsizes[0] = local_n1; subsizes[1] = nz; subsizes[2] = nx/2+1;
             starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
             this->clayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
@@ -175,10 +176,23 @@ int field<rnumber, be, fc>::io(
     /* open file */
     plist_id = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
+    bool file_exists = false;
+    {
+        struct stat file_buffer;
+        file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+    }
     if (read)
+    {
+        assert(file_exists);
         file_id = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
+    }
     else
-        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+    {
+        if (file_exists)
+            file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+        else
+            file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
+    }
     H5Pclose(plist_id);
 
     /* open data set */
@@ -199,22 +213,30 @@ int field<rnumber, be, fc>::io(
     fspace = H5Dget_space(dset_id);
     hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
     hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
-    H5Sget_simple_extent_dims(fspace, dims, NULL);
-    count[0] = 1;
-    offset[0] = toffset;
-    memshape[0] = 1;
-    memoffset[0] = 0;
+    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
+    assert(ndims_fspace == ndim(fc) ||
+           ndims_fspace == ndim(fc) + 1);
+    int dim_counter_offset = 0;
+    if (ndims_fspace == ndim(fc)+1)
+        dim_counter_offset = 1;
+    else
+    {
+        count[0] = 1;
+        offset[0] = toffset;
+        memshape[0] = 1;
+        memoffset[0] = 0;
+    }
     if (io_for_real)
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+1] = this->rlayout->subsizes[i];
-            offset[i+1] = this->rlayout->starts[i];
-            assert(dims[i+1] == this->rlayout->sizes[i]);
-            memshape[i+1] = this->rmemlayout->subsizes[i];
-            memoffset[i+1] = 0;
+            count[i+dim_counter_offset] = this->rlayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->rlayout->starts[i];
+            assert(dims[i+dim_counter_offset] == this->rlayout->sizes[i]);
+            memshape[i+dim_counter_offset] = this->rmemlayout->subsizes[i];
+            memoffset[i+dim_counter_offset] = 0;
         }
-        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+        mspace = H5Screate_simple(ndims_fspace, memshape, NULL);
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
@@ -239,13 +261,13 @@ int field<rnumber, be, fc>::io(
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+1] = this->clayout->subsizes[i];
-            offset[i+1] = this->clayout->starts[i];
-            assert(dims[i+1] == this->clayout->sizes[i]);
-            memshape[i+1] = count[i+1];
-            memoffset[i+1] = 0;
+            count[i+dim_counter_offset] = this->clayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->clayout->starts[i];
+            assert(dims[i+dim_counter_offset] == this->clayout->sizes[i]);
+            memshape[i+dim_counter_offset] = count[i+dim_counter_offset];
+            memoffset[i+dim_counter_offset] = 0;
         }
-        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+        mspace = H5Screate_simple(ndims_fspace, memshape, NULL);
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)

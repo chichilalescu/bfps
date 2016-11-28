@@ -47,9 +47,6 @@ template <typename rnumber,
 class vorticity_equation
 {
     public:
-        /* field descriptor, for direct binary I/O */
-        field_descriptor<rnumber> *cd, *rd;
-
         /* name */
         char name[256];
 
@@ -97,10 +94,8 @@ class vorticity_equation
         /* binary I/O stuff */
         inline void fill_up_filename(const char *base_name, char *full_name)
         {
-            sprintf(full_name, "%s_%s_i%.5x", this->name, base_name, this->iteration);
+            sprintf(full_name, "%s_%s_i%.5x.h5", this->name, base_name, this->iteration);
         }
-        int read(char field, char representation);
-        int write(char field, char representation);
 
         /* statistics and general postprocessing */
         void compute_pressure(field<rnumber, be, ONE> *pressure);

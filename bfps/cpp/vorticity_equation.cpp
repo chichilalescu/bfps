@@ -64,21 +64,6 @@ vorticity_equation<rnumber, be>::vorticity_equation(
     this->name[255] = '\0';
     this->iteration = 0;
 
-    /* initialize field descriptors */
-    int ntmp[4];
-    ntmp[0] = nz;
-    ntmp[1] = ny;
-    ntmp[2] = nx;
-    ntmp[3] = 3;
-    this->rd = new field_descriptor<rnumber>(
-                4, ntmp, mpi_real_type<rnumber>::real(), MPI_COMM_WORLD);
-    ntmp[0] = ny;
-    ntmp[1] = nz;
-    ntmp[2] = nx/2 + 1;
-    ntmp[3] = 3;
-    this->cd = new field_descriptor<rnumber>(
-                4, ntmp, mpi_real_type<rnumber>::complex(), this->rd->comm);
-
     /* initialize fields */
     this->cvorticity = new field<rnumber, be, THREE>(
             nx, ny, nz, MPI_COMM_WORLD, FFTW_PLAN_RIGOR);
@@ -207,15 +192,15 @@ void vorticity_equation<rnumber, be>::add_forcing(
     if (strcmp(this->forcing_type, "Kolmogorov") == 0)
     {
         ptrdiff_t cindex;
-        if (this->cd->myrank == this->cd->rank[this->fmode])
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->fmode])
         {
-            cindex = ((this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2];
+            cindex = ((this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
             dst->cval(cindex,2, 0) -= this->famplitude*factor/2;
             //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
-        if (this->cd->myrank == this->cd->rank[this->cd->sizes[0] - this->fmode])
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->cvorticity->clayout->sizes[0] - this->fmode])
         {
-            cindex = ((this->cd->sizes[0] - this->fmode - this->cd->starts[0]) * this->cd->sizes[1])*this->cd->sizes[2];
+            cindex = ((this->cvorticity->clayout->sizes[0] - this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
             dst->cval(cindex, 2, 0) -= this->famplitude*factor/2;
             //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
@@ -390,93 +375,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
     this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
     this->cvorticity->symmetrize();
     this->iteration++;
-}
-
-template <class rnumber,
-          field_backend be>
-int vorticity_equation<rnumber, be>::read(char field, char representation)
-{
-    TIMEZONE("vorticity_equation::read");
-    char fname[512];
-    int read_result;
-    if (field == 'v')
-    {
-        if (representation == 'c')
-        {
-            this->fill_up_filename("cvorticity", fname);
-            this->cvorticity->real_space_representation = false;
-            read_result = this->cd->read(fname, this->cvorticity->get_cdata());
-            if (read_result != EXIT_SUCCESS)
-                return read_result;
-        }
-        if (representation == 'r')
-        {
-            this->fill_up_filename("rvorticity", fname);
-            this->cvorticity->real_space_representation = true;
-            read_result = this->rd->read(fname, this->cvorticity->get_rdata());
-            if (read_result != EXIT_SUCCESS)
-                return read_result;
-            else
-                this->cvorticity->dft();
-        }
-        this->kk->template low_pass<rnumber, THREE>(this->cvorticity->get_rdata(), this->kk->kM);
-        this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
-        this->cvorticity->symmetrize();
-        return EXIT_SUCCESS;
-    }
-    if ((field == 'u') && (representation == 'c'))
-    {
-        this->fill_up_filename("cvelocity", fname);
-        read_result = this->cd->read(fname, this->cvelocity->get_cdata());
-        this->kk->template low_pass<rnumber, THREE>(this->cvelocity->get_rdata(), this->kk->kM);
-        this->compute_vorticity();
-        this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
-        this->cvorticity->symmetrize();
-        return read_result;
-    }
-    if ((field == 'u') && (representation == 'r'))
-    {
-        this->fill_up_filename("rvelocity", fname);
-        this->u->real_space_representation = true;
-        return this->rd->read(fname, this->u->get_rdata());
-    }
-    return EXIT_FAILURE;
-}
-
-template <class rnumber,
-          field_backend be>
-int vorticity_equation<rnumber, be>::write(char field, char representation)
-{
-    TIMEZONE("vorticity_equation::write");
-    char fname[512];
-    if ((field == 'v') && (representation == 'c'))
-    {
-        this->fill_up_filename("cvorticity", fname);
-        return this->cd->write(fname, (void*)this->cvorticity);
-    }
-    if ((field == 'v') && (representation == 'r'))
-    {
-        *this->rvorticity = this->cvorticity->get_cdata();
-        this->rvorticity->ift();
-        clip_zero_padding<rnumber>(this->rd, this->rvorticity->get_rdata(), 3);
-        this->fill_up_filename("rvorticity", fname);
-        return this->rd->write(fname, this->rvorticity->get_rdata());
-    }
-    this->compute_velocity(this->cvorticity);
-    if ((field == 'u') && (representation == 'c'))
-    {
-        this->fill_up_filename("cvelocity", fname);
-        return this->cd->write(fname, this->cvelocity->get_cdata());
-    }
-    if ((field == 'u') && (representation == 'r'))
-    {
-        *this->rvelocity = this->cvelocity->get_cdata();
-        this->rvelocity->ift();
-        clip_zero_padding<rnumber>(this->rd, this->rvelocity->get_rdata(), 3);
-        this->fill_up_filename("rvelocity", fname);
-        return this->rd->write(fname, this->rvelocity->get_rdata());
-    }
-    return EXIT_FAILURE;
 }
 
 template <class rnumber,

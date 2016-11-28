@@ -71,7 +71,17 @@ class NSVorticityEquation(_fluid_particle_base):
                 """
         self.style = {}
         self.statistics = {}
-        self.fluid_output = 'fs->write(\'v\', \'c\');\n'
+        self.fluid_output = """
+                {
+                    char file_name[512];
+                    fs->fill_up_filename("cvorticity", file_name);
+                    fs->cvorticity->io(
+                        file_name,
+                        "vorticity/complex/" + std::to_string(fs->iteration),
+                        fs->iteration / niter_out,
+                        false);
+                }
+                """
         # vorticity_equation specific things
         self.includes += '#include "vorticity_equation.hpp"\n'
         self.store_kspace = """
@@ -171,7 +181,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 //begincpp
                 if (myrank == 0)
                     H5Gclose(stat_group);
-                if (fs->cd->myrank == 0)
+                if (myrank == 0)
                 {{
                     hid_t Cdset, wspace, mspace;
                     int ndims;
@@ -245,7 +255,15 @@ class NSVorticityEquation(_fluid_particle_base):
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
                 DEBUG_MSG("before reading\\n");
-                fs->read('v', 'c');
+                {{
+                    char file_name[512];
+                    fs->fill_up_filename("cvorticity", file_name);
+                    fs->cvorticity->io(
+                        file_name,
+                        "vorticity/complex/" + std::to_string(fs->iteration),
+                        fs->iteration / niter_out,
+                        true);
+                }}
                 DEBUG_MSG("after reading\\n");
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
@@ -550,27 +568,9 @@ class NSVorticityEquation(_fluid_particle_base):
     def launch(
             self,
             args = [],
-            noparticles = False,
             **kwargs):
         opt = self.prepare_launch(args = args)
         self.fill_up_fluid_code()
-        if noparticles:
-            opt.nparticles = 0
-        elif type(opt.nparticles) == int:
-            if opt.nparticles > 0:
-                self.name += '-particles'
-                self.add_3D_rFFTW_field(
-                        name = 'rFFTW_acc')
-                self.add_interpolator(
-                        name = 'cubic_spline',
-                        neighbours = opt.neighbours,
-                        smoothness = opt.smoothness,
-                        class_name = 'rFFTW_interpolator')
-                self.add_particles(
-                        integration_steps = [4],
-                        interpolator = 'cubic_spline',
-                        acc_name = 'rFFTW_acc',
-                        class_name = 'rFFTW_distributed_particles')
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
@@ -581,18 +581,21 @@ class NSVorticityEquation(_fluid_particle_base):
             self.write_par()
             init_condition_file = os.path.join(
                     self.work_dir,
-                    self.simname + '_cvorticity_i{0:0>5x}'.format(0))
+                    self.simname + '_cvorticity_i{0:0>5x}.h5'.format(0))
             if not os.path.exists(init_condition_file):
                 if len(opt.src_simname) > 0:
                     src_file = os.path.join(
                             os.path.realpath(opt.src_work_dir),
-                            opt.src_simname + '_cvorticity_i{0:0>5x}'.format(opt.src_iteration))
+                            opt.src_simname + '_cvorticity_i{0:0>5x}.h5'.format(opt.src_iteration))
                     os.symlink(src_file, init_condition_file)
                 else:
-                   self.generate_vector_field(
-                           write_to_file = True,
+                    data = self.generate_vector_field(
+                           write_to_file = False,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
+                    f = h5py.File(init_condition_file, 'w')
+                    f['vorticity/complex/{0}'.format(0)] = data
+                    f.close()
         self.run(
                 ncpu = opt.ncpu,
                 njobs = opt.njobs,
