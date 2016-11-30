@@ -417,7 +417,7 @@ class _fluid_particle_base(_code):
                 Kdata0,
                 self.parameters['nz'],
                 self.parameters['ny'],
-                self.parameters['nx'])
+                self.parameters['nx']).copy()
         if write_to_file:
             Kdata1.tofile(
                     os.path.join(self.work_dir,
