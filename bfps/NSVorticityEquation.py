@@ -264,6 +264,7 @@ class NSVorticityEquation(_fluid_particle_base):
                         "vorticity",
                         fs->iteration,
                         true);
+                    fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_rdata(), fs->kk->kM);
                 }}
                 DEBUG_MSG("after reading\\n");
                 //endcpp

@@ -333,8 +333,10 @@ int field<rnumber, be, fc>::io(
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         if (read)
         {
+            std::fill_n(this->data, this->clayout->local_size*2, 0);
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
             this->real_space_representation = false;
+            this->symmetrize();
         }
         else
         {
@@ -523,6 +525,7 @@ int field<rnumber, be, fc>::io_database(
         {
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
             this->real_space_representation = false;
+            this->symmetrize();
         }
         else
         {

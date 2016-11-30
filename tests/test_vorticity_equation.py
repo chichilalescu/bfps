@@ -42,12 +42,19 @@ def main():
             ['-n', '72',
              '--simname', 'fluid_solver',
              '--ncpu', '4',
-             '--niter_todo', '128',
-             '--niter_out', '32',
+             '--niter_todo', '16',
+             '--niter_out', '16',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
-    data = c.read_cfield(iteration = 32)
+    data = c.read_cfield(iteration = 0)
+    f = plt.figure(figsize = (6,6))
+    a = f.add_axes([.0, .0, 1., 1.])
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(data[:, :, 0, 0])),
+             cmap = 'viridis',
+             interpolation = 'none')
+    f.savefig('figs/cut.pdf')
     f = h5py.File('vorticity_equation_cvorticity_i00000.h5', 'w')
     f['vorticity/complex/0'] = data
     f.close()
@@ -56,17 +63,23 @@ def main():
             ['-n', '72',
              '--simname', 'vorticity_equation',
              '--ncpu', '4',
-             '--niter_todo', '128',
-             '--niter_out', '32',
+             '--niter_todo', '16',
+             '--niter_out', '16',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
-    print(c0.statistics['enstrophy(t)'])
-    print(c1.statistics['enstrophy(t)'])
-    c0.do_plots()
-    c1.do_plots()
+    df0 = c0.get_data_file()
+    df1 = c1.get_data_file()
+    print(df0['statistics/moments/vorticity'][:, 2, 3])
+    print(df1['statistics/moments/vorticity'][:, 2, 3])
+    print(df0['statistics/moments/velocity'][:, 2, 3])
+    print(df1['statistics/moments/velocity'][:, 2, 3])
+    #print(c0.statistics['enstrophy(t, k)'][0])
+    #print(c1.statistics['enstrophy(t, k)'][0])
+    #c0.do_plots()
+    #c1.do_plots()
     return None
 
 if __name__ == '__main__':
