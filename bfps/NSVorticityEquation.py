@@ -77,8 +77,8 @@ class NSVorticityEquation(_fluid_particle_base):
                     fs->fill_up_filename("cvorticity", file_name);
                     fs->cvorticity->io(
                         file_name,
-                        "vorticity/complex/" + std::to_string(fs->iteration),
-                        fs->iteration / niter_out,
+                        "vorticity",
+                        fs->iteration,
                         false);
                 }
                 """
@@ -258,10 +258,11 @@ class NSVorticityEquation(_fluid_particle_base):
                 {{
                     char file_name[512];
                     fs->fill_up_filename("cvorticity", file_name);
+                    fs->cvorticity->real_space_representation = false;
                     fs->cvorticity->io(
                         file_name,
-                        "vorticity/complex/" + std::to_string(fs->iteration),
-                        fs->iteration / niter_out,
+                        "vorticity",
+                        fs->iteration,
                         true);
                 }}
                 DEBUG_MSG("after reading\\n");

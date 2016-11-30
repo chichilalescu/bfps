@@ -76,7 +76,12 @@ class field
 
         int io(
                 const std::string fname,
-                const std::string dset_name,
+                const std::string field_name,
+                const int iteration,
+                const bool read = true);
+        int io_database(
+                const std::string fname,
+                const std::string field_name,
                 const int toffset,
                 const bool read = true);
 

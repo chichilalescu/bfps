@@ -164,16 +164,22 @@ template <typename rnumber,
           field_components fc>
 int field<rnumber, be, fc>::io(
         const std::string fname,
-        const std::string dset_name,
-        const int toffset,
+        const std::string field_name,
+        const int iteration,
         const bool read)
 {
+    /* file dataset has same dimensions as field */
     TIMEZONE("field::io");
     hid_t file_id, dset_id, plist_id;
-    hid_t dset_type;
-    bool io_for_real = false;
+    std::string representation = std::string(
+            this->real_space_representation ?
+                "real" : "complex");
+    std::string dset_name = (
+            "/" + field_name +
+            "/" + representation +
+            "/" + std::to_string(iteration));
 
-    /* open file */
+    /* open/create file */
     plist_id = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
     bool file_exists = false;
@@ -195,50 +201,115 @@ int field<rnumber, be, fc>::io(
     }
     H5Pclose(plist_id);
 
-    /* open data set */
-    dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
-    dset_type = H5Dget_type(dset_id);
-    io_for_real = (
-            H5Tequal(dset_type, H5T_IEEE_F32BE) ||
-            H5Tequal(dset_type, H5T_IEEE_F32LE) ||
-            H5Tequal(dset_type, H5T_INTEL_F32) ||
-            H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
-            H5Tequal(dset_type, H5T_IEEE_F64BE) ||
-            H5Tequal(dset_type, H5T_IEEE_F64LE) ||
-            H5Tequal(dset_type, H5T_INTEL_F64) ||
-            H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+    /* check what kind of representation is being used */
+    if (read)
+    {
+        dset_id = H5Dopen(
+                file_id,
+                dset_name.c_str(),
+                H5P_DEFAULT);
+        hid_t dset_type = H5Dget_type(dset_id);
+        bool io_for_real = (
+                H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F32) ||
+                H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+                H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F64) ||
+                H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+        H5Tclose(dset_type);
+        assert(this->real_space_representation == io_for_real);
+    }
 
     /* generic space initialization */
     hid_t fspace, mspace;
-    fspace = H5Dget_space(dset_id);
-    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
-    hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
-    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    assert(ndims_fspace == ndim(fc) ||
-           ndims_fspace == ndim(fc) + 1);
-    int dim_counter_offset = 0;
-    if (ndims_fspace == ndim(fc)+1)
-        dim_counter_offset = 1;
-    else
-    {
-        count[0] = 1;
-        offset[0] = toffset;
-        memshape[0] = 1;
-        memoffset[0] = 0;
-    }
-    if (io_for_real)
+    hsize_t count[ndim(fc)], offset[ndim(fc)], dims[ndim(fc)];
+    hsize_t memoffset[ndim(fc)], memshape[ndim(fc)];
+
+    if (this->real_space_representation)
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+dim_counter_offset] = this->rlayout->subsizes[i];
-            offset[i+dim_counter_offset] = this->rlayout->starts[i];
-            assert(dims[i+dim_counter_offset] == this->rlayout->sizes[i]);
-            memshape[i+dim_counter_offset] = this->rmemlayout->subsizes[i];
-            memoffset[i+dim_counter_offset] = 0;
+            count[i] = this->rlayout->subsizes[i];
+            offset[i] = this->rlayout->starts[i];
+            dims[i] = this->rlayout->sizes[i];
+            memshape[i] = this->rmemlayout->subsizes[i];
+            memoffset[i] = 0;
         }
-        mspace = H5Screate_simple(ndims_fspace, memshape, NULL);
-        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        mspace = H5Screate_simple(ndim(fc), memshape, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count [i] = this->clayout->subsizes[i];
+            offset[i] = this->clayout->starts[i];
+            dims  [i] = this->clayout->sizes[i];
+            memshape [i] = count[i];
+            memoffset[i] = 0;
+        }
+        mspace = H5Screate_simple(ndim(fc), memshape, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+
+    /* open/create data set */
+    if (read)
+        fspace = H5Dget_space(dset_id);
+    else
+    {
+        if (!H5Lexists(file_id, field_name.c_str(), H5P_DEFAULT))
+        {
+            hid_t gid_tmp = H5Gcreate(
+                    file_id, field_name.c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Gclose(gid_tmp);
+        }
+
+        if (!H5Lexists(file_id, (field_name + "/" + representation).c_str(), H5P_DEFAULT))
+        {
+            hid_t gid_tmp = H5Gcreate(
+                    file_id, ("/" + field_name + "/" + representation).c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Gclose(gid_tmp);
+        }
+        if (H5Lexists(file_id, dset_name.c_str(), H5P_DEFAULT))
+        {
+            dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
+            fspace = H5Dget_space(dset_id);
+        }
+        else
+        {
+            fspace = H5Screate_simple(
+                    ndim(fc),
+                    dims,
+                    NULL);
+            /* chunking needs to go in here */
+            dset_id = H5Dcreate(
+                    file_id,
+                    dset_name.c_str(),
+                    (this->real_space_representation ? this->rnumber_H5T : this->cnumber_H5T),
+                    fspace,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT);
+        }
+    }
+    /* both dset_id and fspace should now have sane values */
+
+    /* check file space */
+    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
+    DEBUG_MSG("%s %d %d\n", dset_name.c_str(), ndims_fspace, ndim(fc));
+    assert(ndims_fspace == ndim(fc));
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i] = this->rlayout->starts[i];
+            assert(dims[i] == this->rlayout->sizes[i]);
+        }
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         if (read)
         {
             std::fill_n(this->data, this->rmemlayout->local_size, 0);
@@ -247,13 +318,8 @@ int field<rnumber, be, fc>::io(
         }
         else
         {
+            assert(this->real_space_representation);
             H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            if (!this->real_space_representation)
-                /* in principle we could do an inverse Fourier transform in here,
-                 * however that would be unsafe since we wouldn't know whether we'd need to
-                 * normalize or not.
-                 * */
-                DEBUG_MSG("I just wrote complex field into real space dataset. It's probably nonsense.\n");
         }
         H5Sclose(mspace);
     }
@@ -261,15 +327,10 @@ int field<rnumber, be, fc>::io(
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+dim_counter_offset] = this->clayout->subsizes[i];
-            offset[i+dim_counter_offset] = this->clayout->starts[i];
-            assert(dims[i+dim_counter_offset] == this->clayout->sizes[i]);
-            memshape[i+dim_counter_offset] = count[i+dim_counter_offset];
-            memoffset[i+dim_counter_offset] = 0;
+            offset[i] = this->clayout->starts[i];
+            assert(dims[i] == this->clayout->sizes[i]);
         }
-        mspace = H5Screate_simple(ndims_fspace, memshape, NULL);
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
         {
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
@@ -277,14 +338,200 @@ int field<rnumber, be, fc>::io(
         }
         else
         {
+            assert(!this->real_space_representation);
             H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            if (this->real_space_representation)
-                DEBUG_MSG("I just wrote real space field into complex dataset. It's probably nonsense.\n");
         }
         H5Sclose(mspace);
     }
 
-    H5Tclose(dset_type);
+    H5Sclose(fspace);
+    /* close data set */
+    H5Dclose(dset_id);
+    /* close file */
+    H5Fclose(file_id);
+    return EXIT_SUCCESS;
+}
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+int field<rnumber, be, fc>::io_database(
+        const std::string fname,
+        const std::string field_name,
+        const int toffset,
+        const bool read)
+{
+    /* file dataset is has a time dimension as well */
+    TIMEZONE("field::io_database");
+    hid_t file_id, dset_id, plist_id;
+    std::string representation = std::string(
+            this->real_space_representation ?
+                "real" : "complex");
+    std::string dset_name = (
+            "/" + field_name +
+            "/" + representation);
+
+    /* open/create file */
+    plist_id = H5Pcreate(H5P_FILE_ACCESS);
+    H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
+    bool file_exists = false;
+    {
+        struct stat file_buffer;
+        file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+    }
+    if (read)
+    {
+        assert(file_exists);
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
+    }
+    else
+    {
+        if (file_exists)
+            file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+        else
+            file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
+    }
+    H5Pclose(plist_id);
+
+    /* check what kind of representation is being used */
+    if (read)
+    {
+        dset_id = H5Dopen(
+                file_id,
+                dset_name.c_str(),
+                H5P_DEFAULT);
+        hid_t dset_type = H5Dget_type(dset_id);
+        bool io_for_real = (
+                H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F32) ||
+                H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+                H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F64) ||
+                H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+        H5Tclose(dset_type);
+        assert(this->real_space_representation == io_for_real);
+    }
+
+    /* generic space initialization */
+    hid_t fspace, mspace;
+    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
+    hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
+
+    int dim_counter_offset = 1;
+    dim_counter_offset = 1;
+    count[0] = 1;
+    memshape[0] = 1;
+    memoffset[0] = 0;
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count[i+dim_counter_offset] = this->rlayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->rlayout->starts[i];
+            dims[i+dim_counter_offset] = this->rlayout->sizes[i];
+            memshape[i+dim_counter_offset] = this->rmemlayout->subsizes[i];
+            memoffset[i+dim_counter_offset] = 0;
+        }
+        mspace = H5Screate_simple(dim_counter_offset + ndim(fc), memshape, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count[i+dim_counter_offset] = this->clayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->clayout->starts[i];
+            dims[i+dim_counter_offset] = this->clayout->sizes[i];
+            memshape[i+dim_counter_offset] = count[i+dim_counter_offset];
+            memoffset[i+dim_counter_offset] = 0;
+        }
+        mspace = H5Screate_simple(dim_counter_offset + ndim(fc), memshape, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+
+    /* open/create data set */
+    if (read)
+        fspace = H5Dget_space(dset_id);
+    else
+    {
+        if (!H5Lexists(file_id, field_name.c_str(), H5P_DEFAULT))
+            H5Gcreate(
+                    file_id, field_name.c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        if (H5Lexists(file_id, dset_name.c_str(), H5P_DEFAULT))
+        {
+            dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
+            fspace = H5Dget_space(dset_id);
+        }
+        else
+        {
+            fspace = H5Screate_simple(
+                    ndim(fc),
+                    dims,
+                    NULL);
+            /* chunking needs to go in here */
+            dset_id = H5Dcreate(
+                    file_id,
+                    dset_name.c_str(),
+                    (this->real_space_representation ? this->rnumber_H5T : this->cnumber_H5T),
+                    fspace,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT);
+        }
+    }
+    /* both dset_id and fspace should now have sane values */
+
+    /* check file space */
+    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
+    assert(ndims_fspace == ndim(fc) + 1);
+    offset[0] = toffset;
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i+dim_counter_offset] = this->rlayout->starts[i];
+            assert(dims[i+dim_counter_offset] == this->rlayout->sizes[i]);
+        }
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        if (read)
+        {
+            std::fill_n(this->data, this->rmemlayout->local_size, 0);
+            H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            this->real_space_representation = true;
+        }
+        else
+        {
+            assert(this->real_space_representation);
+            H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+        }
+        H5Sclose(mspace);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i+dim_counter_offset] = this->clayout->starts[i];
+            DEBUG_MSG("i=%d dim_counter_offset=%d dims=%d\n",
+                      i, dim_counter_offset, dims[i+dim_counter_offset]);
+            assert(dims[i+dim_counter_offset] == this->clayout->sizes[i]);
+        }
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        if (read)
+        {
+            H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            this->real_space_representation = false;
+        }
+        else
+        {
+            assert(!this->real_space_representation);
+            H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+        }
+        H5Sclose(mspace);
+    }
+
     H5Sclose(fspace);
     /* close data set */
     H5Dclose(dset_id);
