@@ -101,7 +101,7 @@ class TestField(_fluid_particle_base):
         return None
 
 def main():
-    n = 128
+    n = 32
     kdata = pyfftw.n_byte_align_empty(
             (n, n, n//2 + 1),
             pyfftw.simd_alignment,
@@ -142,35 +142,60 @@ def main():
              '--ncpu', '2'])
 
     f = h5py.File('field.h5', 'r')
-    err0 = np.max(np.abs(f['data_tmp/real/0'].value - rdata)) / np.mean(np.abs(rdata))
-    err1 = np.max(np.abs(f['data/real/0'].value/(n**3) - rdata)) / np.mean(np.abs(rdata))
-    err2 = np.max(np.abs(f['data_tmp/complex/0'].value/(n**3) - cdata)) / np.mean(np.abs(cdata))
-    print(err0, err1, err2)
-    assert(err0 < 1e-5)
-    assert(err1 < 1e-5)
-    assert(err2 < 1e-4)
-    ### compare
-    #fig = plt.figure(figsize=(12, 6))
-    #a = fig.add_subplot(121)
-    #a.set_axis_off()
-    #a.imshow(rdata[0, :, :], interpolation = 'none')
-    #a = fig.add_subplot(122)
-    #a.set_axis_off()
-    #a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
+    #err0 = np.max(np.abs(f['scal_tmp/real/0'].value - rdata)) / np.mean(np.abs(rdata))
+    #err1 = np.max(np.abs(f['scal/real/0'].value/(n**3) - rdata)) / np.mean(np.abs(rdata))
+    #err2 = np.max(np.abs(f['scal_tmp/complex/0'].value/(n**3) - cdata)) / np.mean(np.abs(cdata))
+    #print(err0, err1, err2)
+    #assert(err0 < 1e-5)
+    #assert(err1 < 1e-5)
+    #assert(err2 < 1e-4)
+    ## compare
+    fig = plt.figure(figsize=(18, 6))
+    a = fig.add_subplot(131)
+    a.set_axis_off()
+    v0 = f['vec/complex/0'][:, :, 0, 0]
+    v1 = f['vec_tmp/complex/0'][:, :, 0, 0]
+    a.imshow(np.log(np.abs(v0 - v1)),
+             interpolation = 'none')
+    a = fig.add_subplot(132)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v0)),
+             interpolation = 'none')
+    a = fig.add_subplot(133)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v1)),
+             interpolation = 'none')
+    fig.tight_layout()
+    fig.savefig('tst_fields.pdf')
+    fig = plt.figure(figsize=(18, 6))
+    a = fig.add_subplot(131)
+    a.set_axis_off()
+    v0 = f['scal/complex/0'][:, :, 0]
+    v1 = f['scal_tmp/complex/0'][:, :, 0]
+    a.imshow(np.log(np.abs(v0 - v1)),
+             interpolation = 'none')
+    a = fig.add_subplot(132)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v0)),
+             interpolation = 'none')
+    a = fig.add_subplot(133)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v1)),
+             interpolation = 'none')
+    fig.tight_layout()
+    fig.savefig('tst_sfields.pdf')
+    # look at moments and histogram
+    #print('moments are ', f['moments/scal'][0])
+    #fig = plt.figure(figsize=(6,6))
+    #a = fig.add_subplot(211)
+    #a.plot(f['histograms/scal'][0])
+    #a.set_yscale('log')
+    #a = fig.add_subplot(212)
+    #a.plot(f['spectra/scal'][0])
+    #a.set_xscale('log')
+    #a.set_yscale('log')
     #fig.tight_layout()
     #fig.savefig('tst.pdf')
-    # look at moments and histogram
-    print('moments are ', f['moments/scal'][0])
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(211)
-    a.plot(f['histograms/scal'][0])
-    a.set_yscale('log')
-    a = fig.add_subplot(212)
-    a.plot(f['spectra/scal'][0])
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.tight_layout()
-    fig.savefig('tst.pdf')
     return None
 
 if __name__ == '__main__':

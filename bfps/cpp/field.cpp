@@ -237,8 +237,6 @@ int field<rnumber, be, fc>::io(
             memshape[i] = this->rmemlayout->subsizes[i];
             memoffset[i] = 0;
         }
-        mspace = H5Screate_simple(ndim(fc), memshape, NULL);
-        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
     }
     else
     {
@@ -249,10 +247,12 @@ int field<rnumber, be, fc>::io(
             dims  [i] = this->clayout->sizes[i];
             memshape [i] = count[i];
             memoffset[i] = 0;
+            DEBUG_MSG("%d %d %d %d\n",
+                    count[i], offset[i], dims[i], memshape[i]);
         }
-        mspace = H5Screate_simple(ndim(fc), memshape, NULL);
-        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
     }
+    mspace = H5Screate_simple(ndim(fc), memshape, NULL);
+    H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
 
     /* open/create data set */
     if (read)
@@ -335,7 +335,7 @@ int field<rnumber, be, fc>::io(
             std::fill_n(this->data, this->clayout->local_size*2, 0);
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
             //DEBUG_MSG("%g %g\n", this->cval(2, 0, 0), this->cval(2, 0, 1));
-            this->symmetrize();
+            //this->symmetrize();
             //this->ift();
             //this->dft();
             //this->normalize();
