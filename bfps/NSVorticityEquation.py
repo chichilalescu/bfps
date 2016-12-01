@@ -168,6 +168,9 @@ class NSVorticityEquation(_fluid_particle_base):
         self.stat_src += """
                 //begincpp
                 *tmp_vec_field = fs->cvorticity->get_cdata();
+                DEBUG_MSG("%g %g\\n",
+                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 0),
+                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 1));
                 tmp_vec_field->compute_stats(
                     fs->kk,
                     stat_group,
@@ -232,7 +235,6 @@ class NSVorticityEquation(_fluid_particle_base):
         self.fluid_start += """
                 //begincpp
                 char fname[512];
-                DEBUG_MSG("about to allocate vorticity equation\\n");
                 fs = new vorticity_equation<{0}, FFTW>(
                         simname,
                         nx, ny, nz,
@@ -246,7 +248,6 @@ class NSVorticityEquation(_fluid_particle_base):
                         nx, ny, nz,
                         MPI_COMM_WORLD,
                         {1});
-                DEBUG_MSG("finished allocating stuff\\n");
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -254,7 +255,6 @@ class NSVorticityEquation(_fluid_particle_base):
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
-                DEBUG_MSG("before reading\\n");
                 {{
                     char file_name[512];
                     fs->fill_up_filename("cvorticity", file_name);
@@ -266,7 +266,6 @@ class NSVorticityEquation(_fluid_particle_base):
                         true);
                     fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_rdata(), fs->kk->kM);
                 }}
-                DEBUG_MSG("after reading\\n");
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         self.fluid_start += self.store_kspace

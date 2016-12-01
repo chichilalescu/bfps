@@ -216,6 +216,15 @@ class field
                     break;
             }
         }
+        ptrdiff_t get_cindex(
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex)
+        {
+            return ((yindex*this->clayout->subsizes[1] +
+                     zindex)*this->clayout->subsizes[2] +
+                    xindex);
+        }
 };
 
 template <typename rnumber,

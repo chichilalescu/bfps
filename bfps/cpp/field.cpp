@@ -300,7 +300,7 @@ int field<rnumber, be, fc>::io(
 
     /* check file space */
     int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    DEBUG_MSG("%s %d %d\n", dset_name.c_str(), ndims_fspace, ndim(fc));
+    //DEBUG_MSG("%s %d %d\n", dset_name.c_str(), ndims_fspace, ndim(fc));
     assert(ndims_fspace == ndim(fc));
     if (this->real_space_representation)
     {
@@ -314,7 +314,6 @@ int field<rnumber, be, fc>::io(
         {
             std::fill_n(this->data, this->rmemlayout->local_size, 0);
             H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            this->real_space_representation = true;
         }
         else
         {
@@ -335,8 +334,11 @@ int field<rnumber, be, fc>::io(
         {
             std::fill_n(this->data, this->clayout->local_size*2, 0);
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            this->real_space_representation = false;
+            //DEBUG_MSG("%g %g\n", this->cval(2, 0, 0), this->cval(2, 0, 1));
             this->symmetrize();
+            //this->ift();
+            //this->dft();
+            //this->normalize();
         }
         else
         {
@@ -516,8 +518,8 @@ int field<rnumber, be, fc>::io_database(
         for (unsigned int i=0; i<ndim(fc); i++)
         {
             offset[i+dim_counter_offset] = this->clayout->starts[i];
-            DEBUG_MSG("i=%d dim_counter_offset=%d dims=%d\n",
-                      i, dim_counter_offset, dims[i+dim_counter_offset]);
+            //DEBUG_MSG("i=%d dim_counter_offset=%d dims=%d\n",
+            //          i, dim_counter_offset, dims[i+dim_counter_offset]);
             assert(dims[i+dim_counter_offset] == this->clayout->sizes[i]);
         }
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);

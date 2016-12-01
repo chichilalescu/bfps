@@ -39,11 +39,11 @@ import matplotlib.pyplot as plt
 def main():
     c = bfps.NavierStokes()
     c.launch(
-            ['-n', '72',
+            ['-n', '24',
              '--simname', 'fluid_solver',
-             '--ncpu', '4',
-             '--niter_todo', '16',
-             '--niter_out', '16',
+             '--ncpu', '2',
+             '--niter_todo', '2',
+             '--niter_out', '2',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
@@ -60,11 +60,11 @@ def main():
     f.close()
     c = bfps.NSVorticityEquation()
     c.launch(
-            ['-n', '72',
+            ['-n', '24',
              '--simname', 'vorticity_equation',
-             '--ncpu', '4',
-             '--niter_todo', '16',
-             '--niter_out', '16',
+             '--ncpu', '2',
+             '--niter_todo', '2',
+             '--niter_out', '2',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
@@ -72,10 +72,33 @@ def main():
     c1 = NSReader(simname = 'vorticity_equation')
     df0 = c0.get_data_file()
     df1 = c1.get_data_file()
-    print(df0['statistics/moments/vorticity'][:, 2, 3])
-    print(df1['statistics/moments/vorticity'][:, 2, 3])
-    print(df0['statistics/moments/velocity'][:, 2, 3])
-    print(df1['statistics/moments/velocity'][:, 2, 3])
+    f = plt.figure(figsize=(6,10))
+    a = f.add_subplot(211)
+    a.plot(df0['statistics/moments/vorticity'][:, 2, 3],
+           color = 'blue',
+           marker = '.')
+    a.plot(df1['statistics/moments/vorticity'][:, 2, 3],
+           color = 'red',
+           marker = '.')
+    a = f.add_subplot(212)
+    a.plot(df0['statistics/moments/velocity'][:, 2, 3],
+           color = 'blue',
+           marker = '.')
+    a.plot(df1['statistics/moments/velocity'][:, 2, 3],
+           color = 'red',
+           marker = '.')
+    f.tight_layout()
+    f.savefig('figs/moments.pdf')
+    f = plt.figure(figsize = (6, 10))
+    a = f.add_subplot(111)
+    a.plot(c0.statistics['enstrophy(t, k)'][0])
+    a.plot(c1.statistics['enstrophy(t, k)'][0])
+    a.set_yscale('log')
+    f.tight_layout()
+    f.savefig('figs/spectra.pdf')
+    f = h5py.File('vorticity_equation_cvorticity_i00000.h5', 'r')
+    data = c0.read_cfield()
+    print(np.max(np.abs(f['vorticity/complex/0'].value - data)))
     #print(c0.statistics['enstrophy(t, k)'][0])
     #print(c1.statistics['enstrophy(t, k)'][0])
     #c0.do_plots()
