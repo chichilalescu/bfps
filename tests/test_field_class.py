@@ -40,24 +40,26 @@ class TestField(_fluid_particle_base):
                 kk = new kspace<FFTW, SMOOTH>(
                         f->clayout, 1., 1., 1.);
                 // read rdata
-                f->io("field.h5", "rdata", 0, true);
+                f->real_space_representation = true;
+                f->io("field.h5", "data", 0, true);
                 // go to fourier space, write into cdata_tmp
                 f->dft();
-                f->io("field.h5", "cdata_tmp", 0, false);
+                f->io("field.h5", "data_tmp", 0, false);
                 f->ift();
-                f->io("field.h5", "rdata", 0, false);
-                f->io("field.h5", "cdata", 0, true);
+                f->io("field.h5", "data", 0, false);
+                f->real_space_representation = false;
+                f->io("field.h5", "data", 0, true);
                 hid_t gg;
                 if (f->myrank == 0)
                     gg = H5Fopen("field.h5", H5F_ACC_RDWR, H5P_DEFAULT);
                 kk->cospectrum<float, ONE>(
-                        f->get_rdata(),
-                        f->get_rdata(),
+                        f->get_cdata(),
+                        f->get_cdata(),
                         gg,
                         "scal",
                         0);
                 f->ift();
-                f->io("field.h5", "rdata_tmp", 0, false);
+                f->io("field.h5", "data_tmp", 0, false);
                 std::vector<double> me;
                 me.resize(1);
                 me[0] = 30;
@@ -116,10 +118,8 @@ def main():
     tf.parameters['ny'] = n
     tf.parameters['nz'] = n
     f = h5py.File('field.h5', 'w')
-    f['cdata'] = cdata.reshape((1,) + cdata.shape)
-    f['cdata_tmp'] = np.zeros(shape=(1,) + cdata.shape).astype(cdata.dtype)
-    f['rdata'] = rdata.reshape((1,) + rdata.shape)
-    f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
+    f['data/complex/0'] = cdata
+    f['data/real/0'] = rdata
     f['moments/scal'] = np.zeros(shape = (1, 10)).astype(np.float)
     f['histograms/scal'] = np.zeros(shape = (1, 64)).astype(np.float)
     kspace = tf.get_kspace()
@@ -133,9 +133,9 @@ def main():
              '--ncpu', '2'])
 
     f = h5py.File('field.h5', 'r')
-    err0 = np.max(np.abs(f['rdata_tmp'][0] - rdata)) / np.mean(np.abs(rdata))
-    err1 = np.max(np.abs(f['rdata'][0]/(n**3) - rdata)) / np.mean(np.abs(rdata))
-    err2 = np.max(np.abs(f['cdata_tmp'][0]/(n**3) - cdata)) / np.mean(np.abs(cdata))
+    err0 = np.max(np.abs(f['data_tmp/real/0'].value - rdata)) / np.mean(np.abs(rdata))
+    err1 = np.max(np.abs(f['data/real/0'].value/(n**3) - rdata)) / np.mean(np.abs(rdata))
+    err2 = np.max(np.abs(f['data_tmp/complex/0'].value/(n**3) - cdata)) / np.mean(np.abs(cdata))
     print(err0, err1, err2)
     assert(err0 < 1e-5)
     assert(err1 < 1e-5)
