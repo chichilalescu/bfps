@@ -32,23 +32,26 @@ class TestField(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_includes += '#include "field.hpp"\n'
         self.fluid_variables += ('field<' + self.C_dtype + ', FFTW, ONE> *f;\n' +
+                                 'field<' + self.C_dtype + ', FFTW, THREE> *v;\n' +
                                  'kspace<FFTW, SMOOTH> *kk;\n')
         self.fluid_start += """
                 //begincpp
                 f = new field<{0}, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
+                v = new field<{0}, FFTW, THREE>(
+                        nx, ny, nz, MPI_COMM_WORLD);
                 kk = new kspace<FFTW, SMOOTH>(
                         f->clayout, 1., 1., 1.);
                 // read rdata
                 f->real_space_representation = true;
-                f->io("field.h5", "data", 0, true);
+                f->io("field.h5", "scal", 0, true);
                 // go to fourier space, write into cdata_tmp
                 f->dft();
-                f->io("field.h5", "data_tmp", 0, false);
+                f->io("field.h5", "scal_tmp", 0, false);
                 f->ift();
-                f->io("field.h5", "data", 0, false);
+                f->io("field.h5", "scal", 0, false);
                 f->real_space_representation = false;
-                f->io("field.h5", "data", 0, true);
+                f->io("field.h5", "scal", 0, true);
                 hid_t gg;
                 if (f->myrank == 0)
                     gg = H5Fopen("field.h5", H5F_ACC_RDWR, H5P_DEFAULT);
@@ -59,7 +62,7 @@ class TestField(_fluid_particle_base):
                         "scal",
                         0);
                 f->ift();
-                f->io("field.h5", "data_tmp", 0, false);
+                f->io("field.h5", "scal_tmp", 0, false);
                 std::vector<double> me;
                 me.resize(1);
                 me[0] = 30;
@@ -68,11 +71,15 @@ class TestField(_fluid_particle_base):
                         0, me);
                 if (f->myrank == 0)
                     H5Fclose(gg);
+                v->real_space_representation = false;
+                v->io("field.h5", "vec", 0, true);
+                v->io("field.h5", "vec_tmp", 0, false);
                 //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
                 //begincpp
                 delete f;
+                delete v;
                 //endcpp
                 """
         return None
@@ -118,8 +125,10 @@ def main():
     tf.parameters['ny'] = n
     tf.parameters['nz'] = n
     f = h5py.File('field.h5', 'w')
-    f['data/complex/0'] = cdata
-    f['data/real/0'] = rdata
+    f['scal/complex/0'] = cdata
+    f['scal/real/0'] = rdata
+    f['vec/complex/0'] = np.array([cdata, cdata, cdata]).reshape(cdata.shape + (3,))
+    f['vec/real/0'] = np.array([rdata, rdata, rdata]).reshape(rdata.shape + (3,))
     f['moments/scal'] = np.zeros(shape = (1, 10)).astype(np.float)
     f['histograms/scal'] = np.zeros(shape = (1, 64)).astype(np.float)
     kspace = tf.get_kspace()
