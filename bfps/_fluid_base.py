@@ -266,6 +266,13 @@ class _fluid_particle_base(_code):
         if not postprocess_mode:
             self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
             self.main       += '{\n'
+
+            self.main       += """
+                                #ifdef USE_TIMINGOUTPUT
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(iteration);                                
+                                TIMEZONE(loopLabel.c_str());
+                                #endif
+                                """
             self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
             if self.particle_species > 0:
                 self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
@@ -279,6 +286,12 @@ class _fluid_particle_base(_code):
         else:
             self.main       += 'for (int frame_index = iter0; frame_index <= iter1; frame_index += niter_out)\n'
             self.main       += '{\n'
+            self.main       += """
+                                #ifdef USE_TIMINGOUTPUT
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(frame_index);                                
+                                TIMEZONE(loopLabel.c_str());
+                                #endif
+                                """
             if self.particle_species > 0:
                 self.main   += self.particle_loop
             self.main       += self.fluid_loop

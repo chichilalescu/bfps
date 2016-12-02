@@ -540,6 +540,8 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 }
             }
         });
+
+        TIMEZONE("FIELD_RLOOP::Merge");
         local_moments_threaded.mergeParallel();
         local_hist_threaded.mergeParallel();
     }

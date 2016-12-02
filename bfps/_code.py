@@ -321,6 +321,8 @@ class _code(_base):
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
+        script_file.write('# @ notification = complete\n')
+        script_file.write('# @ notify_user = $(user)@rzg.mpg.de\n')
 
         nb_cpus_per_node = 20
 
@@ -328,6 +330,7 @@ class _code(_base):
             nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
         except :
            nb_process_per_node=nb_cpus_per_node
+        print('nb_cpu = {} '.format(nprocesses))
         print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
         
         nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
@@ -336,9 +339,9 @@ class _code(_base):
             raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
 
         nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
-        number_of_nodes = int((nprocesses+nb_process_per_node-1)/nb_process_per_node)
+        number_of_nodes = int((nprocesses+nb_cpus_per_node-1)/nb_cpus_per_node)
 
-        first_node_tasks = nprocesses - (number_of_nodes-1)*nb_process_per_node
+        first_node_tasks = int((nprocesses - (number_of_nodes-1)*nb_cpus_per_node)/nb_cpus_per_task)
 
         script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
         script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
@@ -349,10 +352,15 @@ class _code(_base):
         if (first_node_tasks > 0):
             script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
         script_file.write('# @ queue\n')
+
+
+        script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_cpus_per_task))
+
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('cd ' + self.work_dir + '\n')
 #        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('poe ' +
@@ -425,6 +433,7 @@ class _code(_base):
                           '\n')
         script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
 #        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
         script_file.write('poe ' +

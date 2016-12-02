@@ -38,6 +38,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <fstream>
+#include <iomanip>
 #include "base.hpp"
 #include "bfps_timer.hpp"
 
@@ -503,7 +504,13 @@ public:
                                  << eventToShow.second->getOccurrence();
                 }
                 myResults << "\">" << eventToShow.second->getName();
-                myResults << " (" << 100*eventToShow.second->getDuration()/totalDuration << "% -- " ;
+                const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
+                if( percentage < 0.001 ){
+                    myResults << " (< 0.001% -- " ;
+                }
+                else{
+                    myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
+                }
                 myResults << eventToShow.second->getDuration() <<"s)</span></label>\n";
                 myResults << "<ul>\n";
                 events.push({-1, std::shared_ptr<CoreEvent>()});
