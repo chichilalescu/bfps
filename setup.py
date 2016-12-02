@@ -88,7 +88,10 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['field',
+src_file_list = ['vorticity_equation',
+                 'field',
+                 'kspace',
+                 'field_layout',
                  'field_descriptor',
                  'rFFTW_distributed_particles',
                  'distributed_particles',

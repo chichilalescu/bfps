@@ -47,13 +47,13 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_distributed_particles(
         const char *NAME,
         const hid_t data_file_id,
-        rFFTW_interpolator<rnumber, interp_neighbours> *FIELD,
+        rFFTW_interpolator<rnumber, interp_neighbours> *VEL,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
             TRAJ_SKIP,
             data_file_id,
-            FIELD->descriptor->comm)
+            VEL->descriptor->comm)
 {
     TIMEZONE("rFFTW_distributed_particles::rFFTW_distributed_particles");
     /* check that integration_steps has a valid value.
@@ -69,16 +69,16 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
      * therefore I prefer to just kill the code at this point,
      * no matter whether or not NDEBUG is present.
      * */
-    if (interp_neighbours*2+2 > FIELD->descriptor->subsizes[0])
+    if (interp_neighbours*2+2 > VEL->descriptor->subsizes[0])
     {
         DEBUG_MSG("parameters incompatible with rFFTW_distributed_particles.\n"
                   "interp kernel size is %d, local_z_size is %d\n",
-                  interp_neighbours*2+2, FIELD->descriptor->subsizes[0]);
-        if (FIELD->descriptor->myrank == 0)
+                  interp_neighbours*2+2, VEL->descriptor->subsizes[0]);
+        if (VEL->descriptor->myrank == 0)
             std::cerr << "parameters incompatible with rFFTW_distributed_particles." << std::endl;
         exit(0);
     }
-    this->vel = FIELD;
+    this->vel = VEL;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
     this->state.reserve(2*this->nparticles / this->nprocs);
