@@ -155,7 +155,7 @@ template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
-void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
+void kspace<be, dt>::low_pass(typename fftw_interface<rnumber>::complex *__restrict__ a, const double kmax)
 {
     const double km2 = kmax*kmax;
     this->CLOOP_K2(
@@ -165,7 +165,7 @@ void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
                 ptrdiff_t zindex,
                 double k2){
             if (k2 >= km2)
-                std::fill_n(a + 2*ncomp(fc)*cindex, 2*ncomp(fc), 0);
+                std::fill_n((rnumber*)(a + ncomp(fc)*cindex), 2*ncomp(fc), 0);
                 });
 }
 
@@ -178,7 +178,7 @@ void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restri
     switch(dt)
     {
         case TWO_THIRDS:
-            this->low_pass<rnumber, fc>((rnumber*)a, this->kM);
+            this->low_pass<rnumber, fc>(a, this->kM);
             break;
         case SMOOTH:
             this->CLOOP_K2(
@@ -325,23 +325,23 @@ template kspace<FFTW, SMOOTH>::kspace<>(
         const double, const double, const double);
 
 template void kspace<FFTW, SMOOTH>::low_pass<float, ONE>(
-        float *__restrict__ a,
+        typename fftw_interface<float>::complex *__restrict__ a,
         const double kmax);
 template void kspace<FFTW, SMOOTH>::low_pass<float, THREE>(
-        float *__restrict__ a,
+        typename fftw_interface<float>::complex *__restrict__ a,
         const double kmax);
 template void kspace<FFTW, SMOOTH>::low_pass<float, THREExTHREE>(
-        float *__restrict__ a,
+        typename fftw_interface<float>::complex *__restrict__ a,
         const double kmax);
 
 template void kspace<FFTW, SMOOTH>::low_pass<double, ONE>(
-        double *__restrict__ a,
+        typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
 template void kspace<FFTW, SMOOTH>::low_pass<double, THREE>(
-        double *__restrict__ a,
+        typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
 template void kspace<FFTW, SMOOTH>::low_pass<double, THREExTHREE>(
-        double *__restrict__ a,
+        typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
 
 template void kspace<FFTW, SMOOTH>::dealias<float, ONE>(

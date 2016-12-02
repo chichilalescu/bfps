@@ -69,7 +69,9 @@ class kspace
 
         template <typename rnumber,
                   field_components fc>
-        void low_pass(rnumber *__restrict__ a, const double kmax);
+        void low_pass(
+                typename fftw_interface<rnumber>::complex *__restrict__ a,
+                const double kmax);
 
         template <typename rnumber,
                   field_components fc>
