@@ -39,32 +39,25 @@ import matplotlib.pyplot as plt
 def main():
     c = bfps.NavierStokes()
     c.launch(
-            ['-n', '24',
+            ['-n', '72',
              '--simname', 'fluid_solver',
-             '--ncpu', '2',
-             '--niter_todo', '2',
-             '--niter_out', '2',
+             '--ncpu', '4',
+             '--niter_todo', '256',
+             '--niter_out', '256',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
     data = c.read_cfield(iteration = 0)
-    f = plt.figure(figsize = (6,6))
-    a = f.add_axes([.0, .0, 1., 1.])
-    a.set_axis_off()
-    a.imshow(np.log(np.abs(data[:, :, 0, 0])),
-             cmap = 'viridis',
-             interpolation = 'none')
-    f.savefig('figs/cut.pdf')
     f = h5py.File('vorticity_equation_cvorticity_i00000.h5', 'w')
     f['vorticity/complex/0'] = data
     f.close()
     c = bfps.NSVorticityEquation()
     c.launch(
-            ['-n', '24',
+            ['-n', '72',
              '--simname', 'vorticity_equation',
-             '--ncpu', '2',
-             '--niter_todo', '2',
-             '--niter_out', '2',
+             '--ncpu', '4',
+             '--niter_todo', '256',
+             '--niter_out', '256',
              '--niter_stat', '1',
              '--wd', './'] +
             sys.argv[1:])
@@ -97,12 +90,10 @@ def main():
     f.tight_layout()
     f.savefig('figs/spectra.pdf')
     f = h5py.File('vorticity_equation_cvorticity_i00000.h5', 'r')
-    data = c0.read_cfield()
-    print(np.max(np.abs(f['vorticity/complex/0'].value - data)))
     #print(c0.statistics['enstrophy(t, k)'][0])
     #print(c1.statistics['enstrophy(t, k)'][0])
-    #c0.do_plots()
-    #c1.do_plots()
+    c0.do_plots()
+    c1.do_plots()
     return None
 
 if __name__ == '__main__':

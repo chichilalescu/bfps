@@ -265,6 +265,7 @@ class NSVorticityEquation(_fluid_particle_base):
                         fs->iteration,
                         true);
                     fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_rdata(), fs->kk->kM);
+                    fs->kk->template force_divfree<{0}>(fs->cvorticity->get_cdata());
                 }}
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
