@@ -196,9 +196,6 @@ class NavierStokes(_fluid_particle_base):
         self.stat_src += """
                 //begincpp
                 *tmp_vec_field = fs->cvorticity;
-                DEBUG_MSG("%g %g\\n",
-                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 0),
-                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 1));
                 switch(fs->dealias_type)
                 {
                     case 0:
