@@ -23,6 +23,7 @@
 **********************************************************************/
 
 
+#include <sys/stat.h>
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
@@ -31,83 +32,7 @@
 #include "scope_timer.hpp"
 #include "shared_array.hpp"
 
-template <field_components fc>
-field_layout<fc>::field_layout(
-        const hsize_t *SIZES,
-        const hsize_t *SUBSIZES,
-        const hsize_t *STARTS,
-        const MPI_Comm COMM_TO_USE)
-{
-    TIMEZONE("field_layout::field_layout");
-    this->comm = COMM_TO_USE;
-    MPI_Comm_rank(this->comm, &this->myrank);
-    MPI_Comm_size(this->comm, &this->nprocs);
 
-    std::copy(SIZES, SIZES + 3, this->sizes);
-    std::copy(SUBSIZES, SUBSIZES + 3, this->subsizes);
-    std::copy(STARTS, STARTS + 3, this->starts);
-    if (fc == THREE || fc == THREExTHREE)
-    {
-        this->sizes[3] = 3;
-        this->subsizes[3] = 3;
-        this->starts[3] = 0;
-    }
-    if (fc == THREExTHREE)
-    {
-        this->sizes[4] = 3;
-        this->subsizes[4] = 3;
-        this->starts[4] = 0;
-    }
-    this->local_size = 1;
-    this->full_size = 1;
-    for (unsigned int i=0; i<ndim(fc); i++)
-    {
-        this->local_size *= this->subsizes[i];
-        this->full_size *= this->sizes[i];
-    }
-
-    /*field will at most be distributed in 2D*/
-    this->rank.resize(2);
-    this->all_start.resize(2);
-    this->all_size.resize(2);
-    for (int i=0; i<2; i++)
-    {
-        this->rank[i].resize(this->sizes[i]);
-        std::vector<int> local_rank;
-        local_rank.resize(this->sizes[i], 0);
-        for (unsigned int ii=this->starts[i]; ii<this->starts[i]+this->subsizes[i]; ii++)
-            local_rank[ii] = this->myrank;
-        MPI_Allreduce(
-                &local_rank.front(),
-                &this->rank[i].front(),
-                this->sizes[i],
-                MPI_INT,
-                MPI_SUM,
-                this->comm);
-        this->all_start[i].resize(this->nprocs);
-        std::vector<int> local_start;
-        local_start.resize(this->nprocs, 0);
-        local_start[this->myrank] = this->starts[i];
-        MPI_Allreduce(
-                &local_start.front(),
-                &this->all_start[i].front(),
-                this->nprocs,
-                MPI_INT,
-                MPI_SUM,
-                this->comm);
-        this->all_size[i].resize(this->nprocs);
-        std::vector<int> local_subsize;
-        local_subsize.resize(this->nprocs, 0);
-        local_subsize[this->myrank] = this->subsizes[i];
-        MPI_Allreduce(
-                &local_subsize.front(),
-                &this->all_size[i].front(),
-                this->nprocs,
-                MPI_INT,
-                MPI_SUM,
-                this->comm);
-    }
-}
 
 template <typename rnumber,
           field_backend be,
@@ -169,47 +94,27 @@ field<rnumber, be, fc>::field(
             starts[0] = local_0_start; starts[1] = 0; starts[2] = 0;
             this->rmemlayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
-            sizes[0] = nz; sizes[1] = ny; sizes[2] = nx/2+1;
-            subsizes[0] = local_n1; subsizes[1] = ny; subsizes[2] = nx/2+1;
+            sizes[0] = ny; sizes[1] = nz; sizes[2] = nx/2+1;
+            subsizes[0] = local_n1; subsizes[1] = nz; subsizes[2] = nx/2+1;
             starts[0] = local_1_start; starts[1] = 0; starts[2] = 0;
             this->clayout = new field_layout<fc>(
                     sizes, subsizes, starts, this->comm);
-            this->data = (rnumber*)fftw_malloc(
-                    sizeof(rnumber)*this->rmemlayout->local_size);
-            if(typeid(rnumber) == typeid(float))
-            {
-                this->c2r_plan = new fftwf_plan;
-                this->r2c_plan = new fftwf_plan;
-                *((fftwf_plan*)this->c2r_plan) = fftwf_mpi_plan_many_dft_c2r(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (fftwf_complex*)this->data, (float*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                *((fftwf_plan*)this->r2c_plan) = fftwf_mpi_plan_many_dft_r2c(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (float*)this->data, (fftwf_complex*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-            }
-            if (typeid(rnumber) == typeid(double))
-            {
-                this->c2r_plan = new fftw_plan;
-                this->r2c_plan = new fftw_plan;
-                *((fftw_plan*)this->c2r_plan) = fftw_mpi_plan_many_dft_c2r(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (fftw_complex*)this->data, (double*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
-                *((fftw_plan*)this->r2c_plan) = fftw_mpi_plan_many_dft_r2c(
-                        3, nfftw, ncomp(fc),
-                        FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
-                        (double*)this->data, (fftw_complex*)this->data,
-                        this->comm,
-                        this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
-            }
+            this->data = fftw_interface<rnumber>::alloc_real(
+                    this->rmemlayout->local_size);
+            this->c2r_plan = fftw_interface<rnumber>::mpi_plan_many_dft_c2r(
+                    3, nfftw, ncomp(fc),
+                    FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                    (typename fftw_interface<rnumber>::complex*)this->data,
+                    this->data,
+                    this->comm,
+                    this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_IN);
+            this->r2c_plan = fftw_interface<rnumber>::mpi_plan_many_dft_r2c(
+                    3, nfftw, ncomp(fc),
+                    FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,
+                    this->data,
+                    (typename fftw_interface<rnumber>::complex*)this->data,
+                    this->comm,
+                    this->fftw_plan_rigor | FFTW_MPI_TRANSPOSED_OUT);
             break;
     }
 }
@@ -228,21 +133,9 @@ field<rnumber, be, fc>::~field()
             delete this->rlayout;
             delete this->rmemlayout;
             delete this->clayout;
-            fftw_free(this->data);
-            if (typeid(rnumber) == typeid(float))
-            {
-                fftwf_destroy_plan(*(fftwf_plan*)this->c2r_plan);
-                delete (fftwf_plan*)this->c2r_plan;
-                fftwf_destroy_plan(*(fftwf_plan*)this->r2c_plan);
-                delete (fftwf_plan*)this->r2c_plan;
-            }
-            else if (typeid(rnumber) == typeid(double))
-            {
-                fftw_destroy_plan(*(fftw_plan*)this->c2r_plan);
-                delete (fftw_plan*)this->c2r_plan;
-                fftw_destroy_plan(*(fftw_plan*)this->r2c_plan);
-                delete (fftw_plan*)this->r2c_plan;
-            }
+            fftw_interface<rnumber>::free(this->data);
+            fftw_interface<rnumber>::destroy_plan(this->c2r_plan);
+            fftw_interface<rnumber>::destroy_plan(this->r2c_plan);
             break;
     }
 }
@@ -253,10 +146,7 @@ template <typename rnumber,
 void field<rnumber, be, fc>::ift()
 {
     TIMEZONE("field::ift");
-    if (typeid(rnumber) == typeid(float))
-        fftwf_execute(*((fftwf_plan*)this->c2r_plan));
-    else if (typeid(rnumber) == typeid(double))
-        fftw_execute(*((fftw_plan*)this->c2r_plan));
+    fftw_interface<rnumber>::execute(this->c2r_plan);
     this->real_space_representation = true;
 }
 
@@ -265,10 +155,8 @@ template <typename rnumber,
           field_components fc>
 void field<rnumber, be, fc>::dft()
 {
-    if (typeid(rnumber) == typeid(float))
-        fftwf_execute(*((fftwf_plan*)this->r2c_plan));
-    else if (typeid(rnumber) == typeid(double))
-        fftw_execute(*((fftw_plan*)this->r2c_plan));
+    TIMEZONE("field::dft");
+    fftw_interface<rnumber>::execute(this->r2c_plan);
     this->real_space_representation = false;
 }
 
@@ -277,60 +165,335 @@ template <typename rnumber,
           field_components fc>
 int field<rnumber, be, fc>::io(
         const std::string fname,
-        const std::string dset_name,
-        const int toffset,
+        const std::string field_name,
+        const int iteration,
         const bool read)
 {
+    /* file dataset has same dimensions as field */
     TIMEZONE("field::io");
     hid_t file_id, dset_id, plist_id;
-    hid_t dset_type;
-    bool io_for_real = false;
+    std::string representation = std::string(
+            this->real_space_representation ?
+                "real" : "complex");
+    std::string dset_name = (
+            "/" + field_name +
+            "/" + representation +
+            "/" + std::to_string(iteration));
 
-    /* open file */
+    /* open/create file */
     plist_id = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
+    bool file_exists = false;
+    {
+        struct stat file_buffer;
+        file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+    }
     if (read)
+    {
+        assert(file_exists);
         file_id = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
+    }
     else
-        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+    {
+        if (file_exists)
+            file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+        else
+            file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
+    }
     H5Pclose(plist_id);
 
-    /* open data set */
-    dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
-    dset_type = H5Dget_type(dset_id);
-    io_for_real = (
-            H5Tequal(dset_type, H5T_IEEE_F32BE) ||
-            H5Tequal(dset_type, H5T_IEEE_F32LE) ||
-            H5Tequal(dset_type, H5T_INTEL_F32) ||
-            H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
-            H5Tequal(dset_type, H5T_IEEE_F64BE) ||
-            H5Tequal(dset_type, H5T_IEEE_F64LE) ||
-            H5Tequal(dset_type, H5T_INTEL_F64) ||
-            H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+    /* check what kind of representation is being used */
+    if (read)
+    {
+        dset_id = H5Dopen(
+                file_id,
+                dset_name.c_str(),
+                H5P_DEFAULT);
+        hid_t dset_type = H5Dget_type(dset_id);
+        bool io_for_real = (
+                H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F32) ||
+                H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+                H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F64) ||
+                H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+        H5Tclose(dset_type);
+        assert(this->real_space_representation == io_for_real);
+    }
 
     /* generic space initialization */
     hid_t fspace, mspace;
-    fspace = H5Dget_space(dset_id);
-    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
-    hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
-    H5Sget_simple_extent_dims(fspace, dims, NULL);
-    count[0] = 1;
-    offset[0] = toffset;
-    memshape[0] = 1;
-    memoffset[0] = 0;
-    if (io_for_real)
+    hsize_t count[ndim(fc)], offset[ndim(fc)], dims[ndim(fc)];
+    hsize_t memoffset[ndim(fc)], memshape[ndim(fc)];
+
+    if (this->real_space_representation)
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+1] = this->rlayout->subsizes[i];
-            offset[i+1] = this->rlayout->starts[i];
-            assert(dims[i+1] == this->rlayout->sizes[i]);
-            memshape[i+1] = this->rmemlayout->subsizes[i];
-            memoffset[i+1] = 0;
+            count[i] = this->rlayout->subsizes[i];
+            offset[i] = this->rlayout->starts[i];
+            dims[i] = this->rlayout->sizes[i];
+            memshape[i] = this->rmemlayout->subsizes[i];
+            memoffset[i] = 0;
         }
-        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count [i] = this->clayout->subsizes[i];
+            offset[i] = this->clayout->starts[i];
+            dims  [i] = this->clayout->sizes[i];
+            memshape [i] = count[i];
+            memoffset[i] = 0;
+        }
+    }
+    mspace = H5Screate_simple(ndim(fc), memshape, NULL);
+    H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+
+    /* open/create data set */
+    if (read)
+        fspace = H5Dget_space(dset_id);
+    else
+    {
+        if (!H5Lexists(file_id, field_name.c_str(), H5P_DEFAULT))
+        {
+            hid_t gid_tmp = H5Gcreate(
+                    file_id, field_name.c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Gclose(gid_tmp);
+        }
+
+        if (!H5Lexists(file_id, (field_name + "/" + representation).c_str(), H5P_DEFAULT))
+        {
+            hid_t gid_tmp = H5Gcreate(
+                    file_id, ("/" + field_name + "/" + representation).c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            H5Gclose(gid_tmp);
+        }
+        if (H5Lexists(file_id, dset_name.c_str(), H5P_DEFAULT))
+        {
+            dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
+            fspace = H5Dget_space(dset_id);
+        }
+        else
+        {
+            fspace = H5Screate_simple(
+                    ndim(fc),
+                    dims,
+                    NULL);
+            /* chunking needs to go in here */
+            dset_id = H5Dcreate(
+                    file_id,
+                    dset_name.c_str(),
+                    (this->real_space_representation ? this->rnumber_H5T : this->cnumber_H5T),
+                    fspace,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT);
+        }
+    }
+    /* both dset_id and fspace should now have sane values */
+
+    /* check file space */
+    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
+    assert(ndims_fspace == ndim(fc));
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i] = this->rlayout->starts[i];
+            assert(dims[i] == this->rlayout->sizes[i]);
+        }
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        if (read)
+        {
+            std::fill_n(this->data, this->rmemlayout->local_size, 0);
+            H5Dread(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+        }
+        else
+        {
+            assert(this->real_space_representation);
+            H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+        }
+        H5Sclose(mspace);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i] = this->clayout->starts[i];
+            assert(dims[i] == this->clayout->sizes[i]);
+        }
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        if (read)
+        {
+            std::fill_n(this->data, this->clayout->local_size*2, 0);
+            H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+            this->symmetrize();
+        }
+        else
+        {
+            assert(!this->real_space_representation);
+            H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
+        }
+        H5Sclose(mspace);
+    }
+
+    H5Sclose(fspace);
+    /* close data set */
+    H5Dclose(dset_id);
+    /* close file */
+    H5Fclose(file_id);
+    return EXIT_SUCCESS;
+}
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+int field<rnumber, be, fc>::io_database(
+        const std::string fname,
+        const std::string field_name,
+        const int toffset,
+        const bool read)
+{
+    /* file dataset is has a time dimension as well */
+    TIMEZONE("field::io_database");
+    hid_t file_id, dset_id, plist_id;
+    std::string representation = std::string(
+            this->real_space_representation ?
+                "real" : "complex");
+    std::string dset_name = (
+            "/" + field_name +
+            "/" + representation);
+
+    /* open/create file */
+    plist_id = H5Pcreate(H5P_FILE_ACCESS);
+    H5Pset_fapl_mpio(plist_id, this->comm, MPI_INFO_NULL);
+    bool file_exists = false;
+    {
+        struct stat file_buffer;
+        file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+    }
+    if (read)
+    {
+        assert(file_exists);
+        file_id = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
+    }
+    else
+    {
+        if (file_exists)
+            file_id = H5Fopen(fname.c_str(), H5F_ACC_RDWR, plist_id);
+        else
+            file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
+    }
+    H5Pclose(plist_id);
+
+    /* check what kind of representation is being used */
+    if (read)
+    {
+        dset_id = H5Dopen(
+                file_id,
+                dset_name.c_str(),
+                H5P_DEFAULT);
+        hid_t dset_type = H5Dget_type(dset_id);
+        bool io_for_real = (
+                H5Tequal(dset_type, H5T_IEEE_F32BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F32LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F32) ||
+                H5Tequal(dset_type, H5T_NATIVE_FLOAT) ||
+                H5Tequal(dset_type, H5T_IEEE_F64BE) ||
+                H5Tequal(dset_type, H5T_IEEE_F64LE) ||
+                H5Tequal(dset_type, H5T_INTEL_F64) ||
+                H5Tequal(dset_type, H5T_NATIVE_DOUBLE));
+        H5Tclose(dset_type);
+        assert(this->real_space_representation == io_for_real);
+    }
+
+    /* generic space initialization */
+    hid_t fspace, mspace;
+    hsize_t count[ndim(fc)+1], offset[ndim(fc)+1], dims[ndim(fc)+1];
+    hsize_t memoffset[ndim(fc)+1], memshape[ndim(fc)+1];
+
+    int dim_counter_offset = 1;
+    dim_counter_offset = 1;
+    count[0] = 1;
+    memshape[0] = 1;
+    memoffset[0] = 0;
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count[i+dim_counter_offset] = this->rlayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->rlayout->starts[i];
+            dims[i+dim_counter_offset] = this->rlayout->sizes[i];
+            memshape[i+dim_counter_offset] = this->rmemlayout->subsizes[i];
+            memoffset[i+dim_counter_offset] = 0;
+        }
+        mspace = H5Screate_simple(dim_counter_offset + ndim(fc), memshape, NULL);
         H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+    else
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            count[i+dim_counter_offset] = this->clayout->subsizes[i];
+            offset[i+dim_counter_offset] = this->clayout->starts[i];
+            dims[i+dim_counter_offset] = this->clayout->sizes[i];
+            memshape[i+dim_counter_offset] = count[i+dim_counter_offset];
+            memoffset[i+dim_counter_offset] = 0;
+        }
+        mspace = H5Screate_simple(dim_counter_offset + ndim(fc), memshape, NULL);
+        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
+    }
+
+    /* open/create data set */
+    if (read)
+        fspace = H5Dget_space(dset_id);
+    else
+    {
+        if (!H5Lexists(file_id, field_name.c_str(), H5P_DEFAULT))
+            H5Gcreate(
+                    file_id, field_name.c_str(),
+                    H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        if (H5Lexists(file_id, dset_name.c_str(), H5P_DEFAULT))
+        {
+            dset_id = H5Dopen(file_id, dset_name.c_str(), H5P_DEFAULT);
+            fspace = H5Dget_space(dset_id);
+        }
+        else
+        {
+            fspace = H5Screate_simple(
+                    ndim(fc),
+                    dims,
+                    NULL);
+            /* chunking needs to go in here */
+            dset_id = H5Dcreate(
+                    file_id,
+                    dset_name.c_str(),
+                    (this->real_space_representation ? this->rnumber_H5T : this->cnumber_H5T),
+                    fspace,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT,
+                    H5P_DEFAULT);
+        }
+    }
+    /* both dset_id and fspace should now have sane values */
+
+    /* check file space */
+    int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
+    assert(ndims_fspace == ndim(fc) + 1);
+    offset[0] = toffset;
+    if (this->real_space_representation)
+    {
+        for (unsigned int i=0; i<ndim(fc); i++)
+        {
+            offset[i+dim_counter_offset] = this->rlayout->starts[i];
+            assert(dims[i+dim_counter_offset] == this->rlayout->sizes[i]);
+        }
+        H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
         if (read)
         {
             std::fill_n(this->data, this->rmemlayout->local_size, 0);
@@ -339,13 +502,8 @@ int field<rnumber, be, fc>::io(
         }
         else
         {
+            assert(this->real_space_representation);
             H5Dwrite(dset_id, this->rnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            if (!this->real_space_representation)
-                /* in principle we could do an inverse Fourier transform in here,
-                 * however that would be unsafe since we wouldn't know whether we'd need to
-                 * normalize or not.
-                 * */
-                DEBUG_MSG("I just wrote complex field into real space dataset. It's probably nonsense.\n");
         }
         H5Sclose(mspace);
     }
@@ -353,30 +511,24 @@ int field<rnumber, be, fc>::io(
     {
         for (unsigned int i=0; i<ndim(fc); i++)
         {
-            count[i+1] = this->clayout->subsizes[i];
-            offset[i+1] = this->clayout->starts[i];
-            assert(dims[i+1] == this->clayout->sizes[i]);
-            memshape[i+1] = count[i+1];
-            memoffset[i+1] = 0;
+            offset[i+dim_counter_offset] = this->clayout->starts[i];
+            assert(dims[i+dim_counter_offset] == this->clayout->sizes[i]);
         }
-        mspace = H5Screate_simple(ndim(fc)+1, memshape, NULL);
         H5Sselect_hyperslab(fspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Sselect_hyperslab(mspace, H5S_SELECT_SET, memoffset, NULL, count, NULL);
         if (read)
         {
             H5Dread(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
             this->real_space_representation = false;
+            this->symmetrize();
         }
         else
         {
+            assert(!this->real_space_representation);
             H5Dwrite(dset_id, this->cnumber_H5T, mspace, fspace, H5P_DEFAULT, this->data);
-            if (this->real_space_representation)
-                DEBUG_MSG("I just wrote real space field into complex dataset. It's probably nonsense.\n");
         }
         H5Sclose(mspace);
     }
 
-    H5Tclose(dset_type);
     H5Sclose(fspace);
     /* close data set */
     H5Dclose(dset_id);
@@ -405,8 +557,11 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
             this->rlayout->sizes[0],
             this->rlayout->comm);
     tmp_field->real_space_representation = true;
-    FIELD_RLOOP<be>(
-            this,[&](hsize_t zindex, hsize_t yindex, ptrdiff_t rindex, hsize_t xindex){
+    this->RLOOP(
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
             hsize_t rrindex = (xindex + xcells)%this->rlayout->sizes[2] + (
                 zindex * this->rlayout->subsizes[1] + yindex)*(
                     this->rmemlayout->subsizes[2]);
@@ -414,7 +569,7 @@ void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
                 tmp_field->data[rindex*ncomp(fc) + component] =
                     this->data[rrindex*ncomp(fc) + component] -
                     this->data[rindex*ncomp(fc) + component];
-    });
+                    });
     tmp_field->compute_rspace_stats(
             group,
             dset_name,
@@ -499,9 +654,9 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     });
 
     {
-        TIMEZONE("FIELD_RLOOP");
-        FIELD_RLOOP<be>(
-            this,[&](hsize_t /*zindex*/, hsize_t /*yindex*/, ptrdiff_t rindex, hsize_t /*xindex*/){
+        TIMEZONE("field::RLOOP");
+        this->RLOOP(
+            [&](hsize_t /*zindex*/, hsize_t /*yindex*/, ptrdiff_t rindex, hsize_t /*xindex*/){
             double *local_moments = local_moments_threaded.getMine();
             double *val_tmp = val_tmp_threaded.getMine();
             ptrdiff_t *local_hist = local_hist_threaded.getMine();
@@ -631,6 +786,86 @@ void field<rnumber, be, fc>::normalize()
 template <typename rnumber,
           field_backend be,
           field_components fc>
+void field<rnumber, be, fc>::symmetrize()
+{
+    TIMEZONE("field::symmetrize");
+    assert(!this->real_space_representation);
+    ptrdiff_t ii, cc;
+    typename fftw_interface<rnumber>::complex *data = this->get_cdata();
+    MPI_Status *mpistatus = new MPI_Status;
+    if (this->myrank == this->clayout->rank[0][0])
+    {
+        for (cc = 0; cc < ncomp(fc); cc++)
+            data[cc][1] = 0.0;
+        for (ii = 1; ii < this->clayout->sizes[1]/2; ii++)
+            for (cc = 0; cc < ncomp(fc); cc++) {
+                ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[0] =
+                 (*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[0];
+                ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[1] =
+                -(*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[1];
+            }
+    }
+    typename fftw_interface<rnumber>::complex *buffer;
+    buffer = fftw_interface<rnumber>::alloc_complex(ncomp(fc)*this->clayout->sizes[1]);
+    ptrdiff_t yy;
+    /*ptrdiff_t tindex;*/
+    int ranksrc, rankdst;
+    for (yy = 1; yy < this->clayout->sizes[0]/2; yy++) {
+        ranksrc = this->clayout->rank[0][yy];
+        rankdst = this->clayout->rank[0][this->clayout->sizes[0] - yy];
+        if (this->clayout->myrank == ranksrc)
+            for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+                for (cc = 0; cc < ncomp(fc); cc++)
+                    for (int imag_comp=0; imag_comp<2; imag_comp++)
+                        (*(buffer + ncomp(fc)*ii+cc))[imag_comp] =
+                            (*(data + ncomp(fc)*((yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[imag_comp];
+        if (ranksrc != rankdst)
+        {
+            if (this->clayout->myrank == ranksrc)
+                MPI_Send((void*)buffer,
+                         ncomp(fc)*this->clayout->sizes[1], mpi_real_type<rnumber>::complex(), rankdst, yy,
+                        this->clayout->comm);
+            if (this->clayout->myrank == rankdst)
+                MPI_Recv((void*)buffer,
+                         ncomp(fc)*this->clayout->sizes[1], mpi_real_type<rnumber>::complex(), ranksrc, yy,
+                        this->clayout->comm, mpistatus);
+        }
+        if (this->clayout->myrank == rankdst)
+        {
+            for (ii = 1; ii < this->clayout->sizes[1]; ii++)
+                for (cc = 0; cc < ncomp(fc); cc++)
+                {
+                    (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[0] =
+                            (*(buffer + ncomp(fc)*(this->clayout->sizes[1]-ii)+cc))[0];
+                    (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[1] =
+                            -(*(buffer + ncomp(fc)*(this->clayout->sizes[1]-ii)+cc))[1];
+                }
+            for (cc = 0; cc < ncomp(fc); cc++)
+            {
+                (*((data + cc + ncomp(fc)*(this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2])))[0] =  (*(buffer + cc))[0];
+                (*((data + cc + ncomp(fc)*(this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2])))[1] = -(*(buffer + cc))[1];
+            }
+        }
+    }
+    fftw_interface<rnumber>::free(buffer);
+    delete mpistatus;
+    /* put asymmetric data to 0 */
+    /*if (this->clayout->myrank == this->clayout->rank[0][this->clayout->sizes[0]/2])
+    {
+        tindex = ncomp(fc)*(this->clayout->sizes[0]/2 - this->clayout->starts[0])*this->clayout->sizes[1]*this->clayout->sizes[2];
+        for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+        {
+            std::fill_n((rnumber*)(data + tindex), ncomp(fc)*2*this->clayout->sizes[2], 0.0);
+            tindex += ncomp(fc)*this->clayout->sizes[2];
+        }
+    }
+    tindex = ncomp(fc)*();
+    std::fill_n((rnumber*)(data + tindex), ncomp(fc)*2, 0.0);*/
+}
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
 template <kspace_dealias_type dt>
 void field<rnumber, be, fc>::compute_stats(
         kspace<be, dt> *kk,
@@ -673,8 +908,8 @@ void field<rnumber, be, fc>::compute_stats(
     // what follows gave me a headache until I found this link:
     // http://stackoverflow.com/questions/8256636/expected-primary-expression-error-on-template-method-using
     kk->template cospectrum<rnumber, fc>(
-            (cnumber*)this->data,
-            (cnumber*)this->data,
+            (typename fftw_interface<rnumber>::complex*)this->data,
+            (typename fftw_interface<rnumber>::complex*)this->data,
             group,
             dset_name + "_" + dset_name,
             toffset);
@@ -690,253 +925,6 @@ void field<rnumber, be, fc>::compute_stats(
     }
 }
 
-template <field_backend be,
-          kspace_dealias_type dt>
-template <field_components fc>
-kspace<be, dt>::kspace(
-        const field_layout<fc> *source_layout,
-        const double DKX,
-        const double DKY,
-        const double DKZ)
-{
-    TIMEZONE("field::kspace");
-    /* get layout */
-    this->layout = new field_layout<ONE>(
-            source_layout->sizes,
-            source_layout->subsizes,
-            source_layout->starts,
-            source_layout->comm);
-
-    /* store dk values */
-    this->dkx = DKX;
-    this->dky = DKY;
-    this->dkz = DKZ;
-
-    /* compute kx, ky, kz and compute kM values */
-    switch(be)
-    {
-        case FFTW:
-            this->kx.resize(this->layout->sizes[2]);
-            this->ky.resize(this->layout->subsizes[0]);
-            this->kz.resize(this->layout->sizes[1]);
-            int i, ii;
-            for (i = 0; i<int(this->layout->sizes[2]); i++)
-                this->kx[i] = i*this->dkx;
-            for (i = 0; i<int(this->layout->subsizes[0]); i++)
-            {
-                ii = i + this->layout->starts[0];
-                if (ii <= int(this->layout->sizes[1]/2))
-                    this->ky[i] = this->dky*ii;
-                else
-                    this->ky[i] = this->dky*(ii - int(this->layout->sizes[1]));
-            }
-            for (i = 0; i<int(this->layout->sizes[1]); i++)
-            {
-                if (i <= int(this->layout->sizes[0]/2))
-                    this->kz[i] = this->dkz*i;
-                else
-                    this->kz[i] = this->dkz*(i - int(this->layout->sizes[0]));
-            }
-            switch(dt)
-            {
-                case TWO_THIRDS:
-                    this->kMx = this->dkx*(int(2*(int(this->layout->sizes[2])-1)/3)-1);
-                    this->kMy = this->dky*(int(this->layout->sizes[0] / 3)-1);
-                    this->kMz = this->dkz*(int(this->layout->sizes[1] / 3)-1);
-                    break;
-                case SMOOTH:
-                    this->kMx = this->dkx*(int(this->layout->sizes[2])-2);
-                    this->kMy = this->dky*(int(this->layout->sizes[0] / 2)-1);
-                    this->kMz = this->dkz*(int(this->layout->sizes[1] / 2)-1);
-                    break;
-            }
-            break;
-    }
-
-    /* get global kM and dk */
-    this->kM = this->kMx;
-    if (this->kM < this->kMy) this->kM = this->kMy;
-    if (this->kM < this->kMz) this->kM = this->kMz;
-    this->kM2 = this->kM * this->kM;
-    this->dk = this->dkx;
-    if (this->dk > this->dky) this->dk = this->dky;
-    if (this->dk > this->dkz) this->dk = this->dkz;
-    this->dk2 = this->dk*this->dk;
-
-    /* spectra stuff */
-    this->nshells = int(this->kM / this->dk) + 2;
-    this->kshell.resize(this->nshells, 0);
-    this->nshell.resize(this->nshells, 0);
-
-    shared_array<double> kshell_local_threaded(this->nshells, [&](double* kshell_local){
-        std::fill_n(kshell_local, this->nshells, 0);
-    });
-
-    shared_array<int64_t> nshell_local_threaded(this->nshells, [&](int64_t* nshell_local){
-        std::fill_n(nshell_local, this->nshells, 0);
-    });
-
-    std::vector<std::unordered_map<int, double>> dealias_filter_threaded(omp_get_max_threads());
-
-    KSPACE_CLOOP_K2_NXMODES(
-            this,[&](ptrdiff_t /*cindex*/, hsize_t /*yindex*/, hsize_t /*zindex*/, int nxmodes, hsize_t /*xindex*/, double k2){
-                if (k2 < this->kM2)
-                {
-                    double knorm = sqrt(k2);
-                    nshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes;
-                    kshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
-                }
-                if (dt == TWO_THIRDS){
-                    // Should not be any race condition here it is a "write"
-                    dealias_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
-                }
-            });
-
-    for(int idxMerge = 0 ; idxMerge < int(dealias_filter_threaded.size()) ; ++idxMerge){
-        for(const auto kv : dealias_filter_threaded[idxMerge]){
-            this->dealias_filter[kv.first] = kv.second;
-        }
-    }
-
-    nshell_local_threaded.mergeParallel();
-    kshell_local_threaded.mergeParallel();
-
-    MPI_Allreduce(
-            nshell_local_threaded.getMasterData(),
-            &this->nshell.front(),
-            this->nshells,
-            MPI_INT64_T, MPI_SUM, this->layout->comm);
-    MPI_Allreduce(
-            kshell_local_threaded.getMasterData(),
-            &this->kshell.front(),
-            this->nshells,
-            MPI_DOUBLE, MPI_SUM, this->layout->comm);
-    for (int n=0; n<this->nshells; n++)
-        this->kshell[n] /= this->nshell[n];
-}
-
-template <field_backend be,
-          kspace_dealias_type dt>
-kspace<be, dt>::~kspace()
-{
-    delete this->layout;
-}
-
-template <field_backend be,
-          kspace_dealias_type dt>
-template <typename rnumber,
-          field_components fc>
-void kspace<be, dt>::low_pass(rnumber *__restrict__ a, const double kmax)
-{
-    const double km2 = kmax*kmax;
-    KSPACE_CLOOP_K2(
-            this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, hsize_t /*xindex*/, double k2){
-            // There is not race condition because it is write
-            if (k2 >= km2){
-                std::fill_n(a + 2*ncomp(fc)*cindex, 2*ncomp(fc), 0);
-            }
-    });
-}
-
-template <field_backend be,
-          kspace_dealias_type dt>
-template <typename rnumber,
-          field_components fc>
-void kspace<be, dt>::dealias(rnumber *__restrict__ a)
-{
-    switch(be)
-    {
-        case TWO_THIRDS:
-            this->low_pass<rnumber, fc>(a, this->kM);
-            break;
-        case SMOOTH:
-            KSPACE_CLOOP_K2(
-                    this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, hsize_t /*xindex*/, double k2){
-                    double tval = this->dealias_filter[int(round(k2 / this->dk2))];
-                    // There is no overlap between threads here because cindex is thread-safe index
-                    // and push for a jump of 2*ncomp(fc)
-                    for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++){
-                        a[2*ncomp(fc)*cindex + tcounter] *= tval;
-                    }
-            });
-            break;
-    }
-}
-
-template <field_backend be,
-          kspace_dealias_type dt>
-template <typename rnumber,
-          field_components fc>
-void kspace<be, dt>::cospectrum(
-        const rnumber(* __restrict a)[2],
-        const rnumber(* __restrict b)[2],
-        const hid_t group,
-        const std::string dset_name,
-        const hsize_t toffset)
-{
-    TIMEZONE("field::cospectrum");
-    std::vector<double> spec;
-    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
-
-    shared_array<double> spec_local_threaded(this->nshells*ncomp(fc)*ncomp(fc), [&](double* spec_local){
-        std::fill_n(spec_local, this->nshells*ncomp(fc)*ncomp(fc), 0);
-    });
-
-    KSPACE_CLOOP_K2_NXMODES(
-            this,[&](ptrdiff_t cindex, hsize_t /*yindex*/, hsize_t /*zindex*/, int nxmodes, hsize_t /*xindex*/, double k2){
-            if (k2 <= this->kM2)
-            {
-                double* spec_local = spec_local_threaded.getMine();
-                int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
-                for (hsize_t i=0; i<ncomp(fc); i++)
-                for (hsize_t j=0; j<ncomp(fc); j++)
-                    spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
-                    (a[ncomp(fc)*cindex + i][0] * b[ncomp(fc)*cindex + j][0]) +
-                    (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
-            }
-    });
-    spec_local_threaded.mergeParallel();
-
-    MPI_Allreduce(
-            spec_local_threaded.getMasterData(),
-            &spec.front(),
-            spec.size(),
-            MPI_DOUBLE, MPI_SUM, this->layout->comm);
-    if (this->layout->myrank == 0)
-    {
-        hid_t dset, wspace, mspace;
-        hsize_t count[(ndim(fc)-2)*2], offset[(ndim(fc)-2)*2], dims[(ndim(fc)-2)*2];
-        dset = H5Dopen(group, ("spectra/" + dset_name).c_str(), H5P_DEFAULT);
-        wspace = H5Dget_space(dset);
-        H5Sget_simple_extent_dims(wspace, dims, NULL);
-        switch (fc)
-        {
-            case THREExTHREE:
-                offset[4] = 0;
-                offset[5] = 0;
-                count[4] = ncomp(fc);
-                count[5] = ncomp(fc);
-            case THREE:
-                offset[2] = 0;
-                offset[3] = 0;
-                count[2] = ncomp(fc);
-                count[3] = ncomp(fc);
-            default:
-                offset[0] = toffset;
-                offset[1] = 0;
-                count[0] = 1;
-                count[1] = this->nshells;
-        }
-        mspace = H5Screate_simple((ndim(fc)-2)*2, count, NULL);
-        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-        H5Dwrite(dset, H5T_NATIVE_DOUBLE, mspace, wspace, H5P_DEFAULT, &spec.front());
-        H5Sclose(wspace);
-        H5Sclose(mspace);
-        H5Dclose(dset);
-    }
-}
-
-
 template <typename rnumber,
           field_backend be,
           field_components fc1,
@@ -951,28 +939,48 @@ void compute_gradient(
     assert(!src->real_space_representation);
     assert((fc1 == ONE && fc2 == THREE) ||
            (fc1 == THREE && fc2 == THREExTHREE));
-    KSPACE_CLOOP_K2(
-            kk,[&](ptrdiff_t cindex, hsize_t yindex, hsize_t zindex, hsize_t xindex, double k2){
-            if (k2 < kk->kM2)
-                for (unsigned int field_component = 0;
-                     field_component < ncomp(fc1);
-                     field_component++)
-                {
-                    // There must not be any race condition because it is write
-                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
-                        - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
-                          kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
-                        - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
-                          kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
-                        - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                    dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
-                          kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                }
-    });
+    kk->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
+            if (k2 < kk->kM2) switch(fc1)
+            {
+                case ONE:
+                    dst->cval(cindex, 0, 0) = -kk->kx[xindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 0, 1) =  kk->kx[xindex]*src->cval(cindex, 0);
+                    dst->cval(cindex, 1, 0) = -kk->ky[yindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 1, 1) =  kk->ky[yindex]*src->cval(cindex, 0);
+                    dst->cval(cindex, 2, 0) = -kk->kz[zindex]*src->cval(cindex, 1);
+                    dst->cval(cindex, 2, 1) =  kk->kz[zindex]*src->cval(cindex, 0);
+                    break;
+                case THREE:
+                    for (unsigned int field_component = 0;
+                         field_component < ncomp(fc1);
+                         field_component++)
+                    {
+                        dst->cval(cindex, 0, field_component, 0) = -kk->kx[xindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 0, field_component, 1) =  kk->kx[xindex]*src->cval(cindex, field_component, 0);
+                        dst->cval(cindex, 1, field_component, 0) = -kk->ky[yindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 1, field_component, 1) =  kk->ky[yindex]*src->cval(cindex, field_component, 0);
+                        dst->cval(cindex, 2, field_component, 0) = -kk->kz[zindex]*src->cval(cindex, field_component, 1);
+                        dst->cval(cindex, 2, field_component, 1) =  kk->kz[zindex]*src->cval(cindex, field_component, 0);
+                    }
+                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
+                //    - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
+                //      kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
+                //    - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
+                //      kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
+                //    - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
+                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
+                //      kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+            }
+            });
 }
 
 template class field<float, FFTW, ONE>;
@@ -981,49 +989,6 @@ template class field<float, FFTW, THREExTHREE>;
 template class field<double, FFTW, ONE>;
 template class field<double, FFTW, THREE>;
 template class field<double, FFTW, THREExTHREE>;
-
-template class kspace<FFTW, TWO_THIRDS>;
-template class kspace<FFTW, SMOOTH>;
-
-template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<ONE> *,
-        const double, const double, const double);
-template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<THREE> *,
-        const double, const double, const double);
-template kspace<FFTW, TWO_THIRDS>::kspace<>(
-        const field_layout<THREExTHREE> *,
-        const double, const double, const double);
-
-template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<ONE> *,
-        const double, const double, const double);
-template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<THREE> *,
-        const double, const double, const double);
-template kspace<FFTW, SMOOTH>::kspace<>(
-        const field_layout<THREExTHREE> *,
-        const double, const double, const double);
-
-template void kspace<FFTW, SMOOTH>::low_pass<float, ONE>(
-   float *__restrict__ a,
-   const double kmax);
-template void kspace<FFTW, SMOOTH>::low_pass<float, THREE>(
-   float *__restrict__ a,
-   const double kmax);
-template void kspace<FFTW, SMOOTH>::low_pass<float, THREExTHREE>(
-   float *__restrict__ a,
-   const double kmax);
-
-template void kspace<FFTW, SMOOTH>::low_pass<double, ONE>(
-   double *__restrict__ a,
-   const double kmax);
-template void kspace<FFTW, SMOOTH>::low_pass<double, THREE>(
-   double *__restrict__ a,
-   const double kmax);
-template void kspace<FFTW, SMOOTH>::low_pass<double, THREExTHREE>(
-        double *__restrict__ a,
-        const double kmax);
 
 template void field<float, FFTW, ONE>::compute_stats<TWO_THIRDS>(
         kspace<FFTW, TWO_THIRDS> *,
