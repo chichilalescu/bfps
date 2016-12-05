@@ -76,15 +76,21 @@ class _code(_base):
                     assert(mpiprovided >= MPI_THREAD_FUNNELED);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-                    fftw_init_threads();
-                    fftwf_init_threads();
-                    fftw_mpi_init();
-                    fftwf_mpi_init();
                     const int nbThreads = omp_get_max_threads();
                     DEBUG_MSG("Number of threads for the FFTW = %d\\n", nbThreads);
-                    std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
-                    fftw_plan_with_nthreads(nbThreads);
-                    fftwf_plan_with_nthreads(nbThreads);
+                    if (nbThreads > 1){
+                        fftw_init_threads();
+                        fftwf_init_threads();
+                    }
+                    fftw_mpi_init();
+                    fftwf_mpi_init();
+                    if( myrank == 0 ){
+                        std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
+                    }
+                    if (nbThreads > 1){
+                        fftw_plan_with_nthreads(nbThreads);
+                        fftwf_plan_with_nthreads(nbThreads);
+                    }
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
