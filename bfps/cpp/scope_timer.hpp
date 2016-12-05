@@ -239,12 +239,16 @@ public:
         }
     }
 
-    void show(const MPI_Comm inComm) const {
+    void show(const MPI_Comm inComm, const bool onlyP0 = true) const {
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
+
+        if(onlyP0 && myRank != 0){
+            return;
+        }
 
         std::stringstream myResults;
 
@@ -293,16 +297,18 @@ public:
             assert(retMpi == MPI_SUCCESS);
         }
         else{
-            std::vector<char> buffer;
-            for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
-                int sizeRecv;
-                retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
-                assert(retMpi == MPI_SUCCESS);
-                buffer.resize(sizeRecv+1);
-                retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
-                assert(retMpi == MPI_SUCCESS);
-                buffer[sizeRecv]='\0';
-                outputStream << buffer.data();
+            if(onlyP0 == false){
+                std::vector<char> buffer;
+                for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
+                    int sizeRecv;
+                    retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
+                    assert(retMpi == MPI_SUCCESS);
+                    buffer.resize(sizeRecv+1);
+                    retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
+                    assert(retMpi == MPI_SUCCESS);
+                    buffer[sizeRecv]='\0';
+                    outputStream << buffer.data();
+                }
             }
             outputStream << myResults.str();
             outputStream.flush();
@@ -445,12 +451,16 @@ public:
         outputStream.flush();
     }
 
-    void showHtml(const MPI_Comm inComm) const {
+    void showHtml(const MPI_Comm inComm, const bool onlyP0 = true) const {
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
+
+        if(onlyP0 && myRank != 0){
+            return;
+        }
 
         std::stringstream myResults;
 
@@ -490,7 +500,17 @@ public:
                                  << eventToShow.second->getOccurrence();
                 }
                 myResults << "\">" << eventToShow.second->getName();
-                myResults << " (" << 100*eventToShow.second->getDuration()/totalDuration << "% -- " ;
+                const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
+                if( percentage < 0.001 ){
+                    myResults << " (< 0.001% -- " ;
+                }
+                else{
+                    myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
+                }
+                if(eventToShow.second->getParents().size()){
+                    const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
+                    myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
+                }
                 myResults << eventToShow.second->getDuration() <<"s)</span></li>\n";
             }
             else{
@@ -510,6 +530,10 @@ public:
                 }
                 else{
                     myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
+                }
+                if(eventToShow.second->getParents().size()){
+                    const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
+                    myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
                 }
                 myResults << eventToShow.second->getDuration() <<"s)</span></label>\n";
                 myResults << "<ul>\n";
@@ -581,16 +605,18 @@ public:
                         </head>\
                         <body>";
 
-            std::vector<char> buffer;
-            for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
-                int sizeRecv;
-                retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
-                assert(retMpi == MPI_SUCCESS);
-                buffer.resize(sizeRecv+1);
-                retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
-                assert(retMpi == MPI_SUCCESS);
-                buffer[sizeRecv]='\0';
-                htmlfile << buffer.data();
+            if(onlyP0 == false){
+                std::vector<char> buffer;
+                for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
+                    int sizeRecv;
+                    retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
+                    assert(retMpi == MPI_SUCCESS);
+                    buffer.resize(sizeRecv+1);
+                    retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
+                    assert(retMpi == MPI_SUCCESS);
+                    buffer[sizeRecv]='\0';
+                    htmlfile << buffer.data();
+                }
             }
             htmlfile << myResults.str();
             htmlfile << "</body>\
