@@ -88,7 +88,6 @@ class NSVorticityEquation(_fluid_particle_base):
                 //begincpp
                 if (myrank == 0 && iteration == 0)
                 {
-                    DEBUG_MSG("about to store kspace\\n");
                     TIMEZONE("fluid_base::store_kspace");
                     hsize_t dims[4];
                     hid_t space, dset;
@@ -119,7 +118,6 @@ class NSVorticityEquation(_fluid_particle_base):
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->dk);
                     H5Dclose(dset);
                     //H5Fclose(parameter_file);
-                    DEBUG_MSG("finished storing kspace\\n");
                 }
                 //endcpp
                 """
@@ -150,7 +148,6 @@ class NSVorticityEquation(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.stat_src += """
                 //begincpp
-                DEBUG_MSG("inside stat src\\n");
                 hid_t stat_group;
                 if (myrank == 0)
                     stat_group = H5Gopen(stat_file, "statistics", H5P_DEFAULT);
@@ -162,22 +159,17 @@ class NSVorticityEquation(_fluid_particle_base):
                     "velocity",
                     fs->iteration / niter_stat,
                     max_velocity_estimate/sqrt(3));
-                DEBUG_MSG("after stats for %d\\n", fs->iteration);
                 //endcpp
                 """
         self.stat_src += """
                 //begincpp
                 *tmp_vec_field = fs->cvorticity->get_cdata();
-                DEBUG_MSG("%g %g\\n",
-                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 0),
-                    tmp_vec_field->cval(tmp_vec_field->get_cindex(2, 1, 1), 0, 1));
                 tmp_vec_field->compute_stats(
                     fs->kk,
                     stat_group,
                     "vorticity",
                     fs->iteration / niter_stat,
                     max_vorticity_estimate/sqrt(3));
-                DEBUG_MSG("after vort stats for %d\\n", fs->iteration);
                 //endcpp
                 """
         self.stat_src += """
@@ -270,8 +262,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         self.fluid_start += self.store_kspace
-        self.fluid_loop = ('fs->step(dt);\n' +
-                           'DEBUG_MSG("this is step %d\\n", fs->iteration);\n')
+        self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
                             self.fluid_output + '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
@@ -425,17 +416,17 @@ class NSVorticityEquation(_fluid_particle_base):
             style = {'dashes' : (None, None)}):
         self.style.update(style)
         return None
-    def read_cfield(
+    def convert_complex_from_binary(
             self,
             field_name = 'vorticity',
-            iteration = 0):
+            iteration = 0,
+            file_name = None):
         """read the Fourier representation of a vector field.
 
         Read the binary file containing iteration ``iteration`` of the
-        field ``field_name``, and return it as a properly shaped
-        ``numpy.memmap`` object.
+        field ``field_name``, and write it in a ``.h5`` file.
         """
-        return np.memmap(
+        data = np.memmap(
                 os.path.join(self.work_dir,
                              self.simname + '_{0}_i{1:0>5x}'.format('c' + field_name, iteration)),
                 dtype = self.ctype,
@@ -444,6 +435,13 @@ class NSVorticityEquation(_fluid_particle_base):
                          self.parameters['nz'],
                          self.parameters['nx']//2+1,
                          3))
+        if type(file_name) == type(None):
+            file_name = self.simname + '_{0}_i{1:0>5x}.h5'.format('c' + field_name, iteration)
+            file_name = os.path.join(self.work_dir, file_name)
+        f = h5py.File(file_name, 'a')
+        f[field_name + '/complex/{0}'.format(iteration)] = data
+        f.close()
+        return None
     def write_par(
             self,
             iter0 = 0):
@@ -589,7 +587,11 @@ class NSVorticityEquation(_fluid_particle_base):
                     src_file = os.path.join(
                             os.path.realpath(opt.src_work_dir),
                             opt.src_simname + '_cvorticity_i{0:0>5x}.h5'.format(opt.src_iteration))
-                    os.symlink(src_file, init_condition_file)
+                    f = h5py.File(init_condition_file, 'w')
+                    f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
+                            src_file,
+                            'vorticity/complex/{0}'.format(opt.src_iteration))
+                    f.close()
                 else:
                     data = self.generate_vector_field(
                            write_to_file = False,
