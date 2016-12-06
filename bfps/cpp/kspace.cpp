@@ -29,8 +29,8 @@
 #include <cassert>
 #include "kspace.hpp"
 #include "scope_timer.hpp"
-
-
+#include "shared_array.hpp"
+#include "threadsafeupdate.hpp"
 
 template <field_backend be,
           kspace_dealias_type dt>
@@ -113,6 +113,9 @@ kspace<be, dt>::kspace(
     kshell_local.resize(this->nshells, 0);
     std::vector<int64_t> nshell_local;
     nshell_local.resize(this->nshells, 0);
+
+    std::vector<std::unordered_map<int, double>> dealias_filter_threaded(omp_get_max_threads());
+
     this->CLOOP_K2_NXMODES(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
@@ -123,13 +126,23 @@ kspace<be, dt>::kspace(
             if (k2 < this->kM2)
             {
                 double knorm = sqrt(k2);
-                nshell_local[int(knorm/this->dk)] += nxmodes;
-                kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
+                ThreadSafeUpdate(nshell_local[int(knorm/this->dk)]) += nxmodes;
+                ThreadSafeUpdate(kshell_local[int(knorm/this->dk)]) += nxmodes*knorm;
             }
-            if (dt == SMOOTH)
-                this->dealias_filter[int(round(k2 / this->dk2))] = \
-                    exp(-36.0 * pow(k2/this->kM2, 18.));
-                });
+            if (dt == SMOOTH){
+                dealias_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+            }
+    });
+
+    // Merge results
+    if (dt == SMOOTH){
+        for(int idxMerge = 0 ; idxMerge < int(dealias_filter_threaded.size()) ; ++idxMerge){
+            for(const auto kv : dealias_filter_threaded[idxMerge]){
+                this->dealias_filter[kv.first] = kv.second;
+            }
+        }
+    }
+
     MPI_Allreduce(
             &nshell_local.front(),
             &this->nshell.front(),
@@ -201,7 +214,6 @@ template <typename rnumber>
 void kspace<be, dt>::force_divfree(typename fftw_interface<rnumber>::complex *__restrict__ a)
 {
     TIMEZONE("kspace::force_divfree");
-    typename fftw_interface<rnumber>::complex tval;
     this->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
@@ -210,6 +222,7 @@ void kspace<be, dt>::force_divfree(typename fftw_interface<rnumber>::complex *__
                     double k2){
                 if (k2 > 0)
         {
+            typename fftw_interface<rnumber>::complex tval;
             tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) +
                        this->ky[yindex]*((*(a + cindex*3+1))[0]) +
                        this->kz[zindex]*((*(a + cindex*3+2))[0]) ) / k2;
@@ -241,9 +254,10 @@ void kspace<be, dt>::cospectrum(
         const hsize_t toffset)
 {
     TIMEZONE("field::cospectrum");
-    std::vector<double> spec, spec_local;
-    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
-    spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    shared_array<double> spec_local_thread(this->nshells*9,[&](double* spec_local){
+        spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    });
+
     this->CLOOP_K2_NXMODES(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
@@ -253,6 +267,7 @@ void kspace<be, dt>::cospectrum(
                 int nxmodes){
             if (k2 <= this->kM2)
             {
+                double* spec_local = spec_local_thread.getMine();
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
                 for (hsize_t i=0; i<ncomp(fc); i++)
                 for (hsize_t j=0; j<ncomp(fc); j++)
@@ -261,8 +276,13 @@ void kspace<be, dt>::cospectrum(
                     (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
             }
             });
+
+    spec_local_thread.mergeParallel();
+
+    std::vector<double> spec;
+    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     MPI_Allreduce(
-            &spec_local.front(),
+            spec_local_thread.getMasterData(),
             &spec.front(),
             spec.size(),
             MPI_DOUBLE, MPI_SUM, this->layout->comm);

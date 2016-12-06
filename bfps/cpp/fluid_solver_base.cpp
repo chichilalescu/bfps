@@ -34,6 +34,7 @@
 #include "fftw_tools.hpp"
 #include "scope_timer.hpp"
 #include "shared_array.hpp"
+#include "threadsafeupdate.hpp"
 
 template <class rnumber>
 void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *destination)
@@ -523,8 +524,8 @@ fluid_solver_base<rnumber>::fluid_solver_base(
         if (k2 < this->kM2)
         {
             double knorm = sqrt(k2);
-            nshell_local[int(knorm/this->dk)] += nxmodes;
-            kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
+            ThreadSafeUpdate(nshell_local[int(knorm/this->dk)]) += nxmodes;
+            ThreadSafeUpdate(kshell_local[int(knorm/this->dk)]) += nxmodes*knorm;
         }
         Fourier_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
     );
