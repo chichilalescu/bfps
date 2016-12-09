@@ -172,6 +172,7 @@ int field<rnumber, be, fc>::io(
     /* file dataset has same dimensions as field */
     TIMEZONE("field::io");
     hid_t file_id, dset_id, plist_id;
+    dset_id = H5I_BADID;
     std::string representation = std::string(
             this->real_space_representation ?
                 "real" : "complex");
@@ -362,6 +363,7 @@ int field<rnumber, be, fc>::io_database(
     /* file dataset is has a time dimension as well */
     TIMEZONE("field::io_database");
     hid_t file_id, dset_id, plist_id;
+    dset_id = H5I_BADID;
     std::string representation = std::string(
             this->real_space_representation ?
                 "real" : "complex");
