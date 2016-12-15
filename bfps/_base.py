@@ -83,7 +83,7 @@ class _base(object):
                    'hid_t dset, memtype, space;\n' +
                    'char fname[256];\n' +
                    'hsize_t dims[1];\n' +
-                   'char string_data[512];\n' +
+                   'char *string_data;\n' +
                    'sprintf(fname, "%s.h5", simname);\n' +
                    'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
         for i in range(len(key)):
@@ -94,8 +94,10 @@ class _base(object):
             elif type(parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
                             'memtype = H5Dget_type(dset);\n' +
+                            'string_data = (char*)malloc(256);\n' +
                             'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
                             'sprintf({0}, "%s", string_data);\n'.format(key[i]) +
+                            'free(string_data);\n'
                             'H5Sclose(space);\n' +
                             'H5Tclose(memtype);\n')
             elif type(parameters[key[i]]) == np.ndarray:
