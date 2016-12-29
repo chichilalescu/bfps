@@ -314,6 +314,9 @@ class _code(_base):
         if self.host_info['environment'] == '16node':
             tasks_per_node = 16
             number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
+        else:
+            tasks_per_node = 20
+            number_of_nodes = int(math.ceil((nprocesses*1.0/20)))
         script_file.write('# @ node = {0}\n'.format(number_of_nodes))
         script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
         first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
@@ -364,6 +367,9 @@ class _code(_base):
         if self.host_info['environment'] == '16node':
             tasks_per_node = 16
             number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
+        else:
+            tasks_per_node = 20
+            number_of_nodes = int(math.ceil((nprocesses*1.0/20)))
         first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
         for job in range(njobs):
             script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
