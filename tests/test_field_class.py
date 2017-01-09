@@ -32,32 +32,37 @@ class TestField(_fluid_particle_base):
         self.fluid_includes += '#include "fftw_tools.hpp"\n'
         self.fluid_includes += '#include "field.hpp"\n'
         self.fluid_variables += ('field<' + self.C_dtype + ', FFTW, ONE> *f;\n' +
+                                 'field<' + self.C_dtype + ', FFTW, THREE> *v;\n' +
                                  'kspace<FFTW, SMOOTH> *kk;\n')
         self.fluid_start += """
                 //begincpp
                 f = new field<{0}, FFTW, ONE>(
                         nx, ny, nz, MPI_COMM_WORLD);
+                v = new field<{0}, FFTW, THREE>(
+                        nx, ny, nz, MPI_COMM_WORLD);
                 kk = new kspace<FFTW, SMOOTH>(
                         f->clayout, 1., 1., 1.);
                 // read rdata
-                f->io("field.h5", "rdata", 0, true);
+                f->real_space_representation = true;
+                f->io("field.h5", "scal", 0, true);
                 // go to fourier space, write into cdata_tmp
                 f->dft();
-                f->io("field.h5", "cdata_tmp", 0, false);
+                f->io("field.h5", "scal_tmp", 0, false);
                 f->ift();
-                f->io("field.h5", "rdata", 0, false);
-                f->io("field.h5", "cdata", 0, true);
+                f->io("field.h5", "scal", 0, false);
+                f->real_space_representation = false;
+                f->io("field.h5", "scal", 0, true);
                 hid_t gg;
                 if (f->myrank == 0)
                     gg = H5Fopen("field.h5", H5F_ACC_RDWR, H5P_DEFAULT);
                 kk->cospectrum<float, ONE>(
-                        f->get_rdata(),
-                        f->get_rdata(),
+                        f->get_cdata(),
+                        f->get_cdata(),
                         gg,
                         "scal",
                         0);
                 f->ift();
-                f->io("field.h5", "rdata_tmp", 0, false);
+                f->io("field.h5", "scal_tmp", 0, false);
                 std::vector<double> me;
                 me.resize(1);
                 me[0] = 30;
@@ -66,11 +71,15 @@ class TestField(_fluid_particle_base):
                         0, me);
                 if (f->myrank == 0)
                     H5Fclose(gg);
+                v->real_space_representation = false;
+                v->io("field.h5", "vec", 0, true);
+                v->io("field.h5", "vec_tmp", 0, false);
                 //endcpp
                 """.format(self.C_dtype)
         self.fluid_end += """
                 //begincpp
                 delete f;
+                delete v;
                 //endcpp
                 """
         return None
@@ -92,7 +101,7 @@ class TestField(_fluid_particle_base):
         return None
 
 def main():
-    n = 128
+    n = 32
     kdata = pyfftw.n_byte_align_empty(
             (n, n, n//2 + 1),
             pyfftw.simd_alignment,
@@ -116,10 +125,10 @@ def main():
     tf.parameters['ny'] = n
     tf.parameters['nz'] = n
     f = h5py.File('field.h5', 'w')
-    f['cdata'] = cdata.reshape((1,) + cdata.shape)
-    f['cdata_tmp'] = np.zeros(shape=(1,) + cdata.shape).astype(cdata.dtype)
-    f['rdata'] = rdata.reshape((1,) + rdata.shape)
-    f['rdata_tmp'] = np.zeros(shape=(1,) + rdata.shape).astype(rdata.dtype)
+    f['scal/complex/0'] = cdata
+    f['scal/real/0'] = rdata
+    f['vec/complex/0'] = np.array([cdata, cdata, cdata]).reshape(cdata.shape + (3,))
+    f['vec/real/0'] = np.array([rdata, rdata, rdata]).reshape(rdata.shape + (3,))
     f['moments/scal'] = np.zeros(shape = (1, 10)).astype(np.float)
     f['histograms/scal'] = np.zeros(shape = (1, 64)).astype(np.float)
     kspace = tf.get_kspace()
@@ -133,35 +142,60 @@ def main():
              '--ncpu', '2'])
 
     f = h5py.File('field.h5', 'r')
-    err0 = np.max(np.abs(f['rdata_tmp'][0] - rdata)) / np.mean(np.abs(rdata))
-    err1 = np.max(np.abs(f['rdata'][0]/(n**3) - rdata)) / np.mean(np.abs(rdata))
-    err2 = np.max(np.abs(f['cdata_tmp'][0]/(n**3) - cdata)) / np.mean(np.abs(cdata))
-    print(err0, err1, err2)
-    assert(err0 < 1e-5)
-    assert(err1 < 1e-5)
-    assert(err2 < 1e-4)
-    ### compare
-    #fig = plt.figure(figsize=(12, 6))
-    #a = fig.add_subplot(121)
-    #a.set_axis_off()
-    #a.imshow(rdata[0, :, :], interpolation = 'none')
-    #a = fig.add_subplot(122)
-    #a.set_axis_off()
-    #a.imshow(f['rdata_tmp'][0, 0, :, :], interpolation = 'none')
+    #err0 = np.max(np.abs(f['scal_tmp/real/0'].value - rdata)) / np.mean(np.abs(rdata))
+    #err1 = np.max(np.abs(f['scal/real/0'].value/(n**3) - rdata)) / np.mean(np.abs(rdata))
+    #err2 = np.max(np.abs(f['scal_tmp/complex/0'].value/(n**3) - cdata)) / np.mean(np.abs(cdata))
+    #print(err0, err1, err2)
+    #assert(err0 < 1e-5)
+    #assert(err1 < 1e-5)
+    #assert(err2 < 1e-4)
+    ## compare
+    fig = plt.figure(figsize=(18, 6))
+    a = fig.add_subplot(131)
+    a.set_axis_off()
+    v0 = f['vec/complex/0'][:, :, 0, 0]
+    v1 = f['vec_tmp/complex/0'][:, :, 0, 0]
+    a.imshow(np.log(np.abs(v0 - v1)),
+             interpolation = 'none')
+    a = fig.add_subplot(132)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v0)),
+             interpolation = 'none')
+    a = fig.add_subplot(133)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v1)),
+             interpolation = 'none')
+    fig.tight_layout()
+    fig.savefig('tst_fields.pdf')
+    fig = plt.figure(figsize=(18, 6))
+    a = fig.add_subplot(131)
+    a.set_axis_off()
+    v0 = f['scal/complex/0'][:, :, 0]
+    v1 = f['scal_tmp/complex/0'][:, :, 0]
+    a.imshow(np.log(np.abs(v0 - v1)),
+             interpolation = 'none')
+    a = fig.add_subplot(132)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v0)),
+             interpolation = 'none')
+    a = fig.add_subplot(133)
+    a.set_axis_off()
+    a.imshow(np.log(np.abs(v1)),
+             interpolation = 'none')
+    fig.tight_layout()
+    fig.savefig('tst_sfields.pdf')
+    # look at moments and histogram
+    #print('moments are ', f['moments/scal'][0])
+    #fig = plt.figure(figsize=(6,6))
+    #a = fig.add_subplot(211)
+    #a.plot(f['histograms/scal'][0])
+    #a.set_yscale('log')
+    #a = fig.add_subplot(212)
+    #a.plot(f['spectra/scal'][0])
+    #a.set_xscale('log')
+    #a.set_yscale('log')
     #fig.tight_layout()
     #fig.savefig('tst.pdf')
-    # look at moments and histogram
-    print('moments are ', f['moments/scal'][0])
-    fig = plt.figure(figsize=(6,6))
-    a = fig.add_subplot(211)
-    a.plot(f['histograms/scal'][0])
-    a.set_yscale('log')
-    a = fig.add_subplot(212)
-    a.plot(f['spectra/scal'][0])
-    a.set_xscale('log')
-    a.set_yscale('log')
-    fig.tight_layout()
-    fig.savefig('tst.pdf')
     return None
 
 if __name__ == '__main__':
