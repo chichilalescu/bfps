@@ -200,6 +200,7 @@ int field<rnumber, be, fc>::io(
         else
             file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
     }
+    assert(file_id >= 0);
     H5Pclose(plist_id);
 
     /* check what kind of representation is being used */
@@ -209,7 +210,9 @@ int field<rnumber, be, fc>::io(
                 file_id,
                 dset_name.c_str(),
                 H5P_DEFAULT);
+        assert(dset_id >= 0);
         hid_t dset_type = H5Dget_type(dset_id);
+        assert(dset_type >= 0);
         bool io_for_real = (
                 H5Tequal(dset_type, H5T_IEEE_F32BE) ||
                 H5Tequal(dset_type, H5T_IEEE_F32LE) ||
