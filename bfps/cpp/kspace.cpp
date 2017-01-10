@@ -255,7 +255,7 @@ void kspace<be, dt>::cospectrum(
 {
     TIMEZONE("field::cospectrum");
     shared_array<double> spec_local_thread(this->nshells*9,[&](double* spec_local){
-        spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+        std::fill_n(spec_local, this->nshells*ncomp(fc)*ncomp(fc), 0);
     });
 
     this->CLOOP_K2_NXMODES(
