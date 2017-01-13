@@ -3,6 +3,7 @@
 
 #include <omp.h>
 #include <functional>
+#include <iostream>
 
 // Cannot be used by different parallel section at the same time
 template <class ValueType>
@@ -14,10 +15,12 @@ class shared_array{
     omp_lock_t locker;
     std::function<void(ValueType*)> initFunc;
 
+    bool hasBeenMerged;
+
 public:
     shared_array(const size_t inDim)
             : currentNbThreads(omp_get_max_threads()),
-              values(nullptr), dim(inDim){
+              values(nullptr), dim(inDim), hasBeenMerged(false){
         values = new ValueType*[currentNbThreads];
         values[0] = new ValueType[dim];
         for(int idxThread = 1 ; idxThread < currentNbThreads ; ++idxThread){
@@ -27,7 +30,7 @@ public:
     }
 
     shared_array(const size_t inDim, std::function<void(ValueType*)> inInitFunc)
-            : shared_array(inDim){
+            : shared_array(inDim), hasBeenShared(false){
         setInitFunction(inInitFunc);
     }
 
@@ -37,6 +40,10 @@ public:
             delete[] values[idxThread];
         }
         delete[] values;
+        if(hasBeenMerged){
+            // TODO remove when bug solved
+            std::cerr << "A shared array has not been merged.... might be a bug" << std::endl;
+        }
     }
 
     ValueType* getMasterData(){
@@ -57,6 +64,7 @@ public:
                 }
             }
         }
+        hasBeenMerged = true;
     }
 
     void mergeParallel(){
@@ -89,6 +97,7 @@ public:
                 #pragma omp barrier
             }
         }
+        hasBeenMerged = true;
     }
 
     void setInitFunction(std::function<void(ValueType*)> inInitFunc){
@@ -114,10 +123,14 @@ public:
         }
 
         if(values[omp_get_thread_num()] == nullptr){
-            values[omp_get_thread_num()] = new ValueType[dim];
+            ValueType* myValue = new ValueType[dim];
             if(initFunc){
-                initFunc(values[omp_get_thread_num()]);
+                initFunc(myValue);
             }
+
+            omp_set_lock(&locker);
+            values[omp_get_thread_num()] = myValue;
+            omp_unset_lock(&locker);
         }
         return values[omp_get_thread_num()];
     }
