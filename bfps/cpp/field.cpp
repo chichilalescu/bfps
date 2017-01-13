@@ -30,6 +30,7 @@
 #include <cassert>
 #include "field.hpp"
 #include "scope_timer.hpp"
+#include "shared_array.hpp"
 
 
 
@@ -637,26 +638,31 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     }
     assert(nvals == int(max_estimate.size()));
     double *moments = new double[nmoments*nvals];
-    double *local_moments = new double[nmoments*nvals];
-    double *val_tmp = new double[nvals];
+    shared_array<double> local_moments_threaded(nmoments*nvals, [&](double* local_moments){
+        std::fill_n(local_moments, nmoments*nvals, 0);
+        if (nvals == 4) local_moments[3] = max_estimate[3];
+    });
+
+    shared_array<double> val_tmp_threaded(nvals);
+
+    // Unchanged by the threads
     double *binsize = new double[nvals];
-    double *pow_tmp = new double[nvals];
-    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
-    int bin;
     for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*nvals, 0);
-    std::fill_n(local_moments, nmoments*nvals, 0);
-    if (nvals == 4) local_moments[3] = max_estimate[3];
+
+
+    shared_array<ptrdiff_t> local_hist_threaded(nbins*nvals,[&](ptrdiff_t* local_hist){
+        std::fill_n(local_hist, nbins*nvals, 0);
+    });
+
     {
         TIMEZONE("field::RLOOP");
         this->RLOOP(
-                [&](ptrdiff_t rindex,
-                    ptrdiff_t xindex,
-                    ptrdiff_t yindex,
-                    ptrdiff_t zindex){
-            std::fill_n(pow_tmp, nvals, 1.0);
+            [&](hsize_t /*zindex*/, hsize_t /*yindex*/, ptrdiff_t rindex, hsize_t /*xindex*/){
+            double *local_moments = local_moments_threaded.getMine();
+            double *val_tmp = val_tmp_threaded.getMine();
+            ptrdiff_t *local_hist = local_hist_threaded.getMine();
+
             if (nvals == int(4)) val_tmp[3] = 0.0;
             for (unsigned int i=0; i<ncomp(fc); i++)
             {
@@ -670,7 +676,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     local_moments[0*nvals+3] = val_tmp[3];
                 if (val_tmp[3] > local_moments[9*nvals+3])
                     local_moments[9*nvals+3] = val_tmp[3];
-                bin = int(floor(val_tmp[3]*2/binsize[3]));
+                int bin = int(floor(val_tmp[3]*2/binsize[3]));
                 if (bin >= 0 && bin < nbins)
                     local_hist[bin*nvals+3]++;
             }
@@ -680,34 +686,43 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     local_moments[0*nvals+i] = val_tmp[i];
                 if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
                     local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
-                bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+                int bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
                 if (bin >= 0 && bin < nbins)
                     local_hist[bin*nvals+i]++;
             }
-            for (int n=1; n < int(nmoments)-1; n++)
-                for (int i=0; i<nvals; i++)
-                    local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
-                });
+            for (int n=1; n < int(nmoments)-1; n++){
+                double pow_tmp = 1;
+                for (int i=0; i<nvals; i++){
+                    local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
+                }
+            }
+        });
+
+        TIMEZONE("FIELD_RLOOP::Merge");
+        local_moments_threaded.mergeParallel();
+        local_hist_threaded.mergeParallel();
     }
+
+    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
     {
         TIMEZONE("MPI_Allreduce");
         MPI_Allreduce(
-                (void*)local_moments,
+                (void*)local_moments_threaded.getMasterData(),
                 (void*)moments,
                 nvals,
                 MPI_DOUBLE, MPI_MIN, this->comm);
         MPI_Allreduce(
-                (void*)(local_moments + nvals),
+                (void*)(local_moments_threaded.getMasterData() + nvals),
                 (void*)(moments+nvals),
                 (nmoments-2)*nvals,
                 MPI_DOUBLE, MPI_SUM, this->comm);
         MPI_Allreduce(
-                (void*)(local_moments + (nmoments-1)*nvals),
+                (void*)(local_moments_threaded.getMasterData() + (nmoments-1)*nvals),
                 (void*)(moments+(nmoments-1)*nvals),
                 nvals,
                 MPI_DOUBLE, MPI_MAX, this->comm);
         MPI_Allreduce(
-                (void*)local_hist,
+                (void*)local_hist_threaded.getMasterData(),
                 (void*)hist,
                 nbins*nvals,
                 MPI_INT64_T, MPI_SUM, this->comm);
@@ -715,11 +730,8 @@ void field<rnumber, be, fc>::compute_rspace_stats(
     for (int n=1; n < int(nmoments)-1; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->npoints;
-    delete[] local_moments;
-    delete[] local_hist;
-    delete[] val_tmp;
+
     delete[] binsize;
-    delete[] pow_tmp;
     if (this->myrank == 0)
     {
         TIMEZONE("root-work");

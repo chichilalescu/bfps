@@ -361,7 +361,7 @@ int field_descriptor<rnumber>::transpose(
                 this->sizes[0], this->slice_size,
             input, output,
             this->comm,
-            FFTW_ESTIMATE);
+            FFTW_PATIENT);
     fftw_interface<rnumber>::execute(tplan);
     fftw_interface<rnumber>::destroy_plan(tplan);
     return EXIT_SUCCESS;

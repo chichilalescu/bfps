@@ -82,7 +82,7 @@ class fluid_solver_base
                 double DKY = 1.0,
                 double DKZ = 1.0,
                 int DEALIAS_TYPE = 0,
-                unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
+                unsigned FFTW_PLAN_RIGOR = FFTW_PATIENT);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *__restrict__ a, int howmany, double kmax);
@@ -140,33 +140,37 @@ template <class ObjectType, class FuncType>
 void CLOOP(ObjectType* obj, FuncType expression)
 {
     TIMEZONE("CLOOP");
-    ptrdiff_t cindex = 0;
-    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
-    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
-    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
-        {
-            expression(cindex, xindex, yindex, zindex);
-            cindex++;
-        }
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+        ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
+        for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
+        for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
+            {
+                expression(cindex, xindex, yindex, zindex);
+                cindex++;
+            }
+    }
 }
 
 template <class ObjectType, class FuncType>
 void CLOOP_NXMODES(ObjectType* obj, FuncType expression)
 {
     TIMEZONE("CLOOP_NXMODES");
-    ptrdiff_t cindex = 0;
-    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
-    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
-    {
-        int nxmodes = 1;
-        ptrdiff_t xindex = 0;
-        expression;
-        cindex++;
-        nxmodes = 2;
-    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++)
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+        ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
+        for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
         {
-            expression();
+            int nxmodes = 1;
+            ptrdiff_t xindex = 0;
+            expression;
             cindex++;
+            nxmodes = 2;
+            for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++)
+            {
+                expression();
+                cindex++;
+            }
         }
     }
 }
@@ -176,44 +180,46 @@ template <class ObjectType, class FuncType>
 void CLOOP_K2(ObjectType* obj, FuncType expression)
 {
     TIMEZONE("CLOOP_K2");
-    double k2;
-    ptrdiff_t cindex = 0;
-    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
-    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
-    for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+        ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
+        for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
+        for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
         {
-            k2 = (obj->kx[xindex]*obj->kx[xindex] +
+            double k2 = (obj->kx[xindex]*obj->kx[xindex] +
                   obj->ky[yindex]*obj->ky[yindex] +
                   obj->kz[zindex]*obj->kz[zindex]);
             expression(cindex, xindex, yindex, zindex, k2);
             cindex++;
         }
+    }
 }
 
 
 template <class ObjectType, class FuncType>
 void CLOOP_K2_NXMODES(ObjectType* obj, FuncType expression)
 {
-    double k2;
-    ptrdiff_t cindex = 0;
-    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++)
-    for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
-    {
-        int nxmodes = 1;
-        ptrdiff_t xindex = 0;
-        k2 = (obj->kx[xindex]*obj->kx[xindex] +
-              obj->ky[yindex]*obj->ky[yindex] +
-              obj->kz[zindex]*obj->kz[zindex]);
-        expression(cindex, xindex, yindex, zindex, k2, nxmodes);
-        cindex++;
-        nxmodes = 2;
-    for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++)
+    #pragma omp parallel for schedule(static)
+    for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+        ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
+        for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
         {
-            k2 = (obj->kx[xindex]*obj->kx[xindex] +
+            int nxmodes = 1;
+            ptrdiff_t xindex = 0;
+            double k2 = (obj->kx[xindex]*obj->kx[xindex] +
                   obj->ky[yindex]*obj->ky[yindex] +
                   obj->kz[zindex]*obj->kz[zindex]);
             expression(cindex, xindex, yindex, zindex, k2, nxmodes);
             cindex++;
+            nxmodes = 2;
+            for (xindex = 1; xindex < obj->cd->subsizes[2]; xindex++)
+            {
+                double k2 = (obj->kx[xindex]*obj->kx[xindex] +
+                      obj->ky[yindex]*obj->ky[yindex] +
+                      obj->kz[zindex]*obj->kz[zindex]);
+                expression(cindex, xindex, yindex, zindex, k2, nxmodes);
+                cindex++;
+            }
         }
     }
 }
@@ -222,11 +228,12 @@ void CLOOP_K2_NXMODES(ObjectType* obj, FuncType expression)
 template <class ObjectType, class FuncType>
 void RLOOP(ObjectType* obj, FuncType expression)
 {
+    #pragma omp parallel for schedule(static)
     for (int zindex = 0; zindex < obj->rd->subsizes[0]; zindex++)
     for (int yindex = 0; yindex < obj->rd->subsizes[1]; yindex++)
     {
         ptrdiff_t rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2);
-    for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++)
+        for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++)
         {
             expression(rindex, xindex, yindex, zindex);
             rindex++;

@@ -33,6 +33,8 @@
 #include "fluid_solver_base.hpp"
 #include "fftw_tools.hpp"
 #include "scope_timer.hpp"
+#include "shared_array.hpp"
+#include "threadsafeupdate.hpp"
 
 template <class rnumber>
 void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *destination)
@@ -67,16 +69,19 @@ template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec)
 {
     TIMEZONE("fluid_solver_base::cospectrum");
-    double *cospec_local = fftw_alloc_real(this->nshells*9);
-    std::fill_n(cospec_local, this->nshells*9, 0);
-    int tmp_int;
+    shared_array<double> cospec_local_thread(this->nshells*9,[&](double* cospec_local){
+        std::fill_n(cospec_local, this->nshells*9, 0);
+    });
+
     CLOOP_K2_NXMODES(
                 this,
 
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex,
-                ptrdiff_t zindex, double k2, int nxmodes){if (k2 <= this->kMspec2)
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/,
+                ptrdiff_t /*zindex*/, double k2, int nxmodes){
+        if (k2 <= this->kMspec2)
         {
-            tmp_int = int(sqrt(k2)/this->dk)*9;
+            int tmp_int = int(sqrt(k2)/this->dk)*9;
+            double* cospec_local = cospec_local_thread.getMine();
             for (int i=0; i<3; i++)
                 for (int j=0; j<3; j++)
                 {
@@ -86,30 +91,32 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
                 }
         }}
     );
+    cospec_local_thread.mergeParallel();
     MPI_Allreduce(
-                (void*)cospec_local,
+                cospec_local_thread.getMasterData(),
                 (void*)spec,
                 this->nshells*9,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
-    fftw_free(cospec_local);
 }
 
 template <class rnumber>
 void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec, const double k2exponent)
 {
     TIMEZONE("fluid_solver_base::cospectrum2");
-    double *cospec_local = fftw_alloc_real(this->nshells*9);
-    std::fill_n(cospec_local, this->nshells*9, 0);
-    double factor = 1;
-    int tmp_int;
+    shared_array<double> cospec_local_thread(this->nshells*9,[&](double* cospec_local){
+        std::fill_n(cospec_local, this->nshells*9, 0);
+    });
+
     CLOOP_K2_NXMODES(
                 this,
 
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex,
-                ptrdiff_t zindex, double k2, int nxmodes){if (k2 <= this->kMspec2)
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/,
+                ptrdiff_t /*zindex*/, double k2, int nxmodes){
+        if (k2 <= this->kMspec2)
         {
-            factor = nxmodes*pow(k2, k2exponent);
-            tmp_int = int(sqrt(k2)/this->dk)*9;
+            double factor = nxmodes*pow(k2, k2exponent);
+            int tmp_int = int(sqrt(k2)/this->dk)*9;
+            double* cospec_local = cospec_local_thread.getMine();
             for (int i=0; i<3; i++)
                 for (int j=0; j<3; j++)
                 {
@@ -119,8 +126,9 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
                 }
         }}
     );
+    cospec_local_thread.mergeParallel();
     MPI_Allreduce(
-                (void*)cospec_local,
+                cospec_local_thread.getMasterData(),
                 (void*)spec,
                 this->nshells*9,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
@@ -130,7 +138,6 @@ void fluid_solver_base<rnumber>::cospectrum(cnumber *a, cnumber *b, double *spec
     //    /*is normalization needed?
     //     * spec[n] /= this->normalization_factor*/
     //}
-    fftw_free(cospec_local);
 }
 
 template <class rnumber>
@@ -169,23 +176,29 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
     MPI_Bcast(&nvals, 1, MPI_INT, 0, this->rd->comm);
     MPI_Bcast(&nbins, 1, MPI_INT, 0, this->rd->comm);
     assert(nvals == max_estimate.size());
-    double *moments = new double[nmoments*nvals];
-    double *local_moments = new double[nmoments*nvals];
-    double *val_tmp = new double[nvals];
+    shared_array<double> threaded_local_moments(nmoments*nvals, [&](double* local_moments){
+        std::fill_n(local_moments, nmoments*nvals, 0);
+        if (nvals == 4) local_moments[3] = max_estimate[3];
+    });
+
+    shared_array<double> threaded_val_tmp(nvals);
+
+    shared_array<ptrdiff_t> threaded_local_hist(nbins*nvals, [&](ptrdiff_t* local_hist){
+        std::fill_n(local_hist, nbins*nvals, 0);
+    });
+
+    // Not written by threads
     double *binsize = new double[nvals];
-    double *pow_tmp = new double[nvals];
-    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
-    int bin;
     for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*nvals, 0);
-    std::fill_n(local_moments, nmoments*nvals, 0);
-    if (nvals == 4) local_moments[3] = max_estimate[3];
+
     RLOOP(
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        std::fill_n(pow_tmp, nvals, 1.0);
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        double *val_tmp = threaded_val_tmp.getMine();
+        ptrdiff_t* local_hist = threaded_local_hist.getMine();
+        double *local_moments = threaded_local_moments.getMine();
+
         if (nvals == 4) val_tmp[3] = 0.0;
         for (int i=0; i<3; i++)
         {
@@ -199,7 +212,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*nvals+3] = val_tmp[3];
             if (val_tmp[3] > local_moments[9*nvals+3])
                 local_moments[9*nvals+3] = val_tmp[3];
-            bin = int(floor(val_tmp[3]*2/binsize[3]));
+            int bin = int(floor(val_tmp[3]*2/binsize[3]));
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*nvals+3]++;
         }
@@ -209,43 +222,49 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*nvals+i] = val_tmp[i];
             if (val_tmp[i] > local_moments[(nmoments-1)*nvals+i])
                 local_moments[(nmoments-1)*nvals+i] = val_tmp[i];
-            bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+            int bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*nvals+i]++;
         }
-        for (int n=1; n < nmoments-1; n++)
-            for (int i=0; i<nvals; i++)
-                local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+        for (int n=1; n < nmoments-1; n++){
+            double pow_tmp = 1.;
+            for (int i=0; i<nvals; i++){
+                local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
+            }
+        }
     }
     );
+
+    threaded_local_hist.mergeParallel();
+    threaded_local_moments.mergeParallel();
+
+
+    double *moments = new double[nmoments*nvals];
     MPI_Allreduce(
-                (void*)local_moments,
+                threaded_local_moments.getMasterData(),
                 (void*)moments,
                 nvals,
                 MPI_DOUBLE, MPI_MIN, this->cd->comm);
     MPI_Allreduce(
-                (void*)(local_moments + nvals),
+                (threaded_local_moments.getMasterData() + nvals),
                 (void*)(moments+nvals),
                 (nmoments-2)*nvals,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
     MPI_Allreduce(
-                (void*)(local_moments + (nmoments-1)*nvals),
+                (threaded_local_moments.getMasterData() + (nmoments-1)*nvals),
                 (void*)(moments+(nmoments-1)*nvals),
                 nvals,
                 MPI_DOUBLE, MPI_MAX, this->cd->comm);
+    ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
     MPI_Allreduce(
-                (void*)local_hist,
+                threaded_local_hist.getMasterData(),
                 (void*)hist,
                 nbins*nvals,
                 MPI_INT64_T, MPI_SUM, this->cd->comm);
     for (int n=1; n < nmoments-1; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->normalization_factor;
-    delete[] local_moments;
-    delete[] local_hist;
-    delete[] val_tmp;
     delete[] binsize;
-    delete[] pow_tmp;
     if (this->rd->myrank == 0)
     {
         hid_t dset, wspace, mspace;
@@ -291,19 +310,27 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         const int nbins)
 {
     TIMEZONE("fluid_solver_base::compute_rspace_stats");
-    double *local_moments = fftw_alloc_real(10*nvals);
-    double val_tmp[nvals], binsize[nvals], pow_tmp[nvals];
-    ptrdiff_t *local_hist = new ptrdiff_t[nbins*nvals];
-    int bin;
+    shared_array<double> threaded_local_moments(10*nvals,[&](double* local_moments){
+        std::fill_n(local_moments, 10*nvals, 0);
+        if (nvals == 4) local_moments[3] = max_estimate[3];
+    });
+
+    shared_array<ptrdiff_t> threaded_local_hist(nbins*nvals, [&](ptrdiff_t* local_hist){
+        std::fill_n(local_hist, nbins*nvals, 0);
+    });
+
+    // Will not be modified by the threads
+    double binsize[nvals];
     for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
-    std::fill_n(local_hist, nbins*nvals, 0);
-    std::fill_n(local_moments, 10*nvals, 0);
-    if (nvals == 4) local_moments[3] = max_estimate[3];
+
     RLOOP(
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        std::fill_n(pow_tmp, nvals, 1.0);
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        ptrdiff_t *local_hist = threaded_local_hist.getMine();
+        double *local_moments = threaded_local_moments.getMine();
+
+        double val_tmp[nvals];
         if (nvals == 4) val_tmp[3] = 0.0;
         for (int i=0; i<3; i++)
         {
@@ -317,7 +344,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*nvals+3] = val_tmp[3];
             if (val_tmp[3] > local_moments[9*nvals+3])
                 local_moments[9*nvals+3] = val_tmp[3];
-            bin = int(floor(val_tmp[3]*2/binsize[3]));
+            int bin = int(floor(val_tmp[3]*2/binsize[3]));
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*nvals+3]++;
         }
@@ -327,40 +354,44 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
                 local_moments[0*nvals+i] = val_tmp[i];
             if (val_tmp[i] > local_moments[9*nvals+i])
                 local_moments[9*nvals+i] = val_tmp[i];
-            bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
+            int bin = int(floor((val_tmp[i] + max_estimate[i]) / binsize[i]));
             if (bin >= 0 && bin < nbins)
                 local_hist[bin*nvals+i]++;
         }
-        for (int n=1; n<9; n++)
-            for (int i=0; i<nvals; i++)
-                local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
+        for (int n=1; n<9; n++){
+            double pow_tmp = 1;
+            for (int i=0; i<nvals; i++){
+                local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
+            }
+        }
     }
     );
+
+    threaded_local_hist.mergeParallel();
+
     MPI_Allreduce(
-                (void*)local_moments,
+                threaded_local_moments.getMasterData(),
                 (void*)moments,
                 nvals,
                 MPI_DOUBLE, MPI_MIN, this->cd->comm);
     MPI_Allreduce(
-                (void*)(local_moments + nvals),
+                (threaded_local_moments.getMasterData() + nvals),
                 (void*)(moments+nvals),
                 8*nvals,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
     MPI_Allreduce(
-                (void*)(local_moments + 9*nvals),
+                (threaded_local_moments.getMasterData() + 9*nvals),
                 (void*)(moments+9*nvals),
                 nvals,
                 MPI_DOUBLE, MPI_MAX, this->cd->comm);
     MPI_Allreduce(
-                (void*)local_hist,
+                (void*)threaded_local_hist.getMasterData(),
                 (void*)hist,
                 nbins*nvals,
                 MPI_INT64_T, MPI_SUM, this->cd->comm);
     for (int n=1; n<9; n++)
         for (int i=0; i<nvals; i++)
             moments[n*nvals + i] /= this->normalization_factor;
-    fftw_free(local_moments);
-    delete[] local_hist;
 }
 
 template <class rnumber>
@@ -482,19 +513,29 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     std::fill_n(kshell_local, this->nshells, 0.0);
     int64_t *nshell_local = new int64_t[this->nshells];
     std::fill_n(nshell_local, this->nshells, 0.0);
-    double knorm;
+
+    std::vector<std::unordered_map<int, double>> Fourier_filter_threaded(omp_get_max_threads());
+
     CLOOP_K2_NXMODES(
                 this,
 
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex,
-                ptrdiff_t zindex, double k2, int nxmodes){if (k2 < this->kM2)
+                [&](ptrdiff_t /*cindex*/, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/,
+                ptrdiff_t /*zindex*/, double k2, int nxmodes){
+        if (k2 < this->kM2)
         {
-            knorm = sqrt(k2);
-            nshell_local[int(knorm/this->dk)] += nxmodes;
-            kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
+            double knorm = sqrt(k2);
+            ThreadSafeUpdate(nshell_local[int(knorm/this->dk)]) += nxmodes;
+            ThreadSafeUpdate(kshell_local[int(knorm/this->dk)]) += nxmodes*knorm;
         }
-        this->Fourier_filter[int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
+        Fourier_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
     );
+
+    // Merge results
+    for(int idxMerge = 0 ; idxMerge < int(Fourier_filter_threaded.size()) ; ++idxMerge){
+        for(const auto kv : Fourier_filter_threaded[idxMerge]){
+            this->Fourier_filter[kv.first] = kv.second;
+        }
+    }
 
     MPI_Allreduce(
                 (void*)(nshell_local),
@@ -559,12 +600,13 @@ void fluid_solver_base<rnumber>::dealias(cnumber *a, const int howmany)
         this->low_pass_Fourier(a, howmany, this->kM);
         return;
     }
-    double tval;
+
     CLOOP_K2(
                 this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex,
-                ptrdiff_t zindex, double k2){
-        tval = this->Fourier_filter[int(round(k2/this->dk2))];
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/,
+                ptrdiff_t /*zindex*/, double k2){
+        double tval = this->Fourier_filter[int(round(k2/this->dk2))];
+        // It is thread safe on the index cindex
         for (int tcounter = 0; tcounter < howmany; tcounter++)
             for (int i=0; i<2; i++)
                 a[howmany*cindex+tcounter][i] *= tval;
@@ -576,13 +618,15 @@ template <class rnumber>
 void fluid_solver_base<rnumber>::force_divfree(cnumber *a)
 {
     TIMEZONE("fluid_solver_base::force_divfree");
-    cnumber tval;
     CLOOP_K2(
                 this,
 
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex,
-                ptrdiff_t zindex, double k2){if (k2 > 0)
+                ptrdiff_t zindex, double k2){
+        if (k2 > 0)
         {
+            // It is thread safe on index cindex
+            cnumber tval;
             tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) +
                     this->ky[yindex]*((*(a + cindex*3+1))[0]) +
                     this->kz[zindex]*((*(a + cindex*3+2))[0]) ) / k2;
@@ -605,7 +649,6 @@ template <class rnumber>
 void fluid_solver_base<rnumber>::compute_vector_gradient(cnumber *A, cnumber *cvec)
 {
     TIMEZONE("fluid_solver_base::compute_vector_gradient");
-    ptrdiff_t tindex;
     std::fill_n((rnumber*)A, 3*2*this->cd->local_size, 0.0);
     cnumber *dx_u, *dy_u, *dz_u;
     dx_u = A;
@@ -618,7 +661,8 @@ void fluid_solver_base<rnumber>::compute_vector_gradient(cnumber *A, cnumber *cv
                 ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2)
         {
-            tindex = 3*cindex;
+            // It is thread safe on cindex
+            ptrdiff_t tindex = 3*cindex;
             for (int cc=0; cc<3; cc++)
             {
                 dx_u[tindex + cc][0] = -this->kx[xindex]*cvec[tindex+cc][1];

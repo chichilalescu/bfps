@@ -32,7 +32,7 @@
 #include "fluid_solver.hpp"
 #include "fftw_tools.hpp"
 #include "scope_timer.hpp"
-
+#include "shared_array.hpp"
 
 
 template <class rnumber>
@@ -195,11 +195,11 @@ template <class rnumber>
 void fluid_solver<rnumber>::compute_vorticity()
 {
     TIMEZONE("fluid_solver::compute_vorticity");
-    ptrdiff_t tindex;
     CLOOP_K2(
                 this,
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-        tindex = 3*cindex;
+        // cindex indexing is thread safe (and tindex too) + it is a write
+        ptrdiff_t tindex = 3*cindex;
         if (k2 <= this->kM2)
         {
             this->cvorticity[tindex+0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]);
@@ -209,8 +209,9 @@ void fluid_solver<rnumber>::compute_vorticity()
             this->cvorticity[tindex+1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]);
             this->cvorticity[tindex+2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]);
         }
-        else
+        else{
             std::fill_n((rnumber*)(this->cvorticity+tindex), 6, 0.0);
+        }
     }
     );
     this->symmetrize(this->cvorticity, 3);
@@ -220,11 +221,11 @@ template <class rnumber>
 void fluid_solver<rnumber>::compute_velocity(rnumber (*__restrict__ vorticity)[2])
 {
     TIMEZONE("fluid_solver::compute_velocity");
-    ptrdiff_t tindex;
     CLOOP_K2(
                 this,
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
-        tindex = 3*cindex;
+        // cindex indexing is thread safe (and tindex too) + it is a write
+        ptrdiff_t tindex = 3*cindex;
         if (k2 <= this->kM2 && k2 > 0)
         {
             this->cu[tindex+0][0] = -(this->ky[yindex]*vorticity[tindex+2][1] - this->kz[zindex]*vorticity[tindex+1][1]) / k2;
@@ -295,15 +296,14 @@ void fluid_solver<rnumber>::add_forcing(
     }
     if (strcmp(this->forcing_type, "linear") == 0)
     {
-        double knorm;
         CLOOP(
                     this,
                     [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-            knorm = sqrt(this->kx[xindex]*this->kx[xindex] +
+            // cindex indexing is thread safe (and cindex*3+c too)
+            double knorm = sqrt(this->kx[xindex]*this->kx[xindex] +
                          this->ky[yindex]*this->ky[yindex] +
                          this->kz[zindex]*this->kz[zindex]);
-            if ((this->fk0 <= knorm) &&
-                    (this->fk1 >= knorm))
+            if ((this->fk0 <= knorm) && (this->fk1 >= knorm))
                 for (int c=0; c<3; c++)
                     for (int i=0; i<2; i++)
                         acc_field[cindex*3+c][i] += this->famplitude*vort_field[cindex*3+c][i]*factor;
@@ -327,17 +327,17 @@ void fluid_solver<rnumber>::omega_nonlin(
         fftw_interface<rnumber>::execute(*(this->vc2r[src]));
     }
     /* compute cross product $u \times \omega$, and normalize */
-    rnumber tmp[3][2];
-    ptrdiff_t tindex;
     {
         TIMEZONE("fluid_solver::omega_nonlin::RLOOP");
         RLOOP (
                     this,
-                    [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-            tindex = 3*rindex;
+                    [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+            ptrdiff_t tindex = 3*rindex;
+            rnumber tmp[3][2];
             for (int cc=0; cc<3; cc++)
                 tmp[cc][0] = (this->ru[tindex+(cc+1)%3]*this->rv[src][tindex+(cc+2)%3] -
                         this->ru[tindex+(cc+2)%3]*this->rv[src][tindex+(cc+1)%3]);
+            // Access to rindex is thread safe so there is no overlap between threads
             for (int cc=0; cc<3; cc++)
                 this->ru[(3*rindex)+cc] = tmp[cc][0] / this->normalization_factor;
         }
@@ -356,7 +356,8 @@ void fluid_solver<rnumber>::omega_nonlin(
         CLOOP(
                     this,
                     [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-            tindex = 3*cindex;
+            rnumber tmp[3][2];
+            ptrdiff_t tindex = 3*cindex;
             {
                 tmp[0][0] = -(this->ky[yindex]*this->cu[tindex+2][1] - this->kz[zindex]*this->cu[tindex+1][1]);
                 tmp[1][0] = -(this->kz[zindex]*this->cu[tindex+0][1] - this->kx[xindex]*this->cu[tindex+2][1]);
@@ -365,8 +366,10 @@ void fluid_solver<rnumber>::omega_nonlin(
                 tmp[1][1] =  (this->kz[zindex]*this->cu[tindex+0][0] - this->kx[xindex]*this->cu[tindex+2][0]);
                 tmp[2][1] =  (this->kx[xindex]*this->cu[tindex+1][0] - this->ky[yindex]*this->cu[tindex+0][0]);
             }
-            for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
-                this->cu[tindex+cc][i] = tmp[cc][i];
+            // cindex indexing is thread safe so it is 3*cindex so there is no overlap between threads
+            for (int cc=0; cc<3; cc++)
+                for (int i=0; i<2; i++)
+                    this->cu[tindex+cc][i] = tmp[cc][i];
         }
         );
     }
@@ -384,15 +387,15 @@ template <class rnumber>
 void fluid_solver<rnumber>::step(double dt)
 {
     TIMEZONE("fluid_solver::step");
-    double factor0, factor1;
     std::fill_n((rnumber*)this->cv[1], this->cd->local_size*2, 0.0);
     this->omega_nonlin(0);
     CLOOP_K2(
                 this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/, double k2){
         if (k2 <= this->kM2)
         {
-            factor0 = exp(-this->nu * k2 * dt);
+            double factor0 = exp(-this->nu * k2 * dt);
+            // cindex indexing is thread safe so there is no overlap between threads
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->cv[1][3*cindex+cc][i] = (this->cv[0][3*cindex+cc][i] +
                     dt*this->cu[3*cindex+cc][i])*factor0;
@@ -403,11 +406,12 @@ void fluid_solver<rnumber>::step(double dt)
     this->omega_nonlin(1);
     CLOOP_K2(
                 this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/, double k2){
         if (k2 <= this->kM2)
         {
-            factor0 = exp(-this->nu * k2 * dt/2);
-            factor1 = exp( this->nu * k2 * dt/2);
+            double factor0 = exp(-this->nu * k2 * dt/2);
+            double factor1 = exp( this->nu * k2 * dt/2);
+            // cindex indexing is thread safe so there is no overlap between threads
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->cv[2][3*cindex+cc][i] = (3*this->cv[0][3*cindex+cc][i]*factor0 +
                     (this->cv[1][3*cindex+cc][i] +
@@ -419,10 +423,11 @@ void fluid_solver<rnumber>::step(double dt)
     this->omega_nonlin(2);
     CLOOP_K2(
                 this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/, double k2){
         if (k2 <= this->kM2)
         {
-            factor0 = exp(-this->nu * k2 * dt * 0.5);
+            double factor0 = exp(-this->nu * k2 * dt * 0.5);
+            // cindex indexing is thread safe so there is no overlap between threads
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->cv[3][3*cindex+cc][i] = (this->cv[0][3*cindex+cc][i]*factor0 +
                     2*(this->cv[2][3*cindex+cc][i] +
@@ -540,10 +545,13 @@ int fluid_solver<rnumber>::write_rTrS2()
     dy_u = ra + 2*this->cd->local_size;
     dz_u = ra + 4*this->cd->local_size;
     rnumber *trS2 = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
-    double average_local = 0;
+    shared_array<double> average_local(1, [&](double* data){
+        data[0] = 0;
+    });
+
     RLOOP(
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
         rnumber AxxAxx;
         rnumber AyyAyy;
         rnumber AzzAzz;
@@ -557,14 +565,16 @@ int fluid_solver<rnumber>::write_rTrS2()
         Sxy = dx_u[tindex+1]+dy_u[tindex+0];
         Syz = dy_u[tindex+2]+dz_u[tindex+1];
         Szx = dz_u[tindex+0]+dx_u[tindex+2];
+        // rindex is thread safe + No overlap between thread it is a write
         trS2[rindex] = (AxxAxx + AyyAyy + AzzAzz +
                         (Sxy*Sxy + Syz*Syz + Szx*Szx)/2);
-        average_local += trS2[rindex];
+        average_local.getMine()[0] += trS2[rindex];
     }
     );
+    average_local.mergeParallel();
     double average;
     MPI_Allreduce(
-                &average_local,
+                average_local.getMasterData(),
                 &average,
                 1,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
@@ -591,22 +601,27 @@ int fluid_solver<rnumber>::write_renstrophy()
     this->fill_up_filename("renstrophy", fname);
     rnumber *enstrophy = fftw_interface<rnumber>::alloc_real((this->cd->local_size/3)*2);
     this->ift_vorticity();
-    double average_local = 0;
+    shared_array<double> average_local(1, [&](double* data){
+        data[0] = 0;
+    });
+
     RLOOP(
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
         ptrdiff_t tindex = 3*rindex;
+        // rindex indexing is thread safe so there is no overlap between threads
         enstrophy[rindex] = (
                     this->rvorticity[tindex+0]*this->rvorticity[tindex+0] +
                 this->rvorticity[tindex+1]*this->rvorticity[tindex+1] +
                 this->rvorticity[tindex+2]*this->rvorticity[tindex+2]
                 )/2;
-        average_local += enstrophy[rindex];
+        average_local.getMine()[0] += enstrophy[rindex];
     }
     );
+    average_local.mergeParallel();
     double average;
     MPI_Allreduce(
-                &average_local,
+                average_local.getMasterData(),
                 &average,
                 1,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
@@ -629,13 +644,12 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
 {
     TIMEZONE("fluid_solver::compute_pressure");
     /* assume velocity is already in real space representation */
-    ptrdiff_t tindex;
-
     /* diagonal terms 11 22 33 */
     RLOOP (
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        // rindex indexing is thread safe so there is no overlap between threads
+        ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc];
     }
@@ -651,7 +665,8 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2 && k2 > 0)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             for (int i=0; i<2; i++)
             {
                 pressure[cindex][i] = -(this->kx[xindex]*this->kx[xindex]*this->cv[1][tindex+0][i] +
@@ -666,8 +681,9 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
     /* off-diagonal terms 12 23 31 */
     RLOOP (
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        // rindex indexing is thread safe so there is no overlap between threads
+        ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3];
     }
@@ -683,7 +699,8 @@ void fluid_solver<rnumber>::compute_pressure(rnumber (*__restrict__ pressure)[2]
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2 && k2 > 0)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             for (int i=0; i<2; i++)
             {
                 pressure[cindex][i] -= 2*(this->kx[xindex]*this->ky[yindex]*this->cv[1][tindex+0][i] +
@@ -744,7 +761,7 @@ int QR2D_nbins)
     std::fill_n(local_hist, QR2D_nbins*QR2D_nbins, 0);
     RLOOP(
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
         rnumber AxxAxx;
         rnumber AyyAyy;
         rnumber AzzAzz;
@@ -754,6 +771,8 @@ int QR2D_nbins)
         rnumber Sxy;
         rnumber Syz;
         rnumber Szx;
+        // rindex indexing is thread safe so there is no overlap between threads
+        // tindex[0:2] is thread safe too
         ptrdiff_t tindex = 3*rindex;
         AxxAxx = dx_u[tindex+0]*dx_u[tindex+0];
         AyyAyy = dy_u[tindex+1]*dy_u[tindex+1];
@@ -824,7 +843,6 @@ template <class rnumber>
 void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber (*acceleration)[2])
 {
     TIMEZONE("fluid_solver::compute_Lagrangian_acceleration");
-    ptrdiff_t tindex;
     typename fftw_interface<rnumber>::complex *pressure;
     pressure = fftw_interface<rnumber>::alloc_complex(this->cd->local_size/3);
     this->compute_velocity(this->cvorticity);
@@ -837,7 +855,8 @@ void fluid_solver<rnumber>::compute_Lagrangian_acceleration(rnumber (*accelerati
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             for (int cc=0; cc<3; cc++)
                 for (int i=0; i<2; i++)
                     this->cv[1][tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i];
@@ -871,15 +890,15 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
 {
     TIMEZONE("fluid_solver::compute_Eulerian_acceleration");
     std::fill_n((rnumber*)(acceleration), 2*this->cd->local_size, 0.0);
-    ptrdiff_t tindex;
     this->compute_velocity(this->cvorticity);
     /* put in linear terms */
     CLOOP_K2(
                 this,
-                [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
+                [&](ptrdiff_t cindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/, double k2){
         if (k2 <= this->kM2)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             for (int cc=0; cc<3; cc++)
                 for (int i=0; i<2; i++)
                     acceleration[tindex+cc][i] = - this->nu*k2*this->cu[tindex+cc][i];
@@ -902,8 +921,9 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
     /* 11 22 33 */
     RLOOP (
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        // cindex indexing is thread safe so there is no overlap between threads
+        ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+cc] / this->normalization_factor;
     }
@@ -916,7 +936,8 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             acceleration[tindex+0][0] +=
                     this->kx[xindex]*this->cv[1][tindex+0][1];
             acceleration[tindex+0][1] +=
@@ -935,8 +956,9 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
     /* 12 23 31 */
     RLOOP (
                 this,
-                [&](ptrdiff_t rindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex){
-        tindex = 3*rindex;
+                [&](ptrdiff_t rindex, ptrdiff_t /*xindex*/, ptrdiff_t /*yindex*/, ptrdiff_t /*zindex*/){
+        // cindex indexing is thread safe so there is no overlap between threads
+        ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->rv[1][tindex+cc] = this->ru[tindex+cc]*this->ru[tindex+(cc+1)%3] / this->normalization_factor;
     }
@@ -949,7 +971,8 @@ void fluid_solver<rnumber>::compute_Eulerian_acceleration(rnumber (*__restrict__
                 [&](ptrdiff_t cindex, ptrdiff_t xindex, ptrdiff_t yindex, ptrdiff_t zindex, double k2){
         if (k2 <= this->kM2)
         {
-            tindex = 3*cindex;
+            // cindex indexing is thread safe so there is no overlap between threads
+            ptrdiff_t tindex = 3*cindex;
             acceleration[tindex+0][0] +=
                     (this->ky[yindex]*this->cv[1][tindex+0][1] +
                     this->kz[zindex]*this->cv[1][tindex+2][1]);

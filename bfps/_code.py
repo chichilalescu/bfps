@@ -76,15 +76,21 @@ class _code(_base):
                     assert(mpiprovided >= MPI_THREAD_FUNNELED);
                     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
                     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-                    fftw_init_threads();
-                    fftwf_init_threads();
-                    fftw_mpi_init();
-                    fftwf_mpi_init();
                     const int nbThreads = omp_get_max_threads();
                     DEBUG_MSG("Number of threads for the FFTW = %d\\n", nbThreads);
-                    std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
-                    fftw_plan_with_nthreads(nbThreads);
-                    fftwf_plan_with_nthreads(nbThreads);
+                    if (nbThreads > 1){
+                        fftw_init_threads();
+                        fftwf_init_threads();
+                    }
+                    fftw_mpi_init();
+                    fftwf_mpi_init();
+                    if( myrank == 0 ){
+                        std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
+                    }
+                    if (nbThreads > 1){
+                        fftw_plan_with_nthreads(nbThreads);
+                        fftwf_plan_with_nthreads(nbThreads);
+                    }
                     if (argc != 2)
                     {
                         std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
@@ -130,6 +136,7 @@ class _code(_base):
                     #ifdef USE_TIMINGOUTPUT
                     global_timer_manager.show(MPI_COMM_WORLD);
                     global_timer_manager.showMpi(MPI_COMM_WORLD);
+                    global_timer_manager.showHtml(MPI_COMM_WORLD);
                     #endif
                     MPI_Finalize();
                     return EXIT_SUCCESS;
@@ -320,24 +327,48 @@ class _code(_base):
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
-        script_file.write('# @ resources = ConsumableCpus(1)\n')
+        script_file.write('# @ notification = complete\n')
+        script_file.write('# @ notify_user = $(user)@rzg.mpg.de\n')
+
+        nb_cpus_per_node = 20
+
+        try:
+            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
+        except :
+           nb_process_per_node=nb_cpus_per_node
+        print('nb_cpu = {} '.format(nprocesses))
+        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
+        
+        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+
+        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
+            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
+
+        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
+        number_of_nodes = int((nprocesses+nb_cpus_per_node-1)/nb_cpus_per_node)
+
+        first_node_tasks = int((nprocesses - (number_of_nodes-1)*nb_cpus_per_node)/nb_cpus_per_task)
+
+        script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
         script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
         script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
         assert(type(self.host_info['environment']) != type(None))
-        if self.host_info['environment'] == '16node':
-            tasks_per_node = 16
-            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
         script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-        script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
-        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+        script_file.write('# @ tasks_per_node = {0}\n'.format(nb_process_per_node))
         if (first_node_tasks > 0):
             script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
         script_file.write('# @ queue\n')
+
+
+        script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_cpus_per_task))
+
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('cd ' + self.work_dir + '\n')
+#        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('poe ' +
                 os.path.join(
                     self.work_dir,
@@ -374,17 +405,32 @@ class _code(_base):
         script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('#\n')
-        if self.host_info['environment'] == '16node':
-            tasks_per_node = 16
-            number_of_nodes = int(math.ceil((nprocesses*1.0/16)))
-        first_node_tasks = nprocesses - (number_of_nodes-1)*tasks_per_node
+        
+        nb_cpus_per_node = 20
+
+        try:
+            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
+        except :
+           nb_process_per_node=nb_cpus_per_node
+        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
+        
+        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+
+        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
+            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
+
+        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
+        number_of_nodes = int((nprocesses+nb_process_per_node-1)/nb_process_per_node)
+
+        first_node_tasks = nprocesses - (number_of_nodes-1)*nb_process_per_node
+
         for job in range(njobs):
             script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
-            script_file.write('# @ resources = ConsumableCpus(1)\n')
+            script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
             script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
             script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
             script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-            script_file.write('# @ tasks_per_node = {0}\n'.format(tasks_per_node))
+            script_file.write('# @ tasks_per_node = {0}\n'.format(nb_tasks_per_node))
             if (first_node_tasks > 0):
                 script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
             script_file.write('# @ queue\n')
@@ -393,6 +439,8 @@ class _code(_base):
                           '\n')
         script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
+#        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
         script_file.write('poe ' +
                 os.path.join(
@@ -499,6 +547,8 @@ class _code(_base):
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
                           '\n')
         script_file.write('echo "Start time is `date`"\n')
+        script_file.write('cd ' + self.work_dir + '\n')
+        script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('srun {0}\n'.format(' '.join(command_atoms)))
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')

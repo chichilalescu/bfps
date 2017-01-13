@@ -71,7 +71,7 @@ class field
                 const int ny,
                 const int nz,
                 const MPI_Comm COMM_TO_USE,
-                const unsigned FFTW_PLAN_RIGOR = FFTW_ESTIMATE);
+                const unsigned FFTW_PLAN_RIGOR = FFTW_PATIENT);
         ~field();
 
         int io(
@@ -201,6 +201,7 @@ class field
             switch(be)
             {
                 case FFTW:
+	                #pragma omp parallel for schedule(static)
                     for (hsize_t zindex = 0; zindex < this->rlayout->subsizes[0]; zindex++)
                     for (hsize_t yindex = 0; yindex < this->rlayout->subsizes[1]; yindex++)
                     {
