@@ -366,28 +366,26 @@ public:
                        0, inComm);
         assert(retMpi == MPI_SUCCESS);
         // Process 0 merge and print results
-        std::unique_ptr<int[]> dipls;
-        std::unique_ptr<SerializedEvent[]> allEvents;
-        std::unique_ptr<int[]> nbEventsPerProcByte;
-        std::unique_ptr<int[]> diplsByte;
+        std::vector<SerializedEvent> allEvents;
         if(myRank == 0){
-            dipls.reset(new int[nbProcess+1]);
-            diplsByte.reset(new int[nbProcess+1]);
-            nbEventsPerProcByte.reset(new int[nbProcess]);
-            dipls[0] = 0;
-            diplsByte[0] = 0;
-            for(int idx = 1 ; idx <= nbProcess ; ++idx){
-                dipls[idx] = dipls[idx-1] + nbEventsPerProc[idx-1];
-                diplsByte[idx] = dipls[idx] * sizeof(SerializedEvent);
-                nbEventsPerProcByte[idx-1] = nbEventsPerProc[idx-1] * sizeof(SerializedEvent);
+            allEvents.resize(myEvents.size());
+            std::copy(myEvents.begin(), myEvents.end(), allEvents.begin());
+
+            for(int idx = 1 ; idx < nbProcess ; ++idx){
+                const size_t currentNb = allEvents.size();
+                allEvents.resize(currentNb + nbEventsPerProc[idx]);
+
+                retMpi = MPI_Recv(&allEvents[currentNb], nbEventsPerProc[idx]* sizeof(SerializedEvent), MPI_BYTE, idx, 1,
+                                  inComm, MPI_STATUS_IGNORE);
+                assert(retMpi == MPI_SUCCESS);
             }
-            allEvents.reset(new SerializedEvent[dipls[nbProcess]]);
+        }
+        else{
+            retMpi = MPI_Send(&myEvents[0], myEvents.size()* sizeof(SerializedEvent), MPI_BYTE, 0, 1,
+                              inComm);
+            assert(retMpi == MPI_SUCCESS);
         }
 
-        retMpi = MPI_Gatherv(myEvents.data(), myNbEvents * sizeof(SerializedEvent), MPI_BYTE,
-                    allEvents.get(), nbEventsPerProcByte.get(), diplsByte.get(),
-                    MPI_BYTE, 0, inComm);
-        assert(retMpi == MPI_SUCCESS);
 
         if(myRank == 0){
             struct GlobalEvent {
@@ -403,7 +401,7 @@ public:
             };
 
             std::unordered_map<std::string, GlobalEvent> mapEvents;
-            for(int idxEvent = 0 ; idxEvent < dipls[nbProcess] ; ++idxEvent){
+            for(int idxEvent = 0 ; idxEvent < int(allEvents.size()) ; ++idxEvent){
                 const std::string key = std::string(allEvents[idxEvent].path) + std::string(allEvents[idxEvent].name);
                 if(mapEvents.find(key) == mapEvents.end()){
                     GlobalEvent& newEvent = mapEvents[key];
