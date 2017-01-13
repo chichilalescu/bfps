@@ -254,7 +254,7 @@ void kspace<be, dt>::cospectrum(
         const hsize_t toffset)
 {
     TIMEZONE("field::cospectrum");
-    shared_array<double> spec_local_thread(this->nshells*9,[&](double* spec_local){
+    shared_array<double> spec_local_thread(this->nshells*ncomp(fc)*ncomp(fc),[&](double* spec_local){
         std::fill_n(spec_local, this->nshells*ncomp(fc)*ncomp(fc), 0);
     });
 

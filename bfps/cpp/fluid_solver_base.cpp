@@ -367,6 +367,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
     }
     );
 
+    threaded_local_moments.mergeParallel();
     threaded_local_hist.mergeParallel();
 
     MPI_Allreduce(
