@@ -30,7 +30,7 @@ public:
     }
 
     shared_array(const size_t inDim, std::function<void(ValueType*)> inInitFunc)
-            : shared_array(inDim), hasBeenShared(false){
+            : shared_array(inDim){
         setInitFunction(inInitFunc);
     }
 
@@ -40,7 +40,7 @@ public:
             delete[] values[idxThread];
         }
         delete[] values;
-        if(hasBeenMerged){
+        if(hasBeenMerged == false){
             // TODO remove when bug solved
             std::cerr << "A shared array has not been merged.... might be a bug" << std::endl;
         }
@@ -68,7 +68,7 @@ public:
     }
 
     void mergeParallel(){
-        #pragma omp parallel
+        /*#pragma omp parallel
         {
             int mergeFlag = 1;
             while(mergeFlag < currentNbThreads) mergeFlag <<= 1;
@@ -96,7 +96,16 @@ public:
                 }
                 #pragma omp barrier
             }
-        }
+        }*/
+                      for(int idxThread = 1 ; idxThread < currentNbThreads ; ++idxThread){
+                         if(values[idxThread]){
+                            ValueType* __restrict__ dest = values[0];
+                            const ValueType* __restrict__ src = values[idxThread];
+                            for( size_t idxVal = 0 ; idxVal < dim ; ++idxVal){
+                                dest[idxVal] += src[idxVal];
+                            }
+                         }
+                      }
         hasBeenMerged = true;
     }
 
@@ -131,8 +140,13 @@ public:
             omp_set_lock(&locker);
             values[omp_get_thread_num()] = myValue;
             omp_unset_lock(&locker);
+	    return myValue;
         }
-        return values[omp_get_thread_num()];
+
+        omp_set_lock(&locker);
+        ValueType* myValue = values[omp_get_thread_num()];
+        omp_unset_lock(&locker);
+        return myValue;
     }
 };
 
