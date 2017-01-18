@@ -82,7 +82,7 @@ class fluid_solver_base
                 double DKY = 1.0,
                 double DKZ = 1.0,
                 int DEALIAS_TYPE = 0,
-                unsigned FFTW_PLAN_RIGOR = FFTW_PATIENT);
+                unsigned FFTW_PLAN_RIGOR = DEFAULT_FFTW_FLAG);
         ~fluid_solver_base();
 
         void low_pass_Fourier(cnumber *__restrict__ a, int howmany, double kmax);

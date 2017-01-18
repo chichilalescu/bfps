@@ -54,6 +54,7 @@ class _code(_base):
                 #include "base.hpp"
                 #include "fluid_solver.hpp"
                 #include "scope_timer.hpp"
+                #include "fftw_interface.hpp"
                 #include <iostream>
                 #include <hdf5.h>
                 #include <string>

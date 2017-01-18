@@ -71,7 +71,7 @@ class field
                 const int ny,
                 const int nz,
                 const MPI_Comm COMM_TO_USE,
-                const unsigned FFTW_PLAN_RIGOR = FFTW_PATIENT);
+                const unsigned FFTW_PLAN_RIGOR = DEFAULT_FFTW_FLAG);
         ~field();
 
         int io(

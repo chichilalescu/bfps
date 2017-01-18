@@ -137,6 +137,7 @@ libraries += extra_libraries
 
 def compile_bfps_library(
         use_timingoutput = False,
+        use_fftwestimate = False,
         extra_compile_args = None):
     """
         use_timingoutput sets the USE_TIMINGOUTPUT definition,
@@ -157,6 +158,8 @@ def compile_bfps_library(
         need_to_compile = (latest > libtime)
     if use_timingoutput:
         extra_compile_args += ['-DUSE_TIMINGOUTPUT']
+    if use_fftwestimate:
+        extra_compile_args += ['-DUSE_FFTWESTIMATE']
     for fname in src_file_list:
         ifile = 'bfps/cpp/' + fname + '.cpp'
         ofile = 'obj/' + fname + '.o'
@@ -200,12 +203,15 @@ class CompileLibCommand(distutils.cmd.Command):
     description = 'Compile bfps library.'
     user_options = [
             ('timing-output=', None, 'Toggle timing output.'),
+            ('fftw-estimate=', None, 'Use FFTW ESTIMATE.'),
             ]
     def initialize_options(self):
         self.timing_output = 0
+        self.fftw_estimate = 0
         return None
     def finalize_options(self):
         self.timing_output = (int(self.timing_output) == 1)
+        self.fftw_estimate = (int(self.fftw_estimate) == 1)
         return None
     def run(self):
         if not os.path.isdir('obj'):
@@ -224,6 +230,8 @@ class CompileLibCommand(distutils.cmd.Command):
         eca = extra_compile_args
         if self.timing_output:
             eca += ['-DUSE_TIMINGOUTPUT']
+        if self.fftw_estimate:
+            eca += ['-DUSE_FFTWESTIMATE']
         for fname in src_file_list:
             ifile = 'bfps/cpp/' + fname + '.cpp'
             ofile = 'obj/' + fname + '.o'

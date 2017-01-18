@@ -98,7 +98,7 @@ class FluidConvert(_fluid_particle_base):
                         nx, ny, nz,
                         dkx, dky, dkz,
                         dealias_type,
-                        FFTW_PATIENT);
+                        DEFAULT_FFTW_FLAG);
                 //endcpp
                 """.format(self.C_dtype)
         self.fluid_loop += """

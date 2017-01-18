@@ -361,7 +361,7 @@ int field_descriptor<rnumber>::transpose(
                 this->sizes[0], this->slice_size,
             input, output,
             this->comm,
-            FFTW_PATIENT);
+            DEFAULT_FFTW_FLAG);
     fftw_interface<rnumber>::execute(tplan);
     fftw_interface<rnumber>::destroy_plan(tplan);
     return EXIT_SUCCESS;
@@ -389,7 +389,7 @@ int field_descriptor<rnumber>::transpose(
                 FFTW_MPI_DEFAULT_BLOCK,
                 (rnumber*)input, (rnumber*)output,
                 this->comm,
-                FFTW_PATIENT);
+                DEFAULT_FFTW_FLAG);
         fftw_interface<rnumber>::execute(tplan);
         fftw_interface<rnumber>::destroy_plan(tplan);
         break;
@@ -449,7 +449,7 @@ int field_descriptor<rnumber>::interleave(
                 a,
                 a,
                 /*kind*/nullptr,
-                FFTW_PATIENT);
+                DEFAULT_FFTW_FLAG);
     fftw_interface<rnumber>::execute(tmp);
     fftw_interface<rnumber>::destroy_plan(tmp);
     return EXIT_SUCCESS;
@@ -478,7 +478,7 @@ int field_descriptor<rnumber>::interleave(
                 a,
                 a,
                 +1,
-                FFTW_PATIENT);
+                DEFAULT_FFTW_FLAG);
     fftw_interface<rnumber>::execute(tmp);
     fftw_interface<rnumber>::destroy_plan(tmp);
     return EXIT_SUCCESS;
