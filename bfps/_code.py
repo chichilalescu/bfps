@@ -134,6 +134,10 @@ class _code(_base):
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
+                    if (nbThreads > 1){
+                        fftw_cleanup_threads();
+                        fftwf_cleanup_threads();
+                    }
                     #ifdef USE_TIMINGOUTPUT
                     global_timer_manager.show(MPI_COMM_WORLD);
                     global_timer_manager.showMpi(MPI_COMM_WORLD);
