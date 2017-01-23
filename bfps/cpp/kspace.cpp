@@ -153,8 +153,11 @@ kspace<be, dt>::kspace(
             &this->kshell.front(),
             this->nshells,
             MPI_DOUBLE, MPI_SUM, this->layout->comm);
-    for (int n=0; n<this->nshells; n++)
-        this->kshell[n] /= this->nshell[n];
+    for (int n=0; n<this->nshells; n++){
+		if(this->nshell[n] != 0){
+	        this->kshell[n] /= this->nshell[n];
+		}
+    }
 }
 
 template <field_backend be,
