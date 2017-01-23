@@ -69,9 +69,63 @@ class _code(_base):
         self.variables += ('hid_t parameter_file, stat_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
+
+
+#include <fenv.h>
+#include <iostream>
+#include <execinfo.h>
+#include <cstdio>
+#include <unistd.h>
+#include <csignal>
+#include <unistd.h>
+#include <iostream>
+#include <stdexcept>
+
+/**
+ * @brief f_sig_handler catch the system signals.
+ * @param signalReceived
+ */
+void f_sig_handler(int signalReceived){
+    std::cerr << "[BFPS] Signal " << signalReceived << " has been intercepted." << std::endl;
+    const int maxStackCalls = 40;
+    void *stackArray[maxStackCalls];
+    const int callsToPrint = backtrace(stackArray, maxStackCalls);
+    backtrace_symbols_fd(stackArray, callsToPrint, STDERR_FILENO);
+    throw std::runtime_error("abort");
+}
+
+/**
+ * @brief f_install_signal_handler
+ * This install several handler for various signals.
+ */
+void f_install_signal_handler(){
+    // The SIGINT signal is sent to a process by its controlling terminal when a user wishes to interrupt the process
+    if( signal(SIGINT, f_sig_handler) == SIG_ERR ){
+        std::cout << "Signal Handler: Cannot install signal SIGINT\\n";
+    }
+    // The SIGTERM signal is sent to a process to request its termination
+    if( signal(SIGTERM, f_sig_handler) == SIG_ERR ){
+        std::cout << "Signal Handler: Cannot install signal SIGTERM\\n";
+    }
+    // The SIGFPE signal is sent to a process when it executes an erroneous arithmetic operation, such as division by zero
+    if( signal(SIGFPE, f_sig_handler) == SIG_ERR ){
+        std::cout << "Signal Handler: Cannot install signal SIGFPE\\n";
+    }
+    // The SIGABRT signal is sent to a process to tell it to abort, i.e. to terminate
+    if( signal(SIGABRT, f_sig_handler) == SIG_ERR ){
+        std::cout << "Signal Handler: Cannot install signal SIGABRT\\n";
+    }
+    // The SIGSEGV signal is sent to a process when it makes an invalid virtual memory reference, or segmentation fault
+    if( signal(SIGSEGV, f_sig_handler) == SIG_ERR ){
+        std::cout << "Signal Handler: Cannot install signal SIGSEGV\\n";
+    }
+}
+
                 //begincpp
                 int main(int argc, char *argv[])
                 {
+feenableexcept(FE_INVALID | FE_OVERFLOW);
+f_install_signal_handler();
                     int mpiprovided;
                     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &mpiprovided);
                     assert(mpiprovided >= MPI_THREAD_FUNNELED);
@@ -176,7 +230,7 @@ class _code(_base):
                           '{0}\n'.format(bfps.dist_loc))
         libraries = ['bfps']
         libraries += bfps.install_info['libraries']
-        libraries += ['fftw3_omp']
+        libraries += ['fftw3_omp'] # Remove if enable mkl
         libraries += ['fftw3f_omp']
 
         command_strings = [bfps.install_info['compiler']]
@@ -186,6 +240,18 @@ class _code(_base):
         command_strings.append('-I' + bfps.header_dir)
         command_strings += ['-L' + ldir for ldir in bfps.install_info['library_dirs']]
         command_strings.append('-L' + bfps.lib_dir)
+
+        # try:
+        #     usemkl = int(os.environ['USEMKLFFTW'])
+        # except :
+        #    usemkl = False
+		# 
+        # if usemkl :
+        #     command_strings.append('--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group')
+        # else :
+        #     libraries += ['fftw3_omp']
+        #     libraries += ['fftw3f_omp']
+
         for libname in libraries:
             command_strings += ['-l' + libname]
         command_strings += ['-fopenmp']
