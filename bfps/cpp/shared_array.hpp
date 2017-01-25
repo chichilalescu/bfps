@@ -41,8 +41,6 @@ public:
         }
         delete[] values;
         if(hasBeenMerged == false){
-            // TODO remove when bug solved
-            std::cerr << "A shared array has not been merged.... might be a bug" << std::endl;
         }
     }
 
