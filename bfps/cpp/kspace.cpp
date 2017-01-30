@@ -210,7 +210,7 @@ void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restri
                     ptrdiff_t zindex,
                     double k2){
                     double tval = this->dealias_filter[int(round(k2 / this->dk2))];
-                    for (int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                    for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
                         ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= tval;
                 });
             break;

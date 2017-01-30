@@ -117,10 +117,10 @@ class field
             return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;
         }
 
-        inline rnumber &rval(ptrdiff_t rindex, int component = 0)
+        inline rnumber &rval(ptrdiff_t rindex, unsigned int component = 0)
         {
             assert(fc == ONE || fc == THREE);
-            assert(component >= 0 && component <ncomp(fc));
+            assert(component >= 0 && component < ncomp(fc));
             return *(this->data + rindex*ncomp(fc) + component);
         }
 
