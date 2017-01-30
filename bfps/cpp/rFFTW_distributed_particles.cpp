@@ -657,8 +657,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         for (int s = -1; s <= 0; s++)
              for (auto &pp: this->domain_particles[s])
              {
-                 if (pp >= cindex*this->chunk_size &&
-                     pp < (cindex+1)*this->chunk_size)
+                 if (pp >= int(cindex*this->chunk_size) &&
+                     pp < int((cindex+1)*this->chunk_size))
                 {
                     std::copy(y[pp].data,
                               y[pp].data + 3,
@@ -711,8 +711,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
         for (int s = -1; s <= 0; s++)
              for (auto &pp: this->domain_particles[s])
              {
-                 if (pp >= cindex*this->chunk_size &&
-                     pp < (cindex+1)*this->chunk_size)
+                 if (pp >= int(cindex*this->chunk_size) &&
+                     pp < int((cindex+1)*this->chunk_size))
                 {
                     std::copy(this->state[pp].data,
                               this->state[pp].data + state_dimension(particle_type),
@@ -754,8 +754,8 @@ void rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::wri
                 for (int s = -1; s <= 0; s++)
                      for (auto &pp: this->domain_particles[s])
                      {
-                         if (pp >= cindex*this->chunk_size &&
-                             pp < (cindex+1)*this->chunk_size)
+                         if (pp >= int(cindex*this->chunk_size) &&
+                             pp < int((cindex+1)*this->chunk_size))
                         {
                             std::copy(this->rhs[i][pp].data,
                                       this->rhs[i][pp].data + state_dimension(particle_type),

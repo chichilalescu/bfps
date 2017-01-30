@@ -302,7 +302,7 @@ int field<rnumber, be, fc>::io(
 
     /* check file space */
     int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    assert(ndims_fspace == ndim(fc));
+    assert(((unsigned int)(ndims_fspace)) == ndim(fc));
     if (this->real_space_representation)
     {
         for (unsigned int i=0; i<ndim(fc); i++)
@@ -488,7 +488,7 @@ int field<rnumber, be, fc>::io_database(
 
     /* check file space */
     int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    assert(ndims_fspace == ndim(fc) + 1);
+    assert(ndims_fspace == int(ndim(fc) + 1));
     offset[0] = toffset;
     if (this->real_space_representation)
     {
@@ -790,7 +790,7 @@ void field<rnumber, be, fc>::symmetrize()
     {
         for (cc = 0; cc < ncomp(fc); cc++)
             data[cc][1] = 0.0;
-        for (ii = 1; ii < this->clayout->sizes[1]/2; ii++)
+        for (ii = 1; ii < ptrdiff_t(this->clayout->sizes[1]/2); ii++)
             for (cc = 0; cc < ncomp(fc); cc++) {
                 ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[0] =
                  (*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[0];
@@ -803,11 +803,11 @@ void field<rnumber, be, fc>::symmetrize()
     ptrdiff_t yy;
     /*ptrdiff_t tindex;*/
     int ranksrc, rankdst;
-    for (yy = 1; yy < this->clayout->sizes[0]/2; yy++) {
+    for (yy = 1; yy < ptrdiff_t(this->clayout->sizes[0]/2); yy++) {
         ranksrc = this->clayout->rank[0][yy];
         rankdst = this->clayout->rank[0][this->clayout->sizes[0] - yy];
         if (this->clayout->myrank == ranksrc)
-            for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+            for (ii = 0; ii < ptrdiff_t(this->clayout->sizes[1]); ii++)
                 for (cc = 0; cc < ncomp(fc); cc++)
                     for (int imag_comp=0; imag_comp<2; imag_comp++)
                         (*(buffer + ncomp(fc)*ii+cc))[imag_comp] =
@@ -825,7 +825,7 @@ void field<rnumber, be, fc>::symmetrize()
         }
         if (this->clayout->myrank == rankdst)
         {
-            for (ii = 1; ii < this->clayout->sizes[1]; ii++)
+            for (ii = 1; ii < ptrdiff_t(this->clayout->sizes[1]); ii++)
                 for (cc = 0; cc < ncomp(fc); cc++)
                 {
                     (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[0] =
