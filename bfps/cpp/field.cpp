@@ -1032,3 +1032,11 @@ template void compute_gradient<double, FFTW, THREE, THREExTHREE, SMOOTH>(
         field<double, FFTW, THREE> *,
         field<double, FFTW, THREExTHREE> *);
 
+template void compute_gradient<float, FFTW, ONE, THREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<float, FFTW, ONE> *,
+        field<float, FFTW, THREE> *);
+template void compute_gradient<double, FFTW, ONE, THREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<double, FFTW, ONE> *,
+        field<double, FFTW, THREE> *);
