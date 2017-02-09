@@ -61,6 +61,8 @@ class _code(_base):
                 #include <cstring>
                 #include <fftw3-mpi.h>
 				#include <omp.h>
+                #include <fenv.h>
+                #include <cstdlib>
                 //endcpp
                 """
         self.variables = 'int myrank, nprocs;\n'
@@ -69,63 +71,16 @@ class _code(_base):
         self.variables += ('hid_t parameter_file, stat_file, Cdset;\n')
         self.definitions = ''
         self.main_start = """
-
-
-#include <fenv.h>
-#include <iostream>
-#include <execinfo.h>
-#include <cstdio>
-#include <unistd.h>
-#include <csignal>
-#include <unistd.h>
-#include <iostream>
-#include <stdexcept>
-
-/**
- * @brief f_sig_handler catch the system signals.
- * @param signalReceived
- */
-void f_sig_handler(int signalReceived){
-    std::cerr << "[BFPS] Signal " << signalReceived << " has been intercepted." << std::endl;
-    const int maxStackCalls = 40;
-    void *stackArray[maxStackCalls];
-    const int callsToPrint = backtrace(stackArray, maxStackCalls);
-    backtrace_symbols_fd(stackArray, callsToPrint, STDERR_FILENO);
-    throw std::runtime_error("abort");
-}
-
-/**
- * @brief f_install_signal_handler
- * This install several handler for various signals.
- */
-void f_install_signal_handler(){
-    // The SIGINT signal is sent to a process by its controlling terminal when a user wishes to interrupt the process
-    if( signal(SIGINT, f_sig_handler) == SIG_ERR ){
-        std::cout << "Signal Handler: Cannot install signal SIGINT\\n";
-    }
-    // The SIGTERM signal is sent to a process to request its termination
-    if( signal(SIGTERM, f_sig_handler) == SIG_ERR ){
-        std::cout << "Signal Handler: Cannot install signal SIGTERM\\n";
-    }
-    // The SIGFPE signal is sent to a process when it executes an erroneous arithmetic operation, such as division by zero
-    if( signal(SIGFPE, f_sig_handler) == SIG_ERR ){
-        std::cout << "Signal Handler: Cannot install signal SIGFPE\\n";
-    }
-    // The SIGABRT signal is sent to a process to tell it to abort, i.e. to terminate
-    if( signal(SIGABRT, f_sig_handler) == SIG_ERR ){
-        std::cout << "Signal Handler: Cannot install signal SIGABRT\\n";
-    }
-    // The SIGSEGV signal is sent to a process when it makes an invalid virtual memory reference, or segmentation fault
-    if( signal(SIGSEGV, f_sig_handler) == SIG_ERR ){
-        std::cout << "Signal Handler: Cannot install signal SIGSEGV\\n";
-    }
-}
-
                 //begincpp
                 int main(int argc, char *argv[])
                 {
-feenableexcept(FE_INVALID | FE_OVERFLOW);
-f_install_signal_handler();
+                    if(getenv("BFPS_FPE_OFF") == nullptr || getenv("BFPS_FPE_OFF") != std::string("TRUE")){
+                        feenableexcept(FE_INVALID | FE_OVERFLOW);
+                    }
+                    else{
+                        std::cout << "FPE have been turned OFF" << std::endl;
+                    }
+
                     int mpiprovided;
                     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &mpiprovided);
                     assert(mpiprovided >= MPI_THREAD_FUNNELED);
@@ -228,11 +183,7 @@ f_install_signal_handler();
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-        libraries = ['bfps']
-        libraries += bfps.install_info['libraries']
-        libraries += ['fftw3_omp'] # Remove if enable mkl
-        libraries += ['fftw3f_omp']
-
+       
         command_strings = [bfps.install_info['compiler']]
         command_strings += [self.name + '.cpp', '-o', self.name]
         command_strings += bfps.install_info['extra_compile_args']
@@ -241,19 +192,27 @@ f_install_signal_handler();
         command_strings += ['-L' + ldir for ldir in bfps.install_info['library_dirs']]
         command_strings.append('-L' + bfps.lib_dir)
 
-        # try:
-        #     usemkl = int(os.environ['USEMKLFFTW'])
-        # except :
-        #    usemkl = False
-		# 
-        # if usemkl :
-        #     command_strings.append('--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group')
-        # else :
-        #     libraries += ['fftw3_omp']
-        #     libraries += ['fftw3f_omp']
-
+        libraries = ['bfps']
+        libraries += bfps.install_info['libraries']
+        # libraries += ['fftw3_omp'] # Remove if enable mkl
+        # libraries += ['fftw3f_omp']
         for libname in libraries:
             command_strings += ['-l' + libname]
+            
+        try:
+            usemkl = True if os.environ['USEMKLFFTW']=="true" else False
+        except :
+            usemkl = False
+		 
+        if usemkl :
+            print("use MKL (USEMKLFFTW is true)")
+            command_strings.append('-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group')
+            command_strings += ['-I${MKLROOT}/include/fftw']
+        else :
+            command_strings += ['-lfftw3_omp']
+            command_strings += ['-lfftw3f_omp']
+
+
         command_strings += ['-fopenmp']
         self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
@@ -329,14 +288,21 @@ f_install_signal_handler();
                     err_file      = err_file + '_' + suffix)
                 os.chdir(self.work_dir)
                 qsub_atoms = ['sbatch']
-                if len(job_id_list) >= 1:
-                    qsub_atoms += ['--dependency=afterok:{0}'.format(job_id_list[-1])]
-                p = subprocess.Popen(
-                    qsub_atoms + [qsub_script_name],
-                    stdout = subprocess.PIPE)
-                out, err = p.communicate()
-                p.terminate()
-                job_id_list.append(int(out.split()[-1]))
+
+                try:
+                    submit = True if os.environ['SUBMITJOT']=="true" else False
+                except :
+                    submit = False
+
+                if submit:
+                    if len(job_id_list) >= 1:
+                        qsub_atoms += ['--dependency=afterok:{0}'.format(job_id_list[-1])]
+                    p = subprocess.Popen(
+                        qsub_atoms + [qsub_script_name],
+                        stdout = subprocess.PIPE)
+                    out, err = p.communicate()
+                    p.terminate()
+                    job_id_list.append(int(out.split()[-1]))
                 os.chdir(current_dir)
         elif self.host_info['type'] == 'IBMLoadLeveler':
             suffix = self.simname + '_{0}'.format(iter0)
@@ -363,7 +329,15 @@ f_install_signal_handler();
                     err_file      = err_file + '_' + suffix,
                     njobs = njobs)
             submit_atoms = ['llsubmit']
-            subprocess.call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
+
+            try:
+                submit = True if os.environ['SUBMITJOT']=="true" else False
+            except :
+                submit = False
+
+            if submit:
+                subprocess.call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
+
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
             os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
@@ -386,6 +360,12 @@ f_install_signal_handler();
             minutes = None,
             out_file = None,
             err_file = None):
+
+        try:
+            useibm = (True if os.environ['USEIBMMPI'] == 'true' else False)
+        except :
+            useibm = False
+
         script_file = open(file_name, 'w')
         script_file.write('# @ shell=/bin/bash\n')
         # error file
@@ -396,7 +376,12 @@ f_install_signal_handler();
         if type(out_file) == type(None):
             out_file = 'out.job.$(jobid)'
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
-        script_file.write('# @ job_type = parallel\n')
+        if not useibm :
+            print('not ibm')
+            script_file.write('# @ job_type = MPICH\n')
+        else :
+            print('ibm')
+            script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('# @ notification = complete\n')
         script_file.write('# @ notify_user = $(user)@rzg.mpg.de\n')
@@ -430,7 +415,11 @@ f_install_signal_handler();
             script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
         script_file.write('# @ queue\n')
 
+        if useibm:
+            script_file.write('export USEIBMMPI=true;\n')
 
+        script_file.write('source ~/.config/bfps/bashrc\n')
+        script_file.write('module li\n')
         script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_cpus_per_task))
 
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
@@ -440,13 +429,30 @@ f_install_signal_handler();
         script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('cd ' + self.work_dir + '\n')
 #        script_file.write('cp -s ../*.h5 ./\n')
-        script_file.write('poe ' +
+
+        if not useibm:
+            print('use mpiexec')
+            script_file.write('export KMP_AFFINITY=compact,verbose\n')
+            script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
+            script_file.write('mpiexec.hydra '
+                + ' -np {} '.format(int(nprocesses/nb_cpus_per_task))
+                + ' -ppn {} '.format(nb_process_per_node)
+                + ' -ordered-output -prepend-rank '
+                + os.path.join(
+                    self.work_dir,
+                    command_atoms[0]) +
+                ' ' +
+                ' '.join(command_atoms[1:]) +
+                '\n')
+        else:
+            script_file.write('poe ' +
                 os.path.join(
                     self.work_dir,
                     command_atoms[0]) +
                 ' ' +
                 ' '.join(command_atoms[1:]) +
                 '\n')
+
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
         script_file.close()
@@ -505,21 +511,45 @@ f_install_signal_handler();
             if (first_node_tasks > 0):
                 script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
             script_file.write('# @ queue\n')
+        script_file.write('source ~/.config/bfps/bashrc\n')
+        script_file.write('module li\n')
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
-                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          # ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          bfps.lib_dir +
                           '\n')
         script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
 #        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
-        script_file.write('poe ' +
+        
+        try:
+            useibm = (True if os.environ['USEIBMMPI'] == 'true' else False)
+        except :
+            useibm = False
+
+        if not useibm:
+            print('use mpiexec')
+            script_file.write('export KMP_AFFINITY=compact,verbose\n')
+            script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
+            script_file.write('mpiexec.hydra '
+                + ' -np {} '.format(nprocesses/nb_cpus_per_task)
+                + ' -ppn {} '.format(nb_process_per_node)
+                + os.path.join(
+                    self.work_dir,
+                    command_atoms[0]) +
+                ' ' +
+                ' '.join(command_atoms[1:]) +
+                '\n')
+        else:
+            script_file.write('poe ' +
                 os.path.join(
                     self.work_dir,
                     command_atoms[0]) +
                 ' ' +
                 ' '.join(command_atoms[1:]) +
                 '\n')
+        
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
         script_file.close()
@@ -612,6 +642,7 @@ f_install_signal_handler();
 
         script_file.write('#SBATCH --mail-type=none\n')
         script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
+        script_file.write('source ~/.config/bfps/bashrc\n')
         script_file.write('export OMP_NUM_THREADS={0}\n'.format(int(int(self.host_info['deltanprocs'])/nbprocesspernode)))
         script_file.write('export OMP_PLACES=cores\n')
         script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +

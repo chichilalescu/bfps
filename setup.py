@@ -116,6 +116,8 @@ src_file_list = ['vorticity_equation',
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
                ['cpp/bfps_timer.hpp'] +
+               ['cpp/omputils.hpp'] +
+               ['cpp/shared_array.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list])
 
@@ -127,10 +129,23 @@ with open('MANIFEST.in', 'w') as manifest_in_file:
 
 
 ### libraries
-libraries = ['fftw3_mpi',
-             'fftw3',
-             'fftw3f_mpi',
-             'fftw3f']
+# libraries = ['fftw3_mpi',
+#             'fftw3',
+#             'fftw3f_mpi',
+#             'fftw3f']
+try:
+    usemkl = True if os.environ['USEMKLFFTW']=="true" else False
+except :
+    usemkl = False
+ 
+if usemkl:
+    print('Use mkl TODO!')
+else:
+    libraries = ['fftw3_mpi',
+                 'fftw3',
+                 'fftw3f_mpi',
+                 'fftw3f']
+
 libraries += extra_libraries
 
 

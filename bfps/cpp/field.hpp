@@ -29,6 +29,7 @@
 #include <vector>
 #include <string>
 #include "kspace.hpp"
+#include "omputils.hpp"
 
 #ifndef FIELD_HPP
 
@@ -201,17 +202,22 @@ class field
             switch(be)
             {
                 case FFTW:
-	                #pragma omp parallel for schedule(static)
-                    for (hsize_t zindex = 0; zindex < this->rlayout->subsizes[0]; zindex++)
-                    for (hsize_t yindex = 0; yindex < this->rlayout->subsizes[1]; yindex++)
+                    #pragma omp parallel
                     {
-                        ptrdiff_t rindex = (
-                                zindex * this->rlayout->subsizes[1] + yindex)*(
-                                    this->rmemlayout->subsizes[2]);
-                        for (hsize_t xindex = 0; xindex < this->rlayout->subsizes[2]; xindex++)
+                        const hsize_t start = OmpUtils::ForIntervalStart(this->rlayout->subsizes[0]);
+                        const hsize_t end = OmpUtils::ForIntervalEnd(this->rlayout->subsizes[0]);
+
+                        for (hsize_t zindex = start; zindex < end; zindex++)
+                        for (hsize_t yindex = 0; yindex < this->rlayout->subsizes[1]; yindex++)
                         {
-                            expression(rindex, xindex, yindex, zindex);
-                            rindex++;
+                            ptrdiff_t rindex = (
+                                    zindex * this->rlayout->subsizes[1] + yindex)*(
+                                        this->rmemlayout->subsizes[2]);
+                            for (hsize_t xindex = 0; xindex < this->rlayout->subsizes[2]; xindex++)
+                            {
+                                expression(rindex, xindex, yindex, zindex);
+                                rindex++;
+                            }
                         }
                     }
                     break;

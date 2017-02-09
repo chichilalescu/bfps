@@ -302,7 +302,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
 {
     DEBUG_MSG("vorticity_equation::step\n");
     TIMEZONE("vorticity_equation::step");
-    double factor0, factor1;
     *this->v[1] = 0.0;
     this->omega_nonlin(0);
     this->kk->CLOOP_K2(
@@ -313,6 +312,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0;
             factor0 = exp(-this->nu * k2 * dt);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->v[1]->cval(cindex,cc,i) = (
@@ -334,6 +334,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0, factor1;
             factor0 = exp(-this->nu * k2 * dt/2);
             factor1 = exp( this->nu * k2 * dt/2);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
@@ -358,6 +359,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0;
             factor0 = exp(-this->nu * k2 * dt * 0.5);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->v[3]->cval(cindex,cc,i) = (

@@ -201,6 +201,7 @@ int field<rnumber, be, fc>::io(
         else
             file_id = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, plist_id);
     }
+    assert(file_id >= 0);
     H5Pclose(plist_id);
 
     /* check what kind of representation is being used */
@@ -210,7 +211,9 @@ int field<rnumber, be, fc>::io(
                 file_id,
                 dset_name.c_str(),
                 H5P_DEFAULT);
+        assert(dset_id >= 0);
         hid_t dset_type = H5Dget_type(dset_id);
+        assert(dset_type >= 0);
         bool io_for_real = (
                 H5Tequal(dset_type, H5T_IEEE_F32BE) ||
                 H5Tequal(dset_type, H5T_IEEE_F32LE) ||
@@ -300,7 +303,7 @@ int field<rnumber, be, fc>::io(
 
     /* check file space */
     int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    assert(ndims_fspace == ndim(fc));
+    assert(((unsigned int)(ndims_fspace)) == ndim(fc));
     if (this->real_space_representation)
     {
         for (unsigned int i=0; i<ndim(fc); i++)
@@ -486,7 +489,7 @@ int field<rnumber, be, fc>::io_database(
 
     /* check file space */
     int ndims_fspace = H5Sget_simple_extent_dims(fspace, dims, NULL);
-    assert(ndims_fspace == ndim(fc) + 1);
+    assert(ndims_fspace == int(ndim(fc) + 1));
     offset[0] = toffset;
     if (this->real_space_representation)
     {
@@ -637,28 +640,31 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         MPI_Bcast(&nbins, 1, MPI_INT, 0, this->comm);
     }
     assert(nvals == int(max_estimate.size()));
-    double *moments = new double[nmoments*nvals];
+
     shared_array<double> local_moments_threaded(nmoments*nvals, [&](double* local_moments){
         std::fill_n(local_moments, nmoments*nvals, 0);
         if (nvals == 4) local_moments[3] = max_estimate[3];
     });
 
-    shared_array<double> val_tmp_threaded(nvals);
-
-    // Unchanged by the threads
-    double *binsize = new double[nvals];
-    for (int i=0; i<nvals; i++)
-        binsize[i] = 2*max_estimate[i] / nbins;
-
+    shared_array<double> val_tmp_threaded(nvals,[&](double *val_tmp){
+        std::fill_n(val_tmp, nvals, 0);
+    });
 
     shared_array<ptrdiff_t> local_hist_threaded(nbins*nvals,[&](ptrdiff_t* local_hist){
         std::fill_n(local_hist, nbins*nvals, 0);
     });
 
+    double *binsize = new double[nvals];
+    for (int i=0; i<nvals; i++)
+        binsize[i] = 2*max_estimate[i] / nbins;
+
     {
         TIMEZONE("field::RLOOP");
         this->RLOOP(
-            [&](hsize_t /*zindex*/, hsize_t /*yindex*/, ptrdiff_t rindex, hsize_t /*xindex*/){
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
             double *local_moments = local_moments_threaded.getMine();
             double *val_tmp = val_tmp_threaded.getMine();
             ptrdiff_t *local_hist = local_hist_threaded.getMine();
@@ -677,8 +683,9 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 if (val_tmp[3] > local_moments[9*nvals+3])
                     local_moments[9*nvals+3] = val_tmp[3];
                 int bin = int(floor(val_tmp[3]*2/binsize[3]));
-                if (bin >= 0 && bin < nbins)
+                if (bin >= 0 && bin < nbins){
                     local_hist[bin*nvals+3]++;
+                }
             }
             for (unsigned int i=0; i<ncomp(fc); i++)
             {
@@ -694,16 +701,31 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                 double pow_tmp = 1;
                 for (int i=0; i<nvals; i++){
                     local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
-                }
-            }
-        });
+				}
+			}
+                });
 
-        TIMEZONE("FIELD_RLOOP::Merge");
-        local_moments_threaded.mergeParallel();
+          TIMEZONE("FIELD_RLOOP::Merge");
+          local_moments_threaded.mergeParallel([&](const int idx, const double& v1, const double& v2) -> double {
+              if(nvals == int(4) && idx == 0*nvals+3){
+                  return std::min(v1, v2);  
+              }
+              if(nvals == int(4) && idx == 9*nvals+3){
+                  return std::max(v1, v2);  
+              }
+              if(idx < ncomp(fc)){
+                  return std::min(v1, v2);        
+              }      
+              if((nmoments-1)*nvals <= idx && idx < (nmoments-1)*nvals+ncomp(fc)){
+                  return std::max(v1, v2);        
+              }
+              return v1 + v2;
+          });
+
         local_hist_threaded.mergeParallel();
     }
-
     ptrdiff_t *hist = new ptrdiff_t[nbins*nvals];
+    double *moments = new double[nmoments*nvals];
     {
         TIMEZONE("MPI_Allreduce");
         MPI_Allreduce(
@@ -799,7 +821,7 @@ void field<rnumber, be, fc>::symmetrize()
     {
         for (cc = 0; cc < ncomp(fc); cc++)
             data[cc][1] = 0.0;
-        for (ii = 1; ii < this->clayout->sizes[1]/2; ii++)
+        for (ii = 1; ii < ptrdiff_t(this->clayout->sizes[1]/2); ii++)
             for (cc = 0; cc < ncomp(fc); cc++) {
                 ( *(data + cc + ncomp(fc)*(this->clayout->sizes[1] - ii)*this->clayout->sizes[2]))[0] =
                  (*(data + cc + ncomp(fc)*(                          ii)*this->clayout->sizes[2]))[0];
@@ -812,11 +834,11 @@ void field<rnumber, be, fc>::symmetrize()
     ptrdiff_t yy;
     /*ptrdiff_t tindex;*/
     int ranksrc, rankdst;
-    for (yy = 1; yy < this->clayout->sizes[0]/2; yy++) {
+    for (yy = 1; yy < ptrdiff_t(this->clayout->sizes[0]/2); yy++) {
         ranksrc = this->clayout->rank[0][yy];
         rankdst = this->clayout->rank[0][this->clayout->sizes[0] - yy];
         if (this->clayout->myrank == ranksrc)
-            for (ii = 0; ii < this->clayout->sizes[1]; ii++)
+            for (ii = 0; ii < ptrdiff_t(this->clayout->sizes[1]); ii++)
                 for (cc = 0; cc < ncomp(fc); cc++)
                     for (int imag_comp=0; imag_comp<2; imag_comp++)
                         (*(buffer + ncomp(fc)*ii+cc))[imag_comp] =
@@ -834,7 +856,7 @@ void field<rnumber, be, fc>::symmetrize()
         }
         if (this->clayout->myrank == rankdst)
         {
-            for (ii = 1; ii < this->clayout->sizes[1]; ii++)
+            for (ii = 1; ii < ptrdiff_t(this->clayout->sizes[1]); ii++)
                 for (cc = 0; cc < ncomp(fc); cc++)
                 {
                     (*(data + ncomp(fc)*((this->clayout->sizes[0] - yy - this->clayout->starts[0])*this->clayout->sizes[1] + ii)*this->clayout->sizes[2] + cc))[0] =
@@ -1041,3 +1063,11 @@ template void compute_gradient<double, FFTW, THREE, THREExTHREE, SMOOTH>(
         field<double, FFTW, THREE> *,
         field<double, FFTW, THREExTHREE> *);
 
+template void compute_gradient<float, FFTW, ONE, THREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<float, FFTW, ONE> *,
+        field<float, FFTW, THREE> *);
+template void compute_gradient<double, FFTW, ONE, THREE, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<double, FFTW, ONE> *,
+        field<double, FFTW, THREE> *);

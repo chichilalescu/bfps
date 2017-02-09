@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include "omputils.hpp"
 #include "fftw_interface.hpp"
 #include "field_layout.hpp"
 
@@ -88,14 +89,19 @@ class kspace
         template <class func_type>
         void CLOOP(func_type expression)
         {
-            #pragma omp parallel for schedule(static)
-            for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
-                ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
-                    for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
-                    {
-                        expression(cindex, xindex, yindex, zindex);
-                        cindex++;
+            #pragma omp parallel
+            {
+                const hsize_t start = OmpUtils::ForIntervalStart(this->layout->subsizes[0]);
+                const hsize_t end = OmpUtils::ForIntervalEnd(this->layout->subsizes[0]);
+
+                for (hsize_t yindex = start; yindex < end; yindex++){
+                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
+                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                        for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
+                        {
+                            expression(cindex, xindex, yindex, zindex);
+                            cindex++;
+                        }
                     }
                 }
             }
@@ -103,17 +109,25 @@ class kspace
         template <class func_type>
         void CLOOP_K2(func_type expression)
         {
-            #pragma omp parallel for schedule(static)
-            for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
-                ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
-                    for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
-                    {
-                        double k2 = (this->kx[xindex]*this->kx[xindex] +
-                              this->ky[yindex]*this->ky[yindex] +
-                              this->kz[zindex]*this->kz[zindex]);
-                        expression(cindex, xindex, yindex, zindex, k2);
-                        cindex++;
+            #pragma omp parallel
+            {
+                const double chunk = double(this->layout->subsizes[0])/double(omp_get_num_threads());
+                const hsize_t start = hsize_t(chunk*double(omp_get_thread_num()));
+                const hsize_t end = (omp_get_thread_num() == omp_get_num_threads()-1) ?
+                                            this->layout->subsizes[0]:
+                                            hsize_t(chunk*double(omp_get_thread_num()+1));
+
+                for (hsize_t yindex = start; yindex < end; yindex++){
+                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
+                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                        for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
+                        {
+                            double k2 = (this->kx[xindex]*this->kx[xindex] +
+                                  this->ky[yindex]*this->ky[yindex] +
+                                  this->kz[zindex]*this->kz[zindex]);
+                            expression(cindex, xindex, yindex, zindex, k2);
+                            cindex++;
+                        }
                     }
                 }
             }
@@ -121,24 +135,32 @@ class kspace
         template <class func_type>
         void CLOOP_K2_NXMODES(func_type expression)
         {
-            #pragma omp parallel for schedule(static)
-            for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
-                ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
-                    hsize_t xindex = 0;
-                    double k2 = (
-                            this->kx[xindex]*this->kx[xindex] +
-                            this->ky[yindex]*this->ky[yindex] +
-                            this->kz[zindex]*this->kz[zindex]);
-                    expression(cindex, xindex, yindex, zindex, k2, 1);
-                    cindex++;
-                    for (xindex = 1; xindex < this->layout->subsizes[2]; xindex++)
-                    {
-                        k2 = (this->kx[xindex]*this->kx[xindex] +
-                              this->ky[yindex]*this->ky[yindex] +
-                              this->kz[zindex]*this->kz[zindex]);
-                        expression(cindex, xindex, yindex, zindex, k2, 2);
+            #pragma omp parallel
+            {
+                const double chunk = double(this->layout->subsizes[0])/double(omp_get_num_threads());
+                const hsize_t start = hsize_t(chunk*double(omp_get_thread_num()));
+                const hsize_t end = (omp_get_thread_num() == omp_get_num_threads()-1) ?
+                                            this->layout->subsizes[0]:
+                                            hsize_t(chunk*double(omp_get_thread_num()+1));
+
+                for (hsize_t yindex = start; yindex < end; yindex++){
+                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
+                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                        hsize_t xindex = 0;
+                        double k2 = (
+                                this->kx[xindex]*this->kx[xindex] +
+                                this->ky[yindex]*this->ky[yindex] +
+                                this->kz[zindex]*this->kz[zindex]);
+                        expression(cindex, xindex, yindex, zindex, k2, 1);
                         cindex++;
+                        for (xindex = 1; xindex < this->layout->subsizes[2]; xindex++)
+                        {
+                            k2 = (this->kx[xindex]*this->kx[xindex] +
+                                  this->ky[yindex]*this->ky[yindex] +
+                                  this->kz[zindex]*this->kz[zindex]);
+                            expression(cindex, xindex, yindex, zindex, k2, 2);
+                            cindex++;
+                        }
                     }
                 }
             }

@@ -34,7 +34,6 @@
 #include "fftw_tools.hpp"
 #include "scope_timer.hpp"
 #include "shared_array.hpp"
-#include "threadsafeupdate.hpp"
 
 template <class rnumber>
 void fluid_solver_base<rnumber>::fill_up_filename(const char *base_name, char *destination)
@@ -236,7 +235,21 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
     );
 
     threaded_local_hist.mergeParallel();
-    threaded_local_moments.mergeParallel();
+    threaded_local_moments.mergeParallel([&](const int idx, const double& v1, const double& v2) -> double {
+          if(nvals == int(4) && idx == 0*nvals+3){
+              return std::min(v1, v2);  
+          }
+          if(nvals == int(4) && idx == 9*nvals+3){
+              return std::max(v1, v2);  
+          }
+          if(idx < 3){
+              return std::min(v1, v2);        
+          }      
+          if((nmoments-1)*nvals <= idx && idx < (nmoments-1)*nvals+3){
+              return std::max(v1, v2);        
+          }
+          return v1 + v2;
+      });
 
 
     double *moments = new double[nmoments*nvals];
@@ -367,7 +380,21 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
     }
     );
 
-    threaded_local_moments.mergeParallel();
+    threaded_local_moments.mergeParallel([&](const int idx, const double& v1, const double& v2) -> double {
+          if(nvals == int(4) && idx == 0*nvals+3){
+              return std::min(v1, v2);  
+          }
+          if(nvals == int(4) && idx == 9*nvals+3){
+              return std::max(v1, v2);  
+          }
+          if(idx < 3){
+              return std::min(v1, v2);        
+          }      
+          if(9*nvals <= idx && idx < 9*nvals+3){
+              return std::max(v1, v2);        
+          }
+          return v1 + v2;
+      });
     threaded_local_hist.mergeParallel();
 
     MPI_Allreduce(
@@ -510,10 +537,13 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     std::fill_n(this->kshell, this->nshells, 0.0);
     this->nshell = new int64_t[this->nshells];
     std::fill_n(this->nshell, this->nshells, 0);
-    double *kshell_local = new double[this->nshells];
-    std::fill_n(kshell_local, this->nshells, 0.0);
-    int64_t *nshell_local = new int64_t[this->nshells];
-    std::fill_n(nshell_local, this->nshells, 0.0);
+
+    shared_array<double> kshell_local_threaded(this->nshells,[&](double* kshell_local){
+        std::fill_n(kshell_local, this->nshells, 0.0);
+    });
+    shared_array<double> nshell_local_threaded(this->nshells,[&](double* nshell_local){
+        std::fill_n(nshell_local, this->nshells, 0.0);
+    });
 
     std::vector<std::unordered_map<int, double>> Fourier_filter_threaded(omp_get_max_threads());
 
@@ -525,13 +555,15 @@ fluid_solver_base<rnumber>::fluid_solver_base(
         if (k2 < this->kM2)
         {
             double knorm = sqrt(k2);
-            ThreadSafeUpdate(nshell_local[int(knorm/this->dk)]) += nxmodes;
-            ThreadSafeUpdate(kshell_local[int(knorm/this->dk)]) += nxmodes*knorm;
+            nshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes;
+            kshell_local_threaded.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
         }
         Fourier_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));}
     );
 
     // Merge results
+    nshell_local_threaded.mergeParallel();
+    kshell_local_threaded.mergeParallel();
     for(int idxMerge = 0 ; idxMerge < int(Fourier_filter_threaded.size()) ; ++idxMerge){
         for(const auto kv : Fourier_filter_threaded[idxMerge]){
             this->Fourier_filter[kv.first] = kv.second;
@@ -539,12 +571,12 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     }
 
     MPI_Allreduce(
-                (void*)(nshell_local),
+                (void*)(nshell_local_threaded.getMasterData()),
                 (void*)(this->nshell),
                 this->nshells,
                 MPI_INT64_T, MPI_SUM, this->cd->comm);
     MPI_Allreduce(
-                (void*)(kshell_local),
+                (void*)(kshell_local_threaded.getMasterData()),
                 (void*)(this->kshell),
                 this->nshells,
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
@@ -552,8 +584,6 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     {
         this->kshell[n] /= this->nshell[n];
     }
-    delete[] nshell_local;
-    delete[] kshell_local;
 }
 
 template <class rnumber>
