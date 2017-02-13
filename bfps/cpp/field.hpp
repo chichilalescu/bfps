@@ -204,11 +204,11 @@ class field
                 case FFTW:
                     #pragma omp parallel
                     {
-                        const hsize_t start = OmpUtils::ForIntervalStart(this->rlayout->subsizes[0]);
-                        const hsize_t end = OmpUtils::ForIntervalEnd(this->rlayout->subsizes[0]);
+                        const hsize_t start = OmpUtils::ForIntervalStart(this->rlayout->subsizes[1]);
+                        const hsize_t end = OmpUtils::ForIntervalEnd(this->rlayout->subsizes[1]);
 
-                        for (hsize_t zindex = start; zindex < end; zindex++)
-                        for (hsize_t yindex = 0; yindex < this->rlayout->subsizes[1]; yindex++)
+                        for (hsize_t zindex = 0; zindex < this->rlayout->subsizes[0]; zindex++)
+                        for (hsize_t yindex = start; yindex < end; yindex++)
                         {
                             ptrdiff_t rindex = (
                                     zindex * this->rlayout->subsizes[1] + yindex)*(

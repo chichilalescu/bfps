@@ -91,12 +91,13 @@ class kspace
         {
             #pragma omp parallel
             {
-                const hsize_t start = OmpUtils::ForIntervalStart(this->layout->subsizes[0]);
-                const hsize_t end = OmpUtils::ForIntervalEnd(this->layout->subsizes[0]);
+                const hsize_t start = OmpUtils::ForIntervalStart(this->layout->subsizes[1]);
+                const hsize_t end = OmpUtils::ForIntervalEnd(this->layout->subsizes[1]);
 
-                for (hsize_t yindex = start; yindex < end; yindex++){
-                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
+                    for (hsize_t zindex = start; zindex < end; zindex++){
+                        ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2]
+                                            + zindex*this->layout->subsizes[2];
                         for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
                         {
                             expression(cindex, xindex, yindex, zindex);
@@ -111,15 +112,13 @@ class kspace
         {
             #pragma omp parallel
             {
-                const double chunk = double(this->layout->subsizes[0])/double(omp_get_num_threads());
-                const hsize_t start = hsize_t(chunk*double(omp_get_thread_num()));
-                const hsize_t end = (omp_get_thread_num() == omp_get_num_threads()-1) ?
-                                            this->layout->subsizes[0]:
-                                            hsize_t(chunk*double(omp_get_thread_num()+1));
+                const hsize_t start = OmpUtils::ForIntervalStart(this->layout->subsizes[1]);
+                const hsize_t end = OmpUtils::ForIntervalEnd(this->layout->subsizes[1]);
 
-                for (hsize_t yindex = start; yindex < end; yindex++){
-                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
+                    for (hsize_t zindex = start; zindex < end; zindex++){
+                        ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2]
+                                            + zindex*this->layout->subsizes[2];
                         for (hsize_t xindex = 0; xindex < this->layout->subsizes[2]; xindex++)
                         {
                             double k2 = (this->kx[xindex]*this->kx[xindex] +
@@ -137,15 +136,13 @@ class kspace
         {
             #pragma omp parallel
             {
-                const double chunk = double(this->layout->subsizes[0])/double(omp_get_num_threads());
-                const hsize_t start = hsize_t(chunk*double(omp_get_thread_num()));
-                const hsize_t end = (omp_get_thread_num() == omp_get_num_threads()-1) ?
-                                            this->layout->subsizes[0]:
-                                            hsize_t(chunk*double(omp_get_thread_num()+1));
+                const hsize_t start = OmpUtils::ForIntervalStart(this->layout->subsizes[1]);
+                const hsize_t end = OmpUtils::ForIntervalEnd(this->layout->subsizes[1]);
 
-                for (hsize_t yindex = start; yindex < end; yindex++){
-                    ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2];
-                    for (hsize_t zindex = 0; zindex < this->layout->subsizes[1]; zindex++){
+                for (hsize_t yindex = 0; yindex < this->layout->subsizes[0]; yindex++){
+                    for (hsize_t zindex = start; zindex < end; zindex++){
+                        ptrdiff_t cindex = yindex*this->layout->subsizes[1]*this->layout->subsizes[2]
+                                            + zindex*this->layout->subsizes[2];
                         hsize_t xindex = 0;
                         double k2 = (
                                 this->kx[xindex]*this->kx[xindex] +

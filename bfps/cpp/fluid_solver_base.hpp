@@ -163,12 +163,13 @@ void CLOOP_NXMODES(ObjectType* obj, FuncType expression)
     TIMEZONE("CLOOP_NXMODES");
     #pragma omp parallel
     {
-        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[0]);
-        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[0]);
-        for (ptrdiff_t yindex = start; yindex < end; yindex++){
-            ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
-            for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
+        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
+        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
+        for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+            for (ptrdiff_t zindex = start; zindex < end; zindex++)
             {
+                ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
+                                   + zindex*obj->cd->subsizes[2];
                 int nxmodes = 1;
                 ptrdiff_t xindex = 0;
                 expression();
@@ -191,18 +192,20 @@ void CLOOP_K2(ObjectType* obj, FuncType expression)
     TIMEZONE("CLOOP_K2");
     #pragma omp parallel
     {
-        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[0]);
-        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[0]);
-        for (ptrdiff_t yindex = start; yindex < end; yindex++){
-            ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
-            for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
-            for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
-            {
-                double k2 = (obj->kx[xindex]*obj->kx[xindex] +
-                      obj->ky[yindex]*obj->ky[yindex] +
-                      obj->kz[zindex]*obj->kz[zindex]);
-                expression(cindex, xindex, yindex, zindex, k2);
-                cindex++;
+        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
+        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
+        for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+            for (ptrdiff_t zindex = start; zindex < end; zindex++){
+                ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
+                                   + zindex*obj->cd->subsizes[2];
+                for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
+                {
+                    double k2 = (obj->kx[xindex]*obj->kx[xindex] +
+                          obj->ky[yindex]*obj->ky[yindex] +
+                          obj->kz[zindex]*obj->kz[zindex]);
+                    expression(cindex, xindex, yindex, zindex, k2);
+                    cindex++;
+                }
             }
         }
     }
@@ -214,12 +217,13 @@ void CLOOP_K2_NXMODES(ObjectType* obj, FuncType expression)
 {
     #pragma omp parallel
     {
-        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[0]);
-        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[0]);
-        for (ptrdiff_t yindex = start; yindex < end; yindex++){
-            ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
-            for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
+        const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
+        const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
+        for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
+            for (ptrdiff_t zindex = start; zindex < end; zindex++)
             {
+                ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
+                                   + zindex*obj->cd->subsizes[2];
                 int nxmodes = 1;
                 ptrdiff_t xindex = 0;
                 double k2 = (obj->kx[xindex]*obj->kx[xindex] +
@@ -247,10 +251,10 @@ void RLOOP(ObjectType* obj, FuncType expression)
 {
     #pragma omp parallel
     {
-        const hsize_t start = OmpUtils::ForIntervalStart(obj->rd->subsizes[0]);
-        const hsize_t end = OmpUtils::ForIntervalEnd(obj->rd->subsizes[0]);
-        for (int zindex = start; zindex < end ; zindex++)
-        for (int yindex = 0; yindex < obj->rd->subsizes[1]; yindex++)
+        const hsize_t start = OmpUtils::ForIntervalStart(obj->rd->subsizes[1]);
+        const hsize_t end = OmpUtils::ForIntervalEnd(obj->rd->subsizes[1]);
+        for (int zindex = 0; zindex < obj->rd->subsizes[0] ; zindex++)
+        for (int yindex = start; yindex < end; yindex++)
         {
             ptrdiff_t rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2);
             for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++)
