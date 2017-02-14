@@ -81,6 +81,9 @@ rFFTW_distributed_particles<particle_type, rnumber, interp_neighbours>::rFFTW_di
     this->vel = VEL;
     this->rhs.resize(INTEGRATION_STEPS);
     this->integration_steps = INTEGRATION_STEPS;
+    /* the particles are expected to be evenly distributed among processes.
+     * therefore allocating twice that amount of memory seems enough.
+     * */
     this->state.reserve(2*this->nparticles / this->nprocs);
     for (unsigned int i=0; i<this->rhs.size(); i++)
         this->rhs[i].reserve(2*this->nparticles / this->nprocs);
