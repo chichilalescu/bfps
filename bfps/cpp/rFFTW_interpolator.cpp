@@ -36,7 +36,6 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         base_polynomial_values BETA_POLYS,
         rnumber *FIELD_POINTER) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
-    this->field_size = 2*fs->cd->local_size;
     this->field = FIELD_POINTER;
 
 
@@ -55,7 +54,6 @@ rFFTW_interpolator<rnumber, interp_neighbours>::rFFTW_interpolator(
         base_polynomial_values BETA_POLYS,
         rnumber *FIELD_POINTER) : interpolator_base<rnumber, interp_neighbours>(fs, BETA_POLYS)
 {
-//    this->field_size = 2*fs->cd->local_size;
 //    this->field = FIELD_POINTER;
 //
 //

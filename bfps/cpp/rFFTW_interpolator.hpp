@@ -39,8 +39,6 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
 {
     public:
         using interpolator_base<rnumber, interp_neighbours>::operator();
-        /* size of field to interpolate */
-        ptrdiff_t field_size;
 
         /* pointers to fields that are to be interpolated
          * */
