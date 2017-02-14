@@ -40,43 +40,73 @@ class rFFTW_interpolator:public interpolator_base<rnumber, interp_neighbours>
     public:
         using interpolator_base<rnumber, interp_neighbours>::operator();
 
-        /* pointers to fields that are to be interpolated
+        /* pointer to field that has to be interpolated
+         * The reason this is a member variable is because I want this class
+         * to be consistent with the "interpolator" class, where a member
+         * variable is absolutely required (since that class uses padding).
          * */
         rnumber *field;
 
-        /* compute[iz] is true if .
+        /* compute[iz] is an array that says whether or not the current MPI
+         * process is involved in the interpolation formula for a particle
+         * located in cell "iz".
+         * It is mostly used in the formula itself.
+         * This translates as the following condition:
          * local_zstart - neighbours <= iz <= local_zend + 1 + neighbours
+         * I think it's cleaner to keep things in an array, especially since
+         * "local_zend" is shorthand for another arithmetic operation anyway.
          * */
         bool *compute;
 
+
+        /* Constructors */
         rFFTW_interpolator(
                 fluid_solver_base<rnumber> *FSOLVER,
                 base_polynomial_values BETA_POLYS,
                 rnumber *FIELD_DATA);
 
+        /* this constructor is empty, I just needed for a quick hack of the
+         * "vorticity_equation" class.
+         * It should be removed soon.
+         * */
         rFFTW_interpolator(
                 vorticity_equation<rnumber, FFTW> *FSOLVER,
                 base_polynomial_values BETA_POLYS,
                 rnumber *FIELD_DATA);
         ~rFFTW_interpolator();
 
-        /* does not destroy input */
+        /* This method is provided for consistency with "interpolator", and it
+         * does not destroy input */
         inline int read_rFFTW(const void *src)
         {
             this->field = (rnumber*)src;
             return EXIT_SUCCESS;
         }
 
+        /* This is used when "compute" is not enough.
+         * For a given z location, it gives the outermost ranks that are relevant
+         * for the interpolation formula.
+         * */
         bool get_rank_info(double z, int &maxz_rank, int &minz_rank);
 
-        /* interpolate field at an array of locations */
+        /* interpolate field at an array of locations.
+         * After interpolation is performed, call Allreduce for "y", over
+         * this->descriptor->comm --- generally MPI_COMM_WORLD.
+         * This is useful for the simple "particles" class, where particle
+         * information is synchronized across all processes.
+         * */
         void sample(
                 const int nparticles,
                 const int pdimension,
                 const double *__restrict__ x,
                 double *__restrict__ y,
                 const int *deriv = NULL);
-        /* interpolate 1 point */
+        /* interpolate 1 point.
+         * Result is kept local.
+         * This is used in the "rFFTW_distributed_particles" class, with the
+         * result being synchronized across the relevant "local particle
+         * communicator".
+         * */
         void operator()(
                 const int *__restrict__ xg,
                 const double *__restrict__ xx,
