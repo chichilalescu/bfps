@@ -601,10 +601,12 @@ class NSVorticityEquation(_fluid_particle_base):
                     f['vorticity/complex/{0}'.format(0)] = data
                     f.close()
         self.run(
-                ncpu = opt.ncpu,
+                nb_processes = opt.nb_processes,
+                nb_threads_per_process = opt.nb_threads_per_process,
                 njobs = opt.njobs,
                 hours = opt.minutes // 60,
-                minutes = opt.minutes % 60)
+                minutes = opt.minutes % 60,
+                no_submit = opt.no_submit)
         return None
 
 if __name__ == '__main__':

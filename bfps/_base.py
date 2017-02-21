@@ -250,7 +250,19 @@ class _base(object):
         parser.add_argument(
                 '--ncpu',
                 type = int, dest = 'ncpu',
-                default = 2)
+                default = -1)
+        parser.add_argument(
+                '--np', '--nb-processes',
+                type = int, dest = 'nb_processes',
+                default = 4)
+        parser.add_argument(
+                '--ntpp', '--nb-threads-per-process',
+                type = int, dest = 'nb_threads_per_process',
+                default = 1)
+        parser.add_argument(
+                '--no-submit',
+                action = 'store_true',
+                dest = 'no_submit')
         parser.add_argument(
                 '--simname',
                 type = str, dest = 'simname',
@@ -270,6 +282,7 @@ class _base(object):
                 dest = 'minutes',
                 default = 5,
                 help = 'If environment supports it, this is the requested wall-clock-limit.')
+
         return None
     def parameters_to_parser_arguments(
             self,

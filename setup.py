@@ -129,24 +129,7 @@ with open('MANIFEST.in', 'w') as manifest_in_file:
 
 
 ### libraries
-# libraries = ['fftw3_mpi',
-#             'fftw3',
-#             'fftw3f_mpi',
-#             'fftw3f']
-try:
-    usemkl = True if os.environ['USEMKLFFTW']=="true" else False
-except :
-    usemkl = False
- 
-if usemkl:
-    print('Use mkl TODO!')
-else:
-    libraries = ['fftw3_mpi',
-                 'fftw3',
-                 'fftw3f_mpi',
-                 'fftw3f']
-
-libraries += extra_libraries
+libraries = extra_libraries
 
 
 
@@ -219,14 +202,17 @@ class CompileLibCommand(distutils.cmd.Command):
     user_options = [
             ('timing-output=', None, 'Toggle timing output.'),
             ('fftw-estimate=', None, 'Use FFTW ESTIMATE.'),
+            ('disable-fftw-omp=', None, 'Turn Off FFTW OpenMP.'),
             ]
     def initialize_options(self):
         self.timing_output = 0
         self.fftw_estimate = 0
+        self.disable_fftw_omp = 0
         return None
     def finalize_options(self):
         self.timing_output = (int(self.timing_output) == 1)
         self.fftw_estimate = (int(self.fftw_estimate) == 1)
+        self.disable_fftw_omp = (int(self.disable_fftw_omp) == 1)
         return None
     def run(self):
         if not os.path.isdir('obj'):
@@ -247,6 +233,8 @@ class CompileLibCommand(distutils.cmd.Command):
             eca += ['-DUSE_TIMINGOUTPUT']
         if self.fftw_estimate:
             eca += ['-DUSE_FFTWESTIMATE']
+        if self.disable_fftw_omp:
+            eca += ['-DNO_FFTWOMP']
         for fname in src_file_list:
             ifile = 'bfps/cpp/' + fname + '.cpp'
             ofile = 'obj/' + fname + '.o'

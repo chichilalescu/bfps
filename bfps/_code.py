@@ -80,7 +80,20 @@ class _code(_base):
                     else{
                         std::cout << "FPE have been turned OFF" << std::endl;
                     }
-
+                    if (argc != 2)
+                    {
+                        std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
+                        MPI_Finalize();
+                        return EXIT_SUCCESS;
+                    }
+                #ifdef NO_FFTWOMP
+                    MPI_Init(&argc, &argv);
+                    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+                    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                    fftw_mpi_init();
+                    fftwf_mpi_init();
+                    DEBUG_MSG("There are %d processes\\n", nprocs);
+                #else
                     int mpiprovided;
                     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &mpiprovided);
                     assert(mpiprovided >= MPI_THREAD_FUNNELED);
@@ -94,19 +107,12 @@ class _code(_base):
                     }
                     fftw_mpi_init();
                     fftwf_mpi_init();
-                    if( myrank == 0 ){
-                        std::cout << "There are " << nprocs << " processes and " << nbThreads << " threads" << std::endl;
-                    }
+                    DEBUG_MSG("There are %d processes and %d threads\\n", nprocs, nbThreads);
                     if (nbThreads > 1){
                         fftw_plan_with_nthreads(nbThreads);
                         fftwf_plan_with_nthreads(nbThreads);
                     }
-                    if (argc != 2)
-                    {
-                        std::cerr << "Wrong number of command line arguments. Stopping." << std::endl;
-                        MPI_Finalize();
-                        return EXIT_SUCCESS;
-                    }
+                #endif
                     strcpy(simname, argv[1]);
                     sprintf(fname, "%s.h5", simname);
                     parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -143,10 +149,12 @@ class _code(_base):
                     }
                     fftwf_mpi_cleanup();
                     fftw_mpi_cleanup();
+                #ifndef NO_FFTWOMP
                     if (nbThreads > 1){
                         fftw_cleanup_threads();
                         fftwf_cleanup_threads();
                     }
+                #endif
                     #ifdef USE_TIMINGOUTPUT
                     global_timer_manager.show(MPI_COMM_WORLD);
                     global_timer_manager.showMpi(MPI_COMM_WORLD);
@@ -183,37 +191,24 @@ class _code(_base):
             raise IOError('header not there:\n' +
                           '{0}\n'.format(os.path.join(bfps.header_dir, 'base.hpp')) +
                           '{0}\n'.format(bfps.dist_loc))
-       
+        libraries = ['bfps']
+        libraries += bfps.install_info['libraries']
+
         command_strings = [bfps.install_info['compiler']]
         command_strings += [self.name + '.cpp', '-o', self.name]
         command_strings += bfps.install_info['extra_compile_args']
         command_strings += ['-I' + idir for idir in bfps.install_info['include_dirs']]
         command_strings.append('-I' + bfps.header_dir)
         command_strings += ['-L' + ldir for ldir in bfps.install_info['library_dirs']]
+        command_strings += ['-Wl,-rpath=' + ldir for ldir in bfps.install_info['library_dirs']]
         command_strings.append('-L' + bfps.lib_dir)
+        command_strings.append('-Wl,-rpath=' + bfps.lib_dir)
 
-        libraries = ['bfps']
-        libraries += bfps.install_info['libraries']
-        # libraries += ['fftw3_omp'] # Remove if enable mkl
-        # libraries += ['fftw3f_omp']
         for libname in libraries:
             command_strings += ['-l' + libname]
-            
-        try:
-            usemkl = True if os.environ['USEMKLFFTW']=="true" else False
-        except :
-            usemkl = False
-		 
-        if usemkl :
-            print("use MKL (USEMKLFFTW is true)")
-            command_strings.append('-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group')
-            command_strings += ['-I${MKLROOT}/include/fftw']
-        else :
-            command_strings += ['-lfftw3_omp']
-            command_strings += ['-lfftw3f_omp']
-
 
         command_strings += ['-fopenmp']
+
         self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
         return subprocess.call(command_strings)
@@ -223,12 +218,14 @@ class _code(_base):
         self.host_info.update(host_info)
         return None
     def run(self,
-            ncpu = 2,
+            nb_processes,
+            nb_threads_per_process,
             out_file = 'out_file',
             err_file = 'err_file',
             hours = 0,
             minutes = 10,
-            njobs = 1):
+            njobs = 1,
+            no_submit = False):
         self.read_parameters()
         with h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r') as data_file:
             iter0 = data_file['iteration'].value
@@ -248,7 +245,7 @@ class _code(_base):
         os.chdir(current_dir)
         command_atoms = ['mpirun',
                          '-np',
-                         '{0}'.format(ncpu),
+                         '{0}'.format(nb_processes),
                          './' + self.name,
                          self.simname]
         if self.host_info['type'] == 'cluster':
@@ -258,7 +255,7 @@ class _code(_base):
                 qsub_script_name = 'run_' + suffix + '.sh'
                 self.write_sge_file(
                     file_name     = os.path.join(self.work_dir, qsub_script_name),
-                    nprocesses    = ncpu,
+                    nprocesses    = nb_processes*nb_threads_per_process,
                     name_of_run   = suffix,
                     command_atoms = command_atoms[3:],
                     hours         = hours,
@@ -279,22 +276,18 @@ class _code(_base):
                 qsub_script_name = 'run_' + suffix + '.sh'
                 self.write_slurm_file(
                     file_name     = os.path.join(self.work_dir, qsub_script_name),
-                    nprocesses    = ncpu,
                     name_of_run   = suffix,
                     command_atoms = command_atoms[3:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
-                    err_file      = err_file + '_' + suffix)
+                    err_file      = err_file + '_' + suffix,
+                    nb_mpi_processes = nb_processes,
+			        nb_threads_per_process = nb_threads_per_process)
                 os.chdir(self.work_dir)
                 qsub_atoms = ['sbatch']
 
-                try:
-                    submit = True if os.environ['SUBMITJOT']=="true" else False
-                except :
-                    submit = False
-
-                if submit:
+                if not no_submit:
                     if len(job_id_list) >= 1:
                         qsub_atoms += ['--dependency=afterok:{0}'.format(job_id_list[-1])]
                     p = subprocess.Popen(
@@ -310,32 +303,29 @@ class _code(_base):
             if (njobs == 1):
                 self.write_IBMLoadLeveler_file_single_job(
                     file_name     = os.path.join(self.work_dir, job_script_name),
-                    nprocesses    = ncpu,
-                    name_of_run   = suffix,
-                    command_atoms = command_atoms[3:],
-                    hours         = hours,
-                    minutes       = minutes,
-                    out_file      = out_file + '_' + suffix,
-                    err_file      = err_file + '_' + suffix)
-            else:
-                self.write_IBMLoadLeveler_file_many_job(
-                    file_name     = os.path.join(self.work_dir, job_script_name),
-                    nprocesses    = ncpu,
                     name_of_run   = suffix,
                     command_atoms = command_atoms[3:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
                     err_file      = err_file + '_' + suffix,
-                    njobs = njobs)
+                    nb_mpi_processes = nb_processes,
+			        nb_threads_per_process = nb_threads_per_process)
+            else:
+                self.write_IBMLoadLeveler_file_many_job(
+                    file_name     = os.path.join(self.work_dir, job_script_name),
+                    name_of_run   = suffix,
+                    command_atoms = command_atoms[3:],
+                    hours         = hours,
+                    minutes       = minutes,
+                    out_file      = out_file + '_' + suffix,
+                    err_file      = err_file + '_' + suffix,
+                    njobs = njobs,
+                    nb_mpi_processes = nb_processes,
+			        nb_threads_per_process = nb_threads_per_process)
             submit_atoms = ['llsubmit']
 
-            try:
-                submit = True if os.environ['SUBMITJOT']=="true" else False
-            except :
-                submit = False
-
-            if submit:
+            if not no_submit:
                 subprocess.call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
 
         elif self.host_info['type'] == 'pc':
@@ -359,12 +349,9 @@ class _code(_base):
             hours = None,
             minutes = None,
             out_file = None,
-            err_file = None):
-
-        try:
-            useibm = (True if os.environ['USEIBMMPI'] == 'true' else False)
-        except :
-            useibm = False
+            err_file = None,
+			nb_mpi_processes = None,
+			nb_threads_per_process = None):
 
         script_file = open(file_name, 'w')
         script_file.write('# @ shell=/bin/bash\n')
@@ -376,82 +363,69 @@ class _code(_base):
         if type(out_file) == type(None):
             out_file = 'out.job.$(jobid)'
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
-        if not useibm :
-            print('not ibm')
-            script_file.write('# @ job_type = MPICH\n')
-        else :
-            print('ibm')
-            script_file.write('# @ job_type = parallel\n')
+
+        # If Ibm is used should be : script_file.write('# @ job_type = parallel\n')
+        script_file.write('# @ job_type = MPICH\n')
+
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('# @ notification = complete\n')
         script_file.write('# @ notify_user = $(user)@rzg.mpg.de\n')
 
-        nb_cpus_per_node = 20
+        nb_cpus_per_node = self.host_info['deltanprocs']
+        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1, 'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
 
-        try:
-            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
-        except :
-           nb_process_per_node=nb_cpus_per_node
-        print('nb_cpu = {} '.format(nprocesses))
-        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
-        
-        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+        # No more threads than the number of cores
+        assert(nb_threads_per_process <= nb_cpus_per_node, "Cannot use more threads ({} asked) than the number of cores ({})".format(nb_threads_per_process, nb_cpus_per_node))
+        # Warn if some core will not be ued
+        if nb_cpus_per_node%nb_threads_per_process != 0:
+            warnings.warn("The number of threads is not correct regarding the number of cores (machin will be under use)", UserWarning)
 
-        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
-            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
+        nb_cpus = nb_mpi_processes*nb_threads_per_process
+        if (nb_cpus < nb_cpus_per_node):
+            # in case we use only a few process on a single node
+            nb_nodes = 1
+            nb_processes_per_node = nb_mpi_processes
+            first_node_tasks = nb_mpi_processes 
+        else:
+            nb_nodes = int((nb_cpus+nb_cpus_per_node-1) // nb_cpus_per_node)
+            # if more than one node we requiere to have a multiple of deltanprocs
+            nb_processes_per_node = int(nb_cpus_per_node // nb_threads_per_process)
+            first_node_tasks = int(nb_mpi_processes - (nb_nodes-1)*nb_processes_per_node)
 
-        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
-        number_of_nodes = int((nprocesses+nb_cpus_per_node-1)/nb_cpus_per_node)
-
-        first_node_tasks = int((nprocesses - (number_of_nodes-1)*nb_cpus_per_node)/nb_cpus_per_task)
-
-        script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
+        script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_threads_per_process))
         script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
         script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
         assert(type(self.host_info['environment']) != type(None))
-        script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-        script_file.write('# @ tasks_per_node = {0}\n'.format(nb_process_per_node))
+        script_file.write('# @ node = {0}\n'.format(nb_nodes))
+        script_file.write('# @ tasks_per_node = {0}\n'.format(nb_processes_per_node))
         if (first_node_tasks > 0):
             script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
         script_file.write('# @ queue\n')
 
-        if useibm:
-            script_file.write('export USEIBMMPI=true;\n')
 
         script_file.write('source ~/.config/bfps/bashrc\n')
         script_file.write('module li\n')
-        script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_cpus_per_task))
+        script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_threads_per_process))
 
-        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
+        script_file.write('LD_LIBRARY_PATH=' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
-                          '\n')
+                          ':${LD_LIBRARY_PATH}\n')
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
         script_file.write('cd ' + self.work_dir + '\n')
-#        script_file.write('cp -s ../*.h5 ./\n')
 
-        if not useibm:
-            print('use mpiexec')
-            script_file.write('export KMP_AFFINITY=compact,verbose\n')
-            script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
-            script_file.write('mpiexec.hydra '
-                + ' -np {} '.format(int(nprocesses/nb_cpus_per_task))
-                + ' -ppn {} '.format(nb_process_per_node)
-                + ' -ordered-output -prepend-rank '
-                + os.path.join(
-                    self.work_dir,
-                    command_atoms[0]) +
-                ' ' +
-                ' '.join(command_atoms[1:]) +
-                '\n')
-        else:
-            script_file.write('poe ' +
-                os.path.join(
-                    self.work_dir,
-                    command_atoms[0]) +
-                ' ' +
-                ' '.join(command_atoms[1:]) +
-                '\n')
+        script_file.write('export KMP_AFFINITY=compact,verbose\n')
+        script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
+        script_file.write('mpiexec.hydra '
+            + ' -np {} '.format(nb_mpi_processes)
+            + ' -ppn {} '.format(nb_processes_per_node)
+            + ' -ordered-output -prepend-rank '
+            + os.path.join(
+                self.work_dir,
+                command_atoms[0]) +
+            ' ' +
+            ' '.join(command_atoms[1:]) +
+            '\n')
 
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
@@ -467,7 +441,9 @@ class _code(_base):
             minutes = None,
             out_file = None,
             err_file = None,
-            njobs = 2):
+            njobs = 2,
+			nb_mpi_processes = None,
+			nb_threads_per_process = None):
         assert(type(self.host_info['environment']) != type(None))
         script_file = open(file_name, 'w')
         script_file.write('# @ shell=/bin/bash\n')
@@ -479,76 +455,68 @@ class _code(_base):
         if type(out_file) == type(None):
             out_file = 'out.job.$(jobid).$(stepid)'
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
-        script_file.write('# @ job_type = parallel\n')
+        # If Ibm is used should be : script_file.write('# @ job_type = parallel\n')
+        script_file.write('# @ job_type = MPICH\n')
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('#\n')
         
-        nb_cpus_per_node = 20
+        nb_cpus_per_node = self.host_info['deltanprocs']
+        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1, 'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
 
-        try:
-            nb_process_per_node = int(os.environ['NB_PROC_PER_NODE'])
-        except :
-           nb_process_per_node=nb_cpus_per_node
-        print('nb_process_per_node = {} (NB_PROC_PER_NODE)'.format(nb_process_per_node))
-        
-        nb_cpus_per_task=int(nb_cpus_per_node/nb_process_per_node)
+        # No more threads than the number of cores
+        assert(nb_threads_per_process <= nb_cpus_per_node, "Cannot use more threads ({} asked) than the number of cores ({})".format(nb_threads_per_process, nb_cpus_per_node))
+        # Warn if some core will not be ued
+        if nb_cpus_per_node%nb_threads_per_process != 0:
+            warnings.warn("The number of threads is not correct regarding the number of cores (machin will be under use)", UserWarning)
 
-        if nb_cpus_per_task*nb_process_per_node != nb_cpus_per_node:
-            raise Exception('nb cpus {} should be devided per nb proce per node {}(NB_PROC_PER_NODE)'.format(nb_cpus_per_node, nb_process_per_node))
-
-        nb_tasks_per_node = int(nb_cpus_per_node/nb_cpus_per_task)
-        number_of_nodes = int((nprocesses+nb_process_per_node-1)/nb_process_per_node)
-
-        first_node_tasks = nprocesses - (number_of_nodes-1)*nb_process_per_node
+        nb_cpus = nb_mpi_processes*nb_threads_per_process
+        if (nb_cpus < nb_cpus_per_node):
+            # in case we use only a few process on a single node
+            nb_nodes = 1
+            nb_processes_per_node = nb_mpi_processes
+            first_node_tasks = nb_mpi_processes 
+        else:
+            nb_nodes = int((nb_cpus+nb_cpus_per_node-1) // nb_cpus_per_node)
+            # if more than one node we requiere to have a multiple of deltanprocs
+            nb_processes_per_node = int(nb_cpus_per_node // nb_threads_per_process)
+            first_node_tasks = int(nb_mpi_processes - (nb_nodes-1)*nb_processes_per_node)
 
         for job in range(njobs):
             script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
-            script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_cpus_per_task))
+            script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_threads_per_process))
             script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
             script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
-            script_file.write('# @ node = {0}\n'.format(number_of_nodes))
-            script_file.write('# @ tasks_per_node = {0}\n'.format(nb_tasks_per_node))
+            assert(type(self.host_info['environment']) != type(None))
+            script_file.write('# @ node = {0}\n'.format(nb_nodes))
+            script_file.write('# @ tasks_per_node = {0}\n'.format(nb_processes_per_node))
             if (first_node_tasks > 0):
                 script_file.write('# @ first_node_tasks = {0}\n'.format(first_node_tasks))
             script_file.write('# @ queue\n')
+
         script_file.write('source ~/.config/bfps/bashrc\n')
         script_file.write('module li\n')
-        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
-                          # ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
-                          bfps.lib_dir +
-                          '\n')
-        script_file.write('echo "This is step $LOADL_STEP_ID out of {0}"\n'.format(njobs))
+        script_file.write('export OMP_NUM_THREADS={}\n'.format(nb_threads_per_process))
+
+        script_file.write('LD_LIBRARY_PATH=' +
+                          ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
+                          ':${LD_LIBRARY_PATH}\n')
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
-#        script_file.write('cp -s ../*.h5 ./\n')
         script_file.write('cd ' + self.work_dir + '\n')
-        
-        try:
-            useibm = (True if os.environ['USEIBMMPI'] == 'true' else False)
-        except :
-            useibm = False
 
-        if not useibm:
-            print('use mpiexec')
-            script_file.write('export KMP_AFFINITY=compact,verbose\n')
-            script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
-            script_file.write('mpiexec.hydra '
-                + ' -np {} '.format(nprocesses/nb_cpus_per_task)
-                + ' -ppn {} '.format(nb_process_per_node)
-                + os.path.join(
-                    self.work_dir,
-                    command_atoms[0]) +
-                ' ' +
-                ' '.join(command_atoms[1:]) +
-                '\n')
-        else:
-            script_file.write('poe ' +
-                os.path.join(
-                    self.work_dir,
-                    command_atoms[0]) +
-                ' ' +
-                ' '.join(command_atoms[1:]) +
-                '\n')
+        script_file.write('export KMP_AFFINITY=compact,verbose\n')
+        script_file.write('export I_MPI_PIN_DOMAIN=omp\n')
+
+        script_file.write('mpiexec.hydra '
+            + ' -np {} '.format(nb_mpi_processes)
+            + ' -ppn {} '.format(nb_processes_per_node)
+            + ' -ordered-output -prepend-rank '
+            + os.path.join(
+                self.work_dir,
+                command_atoms[0]) +
+            ' ' +
+            ' '.join(command_atoms[1:]) +
+            '\n')
         
         script_file.write('echo "End time is `date`"\n')
         script_file.write('exit 0\n')
@@ -598,13 +566,14 @@ class _code(_base):
     def write_slurm_file(
             self,
             file_name = None,
-            nprocesses = None,
             name_of_run = None,
             command_atoms = [],
             hours = None,
             minutes = None,
             out_file = None,
-            err_file = None):
+            err_file = None,
+			nb_mpi_processes = None,
+			nb_threads_per_process = None):
         script_file = open(file_name, 'w')
         script_file.write('#!/bin/bash -l\n')
         # job name
@@ -619,35 +588,41 @@ class _code(_base):
             script_file.write('#SBATCH -o ' + out_file + '\n')
         script_file.write('#SBATCH --partition={0}\n'.format(
                 self.host_info['environment']))
-        nodes = nprocesses // self.host_info['deltanprocs']
-        if (nodes == 0):
-            nodes = 1
-            tasks_per_node = nprocesses
-        else:
-            assert(nprocesses % self.host_info['deltanprocs'] == 0)
-            tasks_per_node = self.host_info['deltanprocs']
-        script_file.write('#SBATCH --nodes={0}\n'.format(nodes))
         
-        nbprocesspernode = int(os.environ['NB_PROC_PER_NODE'])
-        print('NB_PROC_PER_NODE ', nbprocesspernode)
-        if (isinstance( nbprocesspernode, int ) and  nbprocesspernode == 1) :
-            script_file.write('#SBATCH --ntasks-per-node=1\n') # tasks_per_node
-            script_file.write('#SBATCH --cpus-per-task={0}\n'.format(self.host_info['deltanprocs']))
-        elif (isinstance( nbprocesspernode, int ) and int(int(self.host_info['deltanprocs'])/nbprocesspernode)*nbprocesspernode == int(self.host_info['deltanprocs'])) :
-            script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(nbprocesspernode))
-            script_file.write('#SBATCH --cpus-per-task={0}\n'.format(int(int(self.host_info['deltanprocs'])/nbprocesspernode)))
-        else :
-            print('Bad NB_PROC_PER_NODE ', nbprocesspernode)
-            exit(99)
+        nb_cpus_per_node = self.host_info['deltanprocs']
+        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1, 'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
+
+        # No more threads than the number of cores
+        assert(nb_threads_per_process <= nb_cpus_per_node, "Cannot use more threads ({} asked) than the number of cores ({})".format(nb_threads_per_process, nb_cpus_per_node))
+        # Warn if some core will not be ued
+        if nb_cpus_per_node%nb_threads_per_process != 0:
+            warnings.warn("The number of threads is not correct regarding the number of cores (machin will be under use)", UserWarning)
+
+        nb_cpus = nb_mpi_processes*nb_threads_per_process
+        if (nb_cpus < nb_cpus_per_node):
+            # in case we use only a few process on a single node
+            nb_nodes = 1
+            nb_processes_per_node = nb_mpi_processes
+        else:
+            nb_nodes = int((nb_cpus+nb_cpus_per_node-1) // nb_cpus_per_node)
+            # if more than one node we requiere to have a multiple of deltanprocs
+            nb_processes_per_node = int(nb_cpus_per_node // nb_threads_per_process)
+
+        
+        script_file.write('#SBATCH --nodes={0}\n'.format(nb_nodes))
+        script_file.write('#SBATCH --ntasks-per-node={0}\n'.format(nb_processes_per_node))
+        script_file.write('#SBATCH --cpus-per-task={0}\n'.format(nb_threads_per_process))
 
         script_file.write('#SBATCH --mail-type=none\n')
         script_file.write('#SBATCH --time={0}:{1:0>2d}:00\n'.format(hours, minutes))
         script_file.write('source ~/.config/bfps/bashrc\n')
-        script_file.write('export OMP_NUM_THREADS={0}\n'.format(int(int(self.host_info['deltanprocs'])/nbprocesspernode)))
-        script_file.write('export OMP_PLACES=cores\n')
-        script_file.write('LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:' +
+        if nb_threads_per_process > 1:
+            script_file.write('export OMP_NUM_THREADS={0}\n'.format(nb_threads_per_process))
+            script_file.write('export OMP_PLACES=cores\n')
+
+        script_file.write('LD_LIBRARY_PATH=' +
                           ':'.join([bfps.lib_dir] + bfps.install_info['library_dirs']) +
-                          '\n')
+                          ':${LD_LIBRARY_PATH}\n')
         script_file.write('echo "Start time is `date`"\n')
         script_file.write('cd ' + self.work_dir + '\n')
         script_file.write('export HTMLOUTPUT={}.html\n'.format(command_atoms[-1]))
@@ -663,6 +638,12 @@ class _code(_base):
         parser = argparse.ArgumentParser('bfps ' + type(self).__name__)
         self.add_parser_arguments(parser)
         opt = parser.parse_args(args)
+
+        if opt.ncpu != -1:
+            warnings.warn('ncpu should be replaced by np/ntpp',DeprecationWarning)
+            opt.nb_processes = opt.ncpu
+            opt.nb_threads_per_process = 1
+
         self.set_host_info(bfps.host_info)
         if type(opt.environment) != type(None):
             self.host_info['environment'] = opt.environment
