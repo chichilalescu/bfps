@@ -269,7 +269,7 @@ class _fluid_particle_base(_code):
 
             self.main       += """
                                 #ifdef USE_TIMINGOUTPUT
-                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(iteration);                                
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(iteration);
                                 TIMEZONE(loopLabel.c_str());
                                 #endif
                                 """
@@ -288,7 +288,7 @@ class _fluid_particle_base(_code):
             self.main       += '{\n'
             self.main       += """
                                 #ifdef USE_TIMINGOUTPUT
-                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(frame_index);                                
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(frame_index);
                                 TIMEZONE(loopLabel.c_str());
                                 #endif
                                 """
