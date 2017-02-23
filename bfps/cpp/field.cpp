@@ -713,10 +713,10 @@ void field<rnumber, be, fc>::compute_rspace_stats(
               if(nvals == int(4) && idx == 9*nvals+3){
                   return std::max(v1, v2);  
               }
-              if(idx < ncomp(fc)){
+              if(idx < int(ncomp(fc))){
                   return std::min(v1, v2);        
               }      
-              if((nmoments-1)*nvals <= idx && idx < (nmoments-1)*nvals+ncomp(fc)){
+              if(int(nmoments-1)*nvals <= idx && idx < int(int(nmoments-1)*nvals+ncomp(fc))){
                   return std::max(v1, v2);        
               }
               return v1 + v2;

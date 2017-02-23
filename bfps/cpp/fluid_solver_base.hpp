@@ -145,7 +145,7 @@ void CLOOP(ObjectType* obj, FuncType expression)
     {
         const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[0]);
         const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[0]);
-        for (ptrdiff_t yindex = start; yindex < end; yindex++){
+        for (ptrdiff_t yindex = start; yindex < ptrdiff_t(end); yindex++){
             ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2];
             for (ptrdiff_t zindex = 0; zindex < obj->cd->subsizes[1]; zindex++)
             for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
@@ -166,7 +166,7 @@ void CLOOP_NXMODES(ObjectType* obj, FuncType expression)
         const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
         const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
         for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
-            for (ptrdiff_t zindex = start; zindex < end; zindex++)
+            for (ptrdiff_t zindex = start; zindex < ptrdiff_t(end); zindex++)
             {
                 ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
                                    + zindex*obj->cd->subsizes[2];
@@ -195,7 +195,7 @@ void CLOOP_K2(ObjectType* obj, FuncType expression)
         const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
         const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
         for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
-            for (ptrdiff_t zindex = start; zindex < end; zindex++){
+            for (ptrdiff_t zindex = start; zindex < ptrdiff_t(end); zindex++){
                 ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
                                    + zindex*obj->cd->subsizes[2];
                 for (ptrdiff_t xindex = 0; xindex < obj->cd->subsizes[2]; xindex++)
@@ -220,7 +220,7 @@ void CLOOP_K2_NXMODES(ObjectType* obj, FuncType expression)
         const hsize_t start = OmpUtils::ForIntervalStart(obj->cd->subsizes[1]);
         const hsize_t end = OmpUtils::ForIntervalEnd(obj->cd->subsizes[1]);
         for (ptrdiff_t yindex = 0; yindex < obj->cd->subsizes[0]; yindex++){
-            for (ptrdiff_t zindex = start; zindex < end; zindex++)
+            for (ptrdiff_t zindex = start; zindex < ptrdiff_t(end); zindex++)
             {
                 ptrdiff_t cindex = yindex*obj->cd->subsizes[1]*obj->cd->subsizes[2]
                                    + zindex*obj->cd->subsizes[2];
@@ -254,7 +254,7 @@ void RLOOP(ObjectType* obj, FuncType expression)
         const hsize_t start = OmpUtils::ForIntervalStart(obj->rd->subsizes[1]);
         const hsize_t end = OmpUtils::ForIntervalEnd(obj->rd->subsizes[1]);
         for (int zindex = 0; zindex < obj->rd->subsizes[0] ; zindex++)
-        for (int yindex = start; yindex < end; yindex++)
+        for (int yindex = start; yindex < ptrdiff_t(end); yindex++)
         {
             ptrdiff_t rindex = (zindex * obj->rd->subsizes[1] + yindex)*(obj->rd->subsizes[2]+2);
             for (int xindex = 0; xindex < obj->rd->subsizes[2]; xindex++)
