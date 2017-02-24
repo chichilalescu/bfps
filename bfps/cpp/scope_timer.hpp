@@ -183,6 +183,7 @@ public:
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
+        variable_used_only_in_assert(retMpi);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
 
@@ -243,6 +244,7 @@ public:
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
+        variable_used_only_in_assert(retMpi);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
 
@@ -354,6 +356,7 @@ public:
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
+        variable_used_only_in_assert(retMpi);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
         std::unique_ptr<int[]> nbEventsPerProc;
@@ -453,6 +456,7 @@ public:
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
         assert(retMpi == MPI_SUCCESS);
+        variable_used_only_in_assert(retMpi);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
 

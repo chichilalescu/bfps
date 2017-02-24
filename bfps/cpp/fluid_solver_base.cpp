@@ -159,6 +159,7 @@ void fluid_solver_base<rnumber>::compute_rspace_stats(
         wspace = H5Dget_space(dset);
         ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
         assert(ndims == 3);
+        variable_used_only_in_assert(ndims);
         assert(dims[1] == nmoments);
         nvals = dims[2];
         H5Sclose(wspace);

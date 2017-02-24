@@ -133,5 +133,7 @@ inline void DEBUG_MSG_WAIT(MPI_Comm communicator, const char * format, ...)
 
 #endif//NDEBUG
 
+#define variable_used_only_in_assert(x) ((void)(x))
+
 #endif//BASE
 
