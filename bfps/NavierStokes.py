@@ -616,7 +616,9 @@ class NavierStokes(_fluid_particle_base):
                 computation_needed =  not (ii0 == pp_file['ii0'].value and
                                            ii1 == pp_file['ii1'].value)
                 if computation_needed:
-                    for k in pp_file.keys():
+                    for k in ['t', 'vel_max(t)', 'renergy(t)',
+                              'energy(t, k)', 'enstrophy(t, k)',
+                              'ii0', 'ii1', 'iter0', 'iter1']:
                         del pp_file[k]
             if computation_needed:
                 pp_file['iter0'] = iter0
