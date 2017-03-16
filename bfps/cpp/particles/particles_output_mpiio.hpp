@@ -1,0 +1,83 @@
+#ifndef PARTICLES_OUTPUT_MPIIO
+#define PARTICLES_OUTPUT_MPIIO
+
+#include <memory>
+#include <vector>
+#include <string>
+#include <cassert>
+
+#include "abstract_particles_output.hpp"
+#include "scope_timer.hpp"
+
+#ifndef AssertMpi
+#define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
+#endif
+
+
+template <int size_particle_positions, int size_particle_rhs>
+class particles_output_mpiio : public abstract_particles_output<size_particle_positions, size_particle_rhs>{
+    using Parent = abstract_particles_output<size_particle_positions, size_particle_rhs>;
+
+    const std::string filename;
+    const int nb_step_prealloc;
+
+    MPI_File mpi_file;
+
+public:
+    particles_output_mpiio(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
+                           const int in_nb_step_prealloc = -1)
+            : abstract_particles_output<size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
+              filename(in_filename), nb_step_prealloc(in_nb_step_prealloc){
+        {
+            TIMEZONE("particles_output_mpiio::MPI_File_open");
+            AssertMpi(MPI_File_open(Parent::getCom(), const_cast<char*>(filename.c_str()),
+                MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_file));
+        }
+        if(nb_step_prealloc != -1){
+            TIMEZONE("particles_output_mpiio::MPI_File_set_size");
+            AssertMpi(MPI_File_set_size(mpi_file,
+                nb_step_prealloc*Parent::getTotalNbParticles()*sizeof(double)*(size_particle_positions+size_particle_rhs)));
+        }
+    }
+
+    ~particles_output_mpiio(){
+        TIMEZONE("particles_output_mpiio::MPI_File_close");
+        AssertMpi(MPI_File_close(&mpi_file));
+    }
+
+    void write(const int time_step, const double* particles_positions, const double* particles_rhs,
+               const int nb_particles, const int particles_idx_offset) final{
+        TIMEZONE("particles_output_mpiio::write");
+
+        assert(nb_step_prealloc == -1 || time_step < nb_step_prealloc);
+        assert(particles_idx_offset < Parent::getTotalNbParticles());
+        assert(particles_idx_offset+nb_particles <= Parent::getTotalNbParticles());
+
+        if(nb_step_prealloc == -1){
+            TIMEZONE("particles_output_mpiio::write::MPI_File_set_size");
+            AssertMpi(MPI_File_set_size(mpi_file,
+                (time_step+1)*Parent::getTotalNbParticles()*sizeof(double)*(size_particle_positions+size_particle_rhs)));
+        }
+
+        const MPI_Offset globalParticlesOffset = time_step*Parent::getTotalNbParticles()*(size_particle_positions+size_particle_rhs)
+                        + nb_particles*size_particle_positions;
+
+        const MPI_Offset writingOffset = globalParticlesOffset * sizeof(double);
+
+        AssertMpi(MPI_File_write_at(mpi_file, writingOffset,
+            const_cast<double*>(particles_positions), nb_particles*size_particle_positions, MPI_DOUBLE,
+            MPI_STATUS_IGNORE));
+
+        const MPI_Offset globalParticlesOffsetOutput = time_step*Parent::getTotalNbParticles()*(size_particle_positions+size_particle_rhs)
+                        + Parent::getTotalNbParticles()*size_particle_positions
+                        + nb_particles*size_particle_rhs;
+
+        const MPI_Offset writingOffsetOutput = globalParticlesOffsetOutput * sizeof(double);
+
+        AssertMpi(MPI_File_write_at(mpi_file, writingOffsetOutput,
+            const_cast<double*>(particles_rhs), nb_particles*size_particle_rhs, MPI_DOUBLE,
+            MPI_STATUS_IGNORE));
+    }
+};
+
+#endif
