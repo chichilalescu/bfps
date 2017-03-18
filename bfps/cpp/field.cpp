@@ -545,6 +545,72 @@ int field<rnumber, be, fc>::io_database(
 template <typename rnumber,
           field_backend be,
           field_components fc>
+int field<rnumber, be, fc>::write_0slice(
+        const hid_t group,
+        const std::string field_name,
+        const int iteration)
+{
+    TIMEZONE("field::write_0slice");
+    assert(this->real_space_representation);
+    assert(fc == THREE);
+    if (this->myrank == 0)
+    {
+        hid_t dset, wspace, mspace;
+        int ndims;
+        hsize_t count[4], offset[4], dims[4];
+        offset[0] = iteration;
+        offset[1] = 0;
+        offset[2] = 0;
+        offset[3] = 0;
+        dset = H5Dopen(
+                group,
+                ("0slices/" + field_name + "/real").c_str(),
+                H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+        // array in memory has 2 extra x points, because FFTW
+        count[0] = 1;
+        count[1] = this->rmemlayout->sizes[1];
+        count[2] = this->rmemlayout->sizes[2];
+        count[3] = 3;
+        mspace = H5Screate_simple(ndims, count, NULL);
+        // array in file should not have the extra 2 points
+        count[1] = this->rlayout->sizes[1];
+        count[2] = this->rlayout->sizes[2];
+        // select right slice in file
+        H5Sselect_hyperslab(
+            wspace,
+            H5S_SELECT_SET,
+            offset,
+            NULL,
+            count,
+            NULL);
+        offset[0] = 0;
+        // select proper regions of memory
+        H5Sselect_hyperslab(
+            mspace,
+            H5S_SELECT_SET,
+            offset,
+            NULL,
+            count,
+            NULL);
+        H5Dwrite(
+            dset,
+            this->rnumber_H5T,
+            mspace,
+            wspace,
+            H5P_DEFAULT,
+            this->data);
+        H5Dclose(dset);
+        H5Sclose(mspace);
+        H5Sclose(wspace);
+    }
+}
+
+
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
 void field<rnumber, be, fc>::compute_rspace_xincrement_stats(
                 const int xcells,
                 const hid_t group,

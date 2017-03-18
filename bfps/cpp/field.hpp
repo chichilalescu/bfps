@@ -85,6 +85,11 @@ class field
                 const int toffset,
                 const bool read = true);
 
+        int write_0slice(
+                const hid_t group,
+                const std::string field_name,
+                const int iteration);
+
         /* essential FFT stuff */
         void dft();
         void ift();
