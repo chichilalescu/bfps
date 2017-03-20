@@ -263,20 +263,6 @@ class NavierStokes(_fluid_particle_base):
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
-        self.stat_src += self.create_stat_output(
-                '/statistics/xlines/velocity',
-                'fs->rvelocity',
-                data_type = field_H5T,
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = nx;
-                    count[2] = 3;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/xlines/vorticity',
-                'fs->rvorticity',
-                data_type = field_H5T)
         if self.QR_stats_on:
             self.stat_src += self.create_stat_output(
                     '/statistics/moments/trS2_Q_R',
@@ -754,12 +740,14 @@ class NavierStokes(_fluid_particle_base):
             vec_stat_datasets = ['velocity', 'vorticity']
             scal_stat_datasets = []
             for k in vec_stat_datasets:
-                time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
+                time_chunk = 2**20 // (
+                        self.dtype.itemsize*3*
+                        self.parameters['nx']*self.parameters['ny'])
                 time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('statistics/xlines/' + k,
-                                     (1, self.parameters['nx'], 3),
-                                     chunks = (time_chunk, self.parameters['nx'], 3),
-                                     maxshape = (None, self.parameters['nx'], 3),
+                ofile.create_dataset('statistics/0slices/' + k + '/real',
+                                     (1, self.parameters['ny'], self.parameters['nx'], 3),
+                                     chunks = (time_chunk, self.parameters['ny'], self.parameters['nx'], 3),
+                                     maxshape = (None, self.parameters['ny'], self.parameters['nx'], 3),
                                      dtype = self.dtype)
             if self.Lag_acc_stats_on:
                 vec_stat_datasets += ['Lagrangian_acceleration']

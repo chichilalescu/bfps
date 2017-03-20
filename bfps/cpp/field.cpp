@@ -828,6 +828,11 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         H5Sclose(wspace);
         H5Sclose(mspace);
         H5Dclose(dset);
+        if (H5Lexists(group, "0slices", H5P_DEFAULT))
+            this->write_0slice(
+                    group,
+                    dset_name,
+                    toffset);
     }
     delete[] moments;
     delete[] hist;
