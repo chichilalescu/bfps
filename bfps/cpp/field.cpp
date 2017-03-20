@@ -605,6 +605,7 @@ int field<rnumber, be, fc>::write_0slice(
         H5Sclose(mspace);
         H5Sclose(wspace);
     }
+    return EXIT_SUCCESS;
 }
 
 
