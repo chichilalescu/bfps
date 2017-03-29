@@ -173,6 +173,29 @@ template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
+void kspace<be, dt>::Gauss_filter(
+        typename fftw_interface<rnumber>::complex *__restrict__ a,
+        const double sigma)
+{
+    const double prefactor = - sigma*sigma/2;
+    this->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
+                if (k2 <= this->kM2)
+                {
+                    for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= exp(prefactor*k2);
+                }
+                });
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
 void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restrict__ a)
 {
     switch(dt)

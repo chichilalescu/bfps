@@ -75,6 +75,12 @@ class kspace
 
         template <typename rnumber,
                   field_components fc>
+        void Gauss_filter(
+                typename fftw_interface<rnumber>::complex *__restrict__ a,
+                const double sigma);
+
+        template <typename rnumber,
+                  field_components fc>
         void dealias(typename fftw_interface<rnumber>::complex *__restrict__ a);
 
         template <typename rnumber,
