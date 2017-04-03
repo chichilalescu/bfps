@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
         //        ps0->read();
 
         // Interpolator size
-        const int InterpNbNeighbors = 5;
+        const int InterpNbNeighbors = 1; // start with one and then use 2 or 3
 
         // Only the Z grid
         const std::array<size_t,3> field_grid_dim{nx,ny,nz};
@@ -553,7 +553,7 @@ int main(int argc, char *argv[])
         const int myPartitionInterval[2] = {fs->cvelocity->rlayout->start[0],
                                             fs->cvelocity->rlayout->start[0] + fs->cvelocity->rlayout->subsizes[0]};
 
-        const std::array<double,3> spatial_box_width{dkx, dky, dkz};
+        const std::array<double,3> spatial_box_width{2PI/dkx, 2PI/dky, 2PI/dkz};
         const double spatial_partition_width = spatial_box_width/double(field_grid_dim);
         const double my_spatial_low_limit = myPartitionInterval[0]*spatial_partition_width;
         const double my_spatial_up_limit = myPartitionInterval[1]*spatial_partition_width;

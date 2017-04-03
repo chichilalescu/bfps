@@ -4,6 +4,11 @@
 #include <cassert>
 #include <stack>
 
+enum IDXS_3D {
+    IDX_X = 2,
+    IDX_Y = 1,
+    IDX_Z = 0
+};
 
 namespace particles_utils {
 
@@ -78,7 +83,7 @@ inline void partition_extra_z(double* array, const int size, const int nb_partit
         const double limit = partitions_limits(0);
         const int size_current = partition_extra<nb_values>(array, size,
                 [&](const double inval[]){
-            return inval[nb_values-1] < limit;
+            return inval[IDX_Z] < limit;
         }, pdcswap);
         partitions_size[0] = size_current;
         partitions_size[1] = size-size_current;
@@ -108,7 +113,7 @@ inline void partition_extra_z(double* array, const int size, const int nb_partit
             const int size_current = partition_extra<nb_values>(&array[partitions_offset[current_part.first]*nb_values],
                                                      size_unpart,
                     [&](const double inval[]){
-                return inval[nb_values-1] < limit;
+                return inval[IDX_Z] < limit;
             }, pdcswap, partitions_offset[current_part.first]);
 
             partitions_offset[idx_middle+1] = size_current + partitions_offset[current_part.first];
@@ -185,7 +190,9 @@ public:
     }
 
     NumType getOwner(const NumType in_item_idx) const {
-        return NumType(double(in_item_idx)/step_split);
+        const NumType owner = NumType(double(in_item_idx)/step_split);
+        assert(owner < nb_intervals);
+        return owner;
     }
 };
 

@@ -431,7 +431,7 @@ public:
         // Find particles outside my interval
         const int nbOutLower = particles_utils::partition_extra<size_particle_positions>(&(*inout_positions_particles)[0], current_my_nb_particles_per_partition[0],
                     [&](const double val[]){
-            const bool isLower = val[2] < mySpatialLowLimit;
+            const bool isLower = val[IDX_Z] < mySpatialLowLimit;
             return isLower;
         },
                     [&](const int idx1, const int idx2){
@@ -454,7 +454,7 @@ public:
                     &(*inout_positions_particles)[(current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow)*size_particle_positions],
                     myTotalNbParticles - (current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow),
                     [&](const double val[]){
-            const bool isUpper = mySpatialUpLimit <= val[2];
+            const bool isUpper = mySpatialUpLimit <= val[IDX_Z];
             return !isUpper;
         },
                     [&](const int idx1, const int idx2){
@@ -578,7 +578,7 @@ public:
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            newParticlesLowRhs[idx_rhs].reset(new double[nbNewFromLow]);
+                            newParticlesLowRhs[idx_rhs].reset(new double[nbNewFromLow*size_particle_rhs]);
                             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                             mpiRequests.emplace_back();
                             AssertMpi(MPI_Irecv(&newParticlesLowRhs[idx_rhs][0], nbNewFromLow*size_particle_rhs, MPI_DOUBLE, (my_rank-1+nb_processes)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
@@ -605,7 +605,7 @@ public:
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            newParticlesUpRhs[idx_rhs].reset(new double[nbNewFromUp]);
+                            newParticlesUpRhs[idx_rhs].reset(new double[nbNewFromUp*size_particle_rhs]);
                             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                             mpiRequests.emplace_back();
                             AssertMpi(MPI_Irecv(&newParticlesUpRhs[idx_rhs][0], nbNewFromUp*size_particle_rhs, MPI_DOUBLE, (my_rank+1)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
@@ -650,31 +650,31 @@ public:
             if(myTotalNewNbParticles > myTotalNbParticlesAllocated){
                 DEBUG_MSG("[%d] reuse array\n", my_rank);
                 std::unique_ptr<double[]> newArray(new double[myTotalNewNbParticles*size_particle_positions]);
-                std::unique_ptr<int[]> newArrayIndexes(new int[myTotalNewNbParticles*size_particle_positions]);
+                std::unique_ptr<int[]> newArrayIndexes(new int[myTotalNewNbParticles]);
                 std::vector<std::unique_ptr<double[]>> newArrayRhs(in_nb_rhs);
                 for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                    newArrayRhs[idx_rhs].reset(new double[myTotalNewNbParticles*size_particle_positions]);
+                    newArrayRhs[idx_rhs].reset(new double[myTotalNewNbParticles*size_particle_rhs]);
                 }
 
                 if(nbNewFromLow){
                     memcpy(&newArray[0], &newParticlesLow[0], sizeof(double)*nbNewFromLow*size_particle_positions);
                     memcpy(&newArrayIndexes[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&newArrayRhs[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow);
+                        memcpy(&newArrayRhs[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow*size_particle_rhs);
                     }
                 }
 
                 memcpy(&newArray[nbNewFromLow*size_particle_positions], &(*inout_positions_particles)[nbOutLower*size_particle_positions], sizeof(double)*nbOldParticlesInside*size_particle_positions);
                 memcpy(&newArrayIndexes[nbNewFromLow], &(*inout_positions_particles)[nbOutLower], sizeof(int)*nbOldParticlesInside);
                 for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                    memcpy(&newArrayRhs[idx_rhs][nbNewFromLow], &inout_positions_particles[idx_rhs][nbOutLower], sizeof(double)*nbOldParticlesInside);
+                    memcpy(&newArrayRhs[idx_rhs][nbNewFromLow*size_particle_rhs], &inout_positions_particles[idx_rhs][nbOutLower*size_particle_rhs], sizeof(double)*nbOldParticlesInside*size_particle_rhs);
                 }
 
                 if(nbNewFromUp){
                     memcpy(&newArray[(nbNewFromLow+nbOldParticlesInside)*size_particle_positions], &newParticlesUp[0], sizeof(double)*nbNewFromUp*size_particle_positions);
                     memcpy(&newArrayIndexes[(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&newArrayRhs[idx_rhs][(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpRhs[idx_rhs][0], sizeof(double)*nbNewFromUp);
+                        memcpy(&newArrayRhs[idx_rhs][(nbNewFromLow+nbOldParticlesInside)*size_particle_rhs], &newParticlesUpRhs[idx_rhs][0], sizeof(double)*nbNewFromUp*size_particle_rhs);
                     }
                 }
 
@@ -695,21 +695,21 @@ public:
                     memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(double)*nbOutLower*size_particle_positions);
                     memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbOutLower);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbOutLower);
+                        memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbOutLower*size_particle_rhs);
                     }
                 }
                 if(nbNewFromLow){
                     memcpy(&(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside)*size_particle_positions], &newParticlesLow[nbOutLower*size_particle_positions], sizeof(double)*nbLowToMoveBack*size_particle_positions);
                     memcpy(&(*inout_index_particles)[(nbOutLower+nbOldParticlesInside)], &newParticlesLowIndexes[nbOutLower], sizeof(int)*nbLowToMoveBack);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)], &newParticlesLowRhs[idx_rhs][nbOutLower], sizeof(double)*nbLowToMoveBack);
+                        memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)*size_particle_rhs], &newParticlesLowRhs[idx_rhs][nbOutLower*size_particle_rhs], sizeof(double)*nbLowToMoveBack*size_particle_rhs);
                     }
                 }
                 if(nbNewFromUp){
                     memcpy(&(*inout_positions_particles)[(nbNewFromLow+nbOldParticlesInside)*size_particle_positions], &newParticlesUp[0], sizeof(double)*nbNewFromUp*size_particle_positions);
                     memcpy(&(*inout_index_particles)[(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpRhs[0], sizeof(double)*nbNewFromUp);
+                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbOldParticlesInside)*size_particle_rhs], &newParticlesUpRhs[0], sizeof(double)*nbNewFromUp*size_particle_rhs);
                     }
                 }
             }
@@ -721,24 +721,26 @@ public:
                         memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(double)*nbNewFromLow*size_particle_positions);
                         memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow);
+                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow*size_particle_rhs);
                         }
                     }
                     if(nbNewFromUp){
                         memcpy(&(*inout_positions_particles)[nbNewFromLow*size_particle_positions], &newParticlesUp[0], sizeof(double)*nbUpToMoveBegin*size_particle_positions);
                         memcpy(&(*inout_index_particles)[nbNewFromLow], &newParticlesUpIndexes[0], sizeof(int)*nbUpToMoveBegin);
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow);
+                            memcpy(&inout_rhs_particles[idx_rhs][nbNewFromLow*size_particle_rhs], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbUpToMoveBegin*size_particle_rhs);
                         }
                     }
                     if(nbNewFromUp){
-                        memcpy(&(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside)*size_particle_positions], &newParticlesUp[nbUpToMoveBegin*size_particle_positions],
+                        memcpy(&(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside)*size_particle_positions],
+                                &newParticlesUp[nbUpToMoveBegin*size_particle_positions],
                                         sizeof(double)*(nbNewFromUp-nbUpToMoveBegin)*size_particle_positions);
                         memcpy(&(*inout_index_particles)[(nbOutLower+nbOldParticlesInside)], &newParticlesUpIndexes[nbUpToMoveBegin],
                                         sizeof(int)*(nbNewFromUp-nbUpToMoveBegin));
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)], &newParticlesUpRhs[idx_rhs][nbUpToMoveBegin],
-                                            sizeof(double)*(nbNewFromUp-nbUpToMoveBegin));
+                            memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)*size_particle_rhs],
+                                   &newParticlesUpRhs[idx_rhs][nbUpToMoveBegin*size_particle_rhs],
+                                   sizeof(double)*(nbNewFromUp-nbUpToMoveBegin)*size_particle_rhs);
                         }
                     }
                 }
@@ -748,14 +750,14 @@ public:
                         memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(double)*nbNewFromLow*size_particle_positions);
                         memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow);
+                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(double)*nbNewFromLow*size_particle_rhs);
                         }
                     }
                     if(nbNewFromUp){
                         memcpy(&(*inout_positions_particles)[0], &newParticlesUp[0], sizeof(double)*nbNewFromUp*size_particle_positions);
                         memcpy(&(*inout_index_particles)[0], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesUpRhs[idx_rhs][0], sizeof(double)*nbNewFromUp);
+                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesUpRhs[idx_rhs][0], sizeof(double)*nbNewFromUp*size_particle_rhs);
                         }
                     }
                     const int padding = nbOutLower - nbNewFromLow+nbNewFromUp;
@@ -766,9 +768,9 @@ public:
                             &(*inout_index_particles)[(nbOutLower+nbOldParticlesInside-padding)],
                             sizeof(int)*padding);
                     for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbNewFromUp)],
-                                &inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside-padding)],
-                                sizeof(double)*padding);
+                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbNewFromUp)*size_particle_rhs],
+                                &inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside-padding)*size_particle_rhs],
+                                sizeof(double)*padding*size_particle_rhs);
                     }
                 }
             }
@@ -808,10 +810,10 @@ public:
                            current_offset_particles_for_partition[idxPartition+1] - current_offset_particles_for_partition[idxPartition]);
                     const double limitPartition = (idxPartition+1)*spatialPartitionWidth + mySpatialLowLimit;
                     for(int idx = 0 ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
-                        assert((*inout_positions_particles)[idx*3+2] < limitPartition);
+                        assert((*inout_positions_particles)[idx*3+IDX_Z] < limitPartition);
                     }
                     for(int idx = current_offset_particles_for_partition[idxPartition+1] ; idx < myTotalNbParticles ; ++idx){
-                        assert((*inout_positions_particles)[idx*3+2] >= limitPartition);
+                        assert((*inout_positions_particles)[idx*3+IDX_Z] >= limitPartition);
                     }
                 }
             }

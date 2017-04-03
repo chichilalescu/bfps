@@ -224,7 +224,7 @@ public:
                                                 &split_particles_positions[previousOffset*size_particle_positions],
                                                  load_splitter.getMySize()-previousOffset,
                                                  [&](const double val[]){
-                    return val[2] < limitPartition;
+                    return val[IDX_Z] < limitPartition;
                 },
                 [&](const int idx1, const int idx2){
                     std::swap(split_particles_indexes[idx1], split_particles_indexes[idx2]);

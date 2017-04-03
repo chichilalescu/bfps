@@ -3,6 +3,7 @@
 
 #include <array>
 
+#include "abstract_particle_system.hpp"
 #include "particles_output_hdf5.hpp"
 #include "particles_output_mpiio.hpp"
 #include "particles_field_computer.hpp"
@@ -12,7 +13,7 @@
 #include "scope_timer.hpp"
 
 template <class interpolator_class, int interp_neighbours>
-class particles_system {
+class particles_system : public abstract_particle_system {
     MPI_Comm mpi_com;
 
     const std::pair<int,int> current_partition_interval;
@@ -45,11 +46,12 @@ public:
                      const double in_my_spatial_low_limit, const double in_my_spatial_up_limit,
                      const double* in_field_data, const std::array<size_t,3>& in_local_field_dims,
                      const std::array<size_t,3>& in_local_field_offset,
+                     const std::array<size_t,3>& in_field_memory_dims,
                      MPI_Comm in_mpi_com)
         : mpi_com(in_mpi_com),
-          current_partition_interval({in_local_field_offset[2], in_local_field_offset[2] + in_local_field_dims[2]}),
+          current_partition_interval({in_local_field_offset[IDX_Z], in_local_field_offset[IDX_Z] + in_local_field_dims[IDX_Z]}),
           partition_interval_size(current_partition_interval.second - current_partition_interval.first),
-          field(in_field_data, in_local_field_dims, in_local_field_offset),
+          field(in_field_data, in_local_field_dims, in_local_field_offset, in_field_memory_dims),
           interpolator(),
           computer(in_mpi_com, field_grid_dim, current_partition_interval,
                    interpolator, field, in_spatial_box_width, in_spatial_partition_width,
@@ -74,8 +76,8 @@ public:
         my_nb_particles = particles_input.getLocalNbParticles();
 
         for(int idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
-            assert(my_particles_positions[idx_part*3+2] >= my_spatial_low_limit);
-            assert(my_particles_positions[idx_part*3+2] < my_spatial_up_limit);
+            assert(my_particles_positions[idx_part*3+IDX_Z] >= my_spatial_low_limit);
+            assert(my_particles_positions[idx_part*3+IDX_Z] < my_spatial_up_limit);
         }
 
         particles_utils::partition_extra_z<3>(&my_particles_positions[0], my_nb_particles, partition_interval_size,
@@ -100,17 +102,17 @@ public:
                        current_offset_particles_for_partition[idxPartition+1] - current_offset_particles_for_partition[idxPartition]);
                 const double limitPartition = (idxPartition+1)*spatial_partition_width + my_spatial_low_limit;
                 for(int idx = 0 ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
-                    assert(my_particles_positions[idx*3+2] < limitPartition);
+                    assert(my_particles_positions[idx*3+IDX_Z] < limitPartition);
                 }
                 for(int idx = current_offset_particles_for_partition[idxPartition+1] ; idx < my_nb_particles ; ++idx){
-                    assert(my_particles_positions[idx*3+2] >= limitPartition);
+                    assert(my_particles_positions[idx*3+IDX_Z] >= limitPartition);
                 }
             }
         }
     }
 
 
-    void compute(){
+    void compute() final {
         TIMEZONE("particles_system::compute");
         computer.compute_distr(current_my_nb_particles_per_partition.get(),
                                my_particles_positions.get(),
@@ -118,14 +120,14 @@ public:
                                interp_neighbours);
     }
 
-    void move(const double dt){
+    void move(const double dt) final {
         TIMEZONE("particles_system::move");
         computer.move_particles(my_particles_positions.get(), my_nb_particles,
                                 my_particles_rhs.data(), std::min(step_idx,int(my_particles_rhs.size())),
                                 dt);
     }
 
-    void redistribute(){
+    void redistribute() final {
         TIMEZONE("particles_system::redistribute");
         computer.redistribute(current_my_nb_particles_per_partition.get(),
                               &my_nb_particles,
@@ -137,11 +139,11 @@ public:
                               spatial_partition_width);
     }
 
-    void inc_step_idx(){
+    void inc_step_idx() final {
         step_idx += 1;
     }
 
-    void shift_rhs_vectors(){
+    void shift_rhs_vectors() final {
         if(my_particles_rhs.size()){
             std::unique_ptr<double[]> next_current(std::move(my_particles_rhs.back()));
             for(int idx_rhs = my_particles_rhs.size()-1 ; idx_rhs > 0 ; --idx_rhs){
@@ -152,7 +154,7 @@ public:
         }
     }
 
-    void completeLoop(const double dt){
+    void completeLoop(const double dt) final {
         TIMEZONE("particles_system::completeLoop");
         compute();
         move(dt);
@@ -161,32 +163,32 @@ public:
         shift_rhs_vectors();
     }
 
-    const double* getParticlesPositions() const{
+    const double* getParticlesPositions() const final {
         return my_particles_positions.get();
     }
 
-    const double* getParticlesCurrentRhs() const{
+    const double* getParticlesCurrentRhs() const final {
         return my_particles_rhs.front().get();
     }
 
-    const int* getParticlesIndexes() const{
+    const int* getParticlesIndexes() const final {
         return my_particles_positions_indexes.get();
     }
 
-    int getLocalNbParticles() const{
+    int getLocalNbParticles() const final {
         return my_nb_particles;
     }
 
     void checkNan() const { // TODO remove
         for(int idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
-            assert(std::isnan(my_particles_positions[idx_part*3+0]) == false);
-            assert(std::isnan(my_particles_positions[idx_part*3+1]) == false);
-            assert(std::isnan(my_particles_positions[idx_part*3+2]) == false);
+            assert(std::isnan(my_particles_positions[idx_part*3+IDX_X]) == false);
+            assert(std::isnan(my_particles_positions[idx_part*3+IDX_Y]) == false);
+            assert(std::isnan(my_particles_positions[idx_part*3+IDX_Z]) == false);
 
             for(int idx_rhs = 0 ; idx_rhs < my_particles_rhs.size() ; ++idx_rhs){
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+0]) == false);
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+1]) == false);
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+2]) == false);
+                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_X]) == false);
+                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_Y]) == false);
+                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_Z]) == false);
             }
         }
     }
