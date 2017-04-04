@@ -166,16 +166,19 @@ struct particles_system_build_container {
         spatial_box_width[IDX_Z] = fs_kk->dkz;
 
         // The distance between two field nodes in z
-        const rnumber spatial_partition_width_z = spatial_box_width[IDX_Z]/rnumber(field_grid_dim[IDX_Z]);
+        std::array<rnumber,3> spatial_partition_width;
+        spatial_partition_width[IDX_X] = spatial_box_width[IDX_X]/rnumber(field_grid_dim[IDX_X]);
+        spatial_partition_width[IDX_Y] = spatial_box_width[IDX_Y]/rnumber(field_grid_dim[IDX_Y]);
+        spatial_partition_width[IDX_Z] = spatial_box_width[IDX_Z]/rnumber(field_grid_dim[IDX_Z]);
         // The spatial interval of the current process
-        const rnumber my_spatial_low_limit_z = rnumber(local_field_offset[IDX_Z])*spatial_partition_width_z;
-        const rnumber my_spatial_up_limit_z = rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width_z;
+        const rnumber my_spatial_low_limit_z = rnumber(local_field_offset[IDX_Z])*spatial_partition_width[IDX_Z];
+        const rnumber my_spatial_up_limit_z = rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
         particles_system<rnumber, particles_interp_spline<double, interpolation_size,spline_mode>, interpolation_size>* part_sys
          = new particles_system<rnumber, particles_interp_spline<double, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
-                                                                                                   spatial_partition_width_z,
+                                                                                                   spatial_partition_width,
                                                                                                    my_spatial_low_limit_z,
                                                                                                    my_spatial_up_limit_z,
                                                                                                    fs_cvorticity->get_rdata(),

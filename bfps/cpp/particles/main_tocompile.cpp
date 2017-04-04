@@ -98,13 +98,17 @@ int main(int argc, char** argv){
 
 
         const std::array<double,3> spatial_box_width{10., 10., 10.};
-        const double spatial_partition_width = spatial_box_width[IDX_Z]/double(field_grid_dim[IDX_Z]);
-        const double my_spatial_low_limit = myPartitionInterval[0]*spatial_partition_width;
-        const double my_spatial_up_limit = myPartitionInterval[1]*spatial_partition_width;
+        std::array<double,3> spatial_partition_width;
+        spatial_partition_width[IDX_X] = spatial_box_width[IDX_X]/double(field_grid_dim[IDX_X]);
+        spatial_partition_width[IDX_Y] = spatial_box_width[IDX_Y]/double(field_grid_dim[IDX_Y]);
+        spatial_partition_width[IDX_Z] = spatial_box_width[IDX_Z]/double(field_grid_dim[IDX_Z]);
+
+        const double my_spatial_low_limit = myPartitionInterval[0]*spatial_partition_width[IDX_Z];
+        const double my_spatial_up_limit = myPartitionInterval[1]*spatial_partition_width[IDX_Z];
 
         if(my_rank == 0){
             std::cout << "spatial_box_width = " << spatial_box_width[IDX_X] << " " << spatial_box_width[IDX_Y] << " " << spatial_box_width[IDX_Z] << std::endl;
-            std::cout << "spatial_partition_width = " << spatial_partition_width << std::endl;
+            std::cout << "spatial_partition_width = " << spatial_partition_width[IDX_Z] << std::endl;
             std::cout << "my_spatial_low_limit = " << my_spatial_low_limit << std::endl;
             std::cout << "my_spatial_up_limit = " << my_spatial_up_limit << std::endl;
         }
@@ -140,7 +144,7 @@ int main(int argc, char** argv){
             //                           my_spatial_up_limit, my_rank, nb_processes);
             std::vector<double> spatial_interval_per_proc(nb_processes+1);
             for(int idx_proc = 0 ; idx_proc < nb_processes ; ++idx_proc){
-                spatial_interval_per_proc[idx_proc] = partitionIntervalSize*spatial_partition_width*idx_proc;
+                spatial_interval_per_proc[idx_proc] = partitionIntervalSize*spatial_partition_width[IDX_Z]*idx_proc;
                 std::cout << "spatial_interval_per_proc[idx_proc] " << spatial_interval_per_proc[idx_proc] << std::endl;
             }
             spatial_interval_per_proc[nb_processes] = spatial_box_width[IDX_Z];

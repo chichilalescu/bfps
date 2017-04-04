@@ -29,7 +29,7 @@ class particles_system : public abstract_particles_system<real_number> {
     std::unique_ptr<int[]> current_offset_particles_for_partition;
 
     const std::array<real_number,3> spatial_box_width;
-    const real_number spatial_partition_width;
+    const std::array<real_number,3> spatial_partition_width;
     const real_number my_spatial_low_limit;
     const real_number my_spatial_up_limit;
 
@@ -42,7 +42,7 @@ class particles_system : public abstract_particles_system<real_number> {
 
 public:
     particles_system(const std::array<size_t,3>& field_grid_dim, const std::array<real_number,3>& in_spatial_box_width,
-                     const real_number in_spatial_partition_width,
+                     const std::array<real_number,3>& in_spatial_partition_width,
                      const real_number in_my_spatial_low_limit, const real_number in_my_spatial_up_limit,
                      const real_number* in_field_data, const std::array<size_t,3>& in_local_field_dims,
                      const std::array<size_t,3>& in_local_field_offset,
@@ -83,7 +83,7 @@ public:
         particles_utils::partition_extra_z<3>(&my_particles_positions[0], my_nb_particles, partition_interval_size,
                                               current_my_nb_particles_per_partition.get(), current_offset_particles_for_partition.get(),
         [&](const int idxPartition){
-            const real_number limitPartition = (idxPartition+1)*spatial_partition_width + my_spatial_low_limit;
+            const real_number limitPartition = (idxPartition+1)*spatial_partition_width[IDX_Z] + my_spatial_low_limit;
             return limitPartition;
         },
         [&](const int idx1, const int idx2){
@@ -100,7 +100,7 @@ public:
             for(int idxPartition = 0 ; idxPartition < partition_interval_size ; ++idxPartition){
                 assert(current_my_nb_particles_per_partition[idxPartition] ==
                        current_offset_particles_for_partition[idxPartition+1] - current_offset_particles_for_partition[idxPartition]);
-                const real_number limitPartition = (idxPartition+1)*spatial_partition_width + my_spatial_low_limit;
+                const real_number limitPartition = (idxPartition+1)*spatial_partition_width[IDX_Z] + my_spatial_low_limit;
                 for(int idx = 0 ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
                     assert(my_particles_positions[idx*3+IDX_Z] < limitPartition);
                 }
@@ -136,7 +136,7 @@ public:
                               &my_particles_positions_indexes,
                               my_spatial_low_limit,
                               my_spatial_up_limit,
-                              spatial_partition_width);
+                              spatial_partition_width[IDX_Z]);
     }
 
     void inc_step_idx() final {
