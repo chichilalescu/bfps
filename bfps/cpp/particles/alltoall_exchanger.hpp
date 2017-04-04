@@ -12,18 +12,6 @@
 #define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
 #endif
 
-class GetMpiType{
-    const MPI_Datatype type;
-public:
-    explicit GetMpiType(const int&) : type(MPI_INT){}
-    explicit GetMpiType(const double&) : type(MPI_DOUBLE){}
-    explicit GetMpiType(const float&) : type(MPI_FLOAT){}
-    explicit GetMpiType(const char&) : type(MPI_CHAR){}
-    explicit GetMpiType(const long&) : type(MPI_LONG){}
-
-    /*do not make it explicit*/ operator MPI_Datatype() const { return type; }
-};
-
 class alltoall_exchanger {
     const MPI_Comm mpi_com;
 
@@ -88,7 +76,7 @@ public:
     template <class ItemType>
     void alltoallv(const ItemType in_to_send[],
                    ItemType out_to_recv[]) const {
-        alltoallv<ItemType>(in_to_send, out_to_recv, GetMpiType(ItemType()));
+        alltoallv<ItemType>(in_to_send, out_to_recv, particles_utils::GetMpiType(ItemType()));
     }
 
     template <class ItemType>
@@ -117,7 +105,7 @@ public:
     template <class ItemType>
     void alltoallv(const ItemType in_to_send[],
                    ItemType out_to_recv[], const int in_nb_values_per_item) const {
-        alltoallv<ItemType>(in_to_send, out_to_recv, GetMpiType(ItemType()), in_nb_values_per_item);
+        alltoallv<ItemType>(in_to_send, out_to_recv,particles_utils::GetMpiType(ItemType()), in_nb_values_per_item);
     }
 };
 

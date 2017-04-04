@@ -17,17 +17,19 @@
 #endif
 
 
-template <int size_particle_positions, int size_particle_rhs>
+template <class real_number, int size_particle_positions, int size_particle_rhs>
 class abstract_particles_output {
     struct movable_particle{
         int global_idx;
-        double positions[size_particle_positions];
-        double rhs[size_particle_rhs];
+        real_number positions[size_particle_positions];
+        real_number rhs[size_particle_rhs];
     };
 
     void create_movable_mpi_data_type(){
         /** Type in order in the struct */
-        MPI_Datatype type[3] = { MPI_INT, MPI_DOUBLE, MPI_DOUBLE };
+        MPI_Datatype type[3] = { MPI_INT,
+                                 particles_utils::GetMpiType(real_number()),
+                                 particles_utils::GetMpiType(real_number()) };
         /** Number of occurence of each type */
         int blocklen[3] = { 1, size_particle_positions, size_particle_rhs };
         /** Position offset from struct starting address */
@@ -87,7 +89,7 @@ public:
         nb_particles_allocated_recv = -1;
     }
 
-    void save(const double input_particles_positions[], const double input_particles_rhs[],
+    void save(const real_number input_particles_positions[], const real_number input_particles_rhs[],
               const int index_particles[], const int nb_particles, const int idx_time_step){
         TIMEZONE("abstract_particles_output::save");
         assert(total_nb_particles != -1);
@@ -137,15 +139,15 @@ public:
 
         exchanger.alltoallv(buffer_particles_send.get(), buffer_particles_recv.get(), mpi_movable_particle_type);
 
-        // Trick re-use the buffer to have only double
+        // Trick re-use the buffer to have only real_number
 
         if(nb_particles_allocated_send < nb_to_receive){
             buffer_particles_send.reset(new movable_particle[nb_to_receive]);
             nb_particles_allocated_send = nb_to_receive;
         }
 
-        double* buffer_positions_dptr = reinterpret_cast<double*>(buffer_particles_recv.get());
-        double* buffer_rhs_dptr = reinterpret_cast<double*>(buffer_particles_send.get());
+        real_number* buffer_positions_dptr = reinterpret_cast<real_number*>(buffer_particles_recv.get());
+        real_number* buffer_rhs_dptr = reinterpret_cast<real_number*>(buffer_particles_send.get());
         {
             TIMEZONE("copy");
             for(int idx_part = 0 ; idx_part < nb_to_receive ; ++idx_part){
@@ -164,7 +166,7 @@ public:
         write(idx_time_step, buffer_positions_dptr, buffer_rhs_dptr, nb_to_receive, particles_splitter.getMyOffset());
     }
 
-    virtual void write(const int idx_time_step, const double* positions, const double* rhs,
+    virtual void write(const int idx_time_step, const real_number* positions, const real_number* rhs,
                        const int nb_particles, const int particles_idx_offset) = 0;
 };
 

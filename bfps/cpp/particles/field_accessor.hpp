@@ -6,16 +6,17 @@
 
 #include "particles_utils.hpp"
 
+template <class real_number>
 class field_accessor {
     static const int nb_dim = 3;
 
-    const double* field_date;
+    const real_number* field_date;
     std::array<size_t,3> local_field_dims;
     std::array<size_t,3> local_field_offset;
     std::array<size_t,3> field_memory_dims;
 
 public:
-    field_accessor(const double* in_field_date, const std::array<size_t,3>& in_dims,
+    field_accessor(const real_number* in_field_date, const std::array<size_t,3>& in_dims,
                    const std::array<size_t,3>& in_local_field_offset,
                    const std::array<size_t,3>& in_field_memory_dims)
             : field_date(in_field_date), local_field_dims(in_dims),
@@ -25,7 +26,7 @@ public:
 
     ~field_accessor(){}
 
-    const double& getValue(const size_t in_index, const int in_dim) const {
+    const real_number& getValue(const size_t in_index, const int in_dim) const {
         assert(in_index < local_field_dims[0]*local_field_dims[1]*local_field_dims[2]);
         return field_date[in_index*nb_dim + in_dim];
     }

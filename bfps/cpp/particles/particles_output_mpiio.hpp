@@ -14,9 +14,9 @@
 #endif
 
 
-template <int size_particle_positions, int size_particle_rhs>
-class particles_output_mpiio : public abstract_particles_output<size_particle_positions, size_particle_rhs>{
-    using Parent = abstract_particles_output<size_particle_positions, size_particle_rhs>;
+template <class real_number, int size_particle_positions, int size_particle_rhs>
+class particles_output_mpiio : public abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>{
+    using Parent = abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>;
 
     const std::string filename;
     const int nb_step_prealloc;
@@ -26,7 +26,7 @@ class particles_output_mpiio : public abstract_particles_output<size_particle_po
 public:
     particles_output_mpiio(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
                            const int in_nb_step_prealloc = -1)
-            : abstract_particles_output<size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
+            : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
               filename(in_filename), nb_step_prealloc(in_nb_step_prealloc){
         {
             TIMEZONE("particles_output_mpiio::MPI_File_open");
@@ -36,7 +36,7 @@ public:
         if(nb_step_prealloc != -1){
             TIMEZONE("particles_output_mpiio::MPI_File_set_size");
             AssertMpi(MPI_File_set_size(mpi_file,
-                nb_step_prealloc*Parent::getTotalNbParticles()*sizeof(double)*(size_particle_positions+size_particle_rhs)));
+                nb_step_prealloc*Parent::getTotalNbParticles()*sizeof(real_number)*(size_particle_positions+size_particle_rhs)));
         }
     }
 
@@ -45,7 +45,7 @@ public:
         AssertMpi(MPI_File_close(&mpi_file));
     }
 
-    void write(const int time_step, const double* particles_positions, const double* particles_rhs,
+    void write(const int time_step, const real_number* particles_positions, const real_number* particles_rhs,
                const int nb_particles, const int particles_idx_offset) final{
         TIMEZONE("particles_output_mpiio::write");
 
@@ -56,26 +56,26 @@ public:
         if(nb_step_prealloc == -1){
             TIMEZONE("particles_output_mpiio::write::MPI_File_set_size");
             AssertMpi(MPI_File_set_size(mpi_file,
-                (time_step+1)*Parent::getTotalNbParticles()*sizeof(double)*(size_particle_positions+size_particle_rhs)));
+                (time_step+1)*Parent::getTotalNbParticles()*sizeof(real_number)*(size_particle_positions+size_particle_rhs)));
         }
 
         const MPI_Offset globalParticlesOffset = time_step*Parent::getTotalNbParticles()*(size_particle_positions+size_particle_rhs)
                         + nb_particles*size_particle_positions;
 
-        const MPI_Offset writingOffset = globalParticlesOffset * sizeof(double);
+        const MPI_Offset writingOffset = globalParticlesOffset * sizeof(real_number);
 
         AssertMpi(MPI_File_write_at(mpi_file, writingOffset,
-            const_cast<double*>(particles_positions), nb_particles*size_particle_positions, MPI_DOUBLE,
+            const_cast<real_number*>(particles_positions), nb_particles*size_particle_positions, particles_utils::GetMpiType(real_number()),
             MPI_STATUS_IGNORE));
 
         const MPI_Offset globalParticlesOffsetOutput = time_step*Parent::getTotalNbParticles()*(size_particle_positions+size_particle_rhs)
                         + Parent::getTotalNbParticles()*size_particle_positions
                         + nb_particles*size_particle_rhs;
 
-        const MPI_Offset writingOffsetOutput = globalParticlesOffsetOutput * sizeof(double);
+        const MPI_Offset writingOffsetOutput = globalParticlesOffsetOutput * sizeof(real_number);
 
         AssertMpi(MPI_File_write_at(mpi_file, writingOffsetOutput,
-            const_cast<double*>(particles_rhs), nb_particles*size_particle_rhs, MPI_DOUBLE,
+            const_cast<real_number*>(particles_rhs), nb_particles*size_particle_rhs, particles_utils::GetMpiType(real_number()),
             MPI_STATUS_IGNORE));
     }
 };

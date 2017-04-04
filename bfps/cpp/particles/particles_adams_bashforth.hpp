@@ -4,15 +4,15 @@
 #include <stdexcept>
 #include "scope_timer.hpp"
 
-template <int size_particle_positions = 3, int size_particle_rhs = 3>
+template <class real_number, int size_particle_positions = 3, int size_particle_rhs = 3>
 class particles_adams_bashforth {
 public:
     static const int Max_steps = 6;
 
-    void move_particles(double particles_positions[],
+    void move_particles(real_number particles_positions[],
                        const int nb_particles,
-                       const std::unique_ptr<double[]> particles_rhs[],
-                       const int nb_rhs, const double dt) const{
+                       const std::unique_ptr<real_number[]> particles_rhs[],
+                       const int nb_rhs, const real_number dt) const{
         TIMEZONE("particles_adams_bashforth::move_particles");
         // TODO full unroll + blocking
         switch (nb_rhs){

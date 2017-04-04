@@ -8,8 +8,10 @@
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
 
-template <class interpolator_class, class field_class, int interp_neighbours, class positions_updater_class >
-class particles_field_computer : public abstract_particles_distr<3,3,1> {
+template <class real_number, class interpolator_class, class field_class, int interp_neighbours, class positions_updater_class >
+class particles_field_computer : public abstract_particles_distr<real_number, 3,3,1> {
+    using Parent = abstract_particles_distr<real_number, 3,3,1>;
+
     const std::array<size_t,3> field_grid_dim;
     const std::pair<int,int> current_partition_interval;
 
@@ -18,10 +20,10 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
 
     const positions_updater_class positions_updater;
 
-    const std::array<double,3> spatial_box_width;
-    const double box_step_width;
-    const double my_spatial_low_limit;
-    const double my_spatial_up_limit;
+    const std::array<real_number,3> spatial_box_width;
+    const real_number box_step_width;
+    const real_number my_spatial_low_limit;
+    const real_number my_spatial_up_limit;
 
     int deriv[3];
 
@@ -29,18 +31,18 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
     /// Computation related
     ////////////////////////////////////////////////////////////////////////
 
-    virtual void init_result_array(double particles_current_rhs[],
+    virtual void init_result_array(real_number particles_current_rhs[],
                                    const int nb_particles) final{
         // Set values to zero initialy
         std::fill(particles_current_rhs, particles_current_rhs+nb_particles*3, 0);
     }
 
-    virtual void apply_computation(const double particles_positions[],
-                                   double particles_current_rhs[],
+    virtual void apply_computation(const real_number particles_positions[],
+                                   real_number particles_current_rhs[],
                                    const int nb_particles) const final{
         TIMEZONE("particles_field_computer::apply_computation");
         for(int idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
-            double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
+            typename interpolator_class::real_number bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
             interpolator.compute_beta(deriv[IDX_X], particles_positions[idxPart*3+IDX_X], bx);
             interpolator.compute_beta(deriv[IDX_Y], particles_positions[idxPart*3+IDX_Y], by);
             interpolator.compute_beta(deriv[IDX_Z], particles_positions[idxPart*3+IDX_Z], bz);
@@ -101,7 +103,7 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
                             const int idx_y_pbc = (idx_y + field_grid_dim[IDX_Y])%field_grid_dim[IDX_Y];
                             assert(idx_y-interp_limit_my < interp_neighbours*2+2);
 
-                            const double coef = (bz[idx_z-interp_limit_mz[idx_inter]]
+                            const real_number coef = (bz[idx_z-interp_limit_mz[idx_inter]]
                                     * by[idx_y-interp_limit_my]
                                     * bx[idx_x-interp_limit_mx]);
 
@@ -117,9 +119,9 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
         }
     }
 
-    virtual void reduce_particles(const double /*particles_positions*/[],
-                                  double particles_current_rhs[],
-                                  const double extra_particles_current_rhs[],
+    virtual void reduce_particles(const real_number /*particles_positions*/[],
+                                  real_number particles_current_rhs[],
+                                  const real_number extra_particles_current_rhs[],
                                   const int nb_particles) const final{
         TIMEZONE("particles_field_computer::reduce_particles");
         // Simply sum values
@@ -135,7 +137,7 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
     /// Re-distribution related
     ////////////////////////////////////////////////////////////////////////
 
-    void apply_pbc_xy(double* inout_particles, const int size) const final {
+    void apply_pbc_xy(real_number* inout_particles, const int size) const final {
         TIMEZONE("particles_field_computer::apply_pbc_xy");
         const std::array<int, 2> dims_xy={IDX_X, IDX_Y};
         for(int idxPart = 0 ; idxPart < size ; ++idxPart){
@@ -148,9 +150,9 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
         }
     }
 
-    void apply_pbc_z_new_particles(double* values, const int size) const final {
+    void apply_pbc_z_new_particles(real_number* values, const int size) const final {
         TIMEZONE("particles_field_computer::apply_pbc_z_new_particles");
-        if(my_rank == 0){
+        if(Parent::my_rank == 0){
             const int idxDim = IDX_Z;
             for(int idxPart = 0 ; idxPart < size ; ++idxPart){
                 assert(values[idxPart*3+idxDim] < my_spatial_up_limit || spatial_box_width[idxDim] <= values[idxPart*3+idxDim]);
@@ -162,7 +164,7 @@ class particles_field_computer : public abstract_particles_distr<3,3,1> {
                 assert(my_spatial_low_limit <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit);
             }
         }
-        else if(my_rank == nb_processes - 1){
+        else if(Parent::my_rank == Parent::nb_processes - 1){
             const int idxDim = IDX_Z;
             for(int idxPart = 0 ; idxPart < size ; ++idxPart){
                 assert(my_spatial_low_limit <= values[idxPart*3+idxDim] || values[idxPart*3+idxDim] < 0);
@@ -188,10 +190,10 @@ public:
                              const std::pair<int,int>& in_current_partitions,
                              const interpolator_class& in_interpolator,
                              const field_class& in_field,
-                             const std::array<double,3>& in_spatial_box_width,
-                             const double in_box_step_width, const double in_my_spatial_low_limit,
-                             const double in_my_spatial_up_limit)
-        : abstract_particles_distr(in_current_com, in_current_partitions),
+                             const std::array<real_number,3>& in_spatial_box_width,
+                             const real_number in_box_step_width, const real_number in_my_spatial_low_limit,
+                             const real_number in_my_spatial_up_limit)
+        : abstract_particles_distr<real_number, 3,3,1>(in_current_com, in_current_partitions),
           field_grid_dim(in_field_grid_dim), current_partition_interval(in_current_partitions),
           interpolator(in_interpolator), field(in_field), positions_updater(),
           spatial_box_width(in_spatial_box_width), box_step_width(in_box_step_width),
@@ -205,10 +207,10 @@ public:
     /// Update position
     ////////////////////////////////////////////////////////////////////////
 
-    void move_particles(double particles_positions[],
+    void move_particles(real_number particles_positions[],
                    const int nb_particles,
-                   const std::unique_ptr<double[]> particles_current_rhs[],
-                   const int nb_rhs, const double dt) const final{
+                   const std::unique_ptr<real_number[]> particles_current_rhs[],
+                   const int nb_rhs, const real_number dt) const final{
         TIMEZONE("particles_field_computer::move_particles");
         positions_updater.move_particles(particles_positions, nb_particles,
                                          particles_current_rhs, nb_rhs, dt);

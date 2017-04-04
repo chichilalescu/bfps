@@ -11,17 +11,18 @@
 #include "particles_input_hdf5.hpp"
 #include "particles_utils.hpp"
 
-class random_particles : public abstract_particles_input {
+template <class real_number>
+class random_particles : public abstract_particles_input<real_number> {
     const int nb_particles;
-    const double box_width;
-    const double lower_limit;
-    const double upper_limit;
+    const real_number box_width;
+    const real_number lower_limit;
+    const real_number upper_limit;
     int my_rank;
     int nb_processes;
 
 public:
-    random_particles(const int in_nb_particles, const double in_box_width,
-                     const double in_lower_limit, const double in_upper_limit,
+    random_particles(const int in_nb_particles, const real_number in_box_width,
+                     const real_number in_lower_limit, const real_number in_upper_limit,
                      const int in_my_rank, const int in_nb_processes)
         : nb_particles(in_nb_particles), box_width(in_box_width),
           lower_limit(in_lower_limit), upper_limit(in_upper_limit),
@@ -40,8 +41,8 @@ public:
         return 1;
     }
 
-    std::unique_ptr<double[]> getMyParticles() final {
-        std::unique_ptr<double[]> particles(new double[nb_particles*3]);
+    std::unique_ptr<real_number[]> getMyParticles() final {
+        std::unique_ptr<real_number[]> particles(new real_number[nb_particles*3]);
 
         for(int idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
             particles[idx_part*3+IDX_X] = drand48() * box_width;
@@ -63,9 +64,9 @@ public:
         return std::move(indexes);
     }
 
-    std::vector<std::unique_ptr<double[]>> getMyRhs() final {
-        std::vector<std::unique_ptr<double[]>> rhs(1);
-        rhs[0].reset(new double[nb_particles*3]);
+    std::vector<std::unique_ptr<real_number[]>> getMyRhs() final {
+        std::vector<std::unique_ptr<real_number[]>> rhs(1);
+        rhs[0].reset(new real_number[nb_particles*3]);
         std::fill(&rhs[0][0], &rhs[0][nb_particles*3], 0);
 
         return std::move(rhs);
@@ -121,7 +122,7 @@ int main(int argc, char** argv){
         particles_utils::memzero(field_data.get(), local_field_dims[IDX_X]*local_field_dims[IDX_Y]*local_field_dims[IDX_Z]*3);
 
 
-        particles_system<particles_interp_spline<InterpNbNeighbors,0>, InterpNbNeighbors> part_sys(field_grid_dim,
+        particles_system<double, particles_interp_spline<double, InterpNbNeighbors,0>, InterpNbNeighbors> part_sys(field_grid_dim,
                                                                                                 spatial_box_width,
                                                                                                 spatial_partition_width,
                                                                                                 my_spatial_low_limit,
@@ -135,7 +136,7 @@ int main(int argc, char** argv){
         int total_nb_particles;
         {
             //const int nb_part_to_generate = 1000;
-            //random_particles generator(nb_part_to_generate, spatial_box_width, my_spatial_low_limit,
+            //random_particles<double> generator(nb_part_to_generate, spatial_box_width, my_spatial_low_limit,
             //                           my_spatial_up_limit, my_rank, nb_processes);
             std::vector<double> spatial_interval_per_proc(nb_processes+1);
             for(int idx_proc = 0 ; idx_proc < nb_processes ; ++idx_proc){
@@ -146,7 +147,7 @@ int main(int argc, char** argv){
             assert(my_spatial_low_limit == spatial_interval_per_proc[my_rank] || fabs((spatial_interval_per_proc[my_rank]-my_spatial_low_limit)/my_spatial_low_limit) < 1e-13);
             assert(my_spatial_up_limit == spatial_interval_per_proc[my_rank+1] || fabs((spatial_interval_per_proc[my_rank+1]-my_spatial_up_limit)/my_spatial_up_limit) < 1e-13);
 
-            particles_input_hdf5<3,3> generator(MPI_COMM_WORLD, "/home/bbramas/Projects/bfps_runs/particles2/N0288_ptest_1e5_particles.h5",
+            particles_input_hdf5<double,3,3> generator(MPI_COMM_WORLD, "/home/bbramas/Projects/bfps_runs/particles2/N0288_ptest_1e5_particles.h5",
                                            "tracers0", spatial_interval_per_proc);
 
             total_nb_particles = generator.getTotalNbParticles();
@@ -155,8 +156,8 @@ int main(int argc, char** argv){
         }
 
 
-        particles_output_hdf5<3,3> particles_output_writer(MPI_COMM_WORLD, "/tmp/res.hdf5", total_nb_particles);
-        particles_output_mpiio<3,3> particles_output_writer_mpi(MPI_COMM_WORLD, "/tmp/res.mpiio", total_nb_particles);
+        particles_output_hdf5<double, 3,3> particles_output_writer(MPI_COMM_WORLD, "/tmp/res.hdf5", total_nb_particles);
+        particles_output_mpiio<double, 3,3> particles_output_writer_mpi(MPI_COMM_WORLD, "/tmp/res.mpiio", total_nb_particles);
 
 
         part_sys.completeLoop(0.1);

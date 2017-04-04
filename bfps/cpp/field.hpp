@@ -111,6 +111,11 @@ class field
             return this->data;
         }
 
+        inline const rnumber *__restrict__ get_rdata() const
+        {
+            return this->data;
+        }
+
         inline typename fftw_interface<rnumber>::complex *__restrict__ get_cdata()
         {
             return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;

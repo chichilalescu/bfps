@@ -18,8 +18,8 @@
 #endif
 
 
-template <int size_particle_positions, int size_particle_rhs>
-class particles_input_hdf5 : public abstract_particles_input {
+template <class real_number, int size_particle_positions, int size_particle_rhs>
+class particles_input_hdf5 : public abstract_particles_input<real_number> {
     const std::string filename;
     const std::string dataname;
 
@@ -31,23 +31,23 @@ class particles_input_hdf5 : public abstract_particles_input {
     hsize_t nb_rhs;
     int nb_particles_for_me;
 
-    std::unique_ptr<double[]> my_particles_positions;
+    std::unique_ptr<real_number[]> my_particles_positions;
     std::unique_ptr<int[]> my_particles_indexes;
-    std::vector<std::unique_ptr<double[]>> my_particles_rhs;
+    std::vector<std::unique_ptr<real_number[]>> my_particles_rhs;
 
-    static std::vector<double> BuildLimitsAllProcesses(MPI_Comm mpi_comm,
-                                                       const double my_spatial_low_limit, const double my_spatial_up_limit){
+    static std::vector<real_number> BuildLimitsAllProcesses(MPI_Comm mpi_comm,
+                                                       const real_number my_spatial_low_limit, const real_number my_spatial_up_limit){
         int my_rank;
         int nb_processes;
 
         AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
 
-        std::vector<double> spatial_limit_per_proc(nb_processes*2);
+        std::vector<real_number> spatial_limit_per_proc(nb_processes*2);
 
-        double intervalToSend[2] = {my_spatial_low_limit, my_spatial_up_limit};
-        AssertMpi(MPI_Allgather(intervalToSend, 2, MPI_DOUBLE,
-                                spatial_limit_per_proc.data(), 2, MPI_DOUBLE, mpi_comm));
+        real_number intervalToSend[2] = {my_spatial_low_limit, my_spatial_up_limit};
+        AssertMpi(MPI_Allgather(intervalToSend, 2, particles_utils::GetMpiType(real_number()),
+                                spatial_limit_per_proc.data(), 2, particles_utils::GetMpiType(real_number()), mpi_comm));
 
         for(int idx_proc = 0; idx_proc < nb_processes-1 ; ++idx_proc){
             assert(spatial_limit_per_proc[idx_proc*2] <= spatial_limit_per_proc[idx_proc*2+1]);
@@ -62,13 +62,13 @@ class particles_input_hdf5 : public abstract_particles_input {
 
 public:
     particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename, const std::string& inDataname,
-                         const double my_spatial_low_limit, const double my_spatial_up_limit)
+                         const real_number my_spatial_low_limit, const real_number my_spatial_up_limit)
         : particles_input_hdf5(in_mpi_comm, inFilename, inDataname,
                                BuildLimitsAllProcesses(in_mpi_comm, my_spatial_low_limit, my_spatial_up_limit)){
     }
 
     particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename, const std::string& inDataname,
-                         const std::vector<double>& in_spatial_limit_per_proc)
+                         const std::vector<real_number>& in_spatial_limit_per_proc)
         : filename(inFilename), dataname(inDataname),
           mpi_comm(in_mpi_comm), my_rank(-1), nb_processes(-1), nb_total_particles(0),
           nb_particles_for_me(-1){
@@ -147,8 +147,12 @@ public:
         DEBUG_MSG("load_splitter.getMyOffset() %lu\n", load_splitter.getMyOffset());
         DEBUG_MSG("load_splitter.getMySize() %lu\n", load_splitter.getMySize());
 
+        static_assert(std::is_same<real_number, double>::value
+                      || std::is_same<real_number, float>::value, "real_number must be double or float");
+        const hid_t type_id = (sizeof(real_number) == 8?H5T_NATIVE_DOUBLE:H5T_NATIVE_FLOAT);
+
         /// Load the data
-        std::unique_ptr<double[]> split_particles_positions(new double[load_splitter.getMySize()*size_particle_positions]);
+        std::unique_ptr<real_number[]> split_particles_positions(new real_number[load_splitter.getMySize()*size_particle_positions]);
         {
             TIMEZONE("state-read");
             hid_t dset = H5Dopen(hdf5_group_id, "state", H5P_DEFAULT);
@@ -166,7 +170,7 @@ public:
             int rethdf = H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset,
                                              NULL, mem_dims, NULL);
             assert(rethdf >= 0);
-            rethdf = H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, split_particles_positions.get());
+            rethdf = H5Dread(dset, type_id, mspace, rspace, H5P_DEFAULT, split_particles_positions.get());
             assert(rethdf >= 0);
 
             rethdf = H5Sclose(rspace);
@@ -174,7 +178,7 @@ public:
             rethdf = H5Dclose(dset);
             assert(rethdf >= 0);
         }
-        std::vector<std::unique_ptr<double[]>> split_particles_rhs(nb_rhs);
+        std::vector<std::unique_ptr<real_number[]>> split_particles_rhs(nb_rhs);
         {
             TIMEZONE("rhs-read");
             hid_t dset = H5Dopen(hdf5_group_id, "rhs", H5P_DEFAULT);
@@ -184,7 +188,7 @@ public:
             assert(rspace >= 0);
 
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
-                split_particles_rhs[idx_rhs].reset(new double[load_splitter.getMySize()*size_particle_rhs]);
+                split_particles_rhs[idx_rhs].reset(new real_number[load_splitter.getMySize()*size_particle_rhs]);
 
                 hsize_t offset[4] = {0, idx_rhs, load_splitter.getMyOffset(), 0};
                 hsize_t mem_dims[4] = {1, 1, load_splitter.getMySize(), 3};
@@ -195,7 +199,7 @@ public:
                 int rethdf = H5Sselect_hyperslab( rspace, H5S_SELECT_SET, offset,
                                                  NULL, mem_dims, NULL);
                 assert(rethdf >= 0);
-                rethdf = H5Dread(dset, H5T_NATIVE_DOUBLE, mspace, rspace, H5P_DEFAULT, split_particles_rhs[idx_rhs].get());
+                rethdf = H5Dread(dset, type_id, mspace, rspace, H5P_DEFAULT, split_particles_rhs[idx_rhs].get());
                 assert(rethdf >= 0);
 
                 rethdf = H5Sclose(mspace);
@@ -219,11 +223,11 @@ public:
             TIMEZONE("partition");
             int previousOffset = 0;
             for(int idx_proc = 0 ; idx_proc < nb_processes-1 ; ++idx_proc){
-                const double limitPartition = in_spatial_limit_per_proc[idx_proc+1];
+                const real_number limitPartition = in_spatial_limit_per_proc[idx_proc+1];
                 const int localOffset = particles_utils::partition_extra<size_particle_positions>(
                                                 &split_particles_positions[previousOffset*size_particle_positions],
                                                  load_splitter.getMySize()-previousOffset,
-                                                 [&](const double val[]){
+                                                 [&](const real_number val[]){
                     return val[IDX_Z] < limitPartition;
                 },
                 [&](const int idx1, const int idx2){
@@ -249,8 +253,8 @@ public:
             DEBUG_MSG("exchanger.getTotalToRecv() %lu\n", exchanger.getTotalToRecv());
             nb_particles_for_me = exchanger.getTotalToRecv();
 
-            my_particles_positions.reset(new double[exchanger.getTotalToRecv()*size_particle_positions]);
-            exchanger.alltoallv<double>(split_particles_positions.get(), my_particles_positions.get(), size_particle_positions);
+            my_particles_positions.reset(new real_number[exchanger.getTotalToRecv()*size_particle_positions]);
+            exchanger.alltoallv<real_number>(split_particles_positions.get(), my_particles_positions.get(), size_particle_positions);
             split_particles_positions.release();
 
             my_particles_indexes.reset(new int[exchanger.getTotalToRecv()]);
@@ -259,8 +263,8 @@ public:
 
             my_particles_rhs.resize(nb_rhs);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
-                my_particles_rhs[idx_rhs].reset(new double[exchanger.getTotalToRecv()*size_particle_rhs]);
-                exchanger.alltoallv<double>(split_particles_rhs[idx_rhs].get(), my_particles_rhs[idx_rhs].get(), size_particle_rhs);
+                my_particles_rhs[idx_rhs].reset(new real_number[exchanger.getTotalToRecv()*size_particle_rhs]);
+                exchanger.alltoallv<real_number>(split_particles_rhs[idx_rhs].get(), my_particles_rhs[idx_rhs].get(), size_particle_rhs);
             }
         }
 
@@ -290,12 +294,12 @@ public:
         return int(nb_rhs);
     }
 
-    std::unique_ptr<double[]> getMyParticles() final {
+    std::unique_ptr<real_number[]> getMyParticles() final {
         assert(my_particles_positions != nullptr);
         return std::move(my_particles_positions);
     }
 
-    std::vector<std::unique_ptr<double[]>> getMyRhs() final {
+    std::vector<std::unique_ptr<real_number[]>> getMyRhs() final {
         assert(my_particles_rhs.size() == nb_rhs);
         return std::move(my_particles_rhs);
     }

@@ -8,9 +8,9 @@
 #include "abstract_particles_output.hpp"
 #include "scope_timer.hpp"
 
-template <int size_particle_positions, int size_particle_rhs>
-class particles_output_hdf5 : public abstract_particles_output<size_particle_positions, size_particle_rhs>{
-    using Parent = abstract_particles_output<size_particle_positions, size_particle_rhs>;
+template <class real_number, int size_particle_positions, int size_particle_rhs>
+class particles_output_hdf5 : public abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>{
+    using Parent = abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>;
 
     const std::string filename;
 
@@ -19,7 +19,7 @@ class particles_output_hdf5 : public abstract_particles_output<size_particle_pos
 
 public:
     particles_output_hdf5(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles)
-            : abstract_particles_output<size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
+            : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
               filename(in_filename),
               file_id(0), total_nb_particles(inTotalNbParticles){
 
@@ -41,7 +41,7 @@ public:
         assert(rethdf >= 0);
     }
 
-    void write(const int idx_time_step, const double* particles_positions, const double* particles_rhs,
+    void write(const int idx_time_step, const real_number* particles_positions, const real_number* particles_rhs,
                const int nb_particles, const int particles_idx_offset) final{
         TIMEZONE("particles_output_hdf5::write");
 
@@ -51,12 +51,16 @@ public:
         hid_t dset_id = H5Gcreate(file_id, ("dataset"+std::to_string(idx_time_step)).c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         assert(dset_id >= 0);
 
+        static_assert(std::is_same<real_number, double>::value
+                      || std::is_same<real_number, float>::value, "real_number must be double or float");
+        const hid_t type_id = (sizeof(real_number) == 8?H5T_NATIVE_DOUBLE:H5T_NATIVE_FLOAT);
+
         {
             const hsize_t datacount[3] = {1, total_nb_particles, size_particle_positions};
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
-            hid_t dataset_id = H5Dcreate( dset_id, "state", H5T_NATIVE_DOUBLE, dataspace, H5P_DEFAULT,
+            hid_t dataset_id = H5Dcreate( dset_id, "state", type_id, dataspace, H5P_DEFAULT,
                                           H5P_DEFAULT, H5P_DEFAULT);
             assert(dataset_id >= 0);
 
@@ -74,7 +78,7 @@ public:
             rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
             assert(rethdf >= 0);
 
-            herr_t	status = H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, memspace, filespace,
+            herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
                       plist_id, particles_positions);
             assert(status >= 0);
             rethdf = H5Sclose(memspace);
@@ -89,7 +93,7 @@ public:
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
-            hid_t dataset_id = H5Dcreate( dset_id, "rhs", H5T_NATIVE_DOUBLE, dataspace, H5P_DEFAULT,
+            hid_t dataset_id = H5Dcreate( dset_id, "rhs", type_id, dataspace, H5P_DEFAULT,
                                           H5P_DEFAULT, H5P_DEFAULT);
             assert(dataset_id >= 0);
 
@@ -108,7 +112,7 @@ public:
             rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
             assert(rethdf >= 0);
 
-            herr_t	status = H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, memspace, filespace,
+            herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
                       plist_id, particles_rhs);
             assert(status >= 0);
             rethdf = H5Sclose(memspace);
