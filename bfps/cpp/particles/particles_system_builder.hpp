@@ -48,7 +48,7 @@ struct For2<RetType,
                   IterType2, CurrentIter2, iterTo2, IterStep2,
                   Func, false, Args...>{
     static RetType evaluate(IterType2 value2, Args... args){
-        std::cout << __FUNCTION__ << " no matching value found\n";
+        std::cout << __FUNCTION__ << "[ERROR] template values for loop 2 " << value2 << " does not exist\n";
         return RetType();
     }
 };
@@ -83,7 +83,7 @@ struct For1<RetType,
                 IterType2, IterFrom2, iterTo2, IterStep2,
                 Func, false, Args...>{
     static RetType evaluate(IterType1 value1, IterType2 value2, Args... args){
-        std::cout << __FUNCTION__ << " no matching value found\n";
+        std::cout << __FUNCTION__ << "[ERROR] template values for loop 1 " << value1 << " does not exist\n";
         return RetType();
     }
 };
