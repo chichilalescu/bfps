@@ -22,6 +22,7 @@
 *                                                                     *
 **********************************************************************/
 
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -52,6 +53,8 @@ class vorticity_equation
 
         /* iteration */
         int iteration;
+        int checkpoint;
+        int checkpoints_per_file;
 
         /* fields */
         field<rnumber, be, THREE> *cvorticity, *cvelocity;
@@ -91,10 +94,95 @@ class vorticity_equation
         void compute_vorticity(void);
         void compute_velocity(field<rnumber, be, THREE> *vorticity);
 
-        /* binary I/O stuff */
-        inline void fill_up_filename(const char *base_name, char *full_name)
+        /* I/O stuff */
+        inline std::string get_current_fname()
         {
-            sprintf(full_name, "%s_%s_i%.5x.h5", this->name, base_name, this->iteration);
+            return (
+                    std::string(this->name) +
+                    std::string("_checkpoint_") +
+                    std::to_string(this->checkpoint) +
+                    std::string(".h5"));
+        }
+        inline void update_checkpoint()
+        {
+            std::string fname = this->get_current_fname();
+            bool file_exists = false;
+            {
+                struct stat file_buffer;
+                file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+            }
+            if (file_exists)
+            {
+                // check how many fields there are in the checkpoint file
+                // increment checkpoint if needed
+                int fields_stored;
+                hid_t fid, dset_id;
+                fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+                dset_id = H5Dopen(fid, "fields_stored", H5P_DEFAULT);
+                H5Dread(dset_id,
+                        H5T_NATIVE_INT,
+                        H5S_ALL, H5S_ALL,
+                        H5P_DEFAULT,
+                        &fields_stored);
+                H5Dclose(dset_id);
+                H5Fclose(fid);
+                if (fields_stored >= this->checkpoints_per_file)
+                    this->checkpoint++;
+                else
+                {
+                    // update fields_stored dset
+                    fields_stored++;
+                    if (this->cvelocity->myrank == 0)
+                    {
+                        fid = H5Fopen(fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+                        dset_id = H5Dopen(fid, "fields_stored", H5P_DEFAULT);
+                        H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fields_stored);
+                        H5Dclose(dset_id);
+                        H5Fclose(fid);
+                    }
+                }
+            }
+            else if (this->cvelocity->myrank == 0)
+            {
+                // create file, create fields_stored dset
+                hid_t fid = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT);
+                hsize_t one[] = {1};
+                hid_t fspace = H5Screate_simple(
+                        1,
+                        one,
+                        NULL);
+                hid_t dset = H5Dcreate(
+                        fid,
+                        "fields_stored",
+                        H5T_NATIVE_INT,
+                        fspace,
+                        H5P_DEFAULT,
+                        H5P_DEFAULT,
+                        H5P_DEFAULT);
+                H5Dclose(dset);
+                H5Fclose(fid);
+            }
+        }
+        inline void io_checkpoint(bool read = true)
+        {
+            if (!read)
+                this->update_checkpoint();
+            std::string fname = this->get_current_fname();
+            this->cvorticity->io(
+                    fname,
+                    "vorticity",
+                    this->iteration,
+                    read);
+            if (read)
+            {
+                #if (__GNUC_MAJOR__ <= 4 && __GNUC_MINOR__ <= 7)
+                    this->kk->low_pass<rnumber, THREE>(this->cvorticity->get_cdata(), this->kk->kM);
+                    this->kk->force_divfree<rnumber>(this->cvorticity->get_cdata());
+                #else
+                    this->kk->template low_pass<rnumber, THREE>(this->cvorticity->get_cdata(), this->kk->kM);
+                    this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
+                #endif
+            }
         }
 
         /* statistics and general postprocessing */

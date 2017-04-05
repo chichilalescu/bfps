@@ -52,15 +52,16 @@ class NSVorticityEquation(_fluid_particle_base):
                 simname = simname,
                 dtype = fluid_precision,
                 use_fftw_wisdom = use_fftw_wisdom)
-        self.parameters['nu'] = 0.1
+        self.parameters['nu'] = float(0.1)
         self.parameters['fmode'] = 1
-        self.parameters['famplitude'] = 0.5
-        self.parameters['fk0'] = 2.0
-        self.parameters['fk1'] = 4.0
+        self.parameters['famplitude'] = float(0.5)
+        self.parameters['fk0'] = float(2.0)
+        self.parameters['fk1'] = float(4.0)
         self.parameters['forcing_type'] = 'linear'
-        self.parameters['histogram_bins'] = 256
-        self.parameters['max_velocity_estimate'] = 1.0
-        self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['histogram_bins'] = int(256)
+        self.parameters['max_velocity_estimate'] = float(1)
+        self.parameters['max_vorticity_estimate'] = float(1)
+        self.parameters['checkpoints_per_file'] = int(1)
         self.file_datasets_grow = """
                 //begincpp
                 hid_t group;
@@ -72,15 +73,7 @@ class NSVorticityEquation(_fluid_particle_base):
         self.style = {}
         self.statistics = {}
         self.fluid_output = """
-                {
-                    char file_name[512];
-                    fs->fill_up_filename("cvorticity", file_name);
-                    fs->cvorticity->io(
-                        file_name,
-                        "vorticity",
-                        fs->iteration,
-                        false);
-                }
+                fs->io_checkpoint();
                 """
         # vorticity_equation specific things
         self.includes += '#include "vorticity_equation.hpp"\n'
@@ -256,13 +249,6 @@ class NSVorticityEquation(_fluid_particle_base):
                         "vorticity",
                         fs->iteration,
                         true);
-                    #if (__GNUC_MINOR__ <= 7)
-                        fs->kk->low_pass<{0}, THREE>(fs->cvorticity->get_cdata(), fs->kk->kM);
-                        fs->kk->force_divfree<{0}>(fs->cvorticity->get_cdata());
-                    #else
-                        fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_cdata(), fs->kk->kM);
-                        fs->kk->template force_divfree<{0}>(fs->cvorticity->get_cdata());
-                    #endif
                 }}
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)

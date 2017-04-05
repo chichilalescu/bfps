@@ -63,6 +63,7 @@ vorticity_equation<rnumber, be>::vorticity_equation(
     strncpy(this->name, NAME, 256);
     this->name[255] = '\0';
     this->iteration = 0;
+    this->checkpoint = 0;
 
     /* initialize fields */
     this->cvorticity = new field<rnumber, be, THREE>(
