@@ -120,9 +120,10 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
 
                             const ptrdiff_t tindex = field.getIndexFromGlobalPosition(idx_x_pbc, idx_y_pbc, idx_z_pbc);
 
-                            particles_current_rhs[idxPart*3+IDX_X] += field.getValue(tindex,IDX_X)*coef;
-                            particles_current_rhs[idxPart*3+IDX_Y] += field.getValue(tindex,IDX_Y)*coef;
-                            particles_current_rhs[idxPart*3+IDX_Z] += field.getValue(tindex,IDX_Z)*coef;
+                            // getValue does not necessary return real_number
+                            particles_current_rhs[idxPart*3+IDX_X] += real_number(field.getValue(tindex,IDX_X))*coef;
+                            particles_current_rhs[idxPart*3+IDX_Y] += real_number(field.getValue(tindex,IDX_Y))*coef;
+                            particles_current_rhs[idxPart*3+IDX_Z] += real_number(field.getValue(tindex,IDX_Z))*coef;
                         }
                     }
                 }
