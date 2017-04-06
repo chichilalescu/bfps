@@ -187,7 +187,7 @@ public:
             hid_t rspace = H5Dget_space(dset);
             assert(rspace >= 0);
 
-            for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+            for(hsize_t idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 split_particles_rhs[idx_rhs].reset(new real_number[load_splitter.getMySize()*size_particle_rhs]);
 
                 hsize_t offset[4] = {0, idx_rhs, load_splitter.getMyOffset(), 0};

@@ -108,11 +108,11 @@ inline RetType evaluate(IterType1 value1, IterType2 value2, Args... args){
 ///
 //////////////////////////////////////////////////////////////////////////////
 
-template <class rnumber, field_backend be>
+template <class field_rnumber, field_backend be, class particles_rnumber>
 struct particles_system_build_container {
     template <const int interpolation_size, const int spline_mode>
-    static std::unique_ptr<abstract_particles_system<rnumber>> instanciate(
-             const field<rnumber, be, THREE>* fs_cvorticity, // (field object)
+    static std::unique_ptr<abstract_particles_system<particles_rnumber>> instanciate(
+             const field<field_rnumber, be, THREE>* fs_cvorticity, // (field object)
              const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
              const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
              const int nparticles, // to check coherency between parameters and hdf input file
@@ -160,23 +160,23 @@ struct particles_system_build_container {
         local_field_mem_size[IDX_Z] = fs_cvorticity->rmemlayout->subsizes[IDX_Z];
 
         // The spatial box size (all particles should be included inside)
-        std::array<rnumber,3> spatial_box_width;
+        std::array<particles_rnumber,3> spatial_box_width;
         spatial_box_width[IDX_X] = 4 * acos(0) / (fs_kk->dkx);
         spatial_box_width[IDX_Y] = 4 * acos(0) / (fs_kk->dky);
         spatial_box_width[IDX_Z] = 4 * acos(0) / (fs_kk->dkz);
 
         // The distance between two field nodes in z
-        std::array<rnumber,3> spatial_partition_width;
-        spatial_partition_width[IDX_X] = spatial_box_width[IDX_X]/rnumber(field_grid_dim[IDX_X]);
-        spatial_partition_width[IDX_Y] = spatial_box_width[IDX_Y]/rnumber(field_grid_dim[IDX_Y]);
-        spatial_partition_width[IDX_Z] = spatial_box_width[IDX_Z]/rnumber(field_grid_dim[IDX_Z]);
+        std::array<particles_rnumber,3> spatial_partition_width;
+        spatial_partition_width[IDX_X] = spatial_box_width[IDX_X]/particles_rnumber(field_grid_dim[IDX_X]);
+        spatial_partition_width[IDX_Y] = spatial_box_width[IDX_Y]/particles_rnumber(field_grid_dim[IDX_Y]);
+        spatial_partition_width[IDX_Z] = spatial_box_width[IDX_Z]/particles_rnumber(field_grid_dim[IDX_Z]);
         // The spatial interval of the current process
-        const rnumber my_spatial_low_limit_z = rnumber(local_field_offset[IDX_Z])*spatial_partition_width[IDX_Z];
-        const rnumber my_spatial_up_limit_z = rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
+        const particles_rnumber my_spatial_low_limit_z = particles_rnumber(local_field_offset[IDX_Z])*spatial_partition_width[IDX_Z];
+        const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<rnumber, particles_interp_spline<double, interpolation_size,spline_mode>, interpolation_size>* part_sys
-         = new particles_system<rnumber, particles_interp_spline<double, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
+        particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
+         = new particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
                                                                                                    spatial_partition_width,
                                                                                                    my_spatial_low_limit_z,
@@ -189,7 +189,7 @@ struct particles_system_build_container {
 
 
         // Load particles from hdf5
-        particles_input_hdf5<rnumber, 3,3> generator(mpi_comm, fname_input,
+        particles_input_hdf5<particles_rnumber, 3,3> generator(mpi_comm, fname_input,
                                             dset_name, my_spatial_low_limit_z, my_spatial_up_limit_z);
 
         // Ensure parameters match the input file
@@ -207,14 +207,14 @@ struct particles_system_build_container {
         part_sys->init(generator);
 
         // Return the created particles system
-        return std::unique_ptr<abstract_particles_system<rnumber>>(part_sys);
+        return std::unique_ptr<abstract_particles_system<particles_rnumber>>(part_sys);
     }
 };
 
 
-template <class rnumber, field_backend be>
-inline std::unique_ptr<abstract_particles_system<rnumber>> particles_system_builder(
-        const field<rnumber, be, THREE>* fs_cvorticity, // (field object)
+template <class field_rnumber, field_backend be, class particles_rnumber = double>
+inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_system_builder(
+        const field<field_rnumber, be, THREE>* fs_cvorticity, // (field object)
         const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
         const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
         const int nparticles, // to check coherency between parameters and hdf input file
@@ -223,10 +223,10 @@ inline std::unique_ptr<abstract_particles_system<rnumber>> particles_system_buil
         const int interpolation_size,
         const int spline_mode,
         MPI_Comm mpi_comm){
-    return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<rnumber>>,
+    return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<particles_rnumber>>,
                        int, 1, 7, 1, // interpolation_size
                        int, 0, 3, 1, // spline_mode
-                       particles_system_build_container<rnumber,be>>(
+                       particles_system_build_container<field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
                            fs_cvorticity,fs_kk, nsteps, nparticles, fname_input, dset_name, mpi_comm);

@@ -12,18 +12,18 @@
 #include "particles_adams_bashforth.hpp"
 #include "scope_timer.hpp"
 
-template <class real_number, class interpolator_class, int interp_neighbours>
+template <class real_number, class field_rnumber, class interpolator_class, int interp_neighbours>
 class particles_system : public abstract_particles_system<real_number> {
     MPI_Comm mpi_com;
 
     const std::pair<int,int> current_partition_interval;
     const int partition_interval_size;
 
-    field_accessor<real_number> field;
+    field_accessor<field_rnumber> field;
 
     interpolator_class interpolator;
 
-    particles_field_computer<real_number, interpolator_class, field_accessor<real_number>, interp_neighbours, particles_adams_bashforth<real_number, 3,3>> computer;
+    particles_field_computer<real_number, interpolator_class, field_accessor<field_rnumber>, interp_neighbours, particles_adams_bashforth<real_number, 3,3>> computer;
 
     std::unique_ptr<int[]> current_my_nb_particles_per_partition;
     std::unique_ptr<int[]> current_offset_particles_for_partition;
@@ -44,7 +44,7 @@ public:
     particles_system(const std::array<size_t,3>& field_grid_dim, const std::array<real_number,3>& in_spatial_box_width,
                      const std::array<real_number,3>& in_spatial_partition_width,
                      const real_number in_my_spatial_low_limit, const real_number in_my_spatial_up_limit,
-                     const real_number* in_field_data, const std::array<size_t,3>& in_local_field_dims,
+                     const field_rnumber* in_field_data, const std::array<size_t,3>& in_local_field_dims,
                      const std::array<size_t,3>& in_local_field_offset,
                      const std::array<size_t,3>& in_field_memory_dims,
                      MPI_Comm in_mpi_com)
