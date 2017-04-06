@@ -92,11 +92,7 @@ class NSVorticityEquation(_fluid_particle_base):
                     hsize_t dims[4];
                     hid_t space, dset;
                     // store kspace information
-                    hid_t parameter_file = stat_file;
-                    //char fname[256];
-                    //sprintf(fname, "%s.h5", simname);
-                    //parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
-                    dset = H5Dopen(parameter_file, "/kspace/kshell", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
                     space = H5Dget_space(dset);
                     H5Sget_simple_extent_dims(space, dims, NULL);
                     H5Sclose(space);
@@ -108,16 +104,15 @@ class NSVorticityEquation(_fluid_particle_base):
                     }
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kshell.front());
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/nshell", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/nshell", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->nshell.front());
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/kM", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kM);
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/dk", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->dk);
                     H5Dclose(dset);
-                    //H5Fclose(parameter_file);
                 }
                 //endcpp
                 """
