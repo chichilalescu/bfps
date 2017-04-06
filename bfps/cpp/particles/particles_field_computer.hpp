@@ -40,7 +40,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
     real_number get_norm_pos_in_cell(const real_number in_pos, const int idx_pos) const {
         const real_number cell_idx = floor(in_pos/box_step_width[idx_pos]);
         const real_number pos_in_cell = (in_pos - cell_idx*box_step_width[idx_pos]) / box_step_width[idx_pos];
-        assert(0 <= pos_in_cell && pos_in_cell < box_step_width[idx_pos]);
+        assert(0 <= pos_in_cell && pos_in_cell < 1);
         return pos_in_cell;
     }
 

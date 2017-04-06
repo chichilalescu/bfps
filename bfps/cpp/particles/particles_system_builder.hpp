@@ -120,11 +120,11 @@ struct particles_system_build_container {
              const std::string& dset_name, // dataset name for initial input
              MPI_Comm mpi_comm){
 
-        // The size of the field grid (global size)
+        // The size of the field grid (global size) all_size seems
         std::array<size_t,3> field_grid_dim;
-        field_grid_dim[IDX_X] = fs_cvorticity->rlayout->all_size[0][IDX_X];// nx
-        field_grid_dim[IDX_Y] = fs_cvorticity->rlayout->all_size[0][IDX_Y];// nx
-        field_grid_dim[IDX_Z] = fs_cvorticity->rlayout->all_size[0][IDX_Z];// nz
+        field_grid_dim[IDX_X] = fs_cvorticity->rlayout->sizes[IDX_X];// nx
+        field_grid_dim[IDX_Y] = fs_cvorticity->rlayout->sizes[IDX_Y];// nx
+        field_grid_dim[IDX_Z] = fs_cvorticity->rlayout->sizes[IDX_Z];// nz
 
         // The size of the local field grid (the field nodes that belong to current process)
         std::array<size_t,3> local_field_dims;
@@ -161,9 +161,9 @@ struct particles_system_build_container {
 
         // The spatial box size (all particles should be included inside)
         std::array<rnumber,3> spatial_box_width;
-        spatial_box_width[IDX_X] = fs_kk->dkx;
-        spatial_box_width[IDX_Y] = fs_kk->dky;
-        spatial_box_width[IDX_Z] = fs_kk->dkz;
+        spatial_box_width[IDX_X] = 4 * acos(0) / (fs_kk->dkx);
+        spatial_box_width[IDX_Y] = 4 * acos(0) / (fs_kk->dky);
+        spatial_box_width[IDX_Z] = 4 * acos(0) / (fs_kk->dkz);
 
         // The distance between two field nodes in z
         std::array<rnumber,3> spatial_partition_width;

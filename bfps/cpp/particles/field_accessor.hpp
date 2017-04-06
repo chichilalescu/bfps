@@ -27,7 +27,7 @@ public:
     ~field_accessor(){}
 
     const real_number& getValue(const size_t in_index, const int in_dim) const {
-        assert(in_index < local_field_dims[0]*local_field_dims[1]*local_field_dims[2]);
+        assert(in_index < field_memory_dims[0]*field_memory_dims[1]*field_memory_dims[2]);
         return field_date[in_index*nb_dim + in_dim];
     }
 

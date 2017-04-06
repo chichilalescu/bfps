@@ -181,7 +181,7 @@ public:
         else{
             step_split = double(nb_items)/double(nb_intervals);
             offset_mine = NumType(step_split*double(my_idx));
-            size_mine = NumType(step_split*double(my_idx+1)-step_split*double(my_idx));
+            size_mine = NumType(step_split*double(my_idx+1))-offset_mine;
             assert(my_idx != nb_intervals-1 || (offset_mine+size_mine) == nb_items);
         }
     }
