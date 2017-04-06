@@ -18,7 +18,6 @@ class abstract_particles_distr {
 protected:
     static const int MaxNbRhs = 100;
 
-    // Used withing the loop, allocate only once
     enum MpiTag{
         TAG_LOW_UP_NB_PARTICLES,
         TAG_UP_LOW_NB_PARTICLES,
@@ -413,8 +412,7 @@ public:
                       std::unique_ptr<int[]>* inout_index_particles,
                       const real_number mySpatialLowLimit,
                       const real_number mySpatialUpLimit,
-                      const real_number spatialPartitionWidth,
-                      const int myTotalNbParticlesAllocated=-1){
+                      const real_number spatialPartitionWidth){
         TIMEZONE("redistribute");
         current_offset_particles_for_partition[0] = 0;
         int myTotalNbParticles = 0;
@@ -635,141 +633,57 @@ public:
         }
 
         // Realloc an merge
-        if(nbNewFromLow + nbNewFromUp != 0){
-            TIMEZONE("realloc_and_merge");
+        {
+            TIMEZONE("realloc_copy");
             const int nbOldParticlesInside = myTotalNbParticles - nbOutLower - nbOutUpper;
             const int myTotalNewNbParticles = nbOldParticlesInside + nbNewFromLow + nbNewFromUp;
 
             DEBUG_MSG("[%d] nbOldParticlesInside %d\n", my_rank, nbOldParticlesInside);
             DEBUG_MSG("[%d] myTotalNewNbParticles %d\n", my_rank, myTotalNewNbParticles);
 
-            if(myTotalNewNbParticles > myTotalNbParticlesAllocated){
-                DEBUG_MSG("[%d] reuse array\n", my_rank);
-                std::unique_ptr<real_number[]> newArray(new real_number[myTotalNewNbParticles*size_particle_positions]);
-                std::unique_ptr<int[]> newArrayIndexes(new int[myTotalNewNbParticles]);
-                std::vector<std::unique_ptr<real_number[]>> newArrayRhs(in_nb_rhs);
-                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                    newArrayRhs[idx_rhs].reset(new real_number[myTotalNewNbParticles*size_particle_rhs]);
-                }
-
-                if(nbNewFromLow){
-                    memcpy(&newArray[0], &newParticlesLow[0], sizeof(real_number)*nbNewFromLow*size_particle_positions);
-                    memcpy(&newArrayIndexes[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&newArrayRhs[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(real_number)*nbNewFromLow*size_particle_rhs);
-                    }
-                }
-
-                memcpy(&newArray[nbNewFromLow*size_particle_positions], &(*inout_positions_particles)[nbOutLower*size_particle_positions], sizeof(real_number)*nbOldParticlesInside*size_particle_positions);
-                memcpy(&newArrayIndexes[nbNewFromLow], &(*inout_positions_particles)[nbOutLower], sizeof(int)*nbOldParticlesInside);
-                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                    memcpy(&newArrayRhs[idx_rhs][nbNewFromLow*size_particle_rhs], &inout_positions_particles[idx_rhs][nbOutLower*size_particle_rhs], sizeof(real_number)*nbOldParticlesInside*size_particle_rhs);
-                }
-
-                if(nbNewFromUp){
-                    memcpy(&newArray[(nbNewFromLow+nbOldParticlesInside)*size_particle_positions], &newParticlesUp[0], sizeof(real_number)*nbNewFromUp*size_particle_positions);
-                    memcpy(&newArrayIndexes[(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&newArrayRhs[idx_rhs][(nbNewFromLow+nbOldParticlesInside)*size_particle_rhs], &newParticlesUpRhs[idx_rhs][0], sizeof(real_number)*nbNewFromUp*size_particle_rhs);
-                    }
-                }
-
-                (*inout_positions_particles) = std::move(newArray);
-                (*inout_index_particles) = std::move(newArrayIndexes);
-                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                    inout_rhs_particles[idx_rhs] = std::move(newArrayRhs[idx_rhs]);
-                }
-
-                // not needed myTotalNbParticlesAllocated = myTotalNewNbParticles;
+            std::unique_ptr<real_number[]> newArray(new real_number[myTotalNewNbParticles*size_particle_positions]);
+            std::unique_ptr<int[]> newArrayIndexes(new int[myTotalNewNbParticles]);
+            std::vector<std::unique_ptr<real_number[]>> newArrayRhs(in_nb_rhs);
+            for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                newArrayRhs[idx_rhs].reset(new real_number[myTotalNewNbParticles*size_particle_rhs]);
             }
-            else if(nbOutLower < nbNewFromLow){
-                DEBUG_MSG("[%d] A array\n", my_rank);
-                // Less low send thant received from low
-                const int nbLowToMoveBack = nbNewFromLow-nbOutLower;
-                // Copy received from low in two part
-                if(nbNewFromLow){
-                    memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(real_number)*nbOutLower*size_particle_positions);
-                    memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbOutLower);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(real_number)*nbOutLower*size_particle_rhs);
-                    }
-                }
-                if(nbNewFromLow){
-                    memcpy(&(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside)*size_particle_positions], &newParticlesLow[nbOutLower*size_particle_positions], sizeof(real_number)*nbLowToMoveBack*size_particle_positions);
-                    memcpy(&(*inout_index_particles)[(nbOutLower+nbOldParticlesInside)], &newParticlesLowIndexes[nbOutLower], sizeof(int)*nbLowToMoveBack);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)*size_particle_rhs], &newParticlesLowRhs[idx_rhs][nbOutLower*size_particle_rhs], sizeof(real_number)*nbLowToMoveBack*size_particle_rhs);
-                    }
-                }
-                if(nbNewFromUp){
-                    memcpy(&(*inout_positions_particles)[(nbNewFromLow+nbOldParticlesInside)*size_particle_positions], &newParticlesUp[0], sizeof(real_number)*nbNewFromUp*size_particle_positions);
-                    memcpy(&(*inout_index_particles)[(nbNewFromLow+nbOldParticlesInside)], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbOldParticlesInside)*size_particle_rhs], &newParticlesUpRhs[0], sizeof(real_number)*nbNewFromUp*size_particle_rhs);
-                    }
+
+            // Copy new particles recv form lower first
+            if(nbNewFromLow){
+                const particles_utils::fixed_copy fcp(0, 0, nbNewFromLow);
+                fcp.copy(newArray, newParticlesLow, size_particle_positions);
+                fcp.copy(newArrayIndexes, newParticlesLowIndexes);
+                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                    fcp.copy(newArrayRhs[idx_rhs], newParticlesLowRhs[idx_rhs], size_particle_rhs);
                 }
             }
-            else{
-                const int nbUpToMoveBegin = nbOutLower - nbNewFromLow;
-                if(nbUpToMoveBegin <= nbNewFromUp){
-                    DEBUG_MSG("[%d] B array\n", my_rank);
-                    if(nbNewFromLow){
-                        memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(real_number)*nbNewFromLow*size_particle_positions);
-                        memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(real_number)*nbNewFromLow*size_particle_rhs);
-                        }
-                    }
-                    if(nbNewFromUp){
-                        memcpy(&(*inout_positions_particles)[nbNewFromLow*size_particle_positions], &newParticlesUp[0], sizeof(real_number)*nbUpToMoveBegin*size_particle_positions);
-                        memcpy(&(*inout_index_particles)[nbNewFromLow], &newParticlesUpIndexes[0], sizeof(int)*nbUpToMoveBegin);
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][nbNewFromLow*size_particle_rhs], &newParticlesLowRhs[idx_rhs][0], sizeof(real_number)*nbUpToMoveBegin*size_particle_rhs);
-                        }
-                    }
-                    if(nbNewFromUp){
-                        memcpy(&(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside)*size_particle_positions],
-                                &newParticlesUp[nbUpToMoveBegin*size_particle_positions],
-                                        sizeof(real_number)*(nbNewFromUp-nbUpToMoveBegin)*size_particle_positions);
-                        memcpy(&(*inout_index_particles)[(nbOutLower+nbOldParticlesInside)], &newParticlesUpIndexes[nbUpToMoveBegin],
-                                        sizeof(int)*(nbNewFromUp-nbUpToMoveBegin));
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside)*size_particle_rhs],
-                                   &newParticlesUpRhs[idx_rhs][nbUpToMoveBegin*size_particle_rhs],
-                                   sizeof(real_number)*(nbNewFromUp-nbUpToMoveBegin)*size_particle_rhs);
-                        }
-                    }
-                }
-                else{
-                    DEBUG_MSG("[%d] C array\n", my_rank);
-                    if(nbNewFromLow){
-                        memcpy(&(*inout_positions_particles)[0], &newParticlesLow[0], sizeof(real_number)*nbNewFromLow*size_particle_positions);
-                        memcpy(&(*inout_index_particles)[0], &newParticlesLowIndexes[0], sizeof(int)*nbNewFromLow);
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesLowRhs[idx_rhs][0], sizeof(real_number)*nbNewFromLow*size_particle_rhs);
-                        }
-                    }
-                    if(nbNewFromUp){
-                        memcpy(&(*inout_positions_particles)[0], &newParticlesUp[0], sizeof(real_number)*nbNewFromUp*size_particle_positions);
-                        memcpy(&(*inout_index_particles)[0], &newParticlesUpIndexes[0], sizeof(int)*nbNewFromUp);
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            memcpy(&inout_rhs_particles[idx_rhs][0], &newParticlesUpRhs[idx_rhs][0], sizeof(real_number)*nbNewFromUp*size_particle_rhs);
-                        }
-                    }
-                    const int padding = nbOutLower - nbNewFromLow+nbNewFromUp;
-                    memcpy(&(*inout_positions_particles)[(nbNewFromLow+nbNewFromUp)*size_particle_positions],
-                            &(*inout_positions_particles)[(nbOutLower+nbOldParticlesInside-padding)*size_particle_positions],
-                            sizeof(real_number)*padding*size_particle_positions);
-                    memcpy(&(*inout_index_particles)[(nbNewFromLow+nbNewFromUp)],
-                            &(*inout_index_particles)[(nbOutLower+nbOldParticlesInside-padding)],
-                            sizeof(int)*padding);
-                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                        memcpy(&inout_rhs_particles[idx_rhs][(nbNewFromLow+nbNewFromUp)*size_particle_rhs],
-                                &inout_rhs_particles[idx_rhs][(nbOutLower+nbOldParticlesInside-padding)*size_particle_rhs],
-                                sizeof(real_number)*padding*size_particle_rhs);
-                    }
+
+            // Copy my own particles
+            {
+                const particles_utils::fixed_copy fcp(nbNewFromLow, nbOutLower, nbOldParticlesInside);
+                fcp.copy(newArray, (*inout_positions_particles), size_particle_positions);
+                fcp.copy(newArrayIndexes, (*inout_index_particles));
+                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                    fcp.copy(newArrayRhs[idx_rhs], inout_rhs_particles[idx_rhs], size_particle_rhs);
                 }
             }
+
+            // Copy new particles from upper at the back
+            if(nbNewFromUp){
+                const particles_utils::fixed_copy fcp(nbNewFromLow+nbOldParticlesInside, 0, nbNewFromUp);
+                fcp.copy(newArray, newParticlesUp, size_particle_positions);
+                fcp.copy(newArrayIndexes, newParticlesUpIndexes);
+                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                    fcp.copy(newArrayRhs[idx_rhs], newParticlesUpRhs[idx_rhs], size_particle_rhs);
+                }
+            }
+
+            (*inout_positions_particles) = std::move(newArray);
+            (*inout_index_particles) = std::move(newArrayIndexes);
+            for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                inout_rhs_particles[idx_rhs] = std::move(newArrayRhs[idx_rhs]);
+            }
+
             myTotalNbParticles = myTotalNewNbParticles;
         }
 

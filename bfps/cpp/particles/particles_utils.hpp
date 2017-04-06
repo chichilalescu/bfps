@@ -239,6 +239,50 @@ void memzero(std::unique_ptr<NumType[]>& array, size_t size){
 }
 
 
+class fixed_copy {
+    const size_t to_idx;
+    const size_t from_idx;
+    const size_t nb_elements_to_copy;
+
+public:
+    fixed_copy(const size_t in_to_idx, const size_t in_from_idx, const size_t in_nb_elements_to_copy)
+        : to_idx(in_to_idx), from_idx(in_from_idx), nb_elements_to_copy(in_nb_elements_to_copy){
+    }
+
+    fixed_copy(const size_t in_to_idx, const size_t in_nb_elements_to_copy)
+        : fixed_copy(in_to_idx, 0, in_nb_elements_to_copy){
+    }
+
+    fixed_copy(const size_t in_nb_elements_to_copy)
+        : fixed_copy(0, in_nb_elements_to_copy){
+    }
+
+    template <class ItemType>
+    const fixed_copy& copy(ItemType dest[], const ItemType source[]) const {
+        memcpy(&dest[to_idx], &source[from_idx], sizeof(ItemType)*nb_elements_to_copy);
+        return *this;
+    }
+
+    template <class ItemType>
+    const fixed_copy& copy(ItemType dest[], const ItemType source[], const size_t nb_values_per_element) const {
+        memcpy(&dest[to_idx*nb_values_per_element], &source[from_idx*nb_values_per_element], sizeof(ItemType)*nb_elements_to_copy*nb_values_per_element);
+        return *this;
+    }
+
+    template <class ItemType>
+    const fixed_copy& copy(std::unique_ptr<ItemType[]>& dest, const std::unique_ptr<ItemType[]>& source) const {
+        memcpy(&dest[to_idx], &source[from_idx], sizeof(ItemType)*nb_elements_to_copy);
+        return *this;
+    }
+
+    template <class ItemType>
+    const fixed_copy& copy(std::unique_ptr<ItemType[]>& dest, const std::unique_ptr<ItemType[]>& source, const size_t nb_values_per_element) const {
+        memcpy(&dest[to_idx*nb_values_per_element], &source[from_idx*nb_values_per_element], sizeof(ItemType)*nb_elements_to_copy*nb_values_per_element);
+        return *this;
+    }
+};
+
+
 }
 
 #endif
