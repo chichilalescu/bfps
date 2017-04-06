@@ -1,8 +1,15 @@
 #ifndef PARTICLES_UTILS_HPP
 #define PARTICLES_UTILS_HPP
 
+#include <mpi.h>
+
 #include <cassert>
 #include <stack>
+
+
+#ifndef AssertMpi
+#define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
+#endif
 
 enum IDXS_3D {
     IDX_X = 2,

@@ -8,11 +8,7 @@
 
 #include "abstract_particles_output.hpp"
 #include "scope_timer.hpp"
-
-#ifndef AssertMpi
-#define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
-#endif
-
+#include "particles_utils.hpp"
 
 template <class real_number, int size_particle_positions, int size_particle_rhs>
 class particles_output_mpiio : public abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>{

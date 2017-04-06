@@ -8,10 +8,6 @@
 #include "particles_utils.hpp"
 #include "scope_timer.hpp"
 
-#ifndef AssertMpi
-#define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
-#endif
-
 class alltoall_exchanger {
     const MPI_Comm mpi_com;
 
