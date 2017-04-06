@@ -17,11 +17,14 @@ class particles_output_hdf5 : public abstract_particles_output<real_number, size
     hid_t file_id;
     const int total_nb_particles;
 
+    const std::string datagroup_basename;
+
 public:
-    particles_output_hdf5(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles)
+    particles_output_hdf5(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
+                          const std::string in_datagroup_basename = std::string("tracers"))
             : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
               filename(in_filename),
-              file_id(0), total_nb_particles(inTotalNbParticles){
+              file_id(0), total_nb_particles(inTotalNbParticles), datagroup_basename(in_datagroup_basename){
 
         TIMEZONE("particles_output_hdf5::H5Pcreate");
         hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
@@ -48,7 +51,8 @@ public:
         assert(particles_idx_offset < Parent::getTotalNbParticles());
         assert(particles_idx_offset+nb_particles <= Parent::getTotalNbParticles());
 
-        hid_t dset_id = H5Gcreate(file_id, ("dataset"+std::to_string(idx_time_step)).c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        const std::string target_dset_name = (datagroup_basename+std::to_string(idx_time_step));
+        hid_t dset_id = H5Gcreate(file_id, target_dset_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         assert(dset_id >= 0);
 
         static_assert(std::is_same<real_number, double>::value
