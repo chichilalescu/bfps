@@ -112,7 +112,7 @@ template <class field_rnumber, field_backend be, class particles_rnumber>
 struct particles_system_build_container {
     template <const int interpolation_size, const int spline_mode>
     static std::unique_ptr<abstract_particles_system<particles_rnumber>> instanciate(
-             const field<field_rnumber, be, THREE>* fs_cvorticity, // (field object)
+             const field<field_rnumber, be, THREE>* fs_field, // (field object)
              const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
              const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
              const int nparticles, // to check coherency between parameters and hdf input file
@@ -122,21 +122,21 @@ struct particles_system_build_container {
 
         // The size of the field grid (global size) all_size seems
         std::array<size_t,3> field_grid_dim;
-        field_grid_dim[IDX_X] = fs_cvorticity->rlayout->sizes[IDX_X];// nx
-        field_grid_dim[IDX_Y] = fs_cvorticity->rlayout->sizes[IDX_Y];// nx
-        field_grid_dim[IDX_Z] = fs_cvorticity->rlayout->sizes[IDX_Z];// nz
+        field_grid_dim[IDX_X] = fs_field->rlayout->sizes[IDX_X];// nx
+        field_grid_dim[IDX_Y] = fs_field->rlayout->sizes[IDX_Y];// nx
+        field_grid_dim[IDX_Z] = fs_field->rlayout->sizes[IDX_Z];// nz
 
         // The size of the local field grid (the field nodes that belong to current process)
         std::array<size_t,3> local_field_dims;
-        local_field_dims[IDX_X] = fs_cvorticity->rlayout->subsizes[IDX_X];
-        local_field_dims[IDX_Y] = fs_cvorticity->rlayout->subsizes[IDX_Y];
-        local_field_dims[IDX_Z] = fs_cvorticity->rlayout->subsizes[IDX_Z];
+        local_field_dims[IDX_X] = fs_field->rlayout->subsizes[IDX_X];
+        local_field_dims[IDX_Y] = fs_field->rlayout->subsizes[IDX_Y];
+        local_field_dims[IDX_Z] = fs_field->rlayout->subsizes[IDX_Z];
 
         // The offset of the local field grid
         std::array<size_t,3> local_field_offset;
-        local_field_offset[IDX_X] = fs_cvorticity->rlayout->starts[IDX_X];
-        local_field_offset[IDX_Y] = fs_cvorticity->rlayout->starts[IDX_Y];
-        local_field_offset[IDX_Z] = fs_cvorticity->rlayout->starts[IDX_Z];
+        local_field_offset[IDX_X] = fs_field->rlayout->starts[IDX_X];
+        local_field_offset[IDX_Y] = fs_field->rlayout->starts[IDX_Y];
+        local_field_offset[IDX_Z] = fs_field->rlayout->starts[IDX_Z];
         // Ensure that 1D partitioning is used
         {
             assert(myrank < field_grid_dim[IDX_Z]);
@@ -155,9 +155,9 @@ struct particles_system_build_container {
         }
         // The offset of the local field grid
         std::array<size_t,3> local_field_mem_size;
-        local_field_mem_size[IDX_X] = fs_cvorticity->rmemlayout->subsizes[IDX_X];
-        local_field_mem_size[IDX_Y] = fs_cvorticity->rmemlayout->subsizes[IDX_Y];
-        local_field_mem_size[IDX_Z] = fs_cvorticity->rmemlayout->subsizes[IDX_Z];
+        local_field_mem_size[IDX_X] = fs_field->rmemlayout->subsizes[IDX_X];
+        local_field_mem_size[IDX_Y] = fs_field->rmemlayout->subsizes[IDX_Y];
+        local_field_mem_size[IDX_Z] = fs_field->rmemlayout->subsizes[IDX_Z];
 
         // The spatial box size (all particles should be included inside)
         std::array<particles_rnumber,3> spatial_box_width;
@@ -181,12 +181,11 @@ struct particles_system_build_container {
                                                                                                    spatial_partition_width,
                                                                                                    my_spatial_low_limit_z,
                                                                                                    my_spatial_up_limit_z,
-                                                                                                   fs_cvorticity->get_rdata(),
+                                                                                                   fs_field->get_rdata(),
                                                                                                    local_field_dims,
                                                                                                    local_field_offset,
                                                                                                    local_field_mem_size,
                                                                                                    mpi_comm);
-
 
         // Load particles from hdf5
         particles_input_hdf5<particles_rnumber, 3,3> generator(mpi_comm, fname_input,
@@ -214,7 +213,7 @@ struct particles_system_build_container {
 
 template <class field_rnumber, field_backend be, class particles_rnumber = double>
 inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_system_builder(
-        const field<field_rnumber, be, THREE>* fs_cvorticity, // (field object)
+        const field<field_rnumber, be, THREE>* fs_field, // (field object)
         const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
         const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
         const int nparticles, // to check coherency between parameters and hdf input file
@@ -229,7 +228,7 @@ inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_s
                        particles_system_build_container<field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
-                           fs_cvorticity,fs_kk, nsteps, nparticles, fname_input, dset_name, mpi_comm);
+                           fs_field,fs_kk, nsteps, nparticles, fname_input, dset_name, mpi_comm);
 }
 
 
