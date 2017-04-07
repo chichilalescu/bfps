@@ -133,67 +133,6 @@ libraries = ['fftw3_mpi',
              'fftw3f']
 libraries += extra_libraries
 
-
-
-def compile_bfps_library(
-        use_timingoutput = False,
-        extra_compile_args = None):
-    """
-        use_timingoutput sets the USE_TIMINGOUTPUT definition,
-        thus scope timers are being output.
-    """
-    if not os.path.isdir('obj'):
-        os.makedirs('obj')
-        need_to_compile = True
-    if not os.path.isfile('bfps/libbfps.a'):
-        need_to_compile = True
-    else:
-        ofile = 'bfps/libbfps.a'
-        libtime = datetime.datetime.fromtimestamp(os.path.getctime(ofile))
-        latest = libtime
-        for fname in header_list:
-            latest = max(latest,
-                         datetime.datetime.fromtimestamp(os.path.getctime('bfps/' + fname)))
-        need_to_compile = (latest > libtime)
-    if use_timingoutput:
-        extra_compile_args += ['-DUSE_TIMINGOUTPUT']
-    for fname in src_file_list:
-        ifile = 'bfps/cpp/' + fname + '.cpp'
-        ofile = 'obj/' + fname + '.o'
-        if not os.path.exists(ofile):
-            need_to_compile_file = True
-        else:
-            need_to_compile_file = (need_to_compile or
-                                    (datetime.datetime.fromtimestamp(os.path.getctime(ofile)) <
-                                     datetime.datetime.fromtimestamp(os.path.getctime(ifile))))
-        if need_to_compile_file:
-            command_strings = [compiler, '-c']
-            command_strings += ['bfps/cpp/' + fname + '.cpp']
-            command_strings += ['-o', 'obj/' + fname + '.o']
-            command_strings += extra_compile_args
-            command_strings += ['-I' + idir for idir in include_dirs]
-            command_strings.append('-Ibfps/cpp/')
-            print(' '.join(command_strings))
-            subprocess.check_call(command_strings)
-    command_strings = ['ar', 'rvs', 'bfps/libbfps.a']
-    command_strings += ['obj/' + fname + '.o' for fname in src_file_list]
-    print(' '.join(command_strings))
-    subprocess.check_call(command_strings)
-
-    ### save compiling information
-    pickle.dump(
-            {'include_dirs' : include_dirs,
-             'library_dirs' : library_dirs,
-             'compiler'     : compiler,
-             'extra_compile_args' : extra_compile_args,
-             'libraries' : libraries,
-             'install_date' : now,
-             'VERSION' : VERSION,
-             'git_revision' : git_revision},
-            open('bfps/install_info.pickle', 'wb'),
-            protocol = 2)
-    return None
-
 import distutils.cmd
 
 class CompileLibCommand(distutils.cmd.Command):
@@ -222,6 +161,7 @@ class CompileLibCommand(distutils.cmd.Command):
                              datetime.datetime.fromtimestamp(os.path.getctime('bfps/' + fname)))
             need_to_compile = (latest > libtime)
         eca = extra_compile_args
+        eca += ['-fPIC']
         if self.timing_output:
             eca += ['-DUSE_TIMINGOUTPUT']
         for fname in src_file_list:

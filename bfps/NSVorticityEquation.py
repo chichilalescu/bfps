@@ -117,6 +117,50 @@ class NSVorticityEquation(_fluid_particle_base):
                 //endcpp
                 """
         return None
+    def add_particles(
+            self,
+            integration_steps = 2,
+            neighbours = 1,
+            smoothness = 1):
+        assert(integration_steps > 0 and integration_steps < 6)
+        self.parameters['tracers0_integration_steps'] = int(integration_steps)
+        self.parameters['tracers0_neighbours'] = int(neighbours)
+        self.parameters['tracers0_smoothness'] = int(smoothness)
+        self.parameters['tracers0_interpolator'] = 'spline'
+        self.particle_includes += """
+                #include "particles_system_builder.hpp"
+                #include "particles_output_hdf5.hpp"
+                """
+        ## initialize
+        self.particle_start += """
+            std::unique_ptr<abstract_particles_system<double>> ps = particles_system_builder(
+                    fs->cvorticity,             // (field object)
+                    fs->kk,                     // (kspace object, contains dkx, dky, dkz)
+                    tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
+                    nparticles,                 // to check coherency between parameters and hdf input file
+                    fname,                      // particles input filename
+                    "tracers0",                 // dataset name for initial input
+                    tracers0_neighbours,        // parameter (interpolation no neighbours)
+                    tracers0_smoothness,        // parameter
+                    MPI_COMM_WORLD);
+            particles_output_hdf5<double,3,3> particles_output_writer_mpi(MPI_COMM_WORLD, simname, nparticles);
+                    """
+        self.particle_loop += """
+                fs->compute_velocity(fs->cvorticity);
+                fs->cvelocity->ift();
+                ps->completeLoop(dt);
+                """
+        output_particles = """
+                particles_output_writer_mpi.save(ps->getParticlesPositions(),
+                                                 ps->getParticlesCurrentRhs(),
+                                                 ps->getParticlesIndexes(),
+                                                 ps->getLocalNbParticles(),
+                                                 iteration);
+                           """
+        self.fluid_output += output_particles
+        self.particle_end += 'ps.realease();\n'
+
+        return None
     def create_stat_output(
             self,
             dset_name,
@@ -517,6 +561,16 @@ class NSVorticityEquation(_fluid_particle_base):
                dest = 'dtfactor',
                default = 0.5,
                help = 'dt is computed as DTFACTOR / N')
+        parser.add_argument(
+                '--neighbours',
+                type = int,
+                dest = 'neighbours',
+                default = 1)
+        parser.add_argument(
+                '--smoothness',
+                type = int,
+                dest = 'smoothness',
+                default = 1)
         return None
     def prepare_launch(
             self,
@@ -566,6 +620,12 @@ class NSVorticityEquation(_fluid_particle_base):
             **kwargs):
         opt = self.prepare_launch(args = args)
         self.fill_up_fluid_code()
+        if opt.nparticles > 0:
+            self.name += '-particles'
+            self.add_particles(
+                integration_steps = 4,
+                neighbours = opt.neighbours,
+                smoothness = opt.smoothness)
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
