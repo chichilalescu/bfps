@@ -388,6 +388,7 @@ public:
             }
         }
 
+        assert(whatNext.size() == 0);
         assert(mpiRequests.size() == 0);
     }
 
@@ -617,6 +618,7 @@ public:
             TIMEZONE("waitall-move");
             AssertMpi(MPI_Waitall(mpiRequests.size(), mpiRequests.data(), MPI_STATUSES_IGNORE));
             mpiRequests.clear();
+            whatNext.clear();
         }
 
         // Exchange particles
@@ -689,7 +691,7 @@ public:
 
         {
             TIMEZONE("apply_pbc_xy");
-            apply_pbc_xy((*inout_positions_particles).get(), nbNewFromUp+nbNewFromLow);
+            apply_pbc_xy((*inout_positions_particles).get(), myTotalNbParticles);
         }
 
         // Partitions all particles
