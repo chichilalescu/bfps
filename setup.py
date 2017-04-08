@@ -113,11 +113,29 @@ src_file_list = ['vorticity_equation',
                  'Lagrange_polys',
                  'scope_timer']
 
+particle_headers = [
+        'cpp/particles/abstract_particles_distr.hpp',
+        'cpp/particles/abstract_particles_input.hpp',
+        'cpp/particles/abstract_particles_output.hpp',
+        'cpp/particles/abstract_particles_system.hpp',
+        'cpp/particles/alltoall_exchanger.hpp',
+        'cpp/particles/field_accessor.hpp',
+        'cpp/particles/particles_adams_bashforth.hpp',
+        'cpp/particles/particles_field_computer.hpp',
+        'cpp/particles/particles_input_hdf5.hpp',
+        'cpp/particles/particles_interp_spline.hpp',
+        'cpp/particles/particles_output_hdf5.hpp',
+        'cpp/particles/particles_output_mpiio.hpp',
+        'cpp/particles/particles_system_builder.hpp',
+        'cpp/particles/particles_system.hpp',
+        'cpp/particles/particles_utils.hpp']
+
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
                ['cpp/bfps_timer.hpp'] +
                ['cpp/' + fname + '.hpp'
-                for fname in src_file_list])
+                for fname in src_file_list] +
+               particle_headers)
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in (['bfps/cpp/' + ff + '.cpp' for ff in src_file_list] +

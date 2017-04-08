@@ -123,13 +123,14 @@ class NSVorticityEquation(_fluid_particle_base):
             neighbours = 1,
             smoothness = 1):
         assert(integration_steps > 0 and integration_steps < 6)
+        self.particle_species = 1
         self.parameters['tracers0_integration_steps'] = int(integration_steps)
         self.parameters['tracers0_neighbours'] = int(neighbours)
         self.parameters['tracers0_smoothness'] = int(smoothness)
         self.parameters['tracers0_interpolator'] = 'spline'
         self.particle_includes += """
-                #include "particles_system_builder.hpp"
-                #include "particles_output_hdf5.hpp"
+                #include "particles/particles_system_builder.hpp"
+                #include "particles/particles_output_hdf5.hpp"
                 """
         ## initialize
         self.particle_start += """
@@ -158,8 +159,7 @@ class NSVorticityEquation(_fluid_particle_base):
                                                  iteration);
                            """
         self.fluid_output += output_particles
-        self.particle_end += 'ps.realease();\n'
-
+        self.particle_end += 'ps.release();\n'
         return None
     def create_stat_output(
             self,
