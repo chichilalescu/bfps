@@ -60,7 +60,7 @@ public:
     }
 
     template <class ItemType>
-    void alltoallv(const ItemType in_to_send[],
+    void alltoallv_dt(const ItemType in_to_send[],
                    ItemType out_to_recv[], const MPI_Datatype& in_type) const {
         TIMEZONE("alltoallv");
         AssertMpi(MPI_Alltoallv(const_cast<ItemType*>(in_to_send), const_cast<int*>(nb_items_to_send.data()),
@@ -72,11 +72,11 @@ public:
     template <class ItemType>
     void alltoallv(const ItemType in_to_send[],
                    ItemType out_to_recv[]) const {
-        alltoallv<ItemType>(in_to_send, out_to_recv, particles_utils::GetMpiType(ItemType()));
+        alltoallv_dt<ItemType>(in_to_send, out_to_recv, particles_utils::GetMpiType(ItemType()));
     }
 
     template <class ItemType>
-    void alltoallv(const ItemType in_to_send[],
+    void alltoallv_dt(const ItemType in_to_send[],
                    ItemType out_to_recv[], const MPI_Datatype& in_type, const int in_nb_values_per_item) const {
         TIMEZONE("alltoallv");
         std::vector<int> nb_items_to_send_tmp = nb_items_to_send;
@@ -101,7 +101,7 @@ public:
     template <class ItemType>
     void alltoallv(const ItemType in_to_send[],
                    ItemType out_to_recv[], const int in_nb_values_per_item) const {
-        alltoallv<ItemType>(in_to_send, out_to_recv,particles_utils::GetMpiType(ItemType()), in_nb_values_per_item);
+        alltoallv_dt<ItemType>(in_to_send, out_to_recv,particles_utils::GetMpiType(ItemType()), in_nb_values_per_item);
     }
 };
 

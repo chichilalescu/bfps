@@ -133,7 +133,7 @@ public:
             nb_particles_allocated_recv = nb_to_receive;
         }
 
-        exchanger.alltoallv(buffer_particles_send.get(), buffer_particles_recv.get(), mpi_movable_particle_type);
+        exchanger.alltoallv_dt(buffer_particles_send.get(), buffer_particles_recv.get(), mpi_movable_particle_type);
 
         // Trick re-use the buffer to have only real_number
 

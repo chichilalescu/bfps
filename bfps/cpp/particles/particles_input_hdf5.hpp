@@ -74,7 +74,7 @@ public:
 
         AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
-        assert(in_spatial_limit_per_proc.size() == nb_processes+1);
+        assert(int(in_spatial_limit_per_proc.size()) == nb_processes+1);
 
         hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
         assert(plist_id_par >= 0);
