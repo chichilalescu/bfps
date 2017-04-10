@@ -484,7 +484,8 @@ class NSVorticityEquation(_fluid_particle_base):
         return None
     def write_par(
             self,
-            iter0 = 0):
+            iter0 = 0,
+            particle_ic = None):
         _fluid_particle_base.write_par(self, iter0 = iter0)
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             kspace = self.get_kspace()
@@ -527,6 +528,45 @@ class NSVorticityEquation(_fluid_particle_base):
                                                  self.parameters['histogram_bins'],
                                                  4),
                                      dtype = np.int64)
+        if self.particle_species == 0:
+            return None
+
+        if type(particle_ic) == type(None):
+            pbase_shape = (self.parameters['nparticles'],)
+            number_of_particles = self.parameters['nparticles']
+        else:
+            pbase_shape = particle_ic.shape[:-1]
+            assert(particle_ic.shape[-1] == 3)
+            number_of_particles = 1
+            for val in pbase_shape[1:]:
+                number_of_particles *= val
+        with h5py.File(self.get_particle_file_name(), 'a') as ofile:
+            s = 0
+            ofile.create_group('tracers{0}'.format(s))
+            time_chunk = 2**20 // (8*3*number_of_particles)
+            time_chunk = max(time_chunk, 1)
+            dims = ((1,
+                     self.parameters['tracers{0}_integration_steps'.format(s)]) +
+                    pbase_shape + (3,))
+            maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
+            if len(pbase_shape) > 1:
+                chunks = (time_chunk, 1, 1) + dims[3:]
+            else:
+                chunks = (time_chunk, 1) + dims[2:]
+            bfps.tools.create_alloc_early_dataset(
+                    ofile,
+                    '/tracers{0}/rhs'.format(s),
+                    dims, maxshape, chunks)
+            if len(pbase_shape) > 1:
+                chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
+            else:
+                chunks = (time_chunk, pbase_shape[0], 3)
+            bfps.tools.create_alloc_early_dataset(
+                    ofile,
+                    '/tracers{0}/state'.format(s),
+                    (1,) + pbase_shape + (3,),
+                    (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
+                    chunks)
         return None
     def specific_parser_arguments(
             self,
@@ -562,6 +602,30 @@ class NSVorticityEquation(_fluid_particle_base):
                dest = 'dtfactor',
                default = 0.5,
                help = 'dt is computed as DTFACTOR / N')
+        parser.add_argument(
+               '--particle-rand-seed',
+               type = int,
+               dest = 'particle_rand_seed',
+               default = None)
+        parser.add_argument(
+               '--pclouds',
+               type = int,
+               dest = 'pclouds',
+               default = 1,
+               help = ('number of particle clouds. Particle "clouds" '
+                       'consist of particles distributed according to '
+                       'pcloud-type.'))
+        parser.add_argument(
+                '--pcloud-type',
+                choices = ['random-cube',
+                           'regular-cube'],
+                dest = 'pcloud_type',
+                default = 'random-cube')
+        parser.add_argument(
+               '--particle-cloud-size',
+               type = float,
+               dest = 'particle_cloud_size',
+               default = 2*np.pi)
         parser.add_argument(
                 '--neighbours',
                 type = int,
@@ -634,7 +698,38 @@ class NSVorticityEquation(_fluid_particle_base):
             self,
             opt = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            self.write_par()
+            particle_initial_condition = None
+            if opt.pclouds > 1:
+                np.random.seed(opt.particle_rand_seed)
+                if opt.pcloud_type == 'random-cube':
+                    particle_initial_condition = (
+                        np.random.random((opt.pclouds, 1, 3))*2*np.pi +
+                        np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+                elif opt.pcloud_type == 'regular-cube':
+                    onedarray = np.linspace(
+                            -opt.particle_cloud_size/2,
+                            opt.particle_cloud_size/2,
+                            self.parameters['nparticles'])
+                    particle_initial_condition = np.zeros(
+                            (opt.pclouds,
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'], 3),
+                            dtype = np.float64)
+                    particle_initial_condition[:] = \
+                        np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+                    particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+                    particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+                    particle_initial_condition[..., 2] += onedarray[None, :, None, None]
+            self.write_par(
+                    particle_ic = particle_initial_condition)
+            if self.parameters['nparticles'] > 0:
+                data = self.generate_tracer_state(
+                        species = 0,
+                        rseed = opt.particle_rand_seed,
+                        data = particle_initial_condition)
+                for s in range(1, self.particle_species):
+                    self.generate_tracer_state(species = s, data = data)
             init_condition_file = os.path.join(
                     self.work_dir,
                     self.simname + '_cvorticity_i{0:0>5x}.h5'.format(0))
