@@ -62,9 +62,9 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
             const int partGridIdx_y = int(particles_positions[idxPart*3+IDX_Y]/box_step_width[IDX_Y]);
             const int partGridIdx_z = int(particles_positions[idxPart*3+IDX_Z]/box_step_width[IDX_Z]);
 
-            assert(0 <= partGridIdx_x && partGridIdx_x < field_grid_dim[IDX_X]);
-            assert(0 <= partGridIdx_y && partGridIdx_y < field_grid_dim[IDX_Y]);
-            assert(0 <= partGridIdx_z && partGridIdx_z < field_grid_dim[IDX_Z]);
+            assert(0 <= partGridIdx_x && partGridIdx_x < int(field_grid_dim[IDX_X]));
+            assert(0 <= partGridIdx_y && partGridIdx_y < int(field_grid_dim[IDX_Y]));
+            assert(0 <= partGridIdx_z && partGridIdx_z < int(field_grid_dim[IDX_Z]));
 
             const int interp_limit_mx = partGridIdx_x-interp_neighbours;
             const int interp_limit_x = partGridIdx_x+interp_neighbours+1;
@@ -76,7 +76,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
             int nb_z_intervals;
 
             if((partGridIdx_z-interp_neighbours) < 0){
-                assert(partGridIdx_z+interp_neighbours+1 < field_grid_dim[IDX_Z]);
+                assert(partGridIdx_z+interp_neighbours+1 < int(field_grid_dim[IDX_Z]));
                 interp_limit_mz[0] = ((partGridIdx_z-interp_neighbours)+field_grid_dim[IDX_Z])%field_grid_dim[IDX_Z];
                 interp_limit_z[0] = current_partition_interval.second-1;
 
@@ -85,7 +85,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
 
                 nb_z_intervals = 2;
             }
-            else if(field_grid_dim[2] <= (partGridIdx_z+interp_neighbours+1)){
+            else if(int(field_grid_dim[2]) <= (partGridIdx_z+interp_neighbours+1)){
                 interp_limit_mz[0] = std::max(current_partition_interval.first, partGridIdx_z-interp_neighbours);
                 interp_limit_z[0] = std::min(int(field_grid_dim[IDX_Z])-1,current_partition_interval.second-1);// max is not really needed here
 

@@ -209,7 +209,7 @@ public:
         }
 
         std::unique_ptr<int[]> split_particles_indexes(new int[load_splitter.getMySize()]);
-        for(int idx_part = 0 ; idx_part < load_splitter.getMySize() ; ++idx_part){
+        for(int idx_part = 0 ; idx_part < int(load_splitter.getMySize()) ; ++idx_part){
             split_particles_indexes[idx_part] = idx_part + load_splitter.getMyOffset();
         }
 
@@ -228,7 +228,7 @@ public:
                 },
                 [&](const int idx1, const int idx2){
                     std::swap(split_particles_indexes[idx1], split_particles_indexes[idx2]);
-                    for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+                    for(int idx_rhs = 0 ; idx_rhs < int(nb_rhs) ; ++idx_rhs){
                         for(int idx_val = 0 ; idx_val < size_particle_rhs ; ++idx_val){
                             std::swap(split_particles_rhs[idx_rhs][idx1*size_particle_rhs + idx_val],
                                       split_particles_rhs[idx_rhs][idx2*size_particle_rhs + idx_val]);
@@ -258,7 +258,7 @@ public:
             split_particles_indexes.release();
 
             my_particles_rhs.resize(nb_rhs);
-            for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+            for(int idx_rhs = 0 ; idx_rhs < int(nb_rhs) ; ++idx_rhs){
                 my_particles_rhs[idx_rhs].reset(new real_number[exchanger.getTotalToRecv()*size_particle_rhs]);
                 exchanger.alltoallv<real_number>(split_particles_rhs[idx_rhs].get(), my_particles_rhs[idx_rhs].get(), size_particle_rhs);
             }

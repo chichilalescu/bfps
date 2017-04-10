@@ -88,7 +88,7 @@ public:
         },
         [&](const int idx1, const int idx2){
             std::swap(my_particles_positions_indexes[idx1], my_particles_positions_indexes[idx2]);
-            for(int idx_rhs = 0 ; idx_rhs < my_particles_rhs.size() ; ++idx_rhs){
+            for(int idx_rhs = 0 ; idx_rhs < int(my_particles_rhs.size()) ; ++idx_rhs){
                 for(int idx_val = 0 ; idx_val < 3 ; ++idx_val){
                     std::swap(my_particles_rhs[idx_rhs][idx1*3 + idx_val],
                               my_particles_rhs[idx_rhs][idx2*3 + idx_val]);

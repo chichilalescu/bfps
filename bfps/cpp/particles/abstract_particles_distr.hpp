@@ -199,12 +199,12 @@ public:
         }
         const int nbProcToRecvUpper = neigDescriptors.size()-nbProcToRecvLower;
         const int nbProcToRecv = nbProcToRecvUpper + nbProcToRecvLower;
-        assert(neigDescriptors.size() == nbProcToRecv);
+        assert(int(neigDescriptors.size()) == nbProcToRecv);
         DEBUG_MSG("[%d] nbProcToRecvUpper %d\n", my_rank, nbProcToRecvUpper);
         DEBUG_MSG("[%d] nbProcToRecvLower %d\n", my_rank, nbProcToRecvLower);
         DEBUG_MSG("[%d] nbProcToRecv %d\n", my_rank, nbProcToRecv);
 
-        for(int idxDescr = 0 ; idxDescr < neigDescriptors.size() ; ++idxDescr){
+        for(int idxDescr = 0 ; idxDescr < int(neigDescriptors.size()) ; ++idxDescr){
             NeighborDescriptor& descriptor = neigDescriptors[idxDescr];
 
             if(descriptor.isLower){

@@ -139,7 +139,7 @@ struct particles_system_build_container {
         local_field_offset[IDX_Z] = fs_field->rlayout->starts[IDX_Z];
         // Ensure that 1D partitioning is used
         {
-            assert(myrank < field_grid_dim[IDX_Z]);
+            assert(myrank < int(field_grid_dim[IDX_Z]));
             assert(local_field_offset[IDX_X] == 0);
             assert(local_field_offset[IDX_Y] == 0);
             assert(local_field_dims[IDX_X] == field_grid_dim[IDX_X]);
