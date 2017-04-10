@@ -134,6 +134,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 """
         ## initialize
         self.particle_start += """
+            sprintf(fname, "%s_particles.h5", simname);
             std::unique_ptr<abstract_particles_system<double>> ps = particles_system_builder(
                     fs->cvorticity,             // (field object)
                     fs->kk,                     // (kspace object, contains dkx, dky, dkz)

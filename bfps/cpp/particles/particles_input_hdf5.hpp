@@ -70,6 +70,8 @@ public:
           nb_particles_for_me(-1){
         TIMEZONE("particles_input_hdf5");
 
+        DEBUG_MSG("particles_input_hdf5 : Open %s\n", inFilename.c_str());
+
         AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
         assert(in_spatial_limit_per_proc.size() == nb_processes+1);
