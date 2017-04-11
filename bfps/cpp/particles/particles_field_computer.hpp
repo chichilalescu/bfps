@@ -176,7 +176,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
             }
         }
-        else if(Parent::my_rank == Parent::nb_processes - 1){
+        else if(Parent::my_rank == Parent::nb_processes_involved - 1){
             const int idxDim = IDX_Z;
             for(int idxPart = 0 ; idxPart < size ; ++idxPart){
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] || values[idxPart*3+idxDim] < 0);

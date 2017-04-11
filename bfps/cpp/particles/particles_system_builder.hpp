@@ -137,22 +137,38 @@ struct particles_system_build_container {
         local_field_offset[IDX_X] = fs_field->rlayout->starts[IDX_X];
         local_field_offset[IDX_Y] = fs_field->rlayout->starts[IDX_Y];
         local_field_offset[IDX_Z] = fs_field->rlayout->starts[IDX_Z];
+
+
+        // Retreive split from fftw to know processes that have no work
+        int my_rank, nb_processes;
+        AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
+        AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
+
+        const int split_step = (int(field_grid_dim[IDX_Z])+nb_processes-1)/nb_processes;
+        const int nb_processes_involved = (int(field_grid_dim[IDX_Z])+split_step-1)/split_step;
+
+        assert((my_rank < nb_processes_involved && local_field_dims[IDX_Z] != 0)
+               || (nb_processes_involved <= my_rank && local_field_dims[IDX_Z] == 0));
+        assert(nb_processes_involved <= int(field_grid_dim[IDX_Z]));
+
+        // Make the idle processes starting from the limit (and not 0 as set by fftw)
+        if(nb_processes_involved <= my_rank){
+            local_field_offset[IDX_Z] = field_grid_dim[IDX_Z];
+        }
+
         // Ensure that 1D partitioning is used
         {
-            assert(myrank < int(field_grid_dim[IDX_Z]));
             assert(local_field_offset[IDX_X] == 0);
             assert(local_field_offset[IDX_Y] == 0);
             assert(local_field_dims[IDX_X] == field_grid_dim[IDX_X]);
             assert(local_field_dims[IDX_Y] == field_grid_dim[IDX_Y]);
 
-            int my_rank, nb_processes;
-            AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
-            AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
-            assert((myrank == 0 && local_field_offset[IDX_Z] == 0)
-                   || (myrank != 0 && local_field_offset[IDX_Z] != 0));
-            assert((myrank == nprocs-1 && local_field_offset[IDX_Z]+local_field_dims[IDX_Z] == field_grid_dim[IDX_Z])
-                   || (myrank != nprocs-1 && local_field_offset[IDX_Z]+local_field_dims[IDX_Z] != field_grid_dim[IDX_Z]));
+            assert(my_rank >= nb_processes_involved || ((my_rank == 0 && local_field_offset[IDX_Z] == 0)
+                   || (my_rank != 0 && local_field_offset[IDX_Z] != 0)));
+            assert(my_rank >= nb_processes_involved || ((my_rank == nb_processes_involved-1 && local_field_offset[IDX_Z]+local_field_dims[IDX_Z] == field_grid_dim[IDX_Z])
+                   || (my_rank != nb_processes_involved-1 && local_field_offset[IDX_Z]+local_field_dims[IDX_Z] != field_grid_dim[IDX_Z])));
         }
+
         // The offset of the local field grid
         std::array<size_t,3> local_field_mem_size;
         local_field_mem_size[IDX_X] = fs_field->rmemlayout->subsizes[IDX_X];

@@ -73,6 +73,7 @@ protected:
 
     int my_rank;
     int nb_processes;
+    int nb_processes_involved;
 
     const std::pair<int,int> current_partition_interval;
     const int current_partition_size;
@@ -92,14 +93,12 @@ public:
     abstract_particles_distr(MPI_Comm in_current_com,
                              const std::pair<int,int>& in_current_partitions)
         : current_com(in_current_com),
-            my_rank(-1), nb_processes(-1),
+            my_rank(-1), nb_processes(-1),nb_processes_involved(-1),
             current_partition_interval(in_current_partitions),
             current_partition_size(current_partition_interval.second-current_partition_interval.first){
 
         AssertMpi(MPI_Comm_rank(current_com, &my_rank));
         AssertMpi(MPI_Comm_size(current_com, &nb_processes));
-
-        assert(current_partition_size >= 1);
 
         partition_interval_size_per_proc.reset(new int[nb_processes]);
         AssertMpi( MPI_Allgather( const_cast<int*>(&current_partition_size), 1, MPI_INT,
@@ -114,6 +113,18 @@ public:
         }
 
         current_offset_particles_for_partition.reset(new int[current_partition_size+1]);
+
+        nb_processes_involved = nb_processes;
+        while(nb_processes_involved != 0 && partition_interval_size_per_proc[nb_processes_involved-1] == 0){
+            nb_processes_involved -= 1;
+        }
+        assert(nb_processes_involved != 0);
+        for(int idx_proc_involved = 0 ; idx_proc_involved < nb_processes_involved ; ++idx_proc_involved){
+            assert(partition_interval_size_per_proc[idx_proc_involved] != 0);
+        }
+
+        DEBUG_MSG("[%d] %d processes involved over %d total processes\n",
+               my_rank, nb_processes_involved,nb_processes);
     }
 
     virtual ~abstract_particles_distr(){}
@@ -125,6 +136,11 @@ public:
                        real_number particles_current_rhs[],
                        const int interpolation_size){
         TIMEZONE("compute_distr");
+
+        // Some processes might not be involved
+        if(nb_processes_involved <= my_rank){
+            return;
+        }
 
         current_offset_particles_for_partition[0] = 0;
         int myTotalNbParticles = 0;
@@ -148,9 +164,9 @@ public:
         {
             int nextDestProc = my_rank;
             for(int idxLower = 1 ; idxLower <= interpolation_size ; idxLower += partition_interval_size_per_proc[nextDestProc]){
-                nextDestProc = (nextDestProc-1+nb_processes)%nb_processes;
+                nextDestProc = (nextDestProc-1+nb_processes_involved)%nb_processes_involved;
                 const int destProc = nextDestProc;
-                const int lowerRankDiff = (nextDestProc < my_rank ? my_rank - nextDestProc : nb_processes-nextDestProc+my_rank);
+                const int lowerRankDiff = (nextDestProc < my_rank ? my_rank - nextDestProc : nb_processes_involved-nextDestProc+my_rank);
 
                 const int nbPartitionsToSend = std::min(current_partition_size, interpolation_size-(idxLower-1));
                 const int nbParticlesToSend = current_offset_particles_for_partition[nbPartitionsToSend] - current_offset_particles_for_partition[0];
@@ -174,9 +190,9 @@ public:
 
             nextDestProc = my_rank;
             for(int idxUpper = 1 ; idxUpper <= interpolation_size ; idxUpper += partition_interval_size_per_proc[nextDestProc]){
-                nextDestProc = (nextDestProc+1+nb_processes)%nb_processes;
+                nextDestProc = (nextDestProc+1+nb_processes_involved)%nb_processes_involved;
                 const int destProc = nextDestProc;
-                const int upperRankDiff = (nextDestProc > my_rank ? nextDestProc - my_rank: nb_processes-my_rank+nextDestProc);
+                const int upperRankDiff = (nextDestProc > my_rank ? nextDestProc - my_rank: nb_processes_involved-my_rank+nextDestProc);
 
                 const int nbPartitionsToSend = std::min(current_partition_size, (interpolation_size+1)-(idxUpper-1));
                 const int nbParticlesToSend = current_offset_particles_for_partition[current_partition_size] - current_offset_particles_for_partition[current_partition_size-nbPartitionsToSend];
@@ -415,6 +431,12 @@ public:
                       const real_number mySpatialUpLimit,
                       const real_number spatialPartitionWidth){
         TIMEZONE("redistribute");
+
+        // Some latest processes might not be involved
+        if(nb_processes_involved <= my_rank){
+            return;
+        }
+
         current_offset_particles_for_partition[0] = 0;
         int myTotalNbParticles = 0;
         for(int idxPartition = 0 ; idxPartition < current_partition_size ; ++idxPartition){
@@ -483,59 +505,59 @@ public:
 
             whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_LOW, -1});
             mpiRequests.emplace_back();
-            AssertMpi(MPI_Irecv(&nbNewFromLow, 1, MPI_INT, (my_rank-1+nb_processes)%nb_processes, TAG_UP_LOW_MOVED_NB_PARTICLES,
+            AssertMpi(MPI_Irecv(&nbNewFromLow, 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
                       MPI_COMM_WORLD, &mpiRequests.back()));
             eventsBeforeWaitall += 1;
 
             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
             mpiRequests.emplace_back();
-            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutLower), 1, MPI_INT, (my_rank-1+nb_processes)%nb_processes, TAG_LOW_UP_MOVED_NB_PARTICLES,
+            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutLower), 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
                       MPI_COMM_WORLD, &mpiRequests.back()));
 
             if(nbOutLower){
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_positions_particles)[0], nbOutLower*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES,
+                AssertMpi(MPI_Isend(&(*inout_positions_particles)[0], nbOutLower*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_index_particles)[0], nbOutLower, MPI_INT, (my_rank-1+nb_processes)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
+                AssertMpi(MPI_Isend(&(*inout_index_particles)[0], nbOutLower, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
 
                 for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][0], nbOutLower*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
+                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][0], nbOutLower*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
                               MPI_COMM_WORLD, &mpiRequests.back()));
                 }
             }
 
             whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_UP, -1});
             mpiRequests.emplace_back();
-            AssertMpi(MPI_Irecv(&nbNewFromUp, 1, MPI_INT, (my_rank+1)%nb_processes, TAG_LOW_UP_MOVED_NB_PARTICLES,
+            AssertMpi(MPI_Irecv(&nbNewFromUp, 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
                       MPI_COMM_WORLD, &mpiRequests.back()));
             eventsBeforeWaitall += 1;
 
             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
             mpiRequests.emplace_back();
-            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutUpper), 1, MPI_INT, (my_rank+1)%nb_processes, TAG_UP_LOW_MOVED_NB_PARTICLES,
+            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutUpper), 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
                       MPI_COMM_WORLD, &mpiRequests.back()));
 
             if(nbOutUpper){
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_positions_particles)[(myTotalNbParticles-nbOutUpper)*size_particle_positions], nbOutUpper*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES,
+                AssertMpi(MPI_Isend(&(*inout_positions_particles)[(myTotalNbParticles-nbOutUpper)*size_particle_positions], nbOutUpper*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_index_particles)[(myTotalNbParticles-nbOutUpper)], nbOutUpper, MPI_INT, (my_rank+1)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
+                AssertMpi(MPI_Isend(&(*inout_index_particles)[(myTotalNbParticles-nbOutUpper)], nbOutUpper, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
 
 
                 for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][(myTotalNbParticles-nbOutUpper)*size_particle_rhs], nbOutUpper*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
+                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][(myTotalNbParticles-nbOutUpper)*size_particle_rhs], nbOutUpper*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
                               MPI_COMM_WORLD, &mpiRequests.back()));
                 }
             }
@@ -556,54 +578,54 @@ public:
                 whatNext.pop_back();
 
                 if(releasedAction.first == RECV_MOVE_NB_LOW){
-                    DEBUG_MSG("[%d] nbNewFromLow %d from %d\n", my_rank, nbNewFromLow, (my_rank-1+nb_processes)%nb_processes);
+                    DEBUG_MSG("[%d] nbNewFromLow %d from %d\n", my_rank, nbNewFromLow, (my_rank-1+nb_processes_involved)%nb_processes_involved);
 
                     if(nbNewFromLow){
                         assert(newParticlesLow == nullptr);
                         newParticlesLow.reset(new real_number[nbNewFromLow*size_particle_positions]);
                         whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_LOW, -1});
                         mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesLow[0], nbNewFromLow*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES,
+                        AssertMpi(MPI_Irecv(&newParticlesLow[0], nbNewFromLow*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         newParticlesLowIndexes.reset(new int[nbNewFromLow]);
                         whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                         mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesLowIndexes[0], nbNewFromLow, MPI_INT, (my_rank-1+nb_processes)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
+                        AssertMpi(MPI_Irecv(&newParticlesLowIndexes[0], nbNewFromLow, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
                             newParticlesLowRhs[idx_rhs].reset(new real_number[nbNewFromLow*size_particle_rhs]);
                             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                             mpiRequests.emplace_back();
-                            AssertMpi(MPI_Irecv(&newParticlesLowRhs[idx_rhs][0], nbNewFromLow*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes)%nb_processes, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
+                            AssertMpi(MPI_Irecv(&newParticlesLowRhs[idx_rhs][0], nbNewFromLow*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
                                       MPI_COMM_WORLD, &mpiRequests.back()));
                         }
                     }
                     eventsBeforeWaitall -= 1;
                 }
                 else if(releasedAction.first == RECV_MOVE_NB_UP){
-                    DEBUG_MSG("[%d] nbNewFromUp %d from %d\n", my_rank, nbNewFromUp, (my_rank+1)%nb_processes);
+                    DEBUG_MSG("[%d] nbNewFromUp %d from %d\n", my_rank, nbNewFromUp, (my_rank+1)%nb_processes_involved);
 
                     if(nbNewFromUp){
                         assert(newParticlesUp == nullptr);
                         newParticlesUp.reset(new real_number[nbNewFromUp*size_particle_positions]);
                         whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_UP, -1});
                         mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesUp[0], nbNewFromUp*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES,
+                        AssertMpi(MPI_Irecv(&newParticlesUp[0], nbNewFromUp*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         newParticlesUpIndexes.reset(new int[nbNewFromUp]);
                         whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                         mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesUpIndexes[0], nbNewFromUp, MPI_INT, (my_rank+1)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
+                        AssertMpi(MPI_Irecv(&newParticlesUpIndexes[0], nbNewFromUp, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
                                   MPI_COMM_WORLD, &mpiRequests.back()));
 
                         for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
                             newParticlesUpRhs[idx_rhs].reset(new real_number[nbNewFromUp*size_particle_rhs]);
                             whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                             mpiRequests.emplace_back();
-                            AssertMpi(MPI_Irecv(&newParticlesUpRhs[idx_rhs][0], nbNewFromUp*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
+                            AssertMpi(MPI_Irecv(&newParticlesUpRhs[idx_rhs][0], nbNewFromUp*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
                                       MPI_COMM_WORLD, &mpiRequests.back()));
                         }
                     }

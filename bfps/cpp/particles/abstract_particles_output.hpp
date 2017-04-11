@@ -82,7 +82,7 @@ public:
         {
             TIMEZONE("sort");
 
-            if(size_buffers_send < nb_particles){
+            if(size_buffers_send < nb_particles && nb_particles){
                 buffer_indexes_send.reset(new std::pair<int,int>[nb_particles]);
                 buffer_particles_positions_send.reset(new real_number[nb_particles*size_particle_positions]);
                 for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
@@ -130,7 +130,7 @@ public:
 
         const int nb_to_receive = exchanger.getTotalToRecv();
 
-        if(size_buffers_recv < nb_to_receive){
+        if(size_buffers_recv < nb_to_receive && nb_to_receive){
             buffer_particles_positions_recv.reset(new real_number[nb_to_receive*size_particle_positions]);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 buffer_particles_rhs_recv[idx_rhs].reset(new real_number[nb_to_receive*size_particle_rhs]);
