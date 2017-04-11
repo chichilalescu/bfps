@@ -33,7 +33,8 @@ public:
         assert(retTest >= 0);
 
         // Parallel HDF5 write
-        file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC | H5F_ACC_DEBUG/*H5F_ACC_EXCL*/, H5P_DEFAULT/*H5F_ACC_RDWR*/, plist_id_par);
+        file_id = H5Fopen(filename.c_str(), H5F_ACC_RDWR | H5F_ACC_DEBUG, plist_id_par);
+        // file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC | H5F_ACC_DEBUG/*H5F_ACC_EXCL*/, H5P_DEFAULT/*H5F_ACC_RDWR*/, plist_id_par);
         assert(file_id >= 0);
         H5Pclose(plist_id_par);
     }
