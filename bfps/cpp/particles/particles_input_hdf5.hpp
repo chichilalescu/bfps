@@ -131,7 +131,8 @@ public:
             int hdfret = H5Sget_simple_extent_dims(dspace, &rhs_dim_array[0], NULL);
             assert(hdfret >= 0);
             assert(rhs_dim_array.back() == size_particle_rhs);
-            nb_rhs = rhs_dim_array[0];
+            assert(rhs_dim_array.front() == 1);
+            nb_rhs = rhs_dim_array[1];
 
             hdfret = H5Sclose(dspace);
             assert(hdfret >= 0);
@@ -182,14 +183,14 @@ public:
             hid_t dset = H5Dopen(hdf5_group_id, "rhs", H5P_DEFAULT);
             assert(dset >= 0);
 
-            hid_t rspace = H5Dget_space(dset);
-            assert(rspace >= 0);
-
             for(hsize_t idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+                hid_t rspace = H5Dget_space(dset);
+                assert(rspace >= 0);
+
                 split_particles_rhs[idx_rhs].reset(new real_number[load_splitter.getMySize()*size_particle_rhs]);
 
                 hsize_t offset[4] = {0, idx_rhs, load_splitter.getMyOffset(), 0};
-                hsize_t mem_dims[4] = {1, 1, load_splitter.getMySize(), 3};
+                hsize_t mem_dims[4] = {1, 1, load_splitter.getMySize(), size_particle_rhs};
 
                 hid_t mspace = H5Screate_simple( 4, &mem_dims[0], NULL);
                 assert(mspace >= 0);

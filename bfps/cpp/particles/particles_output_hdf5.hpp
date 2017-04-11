@@ -21,8 +21,8 @@ class particles_output_hdf5 : public abstract_particles_output<real_number, size
 
 public:
     particles_output_hdf5(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
-                          const std::string in_datagroup_basename = std::string("tracers"))
-            : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles),
+                          const int in_nb_rhs, const std::string in_datagroup_basename = std::string("tracers"))
+            : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles, in_nb_rhs),
               filename(in_filename),
               file_id(0), total_nb_particles(inTotalNbParticles), datagroup_basename(in_datagroup_basename){
 
@@ -45,8 +45,8 @@ public:
         assert(rethdf >= 0);
     }
 
-    void write(const int idx_time_step, const real_number* particles_positions, const real_number* particles_rhs,
-               const int nb_particles, const int particles_idx_offset) final{
+    void write(const int idx_time_step, const real_number* particles_positions, const std::unique_ptr<real_number[]>* particles_rhs,
+                           const int nb_particles, const int particles_idx_offset) final{
         TIMEZONE("particles_output_hdf5::write");
 
         assert(particles_idx_offset < Parent::getTotalNbParticles());
@@ -99,7 +99,7 @@ public:
         }
         {
             assert(size_particle_rhs >= 0);
-            const hsize_t datacount[3] = {1, hsize_t(total_nb_particles), hsize_t(size_particle_rhs)};
+            const hsize_t datacount[3] = {hsize_t(Parent::getNbRhs()), hsize_t(total_nb_particles), hsize_t(size_particle_rhs)};
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
@@ -108,29 +108,31 @@ public:
             assert(dataset_id >= 0);
 
             assert(particles_idx_offset >= 0);
-            const hsize_t count[3] = {1, hsize_t(nb_particles), hsize_t(size_particle_rhs)};
-            const hsize_t offset[3] = {0, hsize_t(particles_idx_offset), 0};
-            hid_t memspace = H5Screate_simple(3, count, NULL);
-            assert(memspace >= 0);
+            for(int idx_rhs = 0 ; idx_rhs < Parent::getNbRhs() ; ++idx_rhs){
+                const hsize_t count[3] = {1, hsize_t(nb_particles), hsize_t(size_particle_rhs)};
+                const hsize_t offset[3] = {hsize_t(idx_rhs), hsize_t(particles_idx_offset), 0};
+                hid_t memspace = H5Screate_simple(3, count, NULL);
+                assert(memspace >= 0);
 
-            hid_t filespace = H5Dget_space(dataset_id);
-            assert(filespace >= 0);
-            int rethdf = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-            assert(rethdf >= 0);
+                hid_t filespace = H5Dget_space(dataset_id);
+                assert(filespace >= 0);
+                int rethdf = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+                assert(rethdf >= 0);
 
-            hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-            assert(plist_id >= 0);
-            rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-            assert(rethdf >= 0);
+                hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+                assert(plist_id >= 0);
+                rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+                assert(rethdf >= 0);
 
-            herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
-                      plist_id, particles_rhs);
-            assert(status >= 0);
-            rethdf = H5Sclose(memspace);
-            assert(rethdf >= 0);
-            rethdf = H5Dclose(dataset_id);
-            assert(rethdf >= 0);
-            rethdf = H5Sclose(filespace);
+                herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
+                          plist_id, particles_rhs[idx_rhs].get());
+                assert(status >= 0);
+                rethdf = H5Sclose(filespace);
+                assert(rethdf >= 0);
+                rethdf = H5Sclose(memspace);
+                assert(rethdf >= 0);
+            }
+            int rethdf = H5Dclose(dataset_id);
             assert(rethdf >= 0);
         }
         int rethdf = H5Gclose(dset_id);

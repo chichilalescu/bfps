@@ -167,8 +167,8 @@ public:
         return my_particles_positions.get();
     }
 
-    const real_number* getParticlesCurrentRhs() const final {
-        return my_particles_rhs.front().get();
+    const std::unique_ptr<real_number[]>* getParticlesRhs() const final {
+        return my_particles_rhs.data();
     }
 
     const int* getParticlesIndexes() const final {
@@ -177,6 +177,10 @@ public:
 
     int getLocalNbParticles() const final {
         return my_nb_particles;
+    }
+
+    int getNbRhs() const final {
+        return int(my_particles_rhs.size());
     }
 
     void checkNan() const { // TODO remove

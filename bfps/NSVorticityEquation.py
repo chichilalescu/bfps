@@ -145,7 +145,7 @@ class NSVorticityEquation(_fluid_particle_base):
                     tracers0_neighbours,        // parameter (interpolation no neighbours)
                     tracers0_smoothness,        // parameter
                     MPI_COMM_WORLD);
-            particles_output_hdf5<double,3,3> particles_output_writer_mpi(MPI_COMM_WORLD, fname, nparticles);
+            particles_output_hdf5<double,3,3> particles_output_writer_mpi(MPI_COMM_WORLD, fname, nparticles, tracers0_integration_steps);
                     """
         self.particle_loop += """
                 fs->compute_velocity(fs->cvorticity);
@@ -154,7 +154,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 """
         output_particles = """
                 particles_output_writer_mpi.save(ps->getParticlesPositions(),
-                                                 ps->getParticlesCurrentRhs(),
+                                                 ps->getParticlesRhs(),
                                                  ps->getParticlesIndexes(),
                                                  ps->getLocalNbParticles(),
                                                  iteration);

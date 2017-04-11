@@ -31,7 +31,7 @@ public:
         AssertMpi(MPI_Comm_rank(mpi_com, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_com, &nb_processes));
 
-        assert(nb_items_to_send.size() == nb_processes);
+        assert(int(nb_items_to_send.size()) == nb_processes);
 
         offset_items_to_send.resize(nb_processes+1, 0);
         for(int idx_proc = 0 ; idx_proc < nb_processes ; ++idx_proc){

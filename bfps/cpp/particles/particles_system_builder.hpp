@@ -205,6 +205,8 @@ struct particles_system_build_container {
         // Load the particles and move them to the particles system
         part_sys->init(generator);
 
+        assert(part_sys->getNbRhs() == nsteps);
+
         // Return the created particles system
         return std::unique_ptr<abstract_particles_system<particles_rnumber>>(part_sys);
     }

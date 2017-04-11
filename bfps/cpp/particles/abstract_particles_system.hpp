@@ -1,6 +1,8 @@
 #ifndef ABSTRACT_PARTICLES_SYSTEM_HPP
 #define ABSTRACT_PARTICLES_SYSTEM_HPP
 
+#include <memory>
+
 template <class real_number>
 class abstract_particles_system {
 public:
@@ -18,11 +20,13 @@ public:
 
     virtual const real_number* getParticlesPositions() const = 0;
 
-    virtual const real_number* getParticlesCurrentRhs() const = 0;
+    virtual const std::unique_ptr<real_number[]>* getParticlesRhs() const = 0;
 
     virtual const int* getParticlesIndexes() const = 0;
 
     virtual int getLocalNbParticles() const = 0;
+
+    virtual int getNbRhs() const = 0;
 };
 
 #endif
