@@ -95,7 +95,7 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
     partitions_offset[nb_partitions] = size;
 
     if(nb_partitions == 1){
-        partitions_size[0] = 0;
+        partitions_size[0] = size;
         return;
     }
 
