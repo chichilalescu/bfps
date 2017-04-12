@@ -30,6 +30,7 @@ class abstract_particles_output {
 
     std::unique_ptr<real_number[]> buffer_particles_positions_recv;
     std::vector<std::unique_ptr<real_number[]>> buffer_particles_rhs_recv;
+    std::unique_ptr<int[]> buffer_indexes_recv;
     int size_buffers_recv;
 
 
@@ -64,6 +65,7 @@ public:
         buffer_indexes_send.release();
         buffer_particles_positions_send.release();
         size_buffers_send = -1;
+        buffer_indexes_recv.release();
         buffer_particles_positions_recv.release();
         size_buffers_recv = -1;
         for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
@@ -80,7 +82,7 @@ public:
         DEBUG_MSG("[%d] nb_particles %d to distribute for saving \n", my_rank, nb_particles);
 
         {
-            TIMEZONE("sort");
+            TIMEZONE("sort-to-distribute");
 
             if(size_buffers_send < nb_particles && nb_particles){
                 buffer_indexes_send.reset(new std::pair<int,int>[nb_particles]);
@@ -120,17 +122,21 @@ public:
         const particles_utils::IntervalSplitter<int> particles_splitter(total_nb_particles, nb_processes, my_rank);
         DEBUG_MSG("[%d] nb_particles_per_proc %d for saving\n", my_rank, particles_splitter.getMySize());
 
+        int* buffer_indexes_send_tmp = reinterpret_cast<int*>(buffer_indexes_send.get());// trick re-use buffer_indexes_send memory
         std::vector<int> nb_particles_to_send(nb_processes, 0);
         for(int idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
             nb_particles_to_send[particles_splitter.getOwner(buffer_indexes_send[idx_part].second)] += 1;
+            buffer_indexes_send_tmp[idx_part] = buffer_indexes_send[idx_part].second;
         }
 
         alltoall_exchanger exchanger(mpi_com, std::move(nb_particles_to_send));
         // nb_particles_to_send is invalid after here
 
         const int nb_to_receive = exchanger.getTotalToRecv();
+        assert(nb_to_receive == particles_splitter.getMySize());
 
         if(size_buffers_recv < nb_to_receive && nb_to_receive){
+            buffer_indexes_recv.reset(new int[nb_to_receive]);
             buffer_particles_positions_recv.reset(new real_number[nb_to_receive*size_particle_positions]);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 buffer_particles_rhs_recv[idx_rhs].reset(new real_number[nb_to_receive*size_particle_rhs]);
@@ -138,13 +144,47 @@ public:
             size_buffers_recv = nb_to_receive;
         }
 
-        // Could be done with multiple asynchronous coms
-        exchanger.alltoallv(buffer_particles_positions_send.get(), buffer_particles_positions_recv.get(), size_particle_positions);
-        for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
-            exchanger.alltoallv(buffer_particles_rhs_send[idx_rhs].get(), buffer_particles_rhs_recv[idx_rhs].get(), size_particle_rhs);
+        {
+            TIMEZONE("exchange");
+            // Could be done with multiple asynchronous coms
+            exchanger.alltoallv<int>(buffer_indexes_send_tmp, buffer_indexes_recv.get());
+            exchanger.alltoallv<real_number>(buffer_particles_positions_send.get(), buffer_particles_positions_recv.get(), size_particle_positions);
+            for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+                exchanger.alltoallv<real_number>(buffer_particles_rhs_send[idx_rhs].get(), buffer_particles_rhs_recv[idx_rhs].get(), size_particle_rhs);
+            }
         }
 
-        write(idx_time_step, buffer_particles_positions_recv.get(), buffer_particles_rhs_recv.data(),
+        if(size_buffers_send < nb_to_receive && nb_to_receive){
+            buffer_indexes_send.reset(new std::pair<int,int>[nb_to_receive]);
+            buffer_particles_positions_send.reset(new real_number[nb_to_receive*size_particle_positions]);
+            for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+                buffer_particles_rhs_send[idx_rhs].reset(new real_number[nb_to_receive*size_particle_rhs]);
+            }
+            size_buffers_send = nb_to_receive;
+        }
+
+        {
+            TIMEZONE("copy-local-order");
+            for(int idx_part = 0 ; idx_part < nb_to_receive ; ++idx_part){
+                const int src_idx = idx_part;
+                const int dst_idx = buffer_indexes_recv[idx_part]-particles_splitter.getMyOffset();
+                assert(0 <= dst_idx);
+                assert(dst_idx < particles_splitter.getMySize());
+
+                for(int idx_val = 0 ; idx_val < size_particle_positions ; ++idx_val){
+                    buffer_particles_positions_send[dst_idx*size_particle_positions + idx_val]
+                            = buffer_particles_positions_recv[src_idx*size_particle_positions + idx_val];
+                }
+                for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+                    for(int idx_val = 0 ; idx_val < int(size_particle_rhs) ; ++idx_val){
+                        buffer_particles_rhs_send[idx_rhs][dst_idx*size_particle_rhs + idx_val]
+                                = buffer_particles_rhs_recv[idx_rhs][src_idx*size_particle_rhs + idx_val];
+                    }
+                }
+            }
+        }
+
+        write(idx_time_step, buffer_particles_positions_send.get(), buffer_particles_rhs_send.data(),
               nb_to_receive, particles_splitter.getMyOffset());
     }
 

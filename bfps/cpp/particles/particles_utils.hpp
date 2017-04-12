@@ -47,7 +47,7 @@ inline int partition(real_number* array, const int size, Predicate pdc)
     for(int idx = idxInsert ; idx < size ; ++idx){
         if(pdc(&array[idx*nb_values])){
             for(int idxVal = 0 ; idxVal < nb_values ; ++idxVal){
-                std::iter_swap(array[idx*nb_values + idxVal], array[idxInsert*nb_values + idxVal]);
+                std::swap(array[idx*nb_values + idxVal], array[idxInsert*nb_values + idxVal]);
             }
             idxInsert += 1;
         }
@@ -188,8 +188,7 @@ public:
         else{
             step_split = double(nb_items)/double(nb_intervals);
             offset_mine = NumType(step_split*double(my_idx));
-            size_mine = NumType(step_split*double(my_idx+1))-offset_mine;
-            assert(my_idx != nb_intervals-1 || (offset_mine+size_mine) == nb_items);
+            size_mine = (my_idx != nb_intervals-1 ? NumType(step_split*double(my_idx+1)) : nb_items) -offset_mine;
         }
     }
 
@@ -210,8 +209,13 @@ public:
     }
 
     NumType getOwner(const NumType in_item_idx) const {
-        const NumType owner = NumType(double(in_item_idx)/step_split);
+        NumType owner = NumType(double(in_item_idx)/step_split);
+        if(owner != nb_intervals-1 && NumType(step_split*double(owner+1)) <= in_item_idx){
+            owner += 1;
+        }
         assert(owner < nb_intervals);
+        assert(IntervalSplitter(nb_items, nb_intervals, owner).getMyOffset() <= in_item_idx);
+        assert(in_item_idx < IntervalSplitter(nb_items, nb_intervals, owner).getMySize()+IntervalSplitter(nb_items, nb_intervals, owner).getMyOffset());
         return owner;
     }
 };

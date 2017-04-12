@@ -467,7 +467,7 @@ public:
 
         const int offesetOutLow = (current_partition_size==1? nbOutLower : 0);
 
-        const int nbOutUpper = current_my_nb_particles_per_partition[current_partition_size-1] - offesetOutLow - (particles_utils::partition_extra<size_particle_positions>(
+        const int nbOutUpper = current_my_nb_particles_per_partition[current_partition_size-1] - offesetOutLow - particles_utils::partition_extra<size_particle_positions>(
                     &(*inout_positions_particles)[(current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow)*size_particle_positions],
                     myTotalNbParticles - (current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow),
                     [&](const real_number val[]){
@@ -485,7 +485,7 @@ public:
                               inout_rhs_particles[idx_rhs][idx2*size_particle_rhs + idx_val]);
                 }
             }
-        }));
+        }, (current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow));
         DEBUG_MSG("[%d] nbOutUpper %d\n", my_rank, nbOutUpper);
 
         // Exchange number

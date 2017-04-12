@@ -27,6 +27,7 @@ class alltoall_exchanger {
 public:
     alltoall_exchanger(const MPI_Comm& in_mpi_com, std::vector<int>/*no ref to move here*/ in_nb_items_to_send)
         :mpi_com(in_mpi_com), nb_items_to_send(std::move(in_nb_items_to_send)), total_to_recv(0){
+        TIMEZONE("alltoall_exchanger::constructor");
 
         AssertMpi(MPI_Comm_rank(mpi_com, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_com, &nb_processes));

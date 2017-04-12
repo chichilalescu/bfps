@@ -237,7 +237,7 @@ public:
                                       split_particles_rhs[idx_rhs][idx2*size_particle_rhs + idx_val]);
                         }
                     }
-                });
+                }, previousOffset);
 
                 nb_particles_per_proc[idx_proc] = localOffset;
                 previousOffset += localOffset;
