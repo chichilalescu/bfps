@@ -139,9 +139,9 @@ public:
         }
 
         // Could be done with multiple asynchronous coms
-        exchanger.alltoallv(buffer_particles_positions_send.get(), buffer_particles_positions_recv.get());
+        exchanger.alltoallv(buffer_particles_positions_send.get(), buffer_particles_positions_recv.get(), size_particle_positions);
         for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
-            exchanger.alltoallv(buffer_particles_rhs_send[idx_rhs].get(), buffer_particles_rhs_recv[idx_rhs].get());
+            exchanger.alltoallv(buffer_particles_rhs_send[idx_rhs].get(), buffer_particles_rhs_recv[idx_rhs].get(), size_particle_rhs);
         }
 
         write(idx_time_step, buffer_particles_positions_recv.get(), buffer_particles_rhs_recv.data(),
