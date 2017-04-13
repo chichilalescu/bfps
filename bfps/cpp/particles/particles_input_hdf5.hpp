@@ -70,8 +70,6 @@ public:
           nb_particles_for_me(-1){
         TIMEZONE("particles_input_hdf5");
 
-        DEBUG_MSG("particles_input_hdf5 : Open %s\n", inFilename.c_str());
-
         AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_comm, &nb_processes));
         assert(int(in_spatial_limit_per_proc.size()) == nb_processes+1);
@@ -141,10 +139,6 @@ public:
         }
 
         particles_utils::IntervalSplitter<hsize_t> load_splitter(nb_total_particles, nb_processes, my_rank);
-
-        DEBUG_MSG("nb_total_particles %lu\n", nb_total_particles);
-        DEBUG_MSG("load_splitter.getMyOffset() %lu\n", load_splitter.getMyOffset());
-        DEBUG_MSG("load_splitter.getMySize() %lu\n", load_splitter.getMySize());
 
         static_assert(std::is_same<real_number, double>::value
                       || std::is_same<real_number, float>::value, "real_number must be double or float");
@@ -249,7 +243,6 @@ public:
             TIMEZONE("exchanger");
             alltoall_exchanger exchanger(mpi_comm, std::move(nb_particles_per_proc));
             // nb_particles_per_processes cannot be used after due to move
-            DEBUG_MSG("exchanger.getTotalToRecv() %lu\n", exchanger.getTotalToRecv());
             nb_particles_for_me = exchanger.getTotalToRecv();
 
             my_particles_positions.reset(new real_number[exchanger.getTotalToRecv()*size_particle_positions]);

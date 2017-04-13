@@ -78,8 +78,6 @@ public:
               const int index_particles[], const int nb_particles, const int idx_time_step){
         TIMEZONE("abstract_particles_output::save");
         assert(total_nb_particles != -1);
-        DEBUG_MSG("[%d] total_nb_particles %d \n", my_rank, total_nb_particles);
-        DEBUG_MSG("[%d] nb_particles %d to distribute for saving \n", my_rank, nb_particles);
 
         {
             TIMEZONE("sort-to-distribute");
@@ -120,7 +118,6 @@ public:
         }
 
         const particles_utils::IntervalSplitter<int> particles_splitter(total_nb_particles, nb_processes, my_rank);
-        DEBUG_MSG("[%d] nb_particles_per_proc %d for saving\n", my_rank, particles_splitter.getMySize());
 
         int* buffer_indexes_send_tmp = reinterpret_cast<int*>(buffer_indexes_send.get());// trick re-use buffer_indexes_send memory
         std::vector<int> nb_particles_to_send(nb_processes, 0);
