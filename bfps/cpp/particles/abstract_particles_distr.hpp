@@ -262,7 +262,7 @@ public:
                 if(descriptor.nbParticlesToSend){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(const_cast<real_number*>(&particles_positions[current_offset_particles_for_partition[current_partition_size-descriptor.nbPartitionsToSend]]), descriptor.nbParticlesToSend*size_particle_positions, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_UP_LOW_PARTICLES,
+                    AssertMpi(MPI_Isend(const_cast<real_number*>(&particles_positions[(current_offset_particles_for_partition[current_partition_size-descriptor.nbPartitionsToSend])*size_particle_positions]), descriptor.nbParticlesToSend*size_particle_positions, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_UP_LOW_PARTICLES,
                               current_com, &mpiRequests.back()));
 
                     assert(descriptor.toRecvAndMerge == nullptr);
@@ -385,8 +385,8 @@ public:
                     DEBUG_MSG("[%d] up buffer received\n", my_rank);
                     TIMEZONE("reduce");
                     assert(descriptor.toRecvAndMerge != nullptr);
-                    reduce_particles(&particles_positions[current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend],
-                                     &particles_current_rhs[current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend],
+                    reduce_particles(&particles_positions[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_positions],
+                                     &particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
                                      descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
                     descriptor.toRecvAndMerge.release();
                 }

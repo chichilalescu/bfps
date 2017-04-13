@@ -70,6 +70,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
             const int interp_limit_x = partGridIdx_x+interp_neighbours+1;
             const int interp_limit_my = partGridIdx_y-interp_neighbours;
             const int interp_limit_y = partGridIdx_y+interp_neighbours+1;
+            const int interp_limit_mz_bz = partGridIdx_z-interp_neighbours;
 
             int interp_limit_mz[2];
             int interp_limit_z[2];
@@ -104,7 +105,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 for(int idx_z = interp_limit_mz[idx_inter] ; idx_z <= interp_limit_z[idx_inter] ; ++idx_z ){
                     const int idx_z_pbc = (idx_z + field_grid_dim[IDX_Z])%field_grid_dim[IDX_Z];
                     assert(current_partition_interval.first <= idx_z_pbc && idx_z_pbc < current_partition_interval.second);
-                    assert(idx_z-interp_limit_mz[idx_inter] < interp_neighbours*2+2);
+                    assert(((idx_z+field_grid_dim[IDX_Z]-interp_limit_mz_bz)%field_grid_dim[IDX_Z]) < interp_neighbours*2+2);
 
                     for(int idx_x = interp_limit_mx ; idx_x <= interp_limit_x ; ++idx_x ){
                         const int idx_x_pbc = (idx_x + field_grid_dim[IDX_X])%field_grid_dim[IDX_X];
@@ -114,9 +115,9 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                             const int idx_y_pbc = (idx_y + field_grid_dim[IDX_Y])%field_grid_dim[IDX_Y];
                             assert(idx_y-interp_limit_my < interp_neighbours*2+2);
 
-                            const real_number coef = (bz[idx_z-interp_limit_mz[idx_inter]]
-                                    * by[idx_y-interp_limit_my]
-                                    * bx[idx_x-interp_limit_mx]);
+                            const real_number coef = (bz[((idx_z+field_grid_dim[IDX_Z]-interp_limit_mz_bz)%field_grid_dim[IDX_Z])]
+                                                    * by[idx_y-interp_limit_my]
+                                                    * bx[idx_x-interp_limit_mx]);
 
                             const ptrdiff_t tindex = field.getIndexFromGlobalPosition(idx_x_pbc, idx_y_pbc, idx_z_pbc);
 
