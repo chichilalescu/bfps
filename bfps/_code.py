@@ -118,8 +118,15 @@ class _code(_base):
                     sprintf(fname, "%s.h5", simname);
                     parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
                     Cdset = H5Dopen(parameter_file, "iteration", H5P_DEFAULT);
-                    H5Dread(Cdset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &iteration);
-                    DEBUG_MSG("simname is %s and iteration is %d\\n", simname, iteration);
+                    H5Dread(
+                        Cdset,
+                        H5T_NATIVE_INT,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        &iteration);
+                    DEBUG_MSG("simname is %s and iteration is %d\\n",
+                              simname, iteration);
                     H5Dclose(Cdset);
                     H5Fclose(parameter_file);
                     read_parameters();

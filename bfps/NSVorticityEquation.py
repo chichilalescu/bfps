@@ -217,6 +217,42 @@ class NSVorticityEquation(_fluid_particle_base):
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
+        self.variables += 'int checkpoint;\n'
+        self.read_checkpoint = """
+                //begincpp
+                if (myrank == 0)
+                {
+                    hid_t dset = H5Dopen(stat_file, "checkpoint", H5P_DEFAULT);
+                    H5Dread(
+                        dset,
+                        H5T_NATIVE_INT,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        &checkpoint);
+                    H5Dclose(dset);
+                }
+                MPI_Bcast(&checkpoint, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                fs->checkpoint = checkpoint;
+                //endcpp
+        """
+        self.store_checkpoint = """
+                //begincpp
+                checkpoint = fs->checkpoint;
+                if (myrank == 0)
+                {
+                    hid_t dset = H5Dopen(stat_file, "checkpoint", H5P_DEFAULT);
+                    H5Dwrite(
+                        dset,
+                        H5T_NATIVE_INT,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        &checkpoint);
+                    H5Dclose(dset);
+                }
+                //endcpp
+        """
         self.fluid_start += """
                 //begincpp
                 char fname[512];
@@ -233,6 +269,7 @@ class NSVorticityEquation(_fluid_particle_base):
                         nx, ny, nz,
                         MPI_COMM_WORLD,
                         {1});
+                fs->checkpoints_per_file = checkpoints_per_file;
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -240,16 +277,25 @@ class NSVorticityEquation(_fluid_particle_base):
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
+                {2}
                 fs->cvorticity->real_space_representation = false;
                 fs->io_checkpoint();
                 //endcpp
-                """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
+                """.format(
+                        self.C_dtype,
+                        self.fftw_plan_rigor,
+                        self.read_checkpoint)
         self.fluid_start += self.store_kspace
         self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
-                            self.fluid_output + '\n}\n')
+                            self.fluid_output +
+                            self.store_checkpoint +
+                            '\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
-                          self.fluid_output + '\n}\n' +
+                          self.fluid_output +
+                          self.store_checkpoint +
+                          'DEBUG_MSG("checkpoint value is %d\\n", checkpoint);\n' +
+                          '\n}\n' +
                           'delete fs;\n' +
                           'delete tmp_vec_field;\n' +
                           'delete tmp_scal_field;\n')
@@ -470,6 +516,7 @@ class NSVorticityEquation(_fluid_particle_base):
                                                  self.parameters['histogram_bins'],
                                                  4),
                                      dtype = np.int64)
+            ofile['checkpoint'] = int(0)
         return None
     def specific_parser_arguments(
             self,
@@ -580,7 +627,6 @@ class NSVorticityEquation(_fluid_particle_base):
                            spectra_slope = 2.0,
                            amplitude = 0.05)
                     f['vorticity/complex/{0}'.format(0)] = data
-                f['fields_stored'] = int(1)
                 f.close()
         self.run(
                 nb_processes = opt.nb_processes,

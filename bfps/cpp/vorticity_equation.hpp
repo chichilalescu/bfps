@@ -103,68 +103,10 @@ class vorticity_equation
                     std::to_string(this->checkpoint) +
                     std::string(".h5"));
         }
-        inline void update_checkpoint()
-        {
-            std::string fname = this->get_current_fname();
-            bool file_exists = false;
-            {
-                struct stat file_buffer;
-                file_exists = (stat(fname.c_str(), &file_buffer) == 0);
-            }
-            if (file_exists)
-            {
-                // check how many fields there are in the checkpoint file
-                // increment checkpoint if needed
-                int fields_stored;
-                hid_t fid, dset_id;
-                fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
-                dset_id = H5Dopen(fid, "fields_stored", H5P_DEFAULT);
-                H5Dread(dset_id,
-                        H5T_NATIVE_INT,
-                        H5S_ALL, H5S_ALL,
-                        H5P_DEFAULT,
-                        &fields_stored);
-                H5Dclose(dset_id);
-                H5Fclose(fid);
-                if (fields_stored >= this->checkpoints_per_file)
-                    this->checkpoint++;
-                else
-                {
-                    // update fields_stored dset
-                    fields_stored++;
-                    if (this->cvelocity->myrank == 0)
-                    {
-                        fid = H5Fopen(fname.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
-                        dset_id = H5Dopen(fid, "fields_stored", H5P_DEFAULT);
-                        H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fields_stored);
-                        H5Dclose(dset_id);
-                        H5Fclose(fid);
-                    }
-                }
-            }
-            else if (this->cvelocity->myrank == 0)
-            {
-                // create file, create fields_stored dset
-                hid_t fid = H5Fcreate(fname.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT);
-                hsize_t one[] = {1};
-                hid_t fspace = H5Screate_simple(
-                        1,
-                        one,
-                        NULL);
-                hid_t dset = H5Dcreate(
-                        fid,
-                        "fields_stored",
-                        H5T_NATIVE_INT,
-                        fspace,
-                        H5P_DEFAULT,
-                        H5P_DEFAULT,
-                        H5P_DEFAULT);
-                H5Dclose(dset);
-                H5Fclose(fid);
-            }
-        }
+        void update_checkpoint(void);
         inline void io_checkpoint(bool read = true)
         {
+            assert(!this->cvorticity->real_space_representation);
             if (!read)
                 this->update_checkpoint();
             std::string fname = this->get_current_fname();
