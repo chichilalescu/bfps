@@ -55,5 +55,5 @@ if __name__ == '__main__':
     c.write_src()
     c.write_par()
     c.set_host_info(bfps.host_info)
-    c.run(ncpu = opt.ncpu)
+    c.run(opt.ncpu, 1)
 
