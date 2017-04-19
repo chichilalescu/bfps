@@ -8,6 +8,7 @@
 #include <cassert>
 
 #include <type_traits>
+#include <omp.h>
 
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
@@ -271,115 +272,189 @@ public:
             }
         }
 
-        while(mpiRequests.size()){
-            assert(mpiRequests.size() == whatNext.size());
+        const bool more_than_one_thread = (omp_get_max_threads() > 1);
 
-            int idxDone = mpiRequests.size();
+        TIMEZONE_OMP_INIT_PREPARALLEL(omp_get_max_threads())
+        #pragma omp parallel default(shared)
+        {
+            #pragma omp master
             {
-                TIMEZONE("wait");
-                AssertMpi(MPI_Waitany(mpiRequests.size(), mpiRequests.data(), &idxDone, MPI_STATUSES_IGNORE));
-            }
-            const std::pair<Action, int> releasedAction = whatNext[idxDone];
-            std::swap(mpiRequests[idxDone], mpiRequests[mpiRequests.size()-1]);
-            std::swap(whatNext[idxDone], whatNext[mpiRequests.size()-1]);
-            mpiRequests.pop_back();
-            whatNext.pop_back();
+                while(mpiRequests.size()){
+                    assert(mpiRequests.size() == whatNext.size());
 
-            //////////////////////////////////////////////////////////////////////
-            /// Data to exchange particles
-            //////////////////////////////////////////////////////////////////////
-            if(releasedAction.first == RECV_PARTICLES){
-                NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
+                    int idxDone = mpiRequests.size();
+                    {
+                        TIMEZONE("wait");
+                        AssertMpi(MPI_Waitany(mpiRequests.size(), mpiRequests.data(), &idxDone, MPI_STATUSES_IGNORE));
+                    }
+                    const std::pair<Action, int> releasedAction = whatNext[idxDone];
+                    std::swap(mpiRequests[idxDone], mpiRequests[mpiRequests.size()-1]);
+                    std::swap(whatNext[idxDone], whatNext[mpiRequests.size()-1]);
+                    mpiRequests.pop_back();
+                    whatNext.pop_back();
 
-                if(descriptor.isLower){
-                    //const int idxLower = descriptor.idxLowerUpper;
-                    const int destProc = descriptor.destProc;
-                    //const int nbPartitionsToRecv = descriptor.nbPartitionsToRecv;
-                    const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
-                    assert(NbParticlesToReceive != -1);
-                    assert(descriptor.toCompute == nullptr);
-                    if(NbParticlesToReceive){
-                        descriptor.toCompute.reset(new real_number[NbParticlesToReceive*size_particle_positions]);
-                        whatNext.emplace_back(std::pair<Action,int>{COMPUTE_PARTICLES, releasedAction.second});
+                    //////////////////////////////////////////////////////////////////////
+                    /// Data to exchange particles
+                    //////////////////////////////////////////////////////////////////////
+                    if(releasedAction.first == RECV_PARTICLES){
+                        NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
+
+                        if(descriptor.isLower){
+                            //const int idxLower = descriptor.idxLowerUpper;
+                            const int destProc = descriptor.destProc;
+                            //const int nbPartitionsToRecv = descriptor.nbPartitionsToRecv;
+                            const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
+                            assert(NbParticlesToReceive != -1);
+                            assert(descriptor.toCompute == nullptr);
+                            if(NbParticlesToReceive){
+                                descriptor.toCompute.reset(new real_number[NbParticlesToReceive*size_particle_positions]);
+                                whatNext.emplace_back(std::pair<Action,int>{COMPUTE_PARTICLES, releasedAction.second});
+                                mpiRequests.emplace_back();
+                                AssertMpi(MPI_Irecv(descriptor.toCompute.get(), NbParticlesToReceive*size_particle_positions, particles_utils::GetMpiType(real_number()), destProc, TAG_UP_LOW_PARTICLES,
+                                          current_com, &mpiRequests.back()));
+                            }
+                        }
+                        else{
+                            //const int idxUpper = descriptor.idxLowerUpper;
+                            const int destProc = descriptor.destProc;
+                            //const int nbPartitionsToRecv = descriptor.nbPartitionsToRecv;
+                            const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
+                            assert(NbParticlesToReceive != -1);
+                            assert(descriptor.toCompute == nullptr);
+                            if(NbParticlesToReceive){
+                                descriptor.toCompute.reset(new real_number[NbParticlesToReceive*size_particle_positions]);
+                                whatNext.emplace_back(std::pair<Action,int>{COMPUTE_PARTICLES, releasedAction.second});
+                                mpiRequests.emplace_back();
+                                AssertMpi(MPI_Irecv(descriptor.toCompute.get(), NbParticlesToReceive*size_particle_positions, particles_utils::GetMpiType(real_number()), destProc, TAG_LOW_UP_PARTICLES,
+                                          current_com, &mpiRequests.back()));
+                            }
+                        }
+                    }
+
+                    //////////////////////////////////////////////////////////////////////
+                    /// Computation
+                    //////////////////////////////////////////////////////////////////////
+                    if(releasedAction.first == COMPUTE_PARTICLES){
+                        NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
+                        const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
+
+                        assert(descriptor.toCompute != nullptr);
+                        descriptor.results.reset(new real_number[NbParticlesToReceive*size_particle_rhs]);
+                        init_result_array(descriptor.results.get(), NbParticlesToReceive);
+
+                        if(more_than_one_thread == false){
+                            apply_computation(descriptor.toCompute.get(), descriptor.results.get(), NbParticlesToReceive);
+                        }
+                        else{
+                            TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
+                            NeighborDescriptor* ptr_descriptor = &descriptor;
+                            #pragma omp taskgroup
+                            {
+                                for(int idxPart = 0 ; idxPart < NbParticlesToReceive ; idxPart += 300){
+                                    const int sizeToDo = std::min(300, NbParticlesToReceive-idxPart);
+                                    #pragma omp task default(shared) firstprivate(ptr_descriptor, idxPart, sizeToDo) priority(10) \
+                                             TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
+                                    {
+                                        TIMEZONE_OMP_TASK("apply_computation", timeZoneTaskKey);
+                                        apply_computation(&ptr_descriptor->toCompute[idxPart*size_particle_positions],
+                                                &ptr_descriptor->results[idxPart*size_particle_rhs], sizeToDo);
+                                    }
+                                }
+                            }
+                        }
+
+                        const int destProc = descriptor.destProc;
+                        whatNext.emplace_back(std::pair<Action,int>{RELEASE_BUFFER_PARTICLES, releasedAction.second});
                         mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(descriptor.toCompute.get(), NbParticlesToReceive*size_particle_positions, particles_utils::GetMpiType(real_number()), destProc, TAG_UP_LOW_PARTICLES,
+                        const int tag = descriptor.isLower? TAG_LOW_UP_RESULTS : TAG_UP_LOW_RESULTS;
+                        AssertMpi(MPI_Isend(descriptor.results.get(), NbParticlesToReceive*size_particle_rhs, particles_utils::GetMpiType(real_number()), destProc, tag,
                                   current_com, &mpiRequests.back()));
                     }
+                    //////////////////////////////////////////////////////////////////////
+                    /// Computation
+                    //////////////////////////////////////////////////////////////////////
+                    if(releasedAction.first == RELEASE_BUFFER_PARTICLES){
+                        NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
+                        assert(descriptor.toCompute != nullptr);
+                        descriptor.toCompute.release();
+                    }
+                    //////////////////////////////////////////////////////////////////////
+                    /// Merge
+                    //////////////////////////////////////////////////////////////////////
+                    if(releasedAction.first == MERGE_PARTICLES){
+                        NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
+
+                        // We can merge safely on first and last partitions since no one is working on it
+                        if(descriptor.isLower){
+                            TIMEZONE("reduce");
+                            assert(descriptor.toRecvAndMerge != nullptr);
+                            reduce_particles_rhs(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                            descriptor.toRecvAndMerge.release();
+                        }
+                        else {
+                            TIMEZONE("reduce");
+                            assert(descriptor.toRecvAndMerge != nullptr);
+                            reduce_particles_rhs(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
+                                             descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                            descriptor.toRecvAndMerge.release();
+                        }
+                    }
                 }
-                else{
-                    //const int idxUpper = descriptor.idxLowerUpper;
-                    const int destProc = descriptor.destProc;
-                    //const int nbPartitionsToRecv = descriptor.nbPartitionsToRecv;
-                    const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
-                    assert(NbParticlesToReceive != -1);
-                    assert(descriptor.toCompute == nullptr);
-                    if(NbParticlesToReceive){
-                        descriptor.toCompute.reset(new real_number[NbParticlesToReceive*size_particle_positions]);
-                        whatNext.emplace_back(std::pair<Action,int>{COMPUTE_PARTICLES, releasedAction.second});
-                        mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(descriptor.toCompute.get(), NbParticlesToReceive*size_particle_positions, particles_utils::GetMpiType(real_number()), destProc, TAG_LOW_UP_PARTICLES,
-                                  current_com, &mpiRequests.back()));
+
+                if(more_than_one_thread){
+                    TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
+                    #pragma omp taskgroup
+                    {
+                        // Do for first and last partition (or the single partition if current_partition_size is one)
+                        for(int idxPartition = 0 ; idxPartition < current_partition_size ; idxPartition = std::max(idxPartition+1,current_partition_size-1)){
+                            for(int idxPart = current_offset_particles_for_partition[idxPartition] ;
+                                idxPart < current_offset_particles_for_partition[idxPartition+1] ; idxPart += 300){
+
+                                const int sizeToDo = std::min(300, current_offset_particles_for_partition[idxPartition+1]-idxPart);
+
+                                #pragma omp task default(shared) firstprivate(idxPart, sizeToDo) priority(0) TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
+                                {
+                                    TIMEZONE_OMP_TASK("apply_computation_border", timeZoneTaskKey);
+                                    apply_computation(&particles_positions[idxPart*size_particle_positions],
+                                                      &particles_current_rhs[idxPart*size_particle_rhs],
+                                                      sizeToDo);
+                                }
+                            }
+                        }
                     }
                 }
             }
+            if(more_than_one_thread && omp_get_thread_num() == 1){
+                TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
+                #pragma omp taskgroup
+                {
+                    // Do for all partitions except the first and last one
+                    for(int idxPartition = 1 ; idxPartition < current_partition_size-1 ; ++idxPartition){
+                        for(int idxPart = current_offset_particles_for_partition[idxPartition] ;
+                            idxPart < current_offset_particles_for_partition[idxPartition+1] ; idxPart += 300){
 
-            //////////////////////////////////////////////////////////////////////
-            /// Computation
-            //////////////////////////////////////////////////////////////////////
-            if(releasedAction.first == COMPUTE_PARTICLES){
-                NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
-                const int NbParticlesToReceive = descriptor.nbParticlesToRecv;
+                            const int sizeToDo = std::min(300, current_offset_particles_for_partition[idxPartition+1]-idxPart);
 
-                assert(descriptor.toCompute != nullptr);
-                descriptor.results.reset(new real_number[NbParticlesToReceive*size_particle_rhs]);
-                init_result_array(descriptor.results.get(), NbParticlesToReceive);
-                apply_computation(descriptor.toCompute.get(), descriptor.results.get(), NbParticlesToReceive);
-
-                const int destProc = descriptor.destProc;
-                whatNext.emplace_back(std::pair<Action,int>{RELEASE_BUFFER_PARTICLES, releasedAction.second});
-                mpiRequests.emplace_back();
-                const int tag = descriptor.isLower? TAG_LOW_UP_RESULTS : TAG_UP_LOW_RESULTS;
-                AssertMpi(MPI_Isend(descriptor.results.get(), NbParticlesToReceive*size_particle_rhs, particles_utils::GetMpiType(real_number()), destProc, tag,
-                          current_com, &mpiRequests.back()));
-            }
-            //////////////////////////////////////////////////////////////////////
-            /// Computation
-            //////////////////////////////////////////////////////////////////////
-            if(releasedAction.first == RELEASE_BUFFER_PARTICLES){
-                NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
-                assert(descriptor.toCompute != nullptr);
-                descriptor.toCompute.release();
-            }
-            //////////////////////////////////////////////////////////////////////
-            /// Merge
-            //////////////////////////////////////////////////////////////////////
-            if(releasedAction.first == MERGE_PARTICLES){
-                NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
-
-                if(descriptor.isLower){
-                    TIMEZONE("reduce");
-                    assert(descriptor.toRecvAndMerge != nullptr);
-                    reduce_particles(&particles_positions[0], &particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
-                    descriptor.toRecvAndMerge.release();
-                }
-                else {
-                    TIMEZONE("reduce");
-                    assert(descriptor.toRecvAndMerge != nullptr);
-                    reduce_particles(&particles_positions[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_positions],
-                                     &particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
-                                     descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
-                    descriptor.toRecvAndMerge.release();
+                            // Low priority to help master thread when possible
+                            #pragma omp task default(shared) firstprivate(idxPart, sizeToDo) priority(0) TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
+                            {
+                                TIMEZONE_OMP_TASK("apply_computation", timeZoneTaskKey);
+                                apply_computation(&particles_positions[idxPart*size_particle_positions],
+                                                  &particles_current_rhs[idxPart*size_particle_rhs],
+                                                  sizeToDo);
+                            }
+                        }
+                    }
                 }
             }
         }
 
 
-        {
-            // TODO compute only border sections and do the reste in parallel
-            TIMEZONE("compute");
+        // Do my own computation
+        if(more_than_one_thread == false){
+            TIMEZONE("compute-my_compute");
             // Compute my particles
             if(myTotalNbParticles){
-                TIMEZONE("my_compute");
                 apply_computation(particles_positions, particles_current_rhs, myTotalNbParticles);
             }
         }
@@ -391,12 +466,11 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     virtual void init_result_array(real_number particles_current_rhs[],
-                                   const int nb_particles) = 0;
+                                   const int nb_particles) const = 0;
     virtual void apply_computation(const real_number particles_positions[],
                                    real_number particles_current_rhs[],
                                    const int nb_particles) const = 0;
-    virtual void reduce_particles(const real_number particles_positions[],
-                                  real_number particles_current_rhs[],
+    virtual void reduce_particles_rhs(real_number particles_current_rhs[],
                                   const real_number extra_particles_current_rhs[],
                                   const int nb_particles) const = 0;
 
@@ -476,153 +550,200 @@ public:
         std::vector<std::unique_ptr<real_number[]>> newParticlesLowRhs(in_nb_rhs);
         std::vector<std::unique_ptr<real_number[]>> newParticlesUpRhs(in_nb_rhs);
 
+        const bool more_than_one_thread = (omp_get_max_threads() > 1);
+
+        TIMEZONE_OMP_INIT_PREPARALLEL(omp_get_max_threads())
+        #pragma omp parallel default(shared)
         {
-            assert(whatNext.size() == 0);
-            assert(mpiRequests.size() == 0);
+            #pragma omp master
+            {
+                assert(whatNext.size() == 0);
+                assert(mpiRequests.size() == 0);
 
-            whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_LOW, -1});
-            mpiRequests.emplace_back();
-            AssertMpi(MPI_Irecv(&nbNewFromLow, 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
-                      MPI_COMM_WORLD, &mpiRequests.back()));
-            eventsBeforeWaitall += 1;
+                whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_LOW, -1});
+                mpiRequests.emplace_back();
+                AssertMpi(MPI_Irecv(&nbNewFromLow, 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
+                          MPI_COMM_WORLD, &mpiRequests.back()));
+                eventsBeforeWaitall += 1;
 
-            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-            mpiRequests.emplace_back();
-            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutLower), 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
-                      MPI_COMM_WORLD, &mpiRequests.back()));
-
-            if(nbOutLower){
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_positions_particles)[0], nbOutLower*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
-                          MPI_COMM_WORLD, &mpiRequests.back()));
-                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_index_particles)[0], nbOutLower, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
+                AssertMpi(MPI_Isend(const_cast<int*>(&nbOutLower), 1, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
 
-                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                if(nbOutLower){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][0], nbOutLower*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
+                    AssertMpi(MPI_Isend(&(*inout_positions_particles)[0], nbOutLower*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
                               MPI_COMM_WORLD, &mpiRequests.back()));
-                }
-            }
-
-            whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_UP, -1});
-            mpiRequests.emplace_back();
-            AssertMpi(MPI_Irecv(&nbNewFromUp, 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
-                      MPI_COMM_WORLD, &mpiRequests.back()));
-            eventsBeforeWaitall += 1;
-
-            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-            mpiRequests.emplace_back();
-            AssertMpi(MPI_Isend(const_cast<int*>(&nbOutUpper), 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
-                      MPI_COMM_WORLD, &mpiRequests.back()));
-
-            if(nbOutUpper){
-                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_positions_particles)[(myTotalNbParticles-nbOutUpper)*size_particle_positions], nbOutUpper*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
-                          MPI_COMM_WORLD, &mpiRequests.back()));
-                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(&(*inout_index_particles)[(myTotalNbParticles-nbOutUpper)], nbOutUpper, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
-                          MPI_COMM_WORLD, &mpiRequests.back()));
-
-
-                for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][(myTotalNbParticles-nbOutUpper)*size_particle_rhs], nbOutUpper*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
+                    AssertMpi(MPI_Isend(&(*inout_index_particles)[0], nbOutLower, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
                               MPI_COMM_WORLD, &mpiRequests.back()));
+
+                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                        whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                        mpiRequests.emplace_back();
+                        AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][0], nbOutLower*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
+                                  MPI_COMM_WORLD, &mpiRequests.back()));
+                    }
+                }
+
+                whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_NB_UP, -1});
+                mpiRequests.emplace_back();
+                AssertMpi(MPI_Irecv(&nbNewFromUp, 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_NB_PARTICLES,
+                          MPI_COMM_WORLD, &mpiRequests.back()));
+                eventsBeforeWaitall += 1;
+
+                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                mpiRequests.emplace_back();
+                AssertMpi(MPI_Isend(const_cast<int*>(&nbOutUpper), 1, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_NB_PARTICLES,
+                          MPI_COMM_WORLD, &mpiRequests.back()));
+
+                if(nbOutUpper){
+                    whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                    mpiRequests.emplace_back();
+                    AssertMpi(MPI_Isend(&(*inout_positions_particles)[(myTotalNbParticles-nbOutUpper)*size_particle_positions], nbOutUpper*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
+                              MPI_COMM_WORLD, &mpiRequests.back()));
+                    whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                    mpiRequests.emplace_back();
+                    AssertMpi(MPI_Isend(&(*inout_index_particles)[(myTotalNbParticles-nbOutUpper)], nbOutUpper, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
+                              MPI_COMM_WORLD, &mpiRequests.back()));
+
+
+                    for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                        whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                        mpiRequests.emplace_back();
+                        AssertMpi(MPI_Isend(&inout_rhs_particles[idx_rhs][(myTotalNbParticles-nbOutUpper)*size_particle_rhs], nbOutUpper*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
+                                  MPI_COMM_WORLD, &mpiRequests.back()));
+                    }
+                }
+
+                while(mpiRequests.size() && eventsBeforeWaitall){
+                    int idxDone = mpiRequests.size();
+                    {
+                        TIMEZONE("waitany_move");
+                        AssertMpi(MPI_Waitany(mpiRequests.size(), mpiRequests.data(), &idxDone, MPI_STATUSES_IGNORE));
+                    }
+                    const std::pair<Action, int> releasedAction = whatNext[idxDone];
+                    std::swap(mpiRequests[idxDone], mpiRequests[mpiRequests.size()-1]);
+                    std::swap(whatNext[idxDone], whatNext[mpiRequests.size()-1]);
+                    mpiRequests.pop_back();
+                    whatNext.pop_back();
+
+                    if(releasedAction.first == RECV_MOVE_NB_LOW){
+                        if(nbNewFromLow){
+                            assert(newParticlesLow == nullptr);
+                            newParticlesLow.reset(new real_number[nbNewFromLow*size_particle_positions]);
+                            whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_LOW, -1});
+                            mpiRequests.emplace_back();
+                            AssertMpi(MPI_Irecv(&newParticlesLow[0], nbNewFromLow*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
+                                      MPI_COMM_WORLD, &mpiRequests.back()));
+
+                            newParticlesLowIndexes.reset(new int[nbNewFromLow]);
+                            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                            mpiRequests.emplace_back();
+                            AssertMpi(MPI_Irecv(&newParticlesLowIndexes[0], nbNewFromLow, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
+                                      MPI_COMM_WORLD, &mpiRequests.back()));
+
+                            for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                                newParticlesLowRhs[idx_rhs].reset(new real_number[nbNewFromLow*size_particle_rhs]);
+                                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                                mpiRequests.emplace_back();
+                                AssertMpi(MPI_Irecv(&newParticlesLowRhs[idx_rhs][0], nbNewFromLow*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
+                                          MPI_COMM_WORLD, &mpiRequests.back()));
+                            }
+                        }
+                        eventsBeforeWaitall -= 1;
+                    }
+                    else if(releasedAction.first == RECV_MOVE_NB_UP){
+                        if(nbNewFromUp){
+                            assert(newParticlesUp == nullptr);
+                            newParticlesUp.reset(new real_number[nbNewFromUp*size_particle_positions]);
+                            whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_UP, -1});
+                            mpiRequests.emplace_back();
+                            AssertMpi(MPI_Irecv(&newParticlesUp[0], nbNewFromUp*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
+                                      MPI_COMM_WORLD, &mpiRequests.back()));
+
+                            newParticlesUpIndexes.reset(new int[nbNewFromUp]);
+                            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                            mpiRequests.emplace_back();
+                            AssertMpi(MPI_Irecv(&newParticlesUpIndexes[0], nbNewFromUp, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
+                                      MPI_COMM_WORLD, &mpiRequests.back()));
+
+                            for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                                newParticlesUpRhs[idx_rhs].reset(new real_number[nbNewFromUp*size_particle_rhs]);
+                                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                                mpiRequests.emplace_back();
+                                AssertMpi(MPI_Irecv(&newParticlesUpRhs[idx_rhs][0], nbNewFromUp*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
+                                          MPI_COMM_WORLD, &mpiRequests.back()));
+                            }
+                        }
+                        eventsBeforeWaitall -= 1;
+                    }
+                }
+
+                if(mpiRequests.size()){
+                    // TODO Proceed when received
+                    TIMEZONE("waitall-move");
+                    AssertMpi(MPI_Waitall(mpiRequests.size(), mpiRequests.data(), MPI_STATUSES_IGNORE));
+                    mpiRequests.clear();
+                    whatNext.clear();
+                }
+
+                // If we use thread, insert task to proceed received data
+                if(more_than_one_thread == true){
+                    TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
+                    #pragma omp taskgroup
+                    {
+                        if(nbNewFromLow){
+                            assert(newParticlesLow.get() != nullptr);
+                            #pragma omp task TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
+                            {
+                                TIMEZONE_OMP_TASK("task-pbc", timeZoneTaskKey);
+                                apply_pbc_z_new_particles(newParticlesLow.get(), nbNewFromLow);
+                                apply_pbc_xy(newParticlesLow.get(), nbNewFromLow);
+                            }
+                        }
+                        if(nbNewFromUp){
+                            assert(newParticlesUp.get() != nullptr);
+                            #pragma omp task TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
+                            {
+                               TIMEZONE_OMP_TASK("task-pbc", timeZoneTaskKey);
+                               apply_pbc_z_new_particles(newParticlesUp.get(), nbNewFromUp);
+                               apply_pbc_xy(newParticlesUp.get(), nbNewFromUp);
+                            }
+                        }
+                    }
                 }
             }
+            // if we use threads and we are not master thread than proceed local data (not send/recv)
+            if(more_than_one_thread == true && omp_get_thread_num() > 0){
+                TIMEZONE("apply_pbc_xy");
+                const int nbOldParticles = myTotalNbParticles - nbOutLower - nbOutUpper;
+                particles_utils::IntervalSplitter<int> interval(nbOldParticles,
+                                                                omp_get_num_threads()-1,
+                                                                omp_get_thread_num()-1);
 
-            while(mpiRequests.size() && eventsBeforeWaitall){
-                int idxDone = mpiRequests.size();
-                {
-                    TIMEZONE("waitany_move");
-                    AssertMpi(MPI_Waitany(mpiRequests.size(), mpiRequests.data(), &idxDone, MPI_STATUSES_IGNORE));
-                }
-                const std::pair<Action, int> releasedAction = whatNext[idxDone];
-                std::swap(mpiRequests[idxDone], mpiRequests[mpiRequests.size()-1]);
-                std::swap(whatNext[idxDone], whatNext[mpiRequests.size()-1]);
-                mpiRequests.pop_back();
-                whatNext.pop_back();
-
-                if(releasedAction.first == RECV_MOVE_NB_LOW){
-                    if(nbNewFromLow){
-                        assert(newParticlesLow == nullptr);
-                        newParticlesLow.reset(new real_number[nbNewFromLow*size_particle_positions]);
-                        whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_LOW, -1});
-                        mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesLow[0], nbNewFromLow*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES,
-                                  MPI_COMM_WORLD, &mpiRequests.back()));
-
-                        newParticlesLowIndexes.reset(new int[nbNewFromLow]);
-                        whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                        mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesLowIndexes[0], nbNewFromLow, MPI_INT, (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_INDEXES,
-                                  MPI_COMM_WORLD, &mpiRequests.back()));
-
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            newParticlesLowRhs[idx_rhs].reset(new real_number[nbNewFromLow*size_particle_rhs]);
-                            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                            mpiRequests.emplace_back();
-                            AssertMpi(MPI_Irecv(&newParticlesLowRhs[idx_rhs][0], nbNewFromLow*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_UP_LOW_MOVED_PARTICLES_RHS+idx_rhs,
-                                      MPI_COMM_WORLD, &mpiRequests.back()));
-                        }
-                    }
-                    eventsBeforeWaitall -= 1;
-                }
-                else if(releasedAction.first == RECV_MOVE_NB_UP){
-                    if(nbNewFromUp){
-                        assert(newParticlesUp == nullptr);
-                        newParticlesUp.reset(new real_number[nbNewFromUp*size_particle_positions]);
-                        whatNext.emplace_back(std::pair<Action,int>{RECV_MOVE_UP, -1});
-                        mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesUp[0], nbNewFromUp*size_particle_positions, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
-                                  MPI_COMM_WORLD, &mpiRequests.back()));
-
-                        newParticlesUpIndexes.reset(new int[nbNewFromUp]);
-                        whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                        mpiRequests.emplace_back();
-                        AssertMpi(MPI_Irecv(&newParticlesUpIndexes[0], nbNewFromUp, MPI_INT, (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_INDEXES,
-                                  MPI_COMM_WORLD, &mpiRequests.back()));
-
-                        for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
-                            newParticlesUpRhs[idx_rhs].reset(new real_number[nbNewFromUp*size_particle_rhs]);
-                            whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                            mpiRequests.emplace_back();
-                            AssertMpi(MPI_Irecv(&newParticlesUpRhs[idx_rhs][0], nbNewFromUp*size_particle_rhs, particles_utils::GetMpiType(real_number()), (my_rank+1)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES_RHS+idx_rhs,
-                                      MPI_COMM_WORLD, &mpiRequests.back()));
-                        }
-                    }
-                    eventsBeforeWaitall -= 1;
-                }
+                apply_pbc_xy(&(*inout_positions_particles)[(nbOutLower+interval.getMyOffset())*size_particle_positions], interval.getMySize());
             }
         }
 
-        if(mpiRequests.size()){
-            // TODO Proceed when received
-            TIMEZONE("waitall-move");
-            AssertMpi(MPI_Waitall(mpiRequests.size(), mpiRequests.data(), MPI_STATUSES_IGNORE));
-            mpiRequests.clear();
-            whatNext.clear();
-        }
-
-        // Exchange particles
-        {
+        // If we do not use thread, process all data sequentially
+        if(more_than_one_thread == false){
             TIMEZONE("apply_pbc_z_new_particles");
             if(nbNewFromLow){
                 assert(newParticlesLow.get() != nullptr);
                 apply_pbc_z_new_particles(newParticlesLow.get(), nbNewFromLow);
+                apply_pbc_xy(newParticlesLow.get(), nbNewFromLow);
             }
             if(nbNewFromUp){
                 assert(newParticlesUp.get() != nullptr);
                 apply_pbc_z_new_particles(newParticlesUp.get(), nbNewFromUp);
+                apply_pbc_xy(newParticlesUp.get(), nbNewFromUp);
             }
+
+            apply_pbc_xy(&(*inout_positions_particles)[nbOutLower*size_particle_positions], myTotalNbParticles - nbOutLower - nbOutUpper);
         }
 
         // Realloc an merge
@@ -675,11 +796,6 @@ public:
             }
 
             myTotalNbParticles = myTotalNewNbParticles;
-        }
-
-        {
-            TIMEZONE("apply_pbc_xy");
-            apply_pbc_xy((*inout_positions_particles).get(), myTotalNbParticles);
         }
 
         // Partitions all particles

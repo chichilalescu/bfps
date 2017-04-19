@@ -32,7 +32,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
     ////////////////////////////////////////////////////////////////////////
 
     virtual void init_result_array(real_number particles_current_rhs[],
-                                   const int nb_particles) final{
+                                   const int nb_particles) const final{
         // Set values to zero initialy
         std::fill(particles_current_rhs, particles_current_rhs+nb_particles*3, 0);
     }
@@ -132,8 +132,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
         }
     }
 
-    virtual void reduce_particles(const real_number /*particles_positions*/[],
-                                  real_number particles_current_rhs[],
+    virtual void reduce_particles_rhs(real_number particles_current_rhs[],
                                   const real_number extra_particles_current_rhs[],
                                   const int nb_particles) const final{
         TIMEZONE("particles_field_computer::reduce_particles");
