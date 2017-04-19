@@ -199,6 +199,22 @@ class NSVorticityEquation(_fluid_particle_base):
                 'fs->rvorticity->get_rdata()',
                 data_type = field_H5T)
         self.stat_src += '}\n'
+        ## checkpoint
+        self.stat_src += """
+                //begincpp
+                if (myrank == 0)
+                {
+                    std::string fname = (
+                        std::string("stop_") +
+                        std::string(simname));
+                    {
+                        struct stat file_buffer;
+                        stop_code_now = (stat(fname.c_str(), &file_buffer) == 0);
+                    }
+                }
+                MPI_Bcast(&stop_code_now, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+                //endcpp
+                """
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
@@ -218,6 +234,7 @@ class NSVorticityEquation(_fluid_particle_base):
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
         self.variables += 'int checkpoint;\n'
+        self.variables += 'bool stop_code_now;\n'
         self.read_checkpoint = """
                 //begincpp
                 if (myrank == 0)
@@ -286,11 +303,15 @@ class NSVorticityEquation(_fluid_particle_base):
                         self.fftw_plan_rigor,
                         self.read_checkpoint)
         self.fluid_start += self.store_kspace
+        self.fluid_start += 'stop_code_now = false;\n'
         self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
                             self.fluid_output +
                             self.store_checkpoint +
-                            '\n}\n')
+                            '\n}\n' +
+                            'if (stop_code_now){\n' +
+                            'iteration = fs->iteration;\n' +
+                            'break;\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output +
                           self.store_checkpoint +
