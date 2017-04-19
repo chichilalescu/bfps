@@ -566,23 +566,22 @@ class NSVorticityEquation(_fluid_particle_base):
                     self.work_dir,
                     self.simname + '_checkpoint_0.h5')
             if not os.path.exists(init_condition_file):
+                f = h5py.File(init_condition_file, 'w')
                 if len(opt.src_simname) > 0:
                     src_file = os.path.join(
                             os.path.realpath(opt.src_work_dir),
                             opt.src_simname + '_cvorticity_i{0:0>5x}.h5'.format(opt.src_iteration))
-                    f = h5py.File(init_condition_file, 'w')
                     f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
                             src_file,
                             'vorticity/complex/{0}'.format(opt.src_iteration))
-                    f.close()
                 else:
                     data = self.generate_vector_field(
                            write_to_file = False,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
-                    f = h5py.File(init_condition_file, 'w')
                     f['vorticity/complex/{0}'.format(0)] = data
-                    f.close()
+                f['fields_stored'] = int(1)
+                f.close()
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
