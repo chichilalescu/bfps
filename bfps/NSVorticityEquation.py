@@ -73,7 +73,7 @@ class NSVorticityEquation(_fluid_particle_base):
         self.style = {}
         self.statistics = {}
         self.fluid_output = """
-                fs->io_checkpoint();
+                fs->io_checkpoint(false);
                 """
         # vorticity_equation specific things
         self.includes += '#include "vorticity_equation.hpp"\n'
@@ -240,16 +240,8 @@ class NSVorticityEquation(_fluid_particle_base):
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
-                {{
-                    char file_name[512];
-                    fs->fill_up_filename("cvorticity", file_name);
-                    fs->cvorticity->real_space_representation = false;
-                    fs->cvorticity->io(
-                        file_name,
-                        "vorticity",
-                        fs->iteration,
-                        true);
-                }}
+                fs->cvorticity->real_space_representation = false;
+                fs->io_checkpoint();
                 //endcpp
                 """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
         self.fluid_start += self.store_kspace
@@ -572,7 +564,7 @@ class NSVorticityEquation(_fluid_particle_base):
             self.write_par()
             init_condition_file = os.path.join(
                     self.work_dir,
-                    self.simname + '_cvorticity_i{0:0>5x}.h5'.format(0))
+                    self.simname + '_checkpoint_0.h5')
             if not os.path.exists(init_condition_file):
                 if len(opt.src_simname) > 0:
                     src_file = os.path.join(
