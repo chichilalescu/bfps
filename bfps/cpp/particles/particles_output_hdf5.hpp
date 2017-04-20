@@ -79,6 +79,13 @@ public:
                       || std::is_same<real_number, float>::value, "real_number must be double or float");
         const hid_t type_id = (sizeof(real_number) == 8?H5T_NATIVE_DOUBLE:H5T_NATIVE_FLOAT);
 
+        hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+        assert(plist_id >= 0);
+        {
+            int rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
+            assert(rethdf >= 0);
+        }
+
         {
             assert(total_nb_particles >= 0);
             assert(size_particle_positions >= 0);
@@ -99,11 +106,6 @@ public:
 
             hid_t filespace = H5Dget_space(dataset_id);
             int rethdf = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
-            assert(rethdf >= 0);
-
-            hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-            assert(plist_id >= 0);
-            rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
             assert(rethdf >= 0);
 
             herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
@@ -138,11 +140,6 @@ public:
                 int rethdf = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
                 assert(rethdf >= 0);
 
-                hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-                assert(plist_id >= 0);
-                rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-                assert(rethdf >= 0);
-
                 herr_t	status = H5Dwrite(dataset_id, type_id, memspace, filespace,
                           plist_id, particles_rhs[idx_rhs].get());
                 assert(status >= 0);
@@ -152,6 +149,11 @@ public:
                 assert(rethdf >= 0);
             }
             int rethdf = H5Dclose(dataset_id);
+            assert(rethdf >= 0);
+        }
+
+        {
+            int rethdf = H5Pclose(plist_id);
             assert(rethdf >= 0);
         }
     }
