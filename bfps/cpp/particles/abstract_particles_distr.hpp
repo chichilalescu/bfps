@@ -381,10 +381,9 @@ public:
                     //////////////////////////////////////////////////////////////////////
                     /// Merge
                     //////////////////////////////////////////////////////////////////////
-                    if(releasedAction.first == MERGE_PARTICLES){
+                    if(releasedAction.first == MERGE_PARTICLES && more_than_one_thread == false){
                         NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
 
-                        // We can merge safely on first and last partitions since no one is working on it
                         if(descriptor.isLower){
                             TIMEZONE("reduce");
                             assert(descriptor.toRecvAndMerge != nullptr);
@@ -400,36 +399,13 @@ public:
                         }
                     }
                 }
-
-                if(more_than_one_thread){
-                    TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
-                    #pragma omp taskgroup
-                    {
-                        // Do for first and last partition (or the single partition if current_partition_size is one)
-                        for(int idxPartition = 0 ; idxPartition < current_partition_size ; idxPartition = std::max(idxPartition+1,current_partition_size-1)){
-                            for(int idxPart = current_offset_particles_for_partition[idxPartition] ;
-                                idxPart < current_offset_particles_for_partition[idxPartition+1] ; idxPart += 300){
-
-                                const int sizeToDo = std::min(300, current_offset_particles_for_partition[idxPartition+1]-idxPart);
-
-                                #pragma omp task default(shared) firstprivate(idxPart, sizeToDo) priority(0) TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
-                                {
-                                    TIMEZONE_OMP_TASK("apply_computation_border", timeZoneTaskKey);
-                                    apply_computation(&particles_positions[idxPart*size_particle_positions],
-                                                      &particles_current_rhs[idxPart*size_particle_rhs],
-                                                      sizeToDo);
-                                }
-                            }
-                        }
-                    }
-                }
             }
             if(more_than_one_thread && omp_get_thread_num() == 1){
                 TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
                 #pragma omp taskgroup
                 {
                     // Do for all partitions except the first and last one
-                    for(int idxPartition = 1 ; idxPartition < current_partition_size-1 ; ++idxPartition){
+                    for(int idxPartition = 0 ; idxPartition < current_partition_size ; ++idxPartition){
                         for(int idxPart = current_offset_particles_for_partition[idxPartition] ;
                             idxPart < current_offset_particles_for_partition[idxPartition+1] ; idxPart += 300){
 
@@ -449,8 +425,28 @@ public:
             }
         }
 
+        if(more_than_one_thread == true){
+            for(int idxDescr = 0 ; idxDescr < int(neigDescriptors.size()) ; ++idxDescr){
+                NeighborDescriptor& descriptor = neigDescriptors[idxDescr];
+                if(descriptor.nbParticlesToSend){
+                    if(descriptor.isLower){
+                        TIMEZONE("reduce_later");
+                        assert(descriptor.toRecvAndMerge != nullptr);
+                        reduce_particles_rhs(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                        descriptor.toRecvAndMerge.release();
+                    }
+                    else {
+                        TIMEZONE("reduce_later");
+                        assert(descriptor.toRecvAndMerge != nullptr);
+                        reduce_particles_rhs(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
+                                         descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                        descriptor.toRecvAndMerge.release();
+                    }
+                }
+            }
+        }
 
-        // Do my own computation
+        // Do my own computation if not threaded
         if(more_than_one_thread == false){
             TIMEZONE("compute-my_compute");
             // Compute my particles
