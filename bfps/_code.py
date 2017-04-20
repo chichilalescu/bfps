@@ -256,6 +256,8 @@ class _code(_base):
         command_atoms = ['mpirun',
                          '-np',
                          '{0}'.format(nb_processes),
+                         '-x',
+                         'OMP_NUM_THREADS={0}'.format(nb_threads_per_process),
                          './' + self.name,
                          self.simname]
         if self.host_info['type'] == 'cluster':
@@ -267,7 +269,7 @@ class _code(_base):
                     file_name     = os.path.join(self.work_dir, qsub_script_name),
                     nprocesses    = nb_processes*nb_threads_per_process,
                     name_of_run   = suffix,
-                    command_atoms = command_atoms[3:],
+                    command_atoms = command_atoms[5:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
@@ -287,7 +289,7 @@ class _code(_base):
                 self.write_slurm_file(
                     file_name     = os.path.join(self.work_dir, qsub_script_name),
                     name_of_run   = suffix,
-                    command_atoms = command_atoms[3:],
+                    command_atoms = command_atoms[5:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
@@ -314,7 +316,7 @@ class _code(_base):
                 self.write_IBMLoadLeveler_file_single_job(
                     file_name     = os.path.join(self.work_dir, job_script_name),
                     name_of_run   = suffix,
-                    command_atoms = command_atoms[3:],
+                    command_atoms = command_atoms[5:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
@@ -325,7 +327,7 @@ class _code(_base):
                 self.write_IBMLoadLeveler_file_many_job(
                     file_name     = os.path.join(self.work_dir, job_script_name),
                     name_of_run   = suffix,
-                    command_atoms = command_atoms[3:],
+                    command_atoms = command_atoms[5:],
                     hours         = hours,
                     minutes       = minutes,
                     out_file      = out_file + '_' + suffix,
