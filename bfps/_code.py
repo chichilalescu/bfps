@@ -618,7 +618,8 @@ class _code(_base):
                    nb_threads_per_process, nb_cpus_per_node))
         # Warn if some core will not be ued
         if nb_cpus_per_node%nb_threads_per_process != 0:
-            warnings.warn("The number of threads is smaller than the number of cores (machine will be underused)",
+            warnings.warn(
+                    "The number of threads is smaller than the number of cores (machine will be underused)",
                     UserWarning)
 
         nb_cpus = nb_mpi_processes*nb_threads_per_process
@@ -663,7 +664,9 @@ class _code(_base):
         opt = parser.parse_args(args)
 
         if opt.ncpu != -1:
-            warnings.warn('ncpu should be replaced by np/ntpp',DeprecationWarning)
+            warnings.warn(
+                    'ncpu should be replaced by np/ntpp',
+                    DeprecationWarning)
             opt.nb_processes = opt.ncpu
             opt.nb_threads_per_process = 1
 
