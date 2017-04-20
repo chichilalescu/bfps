@@ -6,6 +6,11 @@
 #include <cassert>
 #include <stack>
 
+#if _OPENMP < 201511
+#warning Openmp priority is not supported here
+#define priority(x)
+#endif
+
 
 #ifndef AssertMpi
 #define AssertMpi(X) if(MPI_SUCCESS != (X)) { printf("MPI Error at line %d\n",__LINE__); fflush(stdout) ; throw std::runtime_error("Stop from from mpi erro"); }
