@@ -17,14 +17,25 @@ class particles_output_hdf5 : public abstract_particles_output<real_number, size
     hid_t file_id;
     const int total_nb_particles;
 
-    const std::string datagroup_basename;
+    const std::string datagroup_basename_state;
+    const std::string datagroup_basename_rhs;
+
+    hid_t dset_id_state;
+    hid_t dset_id_rhs;
 
 public:
     particles_output_hdf5(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
-                          const int in_nb_rhs, const std::string in_datagroup_basename = std::string("tracers"))
+                          const int in_nb_rhs, const std::string in_datagroup_basename_state,
+                          const std::string in_datagroup_basename_rhs)
             : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles, in_nb_rhs),
               filename(in_filename),
-              file_id(0), total_nb_particles(inTotalNbParticles), datagroup_basename(in_datagroup_basename){
+              file_id(0), total_nb_particles(inTotalNbParticles), datagroup_basename_state(in_datagroup_basename_state),
+              datagroup_basename_rhs(in_datagroup_basename_rhs), dset_id_state(0), dset_id_rhs(0){
+        if(datagroup_basename_state == datagroup_basename_rhs){
+            DEBUG_MSG("The same dataset names have been passed to particles_output_hdf5 for the state and the rhs\n"
+                      "It will result into an undefined behavior.\n"
+                      "Dataset name = %s\n", datagroup_basename_state.c_str());
+        }
 
         TIMEZONE("particles_output_hdf5::H5Pcreate");
         hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
@@ -37,11 +48,23 @@ public:
         // file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC | H5F_ACC_DEBUG/*H5F_ACC_EXCL*/, H5P_DEFAULT/*H5F_ACC_RDWR*/, plist_id_par);
         assert(file_id >= 0);
         H5Pclose(plist_id_par);
+
+        dset_id_state = H5Gopen(file_id, datagroup_basename_state.c_str(), H5P_DEFAULT);
+        assert(dset_id_state >= 0);
+        dset_id_rhs = H5Gopen(file_id, datagroup_basename_rhs.c_str(), H5P_DEFAULT);
+        assert(dset_id_rhs >= 0);
     }
 
     ~particles_output_hdf5(){
         TIMEZONE("particles_output_hdf5::H5Dclose");
-        int rethdf = H5Fclose(file_id);
+
+        int rethdf = H5Gclose(dset_id_state);
+        assert(rethdf >= 0);
+
+        rethdf = H5Gclose(dset_id_rhs);
+        assert(rethdf >= 0);
+
+        rethdf = H5Fclose(file_id);
         assert(rethdf >= 0);
     }
 
@@ -51,10 +74,6 @@ public:
 
         assert(particles_idx_offset < Parent::getTotalNbParticles());
         assert(particles_idx_offset+nb_particles <= Parent::getTotalNbParticles());
-
-        const std::string target_dset_name = (datagroup_basename+std::to_string(idx_time_step));
-        hid_t dset_id = H5Gcreate(file_id, target_dset_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        assert(dset_id >= 0);
 
         static_assert(std::is_same<real_number, double>::value
                       || std::is_same<real_number, float>::value, "real_number must be double or float");
@@ -67,7 +86,7 @@ public:
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
-            hid_t dataset_id = H5Dcreate( dset_id, "state", type_id, dataspace, H5P_DEFAULT,
+            hid_t dataset_id = H5Dcreate( dset_id_state, std::to_string(idx_time_step).c_str(), type_id, dataspace, H5P_DEFAULT,
                                           H5P_DEFAULT, H5P_DEFAULT);
             assert(dataset_id >= 0);
 
@@ -103,7 +122,7 @@ public:
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
-            hid_t dataset_id = H5Dcreate( dset_id, "rhs", type_id, dataspace, H5P_DEFAULT,
+            hid_t dataset_id = H5Dcreate( dset_id_rhs, std::to_string(idx_time_step).c_str(), type_id, dataspace, H5P_DEFAULT,
                                           H5P_DEFAULT, H5P_DEFAULT);
             assert(dataset_id >= 0);
 
@@ -135,8 +154,6 @@ public:
             int rethdf = H5Dclose(dataset_id);
             assert(rethdf >= 0);
         }
-        int rethdf = H5Gclose(dset_id);
-        assert(rethdf >= 0);
     }
 };
 
