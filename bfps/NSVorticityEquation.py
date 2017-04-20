@@ -141,7 +141,8 @@ class NSVorticityEquation(_fluid_particle_base):
                     tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
                     nparticles,                 // to check coherency between parameters and hdf input file
                     fname,                      // particles input filename
-                    "tracers0",                 // dataset name for initial input
+                    std::string("/tracers0/state/0"),                 // dataset name for initial input
+                    std::string("/tracers0/rhs/0"),                 // dataset name for initial input
                     tracers0_neighbours,        // parameter (interpolation no neighbours)
                     tracers0_smoothness,        // parameter
                     MPI_COMM_WORLD);
@@ -543,6 +544,8 @@ class NSVorticityEquation(_fluid_particle_base):
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             s = 0
             ofile.create_group('tracers{0}'.format(s))
+            ofile.create_group('tracers{0}/rhs'.format(s))
+            ofile.create_group('tracers{0}/state'.format(s))
             time_chunk = 2**20 // (8*3*number_of_particles)
             time_chunk = max(time_chunk, 1)
             dims = ((1,
@@ -555,7 +558,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 chunks = (time_chunk, 1) + dims[2:]
             bfps.tools.create_alloc_early_dataset(
                     ofile,
-                    '/tracers{0}/rhs'.format(s),
+                    '/tracers{0}/rhs/0'.format(s),
                     dims, maxshape, chunks)
             if len(pbase_shape) > 1:
                 chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
@@ -563,7 +566,7 @@ class NSVorticityEquation(_fluid_particle_base):
                 chunks = (time_chunk, pbase_shape[0], 3)
             bfps.tools.create_alloc_early_dataset(
                     ofile,
-                    '/tracers{0}/state'.format(s),
+                    '/tracers{0}/state/0'.format(s),
                     (1,) + pbase_shape + (3,),
                     (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
                     chunks)

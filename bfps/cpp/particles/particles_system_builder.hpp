@@ -117,7 +117,7 @@ struct particles_system_build_container {
              const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
              const int nparticles, // to check coherency between parameters and hdf input file
              const std::string& fname_input, // particles input filename
-             const std::string& dset_name, // dataset name for initial input
+            const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
              MPI_Comm mpi_comm){
 
         // The size of the field grid (global size) all_size seems
@@ -205,7 +205,7 @@ struct particles_system_build_container {
 
         // Load particles from hdf5
         particles_input_hdf5<particles_rnumber, 3,3> generator(mpi_comm, fname_input,
-                                            dset_name, my_spatial_low_limit_z, my_spatial_up_limit_z);
+                                            inDatanameState, inDatanameRhs, my_spatial_low_limit_z, my_spatial_up_limit_z);
 
         // Ensure parameters match the input file
         if(generator.getNbRhs() != nsteps){
@@ -236,7 +236,7 @@ inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_s
         const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
         const int nparticles, // to check coherency between parameters and hdf input file
         const std::string& fname_input, // particles input filename
-        const std::string& dset_name, // dataset name for initial input
+        const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
         const int interpolation_size,
         const int spline_mode,
         MPI_Comm mpi_comm){
@@ -246,7 +246,7 @@ inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_s
                        particles_system_build_container<field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
-                           fs_field,fs_kk, nsteps, nparticles, fname_input, dset_name, mpi_comm);
+                           fs_field,fs_kk, nsteps, nparticles, fname_input, inDatanameState, inDatanameRhs, mpi_comm);
 }
 
 

@@ -17,7 +17,6 @@
 template <class real_number, int size_particle_positions, int size_particle_rhs>
 class particles_input_hdf5 : public abstract_particles_input<real_number> {
     const std::string filename;
-    const std::string dataname;
 
     MPI_Comm mpi_comm;
     int my_rank;
@@ -57,15 +56,17 @@ class particles_input_hdf5 : public abstract_particles_input<real_number> {
     }
 
 public:
-    particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename, const std::string& inDataname,
+    particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename,
+                         const std::string& inDatanameState, const std::string& inDatanameRhs,
                          const real_number my_spatial_low_limit, const real_number my_spatial_up_limit)
-        : particles_input_hdf5(in_mpi_comm, inFilename, inDataname,
+        : particles_input_hdf5(in_mpi_comm, inFilename, inDatanameState, inDatanameRhs,
                                BuildLimitsAllProcesses(in_mpi_comm, my_spatial_low_limit, my_spatial_up_limit)){
     }
 
-    particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename, const std::string& inDataname,
+    particles_input_hdf5(const MPI_Comm in_mpi_comm,const std::string& inFilename,
+                         const std::string& inDatanameState, const std::string& inDatanameRhs,
                          const std::vector<real_number>& in_spatial_limit_per_proc)
-        : filename(inFilename), dataname(inDataname),
+        : filename(inFilename),
           mpi_comm(in_mpi_comm), my_rank(-1), nb_processes(-1), nb_total_particles(0),
           nb_particles_for_me(-1){
         TIMEZONE("particles_input_hdf5");
@@ -84,13 +85,9 @@ public:
         hid_t particle_file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, plist_id_par);
         assert(particle_file >= 0);
 
-        //hid_t dset, prop_list, dspace;
-        hid_t hdf5_group_id = H5Gopen(particle_file, dataname.c_str(), H5P_DEFAULT);
-        assert(hdf5_group_id >= 0);
-
         {
             TIMEZONE("state");
-            hid_t dset = H5Dopen(hdf5_group_id, "state", H5P_DEFAULT);
+            hid_t dset = H5Dopen(particle_file, inDatanameState.c_str(), H5P_DEFAULT);
             assert(dset >= 0);
 
             hid_t dspace = H5Dget_space(dset); // copy?
@@ -117,7 +114,7 @@ public:
         }
         {
             TIMEZONE("rhs");
-            hid_t dset = H5Dopen(hdf5_group_id, "rhs", H5P_DEFAULT);
+            hid_t dset = H5Dopen(particle_file, inDatanameRhs.c_str(), H5P_DEFAULT);
             assert(dset >= 0);
             hid_t dspace = H5Dget_space(dset); // copy?
             assert(dspace >= 0);
@@ -148,7 +145,7 @@ public:
         std::unique_ptr<real_number[]> split_particles_positions(new real_number[load_splitter.getMySize()*size_particle_positions]);
         {
             TIMEZONE("state-read");
-            hid_t dset = H5Dopen(hdf5_group_id, "state", H5P_DEFAULT);
+            hid_t dset = H5Dopen(particle_file, inDatanameState.c_str(), H5P_DEFAULT);
             assert(dset >= 0);
 
             hid_t rspace = H5Dget_space(dset);
@@ -174,7 +171,7 @@ public:
         std::vector<std::unique_ptr<real_number[]>> split_particles_rhs(nb_rhs);
         {
             TIMEZONE("rhs-read");
-            hid_t dset = H5Dopen(hdf5_group_id, "rhs", H5P_DEFAULT);
+            hid_t dset = H5Dopen(particle_file, inDatanameRhs.c_str(), H5P_DEFAULT);
             assert(dset >= 0);
 
             for(hsize_t idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
@@ -262,9 +259,7 @@ public:
 
         {
             TIMEZONE("close");
-            int hdfret = H5Gclose(hdf5_group_id);
-            assert(hdfret >= 0);
-            hdfret = H5Fclose(particle_file);
+            int hdfret = H5Fclose(particle_file);
             assert(hdfret >= 0);
             hdfret = H5Pclose(plist_id_par);
             assert(hdfret >= 0);

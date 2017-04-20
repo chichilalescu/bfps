@@ -442,7 +442,7 @@ class _fluid_particle_base(_code):
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
         with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
-            data_file['tracers{0}/state'.format(species)][0] = data
+            data_file['tracers{0}/state/0'.format(species)][0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(
