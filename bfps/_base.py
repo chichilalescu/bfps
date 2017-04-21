@@ -252,11 +252,11 @@ class _base(object):
                 type = int, dest = 'ncpu',
                 default = -1)
         parser.add_argument(
-                '--np', '--nb-processes',
+                '--np', '--nprocesses',
                 type = int, dest = 'nb_processes',
                 default = 4)
         parser.add_argument(
-                '--ntpp', '--nb-threads-per-process',
+                '--ntpp', '--nthreads-per-process',
                 type = int, dest = 'nb_threads_per_process',
                 default = 1)
         parser.add_argument(
