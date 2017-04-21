@@ -5,6 +5,9 @@
 
 #include <cassert>
 #include <stack>
+#include <vector>
+#include <memory>
+#include <cstring>
 
 #if _OPENMP < 201511
 #warning Openmp priority is not supported here
