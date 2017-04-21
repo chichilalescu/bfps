@@ -29,8 +29,7 @@
 #include <cassert>
 #include "kspace.hpp"
 #include "scope_timer.hpp"
-
-
+#include "shared_array.hpp"
 
 template <field_backend be,
           kspace_dealias_type dt>
@@ -109,10 +108,16 @@ kspace<be, dt>::kspace(
     this->nshells = int(this->kM / this->dk) + 2;
     this->kshell.resize(this->nshells, 0);
     this->nshell.resize(this->nshells, 0);
-    std::vector<double> kshell_local;
-    kshell_local.resize(this->nshells, 0);
-    std::vector<int64_t> nshell_local;
-    nshell_local.resize(this->nshells, 0);
+
+    shared_array<double> kshell_local_thread(this->nshells,[&](double* kshell_local){
+        std::fill_n(kshell_local, this->nshells, 0);
+    });
+    shared_array<int64_t> nshell_local_thread(this->nshells,[&](int64_t* nshell_local){
+        std::fill_n(nshell_local, this->nshells, 0);
+    });
+
+    std::vector<std::unordered_map<int, double>> dealias_filter_threaded(omp_get_max_threads());
+
     this->CLOOP_K2_NXMODES(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
@@ -123,25 +128,42 @@ kspace<be, dt>::kspace(
             if (k2 < this->kM2)
             {
                 double knorm = sqrt(k2);
-                nshell_local[int(knorm/this->dk)] += nxmodes;
-                kshell_local[int(knorm/this->dk)] += nxmodes*knorm;
+                kshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes;
+                nshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
             }
-            if (dt == SMOOTH)
-                this->dealias_filter[int(round(k2 / this->dk2))] = \
-                    exp(-36.0 * pow(k2/this->kM2, 18.));
-                });
+            if (dt == SMOOTH){
+                dealias_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
+            }
+    });
+
+    // Merge results
+
+    kshell_local_thread.mergeParallel();
+    nshell_local_thread.mergeParallel();
+
+    if (dt == SMOOTH){
+        for(int idxMerge = 0 ; idxMerge < int(dealias_filter_threaded.size()) ; ++idxMerge){
+            for(const auto kv : dealias_filter_threaded[idxMerge]){
+                this->dealias_filter[kv.first] = kv.second;
+            }
+        }
+    }
+
     MPI_Allreduce(
-            &nshell_local.front(),
+            nshell_local_thread.getMasterData(),
             &this->nshell.front(),
             this->nshells,
             MPI_INT64_T, MPI_SUM, this->layout->comm);
     MPI_Allreduce(
-            &kshell_local.front(),
+            kshell_local_thread.getMasterData(),
             &this->kshell.front(),
             this->nshells,
             MPI_DOUBLE, MPI_SUM, this->layout->comm);
-    for (int n=0; n<this->nshells; n++)
-        this->kshell[n] /= this->nshell[n];
+    for (int n=0; n<this->nshells; n++){
+		if(this->nshell[n] != 0){
+	        this->kshell[n] /= this->nshell[n];
+		}
+    }
 }
 
 template <field_backend be,
@@ -213,7 +235,7 @@ void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restri
                     double tval = this->dealias_filter[int(round(k2 / this->dk2))];
                     for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
                         ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= tval;
-                        });
+                });
             break;
     }
 }
@@ -224,7 +246,6 @@ template <typename rnumber>
 void kspace<be, dt>::force_divfree(typename fftw_interface<rnumber>::complex *__restrict__ a)
 {
     TIMEZONE("kspace::force_divfree");
-    typename fftw_interface<rnumber>::complex tval;
     this->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
@@ -233,20 +254,21 @@ void kspace<be, dt>::force_divfree(typename fftw_interface<rnumber>::complex *__
                     double k2){
                 if (k2 > 0)
         {
-            tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) +
-                       this->ky[yindex]*((*(a + cindex*3+1))[0]) +
-                       this->kz[zindex]*((*(a + cindex*3+2))[0]) ) / k2;
-            tval[1] = (this->kx[xindex]*((*(a + cindex*3  ))[1]) +
-                       this->ky[yindex]*((*(a + cindex*3+1))[1]) +
-                       this->kz[zindex]*((*(a + cindex*3+2))[1]) ) / k2;
-            for (int imag_part=0; imag_part<2; imag_part++)
-            {
-                a[cindex*3  ][imag_part] -= tval[imag_part]*this->kx[xindex];
-                a[cindex*3+1][imag_part] -= tval[imag_part]*this->ky[yindex];
-                a[cindex*3+2][imag_part] -= tval[imag_part]*this->kz[zindex];
-            }
+                    typename fftw_interface<rnumber>::complex tval;
+                    tval[0] = (this->kx[xindex]*((*(a + cindex*3  ))[0]) +
+                               this->ky[yindex]*((*(a + cindex*3+1))[0]) +
+                               this->kz[zindex]*((*(a + cindex*3+2))[0]) ) / k2;
+                    tval[1] = (this->kx[xindex]*((*(a + cindex*3  ))[1]) +
+                               this->ky[yindex]*((*(a + cindex*3+1))[1]) +
+                               this->kz[zindex]*((*(a + cindex*3+2))[1]) ) / k2;
+                    for (int imag_part=0; imag_part<2; imag_part++)
+                    {
+                        a[cindex*3  ][imag_part] -= tval[imag_part]*this->kx[xindex];
+                        a[cindex*3+1][imag_part] -= tval[imag_part]*this->ky[yindex];
+                        a[cindex*3+2][imag_part] -= tval[imag_part]*this->kz[zindex];
+                    }
+           }
         }
-                }
     );
     if (this->layout->myrank == this->layout->rank[0][0])
         std::fill_n((rnumber*)(a), 6, 0.0);
@@ -264,9 +286,10 @@ void kspace<be, dt>::cospectrum(
         const hsize_t toffset)
 {
     TIMEZONE("field::cospectrum");
-    std::vector<double> spec, spec_local;
-    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
-    spec_local.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
+    shared_array<double> spec_local_thread(this->nshells*ncomp(fc)*ncomp(fc),[&](double* spec_local){
+        std::fill_n(spec_local, this->nshells*ncomp(fc)*ncomp(fc), 0);
+    });
+
     this->CLOOP_K2_NXMODES(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
@@ -276,16 +299,23 @@ void kspace<be, dt>::cospectrum(
                 int nxmodes){
             if (k2 <= this->kM2)
             {
+                double* spec_local = spec_local_thread.getMine();
                 int tmp_int = int(sqrt(k2) / this->dk)*ncomp(fc)*ncomp(fc);
                 for (hsize_t i=0; i<ncomp(fc); i++)
-                for (hsize_t j=0; j<ncomp(fc); j++)
+                for (hsize_t j=0; j<ncomp(fc); j++){
                     spec_local[tmp_int + i*ncomp(fc)+j] += nxmodes * (
-                    (a[ncomp(fc)*cindex + i][0] * b[ncomp(fc)*cindex + j][0]) +
-                    (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
+                        (a[ncomp(fc)*cindex + i][0] * b[ncomp(fc)*cindex + j][0]) +
+                        (a[ncomp(fc)*cindex + i][1] * b[ncomp(fc)*cindex + j][1]));
+                }
             }
             });
+
+    spec_local_thread.mergeParallel();
+
+    std::vector<double> spec;
+    spec.resize(this->nshells*ncomp(fc)*ncomp(fc), 0);
     MPI_Allreduce(
-            &spec_local.front(),
+            spec_local_thread.getMasterData(),
             &spec.front(),
             spec.size(),
             MPI_DOUBLE, MPI_SUM, this->layout->comm);

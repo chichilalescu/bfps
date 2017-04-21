@@ -27,6 +27,13 @@
 
 #include <fftw3-mpi.h>
 
+#ifdef USE_FFTWESTIMATE
+#define DEFAULT_FFTW_FLAG FFTW_ESTIMATE
+#warning You are using FFTW estimate
+#else
+#define DEFAULT_FFTW_FLAG FFTW_PATIENT
+#endif
+
 template <class realtype>
 class fftw_interface;
 

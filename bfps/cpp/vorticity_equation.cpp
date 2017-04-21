@@ -48,6 +48,58 @@ void vorticity_equation<rnumber, be>::impose_zero_modes()
 
 template <class rnumber,
           field_backend be>
+void vorticity_equation<rnumber, be>::update_checkpoint()
+{
+    std::string fname = this->get_current_fname();
+    bool file_exists = false;
+    {
+        struct stat file_buffer;
+        file_exists = (stat(fname.c_str(), &file_buffer) == 0);
+    }
+    if (file_exists)
+    {
+        // check how many fields there are in the checkpoint file
+        // increment checkpoint if needed
+        hsize_t fields_stored;
+        hid_t fid, group_id;
+        fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+        group_id = H5Gopen(fid, "vorticity/complex", H5P_DEFAULT);
+        H5Gget_num_objs(
+                group_id,
+                &fields_stored);
+        H5Gclose(group_id);
+        H5Fclose(fid);
+        if (fields_stored >= this->checkpoints_per_file)
+            this->checkpoint++;
+    }
+    else if (this->cvelocity->myrank == 0)
+    {
+        // create file, create fields_stored dset
+        hid_t fid = H5Fcreate(
+                fname.c_str(),
+                H5F_ACC_EXCL,
+                H5P_DEFAULT,
+                H5P_DEFAULT);
+        hid_t gg = H5Gcreate(
+                fid,
+                "vorticity",
+                H5P_DEFAULT,
+                H5P_DEFAULT,
+                H5P_DEFAULT);
+        hid_t ggg = H5Gcreate(
+                gg,
+                "complex",
+                H5P_DEFAULT,
+                H5P_DEFAULT,
+                H5P_DEFAULT);
+        H5Gclose(ggg);
+        H5Gclose(gg);
+        H5Fclose(fid);
+    }
+}
+
+template <class rnumber,
+          field_backend be>
 vorticity_equation<rnumber, be>::vorticity_equation(
         const char *NAME,
         int nx,
@@ -63,6 +115,7 @@ vorticity_equation<rnumber, be>::vorticity_equation(
     strncpy(this->name, NAME, 256);
     this->name[255] = '\0';
     this->iteration = 0;
+    this->checkpoint = 0;
 
     /* initialize fields */
     this->cvorticity = new field<rnumber, be, THREE>(
@@ -302,7 +355,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
 {
     DEBUG_MSG("vorticity_equation::step\n");
     TIMEZONE("vorticity_equation::step");
-    double factor0, factor1;
     *this->v[1] = 0.0;
     this->omega_nonlin(0);
     this->kk->CLOOP_K2(
@@ -313,6 +365,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0;
             factor0 = exp(-this->nu * k2 * dt);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->v[1]->cval(cindex,cc,i) = (
@@ -334,6 +387,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0, factor1;
             factor0 = exp(-this->nu * k2 * dt/2);
             factor1 = exp( this->nu * k2 * dt/2);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
@@ -358,6 +412,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
                     double k2){
         if (k2 <= this->kk->kM2)
         {
+            double factor0;
             factor0 = exp(-this->nu * k2 * dt * 0.5);
             for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
                 this->v[3]->cval(cindex,cc,i) = (

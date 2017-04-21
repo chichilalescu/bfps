@@ -1179,10 +1179,12 @@ class NavierStokes(_fluid_particle_base):
                            write_to_file = True,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
-        self.run(
-                ncpu = opt.ncpu,
+        self.run(                
+                nb_processes = opt.nb_processes,
+                nb_threads_per_process = opt.nb_threads_per_process,
                 njobs = opt.njobs,
                 hours = opt.minutes // 60,
-                minutes = opt.minutes % 60)
+                minutes = opt.minutes % 60,
+                no_submit = opt.no_submit)
         return None
 

@@ -44,6 +44,13 @@ class NSVorticityEquation(_fluid_particle_base):
             fluid_precision = 'single',
             fftw_plan_rigor = 'FFTW_MEASURE',
             use_fftw_wisdom = True):
+        """
+            This code uses checkpoints for DNS restarts, and it can be stopped
+            by creating the file "stop_<simname>" in the working directory.
+            For postprocessing of field snapshots, consider creating a separate
+            HDF5 file (from the python wrapper) which contains links to all the
+            different snapshots.
+        """
         self.fftw_plan_rigor = fftw_plan_rigor
         _fluid_particle_base.__init__(
                 self,
@@ -52,15 +59,16 @@ class NSVorticityEquation(_fluid_particle_base):
                 simname = simname,
                 dtype = fluid_precision,
                 use_fftw_wisdom = use_fftw_wisdom)
-        self.parameters['nu'] = 0.1
+        self.parameters['nu'] = float(0.1)
         self.parameters['fmode'] = 1
-        self.parameters['famplitude'] = 0.5
-        self.parameters['fk0'] = 2.0
-        self.parameters['fk1'] = 4.0
+        self.parameters['famplitude'] = float(0.5)
+        self.parameters['fk0'] = float(2.0)
+        self.parameters['fk1'] = float(4.0)
         self.parameters['forcing_type'] = 'linear'
-        self.parameters['histogram_bins'] = 256
-        self.parameters['max_velocity_estimate'] = 1.0
-        self.parameters['max_vorticity_estimate'] = 1.0
+        self.parameters['histogram_bins'] = int(256)
+        self.parameters['max_velocity_estimate'] = float(1)
+        self.parameters['max_vorticity_estimate'] = float(1)
+        self.parameters['checkpoints_per_file'] = int(1)
         self.file_datasets_grow = """
                 //begincpp
                 hid_t group;
@@ -72,15 +80,7 @@ class NSVorticityEquation(_fluid_particle_base):
         self.style = {}
         self.statistics = {}
         self.fluid_output = """
-                {
-                    char file_name[512];
-                    fs->fill_up_filename("cvorticity", file_name);
-                    fs->cvorticity->io(
-                        file_name,
-                        "vorticity",
-                        fs->iteration,
-                        false);
-                }
+                fs->io_checkpoint(false);
                 """
         # vorticity_equation specific things
         self.includes += '#include "vorticity_equation.hpp"\n'
@@ -206,6 +206,22 @@ class NSVorticityEquation(_fluid_particle_base):
                 'fs->rvorticity->get_rdata()',
                 data_type = field_H5T)
         self.stat_src += '}\n'
+        ## checkpoint
+        self.stat_src += """
+                //begincpp
+                if (myrank == 0)
+                {
+                    std::string fname = (
+                        std::string("stop_") +
+                        std::string(simname));
+                    {
+                        struct stat file_buffer;
+                        stop_code_now = (stat(fname.c_str(), &file_buffer) == 0);
+                    }
+                }
+                MPI_Bcast(&stop_code_now, 1, MPI_C_BOOL, 0, MPI_COMM_WORLD);
+                //endcpp
+                """
         return None
     def fill_up_fluid_code(self):
         self.fluid_includes += '#include <cstring>\n'
@@ -224,6 +240,43 @@ class NSVorticityEquation(_fluid_particle_base):
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
+        self.variables += 'int checkpoint;\n'
+        self.variables += 'bool stop_code_now;\n'
+        self.read_checkpoint = """
+                //begincpp
+                if (myrank == 0)
+                {
+                    hid_t dset = H5Dopen(stat_file, "checkpoint", H5P_DEFAULT);
+                    H5Dread(
+                        dset,
+                        H5T_NATIVE_INT,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        &checkpoint);
+                    H5Dclose(dset);
+                }
+                MPI_Bcast(&checkpoint, 1, MPI_INT, 0, MPI_COMM_WORLD);
+                fs->checkpoint = checkpoint;
+                //endcpp
+        """
+        self.store_checkpoint = """
+                //begincpp
+                checkpoint = fs->checkpoint;
+                if (myrank == 0)
+                {
+                    hid_t dset = H5Dopen(stat_file, "checkpoint", H5P_DEFAULT);
+                    H5Dwrite(
+                        dset,
+                        H5T_NATIVE_INT,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        &checkpoint);
+                    H5Dclose(dset);
+                }
+                //endcpp
+        """
         self.fluid_start += """
                 //begincpp
                 char fname[512];
@@ -240,6 +293,7 @@ class NSVorticityEquation(_fluid_particle_base):
                         nx, ny, nz,
                         MPI_COMM_WORLD,
                         {1});
+                fs->checkpoints_per_file = checkpoints_per_file;
                 fs->nu = nu;
                 fs->fmode = fmode;
                 fs->famplitude = famplitude;
@@ -247,26 +301,29 @@ class NSVorticityEquation(_fluid_particle_base):
                 fs->fk1 = fk1;
                 strncpy(fs->forcing_type, forcing_type, 128);
                 fs->iteration = iteration;
-                {{
-                    char file_name[512];
-                    fs->fill_up_filename("cvorticity", file_name);
-                    fs->cvorticity->real_space_representation = false;
-                    fs->cvorticity->io(
-                        file_name,
-                        "vorticity",
-                        fs->iteration,
-                        true);
-                    fs->kk->template low_pass<{0}, THREE>(fs->cvorticity->get_cdata(), fs->kk->kM);
-                    fs->kk->template force_divfree<{0}>(fs->cvorticity->get_cdata());
-                }}
+                {2}
+                fs->cvorticity->real_space_representation = false;
+                fs->io_checkpoint();
                 //endcpp
-                """.format(self.C_dtype, self.fftw_plan_rigor, field_H5T)
+                """.format(
+                        self.C_dtype,
+                        self.fftw_plan_rigor,
+                        self.read_checkpoint)
         self.fluid_start += self.store_kspace
+        self.fluid_start += 'stop_code_now = false;\n'
         self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
-                            self.fluid_output + '\n}\n')
+                            self.fluid_output +
+                            self.store_checkpoint +
+                            '\n}\n' +
+                            'if (stop_code_now){\n' +
+                            'iteration = fs->iteration;\n' +
+                            'break;\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
-                          self.fluid_output + '\n}\n' +
+                          self.fluid_output +
+                          self.store_checkpoint +
+                          'DEBUG_MSG("checkpoint value is %d\\n", checkpoint);\n' +
+                          '\n}\n' +
                           'delete fs;\n' +
                           'delete tmp_vec_field;\n' +
                           'delete tmp_scal_field;\n')
@@ -487,6 +544,7 @@ class NSVorticityEquation(_fluid_particle_base):
                                                  self.parameters['histogram_bins'],
                                                  4),
                                      dtype = np.int64)
+            ofile['checkpoint'] = int(0)
         return None
     def specific_parser_arguments(
             self,
@@ -581,30 +639,38 @@ class NSVorticityEquation(_fluid_particle_base):
             self.write_par()
             init_condition_file = os.path.join(
                     self.work_dir,
-                    self.simname + '_cvorticity_i{0:0>5x}.h5'.format(0))
+                    self.simname + '_checkpoint_0.h5')
             if not os.path.exists(init_condition_file):
+                f = h5py.File(init_condition_file, 'w')
                 if len(opt.src_simname) > 0:
-                    src_file = os.path.join(
+                    source_cp = 0
+                    src_file = 'not_a_file'
+                    while True:
+                        src_file = os.path.join(
                             os.path.realpath(opt.src_work_dir),
-                            opt.src_simname + '_cvorticity_i{0:0>5x}.h5'.format(opt.src_iteration))
-                    f = h5py.File(init_condition_file, 'w')
+                            opt.src_simname + '_checkpoint_{0}.h5'.format(source_cp))
+                        f0 = h5py.File(src_file, 'r')
+                        if '{0}'.format(opt.src_iteration) in f0['vorticity/complex'].keys():
+                            f0.close()
+                            break
+                        source_cp += 1
                     f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
                             src_file,
                             'vorticity/complex/{0}'.format(opt.src_iteration))
-                    f.close()
                 else:
                     data = self.generate_vector_field(
                            write_to_file = False,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
-                    f = h5py.File(init_condition_file, 'w')
                     f['vorticity/complex/{0}'.format(0)] = data
-                    f.close()
+                f.close()
         self.run(
-                ncpu = opt.ncpu,
+                nb_processes = opt.nb_processes,
+                nb_threads_per_process = opt.nb_threads_per_process,
                 njobs = opt.njobs,
                 hours = opt.minutes // 60,
-                minutes = opt.minutes % 60)
+                minutes = opt.minutes % 60,
+                no_submit = opt.no_submit)
         return None
 
 if __name__ == '__main__':

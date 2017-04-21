@@ -116,6 +116,8 @@ src_file_list = ['vorticity_equation',
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
                ['cpp/bfps_timer.hpp'] +
+               ['cpp/omputils.hpp'] +
+               ['cpp/shared_array.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list])
 
@@ -127,16 +129,13 @@ with open('MANIFEST.in', 'w') as manifest_in_file:
 
 
 ### libraries
-libraries = ['fftw3_mpi',
-             'fftw3',
-             'fftw3f_mpi',
-             'fftw3f']
-libraries += extra_libraries
+libraries = extra_libraries
 
 
 
 def compile_bfps_library(
         use_timingoutput = False,
+        use_fftwestimate = False,
         extra_compile_args = None):
     """
         use_timingoutput sets the USE_TIMINGOUTPUT definition,
@@ -157,6 +156,8 @@ def compile_bfps_library(
         need_to_compile = (latest > libtime)
     if use_timingoutput:
         extra_compile_args += ['-DUSE_TIMINGOUTPUT']
+    if use_fftwestimate:
+        extra_compile_args += ['-DUSE_FFTWESTIMATE']
     for fname in src_file_list:
         ifile = 'bfps/cpp/' + fname + '.cpp'
         ofile = 'obj/' + fname + '.o'
@@ -200,12 +201,18 @@ class CompileLibCommand(distutils.cmd.Command):
     description = 'Compile bfps library.'
     user_options = [
             ('timing-output=', None, 'Toggle timing output.'),
+            ('fftw-estimate=', None, 'Use FFTW ESTIMATE.'),
+            ('disable-fftw-omp=', None, 'Turn Off FFTW OpenMP.'),
             ]
     def initialize_options(self):
         self.timing_output = 0
+        self.fftw_estimate = 0
+        self.disable_fftw_omp = 0
         return None
     def finalize_options(self):
         self.timing_output = (int(self.timing_output) == 1)
+        self.fftw_estimate = (int(self.fftw_estimate) == 1)
+        self.disable_fftw_omp = (int(self.disable_fftw_omp) == 1)
         return None
     def run(self):
         if not os.path.isdir('obj'):
@@ -224,6 +231,10 @@ class CompileLibCommand(distutils.cmd.Command):
         eca = extra_compile_args
         if self.timing_output:
             eca += ['-DUSE_TIMINGOUTPUT']
+        if self.fftw_estimate:
+            eca += ['-DUSE_FFTWESTIMATE']
+        if self.disable_fftw_omp:
+            eca += ['-DNO_FFTWOMP']
         for fname in src_file_list:
             ifile = 'bfps/cpp/' + fname + '.cpp'
             ofile = 'obj/' + fname + '.o'

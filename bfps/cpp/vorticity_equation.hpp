@@ -22,6 +22,7 @@
 *                                                                     *
 **********************************************************************/
 
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -52,6 +53,8 @@ class vorticity_equation
 
         /* iteration */
         int iteration;
+        int checkpoint;
+        int checkpoints_per_file;
 
         /* fields */
         field<rnumber, be, THREE> *cvorticity, *cvelocity;
@@ -91,10 +94,37 @@ class vorticity_equation
         void compute_vorticity(void);
         void compute_velocity(field<rnumber, be, THREE> *vorticity);
 
-        /* binary I/O stuff */
-        inline void fill_up_filename(const char *base_name, char *full_name)
+        /* I/O stuff */
+        inline std::string get_current_fname()
         {
-            sprintf(full_name, "%s_%s_i%.5x.h5", this->name, base_name, this->iteration);
+            return (
+                    std::string(this->name) +
+                    std::string("_checkpoint_") +
+                    std::to_string(this->checkpoint) +
+                    std::string(".h5"));
+        }
+        void update_checkpoint(void);
+        inline void io_checkpoint(bool read = true)
+        {
+            assert(!this->cvorticity->real_space_representation);
+            if (!read)
+                this->update_checkpoint();
+            std::string fname = this->get_current_fname();
+            this->cvorticity->io(
+                    fname,
+                    "vorticity",
+                    this->iteration,
+                    read);
+            if (read)
+            {
+                #if (__GNUC__ <= 4 && __GNUC_MINOR__ <= 7)
+                    this->kk->low_pass<rnumber, THREE>(this->cvorticity->get_cdata(), this->kk->kM);
+                    this->kk->force_divfree<rnumber>(this->cvorticity->get_cdata());
+                #else
+                    this->kk->template low_pass<rnumber, THREE>(this->cvorticity->get_cdata(), this->kk->kM);
+                    this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
+                #endif
+            }
         }
 
         /* statistics and general postprocessing */
