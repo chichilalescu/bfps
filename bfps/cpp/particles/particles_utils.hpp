@@ -184,7 +184,7 @@ public:
           step_split(0), offset_mine(0), size_mine(0){
         if(nb_items <= nb_intervals){
             step_split = 1;
-            if(my_idx < nb_intervals){
+            if(my_idx < nb_items){
                 offset_mine = my_idx;
                 size_mine = 1;
             }
