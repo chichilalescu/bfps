@@ -89,8 +89,8 @@ public:
         {
             assert(total_nb_particles >= 0);
             assert(size_particle_positions >= 0);
-            const hsize_t datacount[3] = {1, hsize_t(total_nb_particles), hsize_t(size_particle_positions)};
-            hid_t dataspace = H5Screate_simple(3, datacount, NULL);
+            const hsize_t datacount[2] = {hsize_t(total_nb_particles), hsize_t(size_particle_positions)};
+            hid_t dataspace = H5Screate_simple(2, datacount, NULL);
             assert(dataspace >= 0);
 
             hid_t dataset_id = H5Dcreate( dset_id_state, std::to_string(idx_time_step).c_str(), type_id, dataspace, H5P_DEFAULT,
@@ -99,9 +99,9 @@ public:
 
             assert(nb_particles >= 0);
             assert(particles_idx_offset >= 0);
-            const hsize_t count[3] = {1, hsize_t(nb_particles), size_particle_positions};
-            const hsize_t offset[3] = {0, hsize_t(particles_idx_offset), 0};
-            hid_t memspace = H5Screate_simple(3, count, NULL);
+            const hsize_t count[2] = {hsize_t(nb_particles), size_particle_positions};
+            const hsize_t offset[2] = {hsize_t(particles_idx_offset), 0};
+            hid_t memspace = H5Screate_simple(2, count, NULL);
             assert(memspace >= 0);
 
             hid_t filespace = H5Dget_space(dataset_id);

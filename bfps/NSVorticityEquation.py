@@ -547,30 +547,19 @@ class NSVorticityEquation(_fluid_particle_base):
             ofile.create_group('tracers{0}'.format(s))
             ofile.create_group('tracers{0}/rhs'.format(s))
             ofile.create_group('tracers{0}/state'.format(s))
-            time_chunk = 2**20 // (8*3*number_of_particles)
-            time_chunk = max(time_chunk, 1)
-            dims = ((1,
-                     self.parameters['tracers{0}_integration_steps'.format(s)]) +
-                    pbase_shape + (3,))
-            maxshape = (h5py.h5s.UNLIMITED,) + dims[1:]
-            if len(pbase_shape) > 1:
-                chunks = (time_chunk, 1, 1) + dims[3:]
-            else:
-                chunks = (time_chunk, 1) + dims[2:]
-            bfps.tools.create_alloc_early_dataset(
-                    ofile,
-                    '/tracers{0}/rhs/0'.format(s),
-                    dims, maxshape, chunks)
-            if len(pbase_shape) > 1:
-                chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
-            else:
-                chunks = (time_chunk, pbase_shape[0], 3)
-            bfps.tools.create_alloc_early_dataset(
-                    ofile,
-                    '/tracers{0}/state/0'.format(s),
-                    (1,) + pbase_shape + (3,),
-                    (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                    chunks)
+            ofile['tracers{0}/rhs'.format(s)].create_dataset(
+                    '0',
+                    shape = (
+                        (self.parameters['tracers{0}_integration_steps'.format(s)],) +
+                        pbase_shape +
+                        (3,)),
+                    dtype = np.float)
+            ofile['tracers{0}/state'.format(s)].create_dataset(
+                    '0',
+                    shape = (
+                        pbase_shape +
+                        (3,)),
+                    dtype = np.float)
         return None
     def specific_parser_arguments(
             self,
@@ -698,6 +687,32 @@ class NSVorticityEquation(_fluid_particle_base):
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
+    def generate_tracer_state(
+            self,
+            rseed = None,
+            iteration = 0,
+            species = 0,
+            write_to_file = False,
+            ncomponents = 3,
+            testing = False,
+            data = None):
+        if (type(data) == type(None)):
+            if not type(rseed) == type(None):
+                np.random.seed(rseed)
+            #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
+            data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
+            data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
+        if testing:
+            #data[0] = np.array([3.26434, 4.24418, 3.12157])
+            data[:] = np.array([ 0.72086101,  2.59043666,  6.27501953])
+        with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
+            data_file['tracers{0}/state/0'.format(species)][:] = data
+        if write_to_file:
+            data.tofile(
+                    os.path.join(
+                        self.work_dir,
+                        "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
+        return data
     def launch_jobs(
             self,
             opt = None):

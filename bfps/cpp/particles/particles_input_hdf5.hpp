@@ -14,6 +14,8 @@
 #include "scope_timer.hpp"
 
 
+// why is "size_particle_rhs" a template parameter?
+// I think it's safe to assume this will always be 3.
 template <class real_number, int size_particle_positions, int size_particle_rhs>
 class particles_input_hdf5 : public abstract_particles_input<real_number> {
     const std::string filename;
@@ -120,14 +122,17 @@ public:
             assert(dspace >= 0);
 
             hid_t rhs_dim = H5Sget_simple_extent_ndims(dspace);
-            assert(rhs_dim == 4);
+            // Chichi comment: this assertion will fail in general, there's no reason for it.
+                //assert(rhs_dim == 4);
             std::vector<hsize_t> rhs_dim_array(rhs_dim);
 
+            // Chichi comment: wouldn't &rhs_dim_array.front() be safer?
             int hdfret = H5Sget_simple_extent_dims(dspace, &rhs_dim_array[0], NULL);
             assert(hdfret >= 0);
             assert(rhs_dim_array.back() == size_particle_rhs);
-            assert(rhs_dim_array.front() == 1);
-            nb_rhs = rhs_dim_array[1];
+            // Chichi comment: this assertion will fail in general
+            //assert(rhs_dim_array.front() == 1);
+            nb_rhs = rhs_dim_array[0];
 
             hdfret = H5Sclose(dspace);
             assert(hdfret >= 0);
@@ -151,10 +156,10 @@ public:
             hid_t rspace = H5Dget_space(dset);
             assert(rspace >= 0);
 
-            hsize_t offset[3] = {0, load_splitter.getMyOffset(), 0};
-            hsize_t mem_dims[3] = {1, load_splitter.getMySize(), 3};
+            hsize_t offset[2] = {load_splitter.getMyOffset(), 0};
+            hsize_t mem_dims[2] = {load_splitter.getMySize(), 3};
 
-            hid_t mspace = H5Screate_simple( 3, &mem_dims[0], NULL);
+            hid_t mspace = H5Screate_simple(2, &mem_dims[0], NULL);
             assert(mspace >= 0);
 
             int rethdf = H5Sselect_hyperslab(rspace, H5S_SELECT_SET, offset,
@@ -180,10 +185,10 @@ public:
 
                 split_particles_rhs[idx_rhs].reset(new real_number[load_splitter.getMySize()*size_particle_rhs]);
 
-                hsize_t offset[4] = {0, idx_rhs, load_splitter.getMyOffset(), 0};
-                hsize_t mem_dims[4] = {1, 1, load_splitter.getMySize(), size_particle_rhs};
+                hsize_t offset[3] = {idx_rhs, load_splitter.getMyOffset(), 0};
+                hsize_t mem_dims[3] = {1, load_splitter.getMySize(), size_particle_rhs};
 
-                hid_t mspace = H5Screate_simple( 4, &mem_dims[0], NULL);
+                hid_t mspace = H5Screate_simple( 3, &mem_dims[0], NULL);
                 assert(mspace >= 0);
 
                 int rethdf = H5Sselect_hyperslab( rspace, H5S_SELECT_SET, offset,
