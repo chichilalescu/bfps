@@ -44,6 +44,13 @@ class NSVorticityEquation(_fluid_particle_base):
             fluid_precision = 'single',
             fftw_plan_rigor = 'FFTW_MEASURE',
             use_fftw_wisdom = True):
+        """
+            This code uses checkpoints for DNS restarts, and it can be stopped
+            by creating the file "stop_<simname>" in the working directory.
+            For postprocessing of field snapshots, consider creating a separate
+            HDF5 file (from the python wrapper) which contains links to all the
+            different snapshots.
+        """
         self.fftw_plan_rigor = fftw_plan_rigor
         _fluid_particle_base.__init__(
                 self,
