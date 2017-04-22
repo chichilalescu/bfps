@@ -37,8 +37,6 @@
 #include <mpi.h>
 #include <cstring>
 #include <stdexcept>
-#include <fstream>
-#include <iomanip>
 #include <omp.h>
 
 #include "base.hpp"
@@ -264,15 +262,15 @@ public:
     void showDistributed(const MPI_Comm inComm) const {
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
-        assert(retMpi == MPI_SUCCESS);
         variable_used_only_in_assert(retMpi);
+        assert(retMpi == MPI_SUCCESS);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
 
-        if((&m_outputStream == &std::cout || &m_outputStream == &std::clog) && myRank != nbProcess-1){
+        if((&m_outputStream == &std::cout || &m_outputStream == &std::clog) && myrank != nbProcess-1){
             // Print in reverse order
             char tmp;
-            retMpi = MPI_Recv(&tmp, 1, MPI_BYTE, myRank+1, 99, inComm, MPI_STATUS_IGNORE);
+            retMpi = MPI_Recv(&tmp, 1, MPI_BYTE, myrank+1, 99, inComm, MPI_STATUS_IGNORE);
             assert(retMpi == MPI_SUCCESS);
         }
         m_outputStream.flush();
@@ -314,10 +312,10 @@ public:
         }
         m_outputStream.flush();
 
-        if((&m_outputStream == &std::cout || &m_outputStream == &std::clog) && myRank != 0){
+        if((&m_outputStream == &std::cout || &m_outputStream == &std::clog) && myrank != 0){
             // Print in reverse order
             char tmp;
-            retMpi = MPI_Send(&tmp, 1, MPI_BYTE, myRank-1, 99, inComm);
+            retMpi = MPI_Send(&tmp, 1, MPI_BYTE, myrank-1, 99, inComm);
             assert(retMpi == MPI_SUCCESS);
         }
     }
@@ -325,8 +323,8 @@ public:
     void show(const MPI_Comm inComm, const bool onlyP0 = true) const {
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
-        assert(retMpi == MPI_SUCCESS);
         variable_used_only_in_assert(retMpi);
+        assert(retMpi == MPI_SUCCESS);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
 
@@ -372,7 +370,7 @@ public:
             }
         }
 
-        if(myRank != 0){
+        if(myrank != 0){
             const std::string strOutput = myResults.str();
             int sizeOutput = strOutput.length();
             retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
@@ -437,8 +435,8 @@ public:
         // Send to process 0
         int myRank, nbProcess;
         int retMpi = MPI_Comm_rank( inComm, &myRank);
-        assert(retMpi == MPI_SUCCESS);
         variable_used_only_in_assert(retMpi);
+        assert(retMpi == MPI_SUCCESS);
         retMpi = MPI_Comm_size( inComm, &nbProcess);
         assert(retMpi == MPI_SUCCESS);
         std::unique_ptr<int[]> nbEventsPerProc;
@@ -451,26 +449,28 @@ public:
                        0, inComm);
         assert(retMpi == MPI_SUCCESS);
         // Process 0 merge and print results
-        std::vector<SerializedEvent> allEvents;
+        std::unique_ptr<int[]> dipls;
+        std::unique_ptr<SerializedEvent[]> allEvents;
+        std::unique_ptr<int[]> nbEventsPerProcByte;
+        std::unique_ptr<int[]> diplsByte;
         if(myRank == 0){
-            allEvents.resize(myEvents.size());
-            std::copy(myEvents.begin(), myEvents.end(), allEvents.begin());
-
-            for(int idx = 1 ; idx < nbProcess ; ++idx){
-                const size_t currentNb = allEvents.size();
-                allEvents.resize(currentNb + nbEventsPerProc[idx]);
-
-                retMpi = MPI_Recv(&allEvents[currentNb], nbEventsPerProc[idx]* sizeof(SerializedEvent), MPI_BYTE, idx, 1,
-                                  inComm, MPI_STATUS_IGNORE);
-                assert(retMpi == MPI_SUCCESS);
+            dipls.reset(new int[nbProcess+1]);
+            diplsByte.reset(new int[nbProcess+1]);
+            nbEventsPerProcByte.reset(new int[nbProcess]);
+            dipls[0] = 0;
+            diplsByte[0] = 0;
+            for(int idx = 1 ; idx <= nbProcess ; ++idx){
+                dipls[idx] = dipls[idx-1] + nbEventsPerProc[idx-1];
+                diplsByte[idx] = dipls[idx] * sizeof(SerializedEvent);
+                nbEventsPerProcByte[idx-1] = nbEventsPerProc[idx-1] * sizeof(SerializedEvent);
             }
-        }
-        else{
-            retMpi = MPI_Send(&myEvents[0], myEvents.size()* sizeof(SerializedEvent), MPI_BYTE, 0, 1,
-                              inComm);
-            assert(retMpi == MPI_SUCCESS);
+            allEvents.reset(new SerializedEvent[dipls[nbProcess]]);
         }
 
+        retMpi = MPI_Gatherv(myEvents.data(), myNbEvents * sizeof(SerializedEvent), MPI_BYTE,
+                    allEvents.get(), nbEventsPerProcByte.get(), diplsByte.get(),
+                    MPI_BYTE, 0, inComm);
+        assert(retMpi == MPI_SUCCESS);
 
         if(myRank == 0){
             struct GlobalEvent {
@@ -486,7 +486,7 @@ public:
             };
 
             std::unordered_map<std::string, GlobalEvent> mapEvents;
-            for(int idxEvent = 0 ; idxEvent < int(allEvents.size()) ; ++idxEvent){
+            for(int idxEvent = 0 ; idxEvent < dipls[nbProcess] ; ++idxEvent){
                 const std::string key = std::string(allEvents[idxEvent].path) + std::string(allEvents[idxEvent].name);
                 if(mapEvents.find(key) == mapEvents.end()){
                     GlobalEvent& newEvent = mapEvents[key];
@@ -538,181 +538,6 @@ public:
       return m_currentEventsStackPerThread[omp_get_thread_num()].top();
     }
 
-    void showHtml(const MPI_Comm inComm, const bool onlyP0 = true) const {
-        int myRank, nbProcess;
-        int retMpi = MPI_Comm_rank( inComm, &myRank);
-        assert(retMpi == MPI_SUCCESS);
-        variable_used_only_in_assert(retMpi);
-        retMpi = MPI_Comm_size( inComm, &nbProcess);
-        assert(retMpi == MPI_SUCCESS);
-
-        if(onlyP0 && myRank != 0){
-            return;
-        }
-
-        std::stringstream myResults;
-
-        std::stack<std::pair<int, const std::shared_ptr<CoreEvent>>> events;
-
-        for (int idx = static_cast<int>(root->getChildren().size()) - 1; idx >= 0; --idx) {
-            events.push({0, root->getChildren()[idx]});
-        }
-
-        myResults << "<h1>Process : " << myRank << "</h1>\n";
-
-        double totalDuration = 0;
-        for (int idx =
-             static_cast<int>(root->getChildren().size()) - 1;
-             idx >= 0; --idx) {
-            totalDuration += root->getChildren()[idx]->getDuration();
-        }
-
-        myResults << "<h2> " << root->getName() << " (" << totalDuration << "s)</h2>\n";
-        myResults << "<ul>\n";
-        int idxBox = myRank*100000;
-
-        while (events.size()) {
-            const std::pair<int, const std::shared_ptr<CoreEvent>> eventToShow =
-                    events.top();
-            events.pop();
-
-            if(eventToShow.first == -1){
-                myResults << "</ul>\n";
-                myResults << "</li>\n";
-            }
-            else if(eventToShow.second->getChildren().size() == 0){
-                myResults << "<li>&#9679; <span title=\"";
-                if (eventToShow.second->getOccurrence() != 1) {
-                    myResults << "Min = " << eventToShow.second->getMin() << "s ; Max = " << eventToShow.second->getMax()
-                                 << "s ; Average = " << eventToShow.second->getAverage() << "s ; Occurrence = "
-                                 << eventToShow.second->getOccurrence();
-                }
-                myResults << "\">" << eventToShow.second->getName();
-                const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
-                if( percentage < 0.001 ){
-                    myResults << " (< 0.001% -- " ;
-                }
-                else{
-                    myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
-                }
-                if(eventToShow.second->getParents().size()){
-                    const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
-                    myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
-                }
-                myResults << eventToShow.second->getDuration() <<"s)</span></li>\n";
-            }
-            else{
-                myResults << "<li><input type=\"checkbox\" id=\"c" << idxBox << "\" />\n";
-                myResults << "  <i class=\"fa fa-angle-double-right\">&rarr; </i>\n";
-                myResults << "  <i class=\"fa fa-angle-double-down\">&darr; </i>\n";
-                myResults << "  <label for=\"c" << idxBox++ << "\"><span title=\"";
-                if (eventToShow.second->getOccurrence() != 1) {
-                    myResults << "Min = " << eventToShow.second->getMin() << "s ; Max = " << eventToShow.second->getMax()
-                                 << "s ; Average = " << eventToShow.second->getAverage() << "s ; Occurrence = "
-                                 << eventToShow.second->getOccurrence();
-                }
-                myResults << "\">" << eventToShow.second->getName();
-                const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
-                if( percentage < 0.001 ){
-                    myResults << " (< 0.001% -- " ;
-                }
-                else{
-                    myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
-                }
-                if(eventToShow.second->getParents().size()){
-                    const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
-                    myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
-                }
-                myResults << eventToShow.second->getDuration() <<"s)</span></label>\n";
-                myResults << "<ul>\n";
-                events.push({-1, std::shared_ptr<CoreEvent>()});
-
-                for (int idx =
-                     static_cast<int>(eventToShow.second->getChildren().size()) - 1;
-                     idx >= 0; --idx) {
-                    events.push(
-                    {eventToShow.first + 1, eventToShow.second->getChildren()[idx]});
-                }
-            }
-        }
-
-        myResults << "</ul>\n";
-
-        if(myRank != 0){
-            const std::string strOutput = myResults.str();
-            int sizeOutput = strOutput.length();
-            retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
-            assert(retMpi == MPI_SUCCESS);
-            retMpi = MPI_Send((void*)strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
-            assert(retMpi == MPI_SUCCESS);
-        }
-        else{
-            const std::string htmlOutput = (getenv("HTMLOUTPUT")?getenv("HTMLOUTPUT"):"timings.html");
-
-            std::cout << "Timing output html set to : " << htmlOutput << std::endl;
-
-            std::ofstream htmlfile(htmlOutput);
-
-            htmlfile << "<html>\
-                        <head>\
-                        <style>\
-                        input {\
-                          display: none;\
-                        }\
-                        input ~ ul {\
-                         display: none;\
-                        }\
-                        input:checked ~ ul {\
-                         display: block;\
-                        }\
-                        input ~ .fa-angle-double-down {\
-                          display: none;\
-                        }\
-                        input:checked ~ .fa-angle-double-right {\
-                          display: none;\
-                        }\
-                        input:checked ~ .fa-angle-double-down {\
-                          display: inline;\
-                        }\
-                        li {\
-                          display: block;\
-                          font-family: 'Arial';\
-                          font-size: 15px;\
-                          padding: 0.2em;\
-                          border: 1px solid transparent;\
-                        }\
-                        li:hover {\
-                          border: 1px solid grey;\
-                          border-radius: 3px;\
-                          background-color: lightgrey;\
-                        }\
-                        span:hover {\
-                            color: blue;\
-                        }\
-                        </style>\
-                        </head>\
-                        <body>";
-
-            if(onlyP0 == false){
-                std::vector<char> buffer;
-                for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
-                    int sizeRecv;
-                    retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
-                    assert(retMpi == MPI_SUCCESS);
-                    buffer.resize(sizeRecv+1);
-                    retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
-                    assert(retMpi == MPI_SUCCESS);
-                    buffer[sizeRecv]='\0';
-                    htmlfile << buffer.data();
-                }
-            }
-            htmlfile << myResults.str();
-            htmlfile << "</body>\
-                        </html>";
-        }
-    }
-
-    friend scope_timer;
     friend ScopeEvent;
 };
 
