@@ -143,7 +143,7 @@ class _fluid_particle_base(_code):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
         self.variables  += (self.fluid_variables +
-                            'hid_t particle_file;\n')
+                            '//hid_t particle_file;\n')
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
                              'hsize_t space;\n' +
@@ -218,7 +218,7 @@ class _fluid_particle_base(_code):
                         """.format(fftw_prefix) + self.main_end
         if self.particle_species > 0:
             self.main_start += """
-                if (myrank == 0)
+                /*if (myrank == 0)
                 {
                     // set caching parameters
                     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -226,12 +226,12 @@ class _fluid_particle_base(_code):
                     DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
                     sprintf(fname, "%s_particles.h5", simname);
                     particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
-                }
+                }*/
                 """
-            self.main_end = ('if (myrank == 0)\n' +
+            self.main_end = ('/*if (myrank == 0)\n' +
                              '{\n' +
                              'H5Fclose(particle_file);\n' +
-                             '}\n') + self.main_end
+                             '}*/\n') + self.main_end
         self.main        = """
                            //begincpp
                            int data_file_problem;
@@ -455,7 +455,7 @@ class _fluid_particle_base(_code):
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[0] = np.array([ 0.72086101,  2.59043666,  6.27501953])
         with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
-            data_file['tracers{0}/state'.format(species)][0] = data
+            data_file['tracers{0}/state/0'.format(species)][0] = data
         if write_to_file:
             data.tofile(
                     os.path.join(

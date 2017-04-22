@@ -4,5 +4,5 @@
 
 
 #ifdef USE_TIMINGOUTPUT
-scope_timer_manager global_timer_manager("BFPS", std::cout);
+EventManager global_timer_manager("BFPS", std::cout);
 #endif
