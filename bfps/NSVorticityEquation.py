@@ -735,12 +735,13 @@ class NSVorticityEquation(_fluid_particle_base):
             args = [],
             **kwargs):
         opt = self.prepare_launch(args = args)
-        if opt.nparticles > 0:
-            self.name += '-particles'
-            self.add_particles(
-                integration_steps = 4,
-                neighbours = opt.neighbours,
-                smoothness = opt.smoothness)
+        if type(opt.nparticles) != type(None):
+            if opt.nparticles > 0:
+                self.name += '-particles'
+                self.add_particles(
+                    integration_steps = 4,
+                    neighbours = opt.neighbours,
+                    smoothness = opt.smoothness)
         self.fill_up_fluid_code()
         self.finalize_code()
         self.launch_jobs(opt = opt)
