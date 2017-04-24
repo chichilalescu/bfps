@@ -140,28 +140,34 @@ class NSVorticityEquation(_fluid_particle_base):
                     fs->kk,                     // (kspace object, contains dkx, dky, dkz)
                     tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
                     nparticles,                 // to check coherency between parameters and hdf input file
-                    fname,                      // particles input filename
-                    std::string("/tracers0/state/0"),                 // dataset name for initial input
-                    std::string("/tracers0/rhs/0"),                 // dataset name for initial input
+                    fs->get_current_fname(),    // particles input filename
+                    "/tracers0/state/0",        // dataset name for initial input
+                    "/tracers0/rhs/0",          // dataset name for initial input
                     tracers0_neighbours,        // parameter (interpolation no neighbours)
                     tracers0_smoothness,        // parameter
                     MPI_COMM_WORLD);
-            particles_output_hdf5<double,3,3> particles_output_writer_mpi(MPI_COMM_WORLD, fname, nparticles, tracers0_integration_steps,
-                                                                          "/tracers0/state/", "/tracers0/rhs/");
+            particles_output_hdf5<double,3,3> particles_output_writer_mpi(
+                        MPI_COMM_WORLD,
+                        "tracers0",
+                        nparticles,
+                        tracers0_integration_steps);
                     """
         self.particle_loop += """
                 fs->compute_velocity(fs->cvorticity);
                 fs->cvelocity->ift();
                 ps->completeLoop(dt);
                 """
-        output_particles = """
-                particles_output_writer_mpi.save(ps->getParticlesPositions(),
-                                                 ps->getParticlesRhs(),
-                                                 ps->getParticlesIndexes(),
-                                                 ps->getLocalNbParticles(),
-                                                 iteration+1);
+        self.particle_output = """
+                {
+                    particles_output_writer_mpi.open_file(fs->get_current_fname());
+                    particles_output_writer_mpi.save(ps->getParticlesPositions(),
+                                                     ps->getParticlesRhs(),
+                                                     ps->getParticlesIndexes(),
+                                                     ps->getLocalNbParticles(),
+                                                     iteration+1);
+                    particles_output_writer_mpi.close_file();
+                }
                            """
-        self.fluid_output += output_particles
         self.particle_end += 'ps.release();\n'
         return None
     def create_stat_output(
@@ -356,6 +362,7 @@ class NSVorticityEquation(_fluid_particle_base):
         self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
                             self.fluid_output +
+                            self.particle_output +
                             self.store_checkpoint +
                             '\n}\n' +
                             'if (stop_code_now){\n' +
@@ -363,6 +370,7 @@ class NSVorticityEquation(_fluid_particle_base):
                             'break;\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output +
+                          self.particle_output +
                           self.store_checkpoint +
                           'DEBUG_MSG("checkpoint value is %d\\n", checkpoint);\n' +
                           '\n}\n' +
@@ -600,7 +608,7 @@ class NSVorticityEquation(_fluid_particle_base):
             number_of_particles = 1
             for val in pbase_shape[1:]:
                 number_of_particles *= val
-        with h5py.File(self.get_particle_file_name(), 'a') as ofile:
+        with h5py.File(self.get_checkpoint_0_fname(), 'a') as ofile:
             s = 0
             ofile.create_group('tracers{0}'.format(s))
             ofile.create_group('tracers{0}/rhs'.format(s))
@@ -746,6 +754,10 @@ class NSVorticityEquation(_fluid_particle_base):
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
+    def get_checkpoint_0_fname(self):
+        return os.path.join(
+                    self.work_dir,
+                    self.simname + '_checkpoint_0.h5')
     def generate_tracer_state(
             self,
             rseed = None,
@@ -764,7 +776,7 @@ class NSVorticityEquation(_fluid_particle_base):
         if testing:
             #data[0] = np.array([3.26434, 4.24418, 3.12157])
             data[:] = np.array([ 0.72086101,  2.59043666,  6.27501953])
-        with h5py.File(self.get_particle_file_name(), 'r+') as data_file:
+        with h5py.File(self.get_checkpoint_0_fname(), 'a') as data_file:
             data_file['tracers{0}/state/0'.format(species)][:] = data
         if write_to_file:
             data.tofile(
@@ -776,6 +788,32 @@ class NSVorticityEquation(_fluid_particle_base):
             self,
             opt = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
+            # take care of fields' initial condition
+            if not os.path.exists(self.get_checkpoint_0_fname()):
+                f = h5py.File(self.get_checkpoint_0_fname(), 'w')
+                if len(opt.src_simname) > 0:
+                    source_cp = 0
+                    src_file = 'not_a_file'
+                    while True:
+                        src_file = os.path.join(
+                            os.path.realpath(opt.src_work_dir),
+                            opt.src_simname + '_checkpoint_{0}.h5'.format(source_cp))
+                        f0 = h5py.File(src_file, 'r')
+                        if '{0}'.format(opt.src_iteration) in f0['vorticity/complex'].keys():
+                            f0.close()
+                            break
+                        source_cp += 1
+                    f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
+                            src_file,
+                            'vorticity/complex/{0}'.format(opt.src_iteration))
+                else:
+                    data = self.generate_vector_field(
+                           write_to_file = False,
+                           spectra_slope = 2.0,
+                           amplitude = 0.05)
+                    f['vorticity/complex/{0}'.format(0)] = data
+                f.close()
+            # take care of particles' initial condition
             particle_initial_condition = None
             if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
@@ -808,33 +846,6 @@ class NSVorticityEquation(_fluid_particle_base):
                         data = particle_initial_condition)
                 for s in range(1, self.particle_species):
                     self.generate_tracer_state(species = s, data = data)
-            init_condition_file = os.path.join(
-                    self.work_dir,
-                    self.simname + '_checkpoint_0.h5')
-            if not os.path.exists(init_condition_file):
-                f = h5py.File(init_condition_file, 'w')
-                if len(opt.src_simname) > 0:
-                    source_cp = 0
-                    src_file = 'not_a_file'
-                    while True:
-                        src_file = os.path.join(
-                            os.path.realpath(opt.src_work_dir),
-                            opt.src_simname + '_checkpoint_{0}.h5'.format(source_cp))
-                        f0 = h5py.File(src_file, 'r')
-                        if '{0}'.format(opt.src_iteration) in f0['vorticity/complex'].keys():
-                            f0.close()
-                            break
-                        source_cp += 1
-                    f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
-                            src_file,
-                            'vorticity/complex/{0}'.format(opt.src_iteration))
-                else:
-                    data = self.generate_vector_field(
-                           write_to_file = False,
-                           spectra_slope = 2.0,
-                           amplitude = 0.05)
-                    f['vorticity/complex/{0}'.format(0)] = data
-                f.close()
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,

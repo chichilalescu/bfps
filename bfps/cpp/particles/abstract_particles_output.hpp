@@ -47,6 +47,10 @@ protected:
         return nb_rhs;
     }
 
+    int getMyRank(){
+        return this->my_rank;
+    }
+
 public:
     abstract_particles_output(MPI_Comm in_mpi_com, const int inTotalNbParticles, const int in_nb_rhs)
             : mpi_com(in_mpi_com), my_rank(-1), nb_processes(-1),
@@ -74,8 +78,12 @@ public:
         }
     }
 
-    void save(const real_number input_particles_positions[], const std::unique_ptr<real_number[]> input_particles_rhs[],
-              const int index_particles[], const int nb_particles, const int idx_time_step){
+    void save(
+            const real_number input_particles_positions[],
+            const std::unique_ptr<real_number[]> input_particles_rhs[],
+            const int index_particles[],
+            const int nb_particles,
+            const int idx_time_step){
         TIMEZONE("abstract_particles_output::save");
         assert(total_nb_particles != -1);
 

@@ -88,6 +88,7 @@ class _fluid_particle_base(_code):
         self.particle_definitions = ''
         self.particle_start = ''
         self.particle_loop = ''
+        self.particle_output = ''
         self.particle_end  = ''
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
@@ -297,9 +298,9 @@ class _fluid_particle_base(_code):
             self.main       += self.fluid_loop
             self.main       += output_time_difference.format('frame_index')
             self.main       += '}\n'
+        self.main       += self.fluid_end
         if self.particle_species > 0:
             self.main   += self.particle_end
-        self.main       += self.fluid_end
         return None
     def read_rfield(
             self,
