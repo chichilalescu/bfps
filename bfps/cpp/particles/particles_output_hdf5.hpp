@@ -72,7 +72,7 @@ public:
                            const int nb_particles, const int particles_idx_offset) final{
         TIMEZONE("particles_output_hdf5::write");
 
-        assert(particles_idx_offset < Parent::getTotalNbParticles());
+        assert(particles_idx_offset < Parent::getTotalNbParticles() || (particles_idx_offset == Parent::getTotalNbParticles() && nb_particles == 0));
         assert(particles_idx_offset+nb_particles <= Parent::getTotalNbParticles());
 
         static_assert(std::is_same<real_number, double>::value
