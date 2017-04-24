@@ -38,6 +38,8 @@
 #include <cstring>
 #include <stdexcept>
 #include <omp.h>
+#include <iomanip>
+#include <fstream>
 
 #include "base.hpp"
 #include "bfps_timer.hpp"
@@ -533,6 +535,181 @@ public:
         }
         m_outputStream.flush();
     }
+
+    void showHtml(const MPI_Comm inComm, const bool onlyP0 = true) const {
+            int myRank, nbProcess;
+            int retMpi = MPI_Comm_rank( inComm, &myRank);
+            assert(retMpi == MPI_SUCCESS);
+            variable_used_only_in_assert(retMpi);
+            retMpi = MPI_Comm_size( inComm, &nbProcess);
+            assert(retMpi == MPI_SUCCESS);
+
+            if(onlyP0 && myRank != 0){
+                return;
+            }
+
+            std::stringstream myResults;
+
+            std::stack<std::pair<int, const CoreEvent*>> events;
+
+            for (int idx = static_cast<int>(m_root->getChildren().size()) - 1; idx >= 0; --idx) {
+                events.push({0, m_root->getChildren()[idx]});
+            }
+
+            myResults << "<h1>Process : " << myRank << "</h1>\n";
+
+            double totalDuration = 0;
+            for (int idx =
+                 static_cast<int>(m_root->getChildren().size()) - 1;
+                 idx >= 0; --idx) {
+                totalDuration += m_root->getChildren()[idx]->getDuration();
+            }
+
+            myResults << "<h2> " << m_root->getName() << " (" << totalDuration << "s)</h2>\n";
+            myResults << "<ul>\n";
+            int idxBox = myRank*100000;
+
+            while (events.size()) {
+                const std::pair<int, const CoreEvent*> eventToShow =
+                        events.top();
+                events.pop();
+
+                if(eventToShow.first == -1){
+                    myResults << "</ul>\n";
+                    myResults << "</li>\n";
+                }
+                else if(eventToShow.second->getChildren().size() == 0){
+                    myResults << "<li>&#9679; <span title=\"";
+                    if (eventToShow.second->getOccurrence() != 1) {
+                        myResults << "Min = " << eventToShow.second->getMin() << "s ; Max = " << eventToShow.second->getMax()
+                                     << "s ; Average = " << eventToShow.second->getAverage() << "s ; Occurrence = "
+                                     << eventToShow.second->getOccurrence();
+                    }
+                    myResults << "\">" << eventToShow.second->getName();
+                    const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
+                    if( percentage < 0.001 ){
+                        myResults << " (< 0.001% -- " ;
+                    }
+                    else{
+                        myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
+                    }
+                    if(eventToShow.second->getParents().size()){
+                        const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
+                        myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
+                    }
+                    myResults << eventToShow.second->getDuration() <<"s)</span></li>\n";
+                }
+                else{
+                    myResults << "<li><input type=\"checkbox\" id=\"c" << idxBox << "\" />\n";
+                    myResults << "  <i class=\"fa fa-angle-double-right\">&rarr; </i>\n";
+                    myResults << "  <i class=\"fa fa-angle-double-down\">&darr; </i>\n";
+                    myResults << "  <label for=\"c" << idxBox++ << "\"><span title=\"";
+                    if (eventToShow.second->getOccurrence() != 1) {
+                        myResults << "Min = " << eventToShow.second->getMin() << "s ; Max = " << eventToShow.second->getMax()
+                                     << "s ; Average = " << eventToShow.second->getAverage() << "s ; Occurrence = "
+                                     << eventToShow.second->getOccurrence();
+                    }
+                    myResults << "\">" << eventToShow.second->getName();
+                    const double percentage =  100*eventToShow.second->getDuration()/totalDuration;
+                    if( percentage < 0.001 ){
+                        myResults << " (< 0.001% -- " ;
+                    }
+                    else{
+                        myResults << " (" << std::fixed << std::setprecision(3) << percentage << "% -- " ;
+                    }
+                    if(eventToShow.second->getParents().size()){
+                        const double percentageParent = 100*eventToShow.second->getDuration()/eventToShow.second->getParents().top()->getDuration();
+                        myResults << "[" << std::fixed << std::setprecision(3) << percentageParent << "%] -- " ;
+                    }
+                    myResults << eventToShow.second->getDuration() <<"s)</span></label>\n";
+                    myResults << "<ul>\n";
+                    events.push({-1, nullptr});
+
+                    for (int idx =
+                         static_cast<int>(eventToShow.second->getChildren().size()) - 1;
+                         idx >= 0; --idx) {
+                        events.push(
+                        {eventToShow.first + 1, eventToShow.second->getChildren()[idx]});
+                    }
+                }
+            }
+
+            myResults << "</ul>\n";
+
+            if(myRank != 0){
+                const std::string strOutput = myResults.str();
+                int sizeOutput = strOutput.length();
+                retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
+                assert(retMpi == MPI_SUCCESS);
+                retMpi = MPI_Send((void*)strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
+                assert(retMpi == MPI_SUCCESS);
+            }
+            else{
+                const std::string htmlOutput = (getenv("HTMLOUTPUT")?getenv("HTMLOUTPUT"):"timings.html");
+
+                std::cout << "Timing output html set to : " << htmlOutput << std::endl;
+
+                std::ofstream htmlfile(htmlOutput);
+
+                htmlfile << "<html>\
+                            <head>\
+                            <style>\
+                            input {\
+                              display: none;\
+                            }\
+                            input ~ ul {\
+                             display: none;\
+                            }\
+                            input:checked ~ ul {\
+                             display: block;\
+                            }\
+                            input ~ .fa-angle-double-down {\
+                              display: none;\
+                            }\
+                            input:checked ~ .fa-angle-double-right {\
+                              display: none;\
+                            }\
+                            input:checked ~ .fa-angle-double-down {\
+                              display: inline;\
+                            }\
+                            li {\
+                              display: block;\
+                              font-family: 'Arial';\
+                              font-size: 15px;\
+                              padding: 0.2em;\
+                              border: 1px solid transparent;\
+                            }\
+                            li:hover {\
+                              border: 1px solid grey;\
+                              border-radius: 3px;\
+                              background-color: lightgrey;\
+                            }\
+                            span:hover {\
+                                color: blue;\
+                            }\
+                            </style>\
+                            </head>\
+                            <body>";
+
+                if(onlyP0 == false){
+                    std::vector<char> buffer;
+                    for(int idxProc = nbProcess-1 ; idxProc > 0 ; --idxProc){
+                        int sizeRecv;
+                        retMpi = MPI_Recv(&sizeRecv, 1, MPI_INT, idxProc, 99, inComm, MPI_STATUS_IGNORE);
+                        assert(retMpi == MPI_SUCCESS);
+                        buffer.resize(sizeRecv+1);
+                        retMpi = MPI_Recv(buffer.data(), sizeRecv, MPI_CHAR, idxProc, 100, inComm, MPI_STATUS_IGNORE);
+                        assert(retMpi == MPI_SUCCESS);
+                        buffer[sizeRecv]='\0';
+                        htmlfile << buffer.data();
+                    }
+                }
+                htmlfile << myResults.str();
+                htmlfile << "</body>\
+                            </html>";
+            }
+        }
+
 
     std::stack<CoreEvent*> getCurrentThreadEvent() const {
       return m_currentEventsStackPerThread[omp_get_thread_num()].top();
