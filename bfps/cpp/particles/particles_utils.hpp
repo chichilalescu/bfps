@@ -189,7 +189,7 @@ public:
                 size_mine = 1;
             }
             else{
-                offset_mine = nb_intervals;
+                offset_mine = nb_items;
                 size_mine = 0;
             }
         }
