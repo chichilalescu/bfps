@@ -134,15 +134,18 @@ class NSVorticityEquation(_fluid_particle_base):
                 """
         ## initialize
         self.particle_start += """
-            sprintf(fname, "%s_particles.h5", simname);
+            DEBUG_MSG(
+                    "current fname is %s\\n and iteration is %d",
+                    fs->get_current_fname().c_str(),
+                    fs->iteration);
             std::unique_ptr<abstract_particles_system<double>> ps = particles_system_builder(
                     fs->cvorticity,             // (field object)
                     fs->kk,                     // (kspace object, contains dkx, dky, dkz)
                     tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
                     nparticles,                 // to check coherency between parameters and hdf input file
                     fs->get_current_fname(),    // particles input filename
-                    "/tracers0/state/0",        // dataset name for initial input
-                    "/tracers0/rhs/0",          // dataset name for initial input
+                    std::string("/tracers0/state/") + std::to_string(fs->iteration), // dataset name for initial input
+                    std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
                     tracers0_neighbours,        // parameter (interpolation no neighbours)
                     tracers0_smoothness,        // parameter
                     MPI_COMM_WORLD);
