@@ -167,7 +167,7 @@ class NSVorticityEquation(_fluid_particle_base):
                                                      ps->getParticlesRhs(),
                                                      ps->getParticlesIndexes(),
                                                      ps->getLocalNbParticles(),
-                                                     iteration+1);
+                                                     fs->iteration);
                     particles_output_writer_mpi.close_file();
                 }
                            """
