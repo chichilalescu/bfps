@@ -8,7 +8,11 @@
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
 
-template <class real_number, class interpolator_class, class field_class, int interp_neighbours, class positions_updater_class >
+template <class real_number,
+          class interpolator_class,
+          class field_class,
+          int interp_neighbours,
+          class positions_updater_class >
 class particles_field_computer : public abstract_particles_distr<real_number, 3,3,1> {
     using Parent = abstract_particles_distr<real_number, 3,3,1>;
 
@@ -34,7 +38,9 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
     virtual void init_result_array(real_number particles_current_rhs[],
                                    const int nb_particles) const final{
         // Set values to zero initialy
-        std::fill(particles_current_rhs, particles_current_rhs+nb_particles*3, 0);
+        std::fill(particles_current_rhs,
+                  particles_current_rhs+nb_particles*3,
+                  0);
     }
 
     real_number get_norm_pos_in_cell(const real_number in_pos, const int idx_pos) const {
@@ -48,13 +54,16 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                                    real_number particles_current_rhs[],
                                    const int nb_particles) const final{
         TIMEZONE("particles_field_computer::apply_computation");
-        DEBUG_MSG("just entered particles_field_computer::apply_computation\n");
+        //DEBUG_MSG("just entered particles_field_computer::apply_computation\n");
         for(int idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
             const real_number reltv_x = get_norm_pos_in_cell(particles_positions[idxPart*3+IDX_X], IDX_X);
             const real_number reltv_y = get_norm_pos_in_cell(particles_positions[idxPart*3+IDX_Y], IDX_Y);
             const real_number reltv_z = get_norm_pos_in_cell(particles_positions[idxPart*3+IDX_Z], IDX_Z);
 
-            typename interpolator_class::real_number bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
+            typename interpolator_class::real_number
+                bx[interp_neighbours*2+2],
+                by[interp_neighbours*2+2],
+                bz[interp_neighbours*2+2];
             interpolator.compute_beta(deriv[IDX_X], reltv_x, bx);
             interpolator.compute_beta(deriv[IDX_Y], reltv_y, by);
             interpolator.compute_beta(deriv[IDX_Z], reltv_z, bz);
@@ -131,7 +140,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 }
             }
         }
-        DEBUG_MSG("exiting particles_field_computer::apply_computation\n");
+        //DEBUG_MSG("exiting particles_field_computer::apply_computation\n");
     }
 
     virtual void reduce_particles_rhs(real_number particles_current_rhs[],
