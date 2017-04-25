@@ -29,6 +29,7 @@ import os
 import numpy as np
 import h5py
 import argparse
+import subprocess
 
 import bfps
 import bfps.tools
@@ -37,7 +38,7 @@ from bfps_addons import NSReader
 import matplotlib.pyplot as plt
 
 def main():
-    c = bfps.NavierStokes()
+    c = bfps.NavierStokes(simname = 'fluid_solver')
     c.launch(
             ['-n', '32',
              '--simname', 'fluid_solver',
@@ -45,29 +46,31 @@ def main():
              '--niter_todo', '16',
              '--niter_out', '16',
              '--niter_stat', '1',
-             #'--nparticles', '100',
+             '--nparticles', '10',
              '--niter_part', '1',
              '--wd', './',
              '--dtfactor', '0.1'] +
             sys.argv[1:])
+    #subprocess.call('rm *vorticity_equation* NSVE*', shell = True)
     data = c.read_cfield(iteration = 0)
-    #f = h5py.File('vorticity_equation_checkpoint_0.h5', 'w')
-    #f['vorticity/complex/0'] = data
-    #f.close()
-    #c = bfps.NSVorticityEquation()
-    #c.launch(
-    #        ['-n', '32',
-    #         '--simname', 'vorticity_equation',
-    #         '--np', '2',
-    #         '--ntpp', '2',
-    #         '--niter_todo', '16',
-    #         '--niter_out', '1',
-    #         '--niter_stat', '1',
-    #         '--checkpoints_per_file', '32',
-    #         '--nparticles', '100',
-    #         '--wd', './'] +
-    #        sys.argv[1:])
-    c0 = NSReader(simname = 'fluid_solver')
+    f = h5py.File('vorticity_equation_checkpoint_0.h5', 'w')
+    f['vorticity/complex/0'] = data
+    f.close()
+    c = bfps.NSVorticityEquation()
+    c.launch(
+            ['-n', '32',
+             '--simname', 'vorticity_equation',
+             '--np', '2',
+             '--ntpp', '2',
+             '--niter_todo', '16',
+             '--niter_out', '1',
+             '--niter_stat', '1',
+             '--checkpoints_per_file', '32',
+             '--nparticles', '10',
+             '--wd', './'] +
+            sys.argv[1:])
+    subprocess.call('cat err_file_vorticity_equation_0', shell = True)
+    #c0 = NSReader(simname = 'fluid_solver')
     #c1 = NSReader(simname = 'vorticity_equation')
     #df0 = c0.get_data_file()
     #df1 = c1.get_data_file()

@@ -48,6 +48,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                                    real_number particles_current_rhs[],
                                    const int nb_particles) const final{
         TIMEZONE("particles_field_computer::apply_computation");
+        DEBUG_MSG("just entered particles_field_computer::apply_computation\n");
         for(int idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
             const real_number reltv_x = get_norm_pos_in_cell(particles_positions[idxPart*3+IDX_X], IDX_X);
             const real_number reltv_y = get_norm_pos_in_cell(particles_positions[idxPart*3+IDX_Y], IDX_Y);
@@ -130,6 +131,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 }
             }
         }
+        DEBUG_MSG("exiting particles_field_computer::apply_computation\n");
     }
 
     virtual void reduce_particles_rhs(real_number particles_current_rhs[],
