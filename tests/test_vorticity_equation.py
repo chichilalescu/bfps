@@ -98,7 +98,8 @@ def compare_trajectories(
     f.tight_layout()
     f.savefig('figs/trajectories.pdf')
 
-    print(np.max(np.abs(c0_initial_condition - c1_initial_condition)))
+    print('difference between initial conditions is {0}'.format(
+        np.max(np.abs(c0_initial_condition - c1_initial_condition))))
     return None
 
 def main():
