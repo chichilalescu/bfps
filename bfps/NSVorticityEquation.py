@@ -139,7 +139,7 @@ class NSVorticityEquation(_fluid_particle_base):
                     fs->get_current_fname().c_str(),
                     fs->iteration);
             std::unique_ptr<abstract_particles_system<double>> ps = particles_system_builder(
-                    fs->cvorticity,             // (field object)
+                    fs->cvelocity,              // (field object)
                     fs->kk,                     // (kspace object, contains dkx, dky, dkz)
                     tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
                     nparticles,                 // to check coherency between parameters and hdf input file
