@@ -67,15 +67,17 @@ def compare_trajectories(
         c1 is NSReader of NSVorticityEquation data
     """
     f = plt.figure(figsize = (6, 10))
-    ntrajectories = 8
+    ntrajectories = 32
 
     a = f.add_subplot(211)
     pf = c0.get_particle_file()
     a.scatter(pf['tracers0/state'][0, :ntrajectories, 0],
-              pf['tracers0/state'][0, :ntrajectories, 1])
+              pf['tracers0/state'][0, :ntrajectories, 2])
     a.plot(pf['tracers0/state'][:, :ntrajectories, 0],
-           pf['tracers0/state'][:, :ntrajectories, 1])
-    print(pf['tracers0/state'][0, :ntrajectories, 0])
+           pf['tracers0/state'][:, :ntrajectories, 2])
+    a.set_xlabel('$x$')
+    a.set_xlabel('$z$')
+    c0_initial_condition = pf['tracers0/state'][0, :ntrajectories]
     pf.close()
 
     a = f.add_subplot(212)
@@ -86,17 +88,21 @@ def compare_trajectories(
         state.append(pf['tracers0/state/{0}'.format(
             ss*c1.parameters['niter_out'])][:ntrajectories])
     state = np.array(state)
-    print(state[0, :, 0])
+    c1_initial_condition = state[0, :]
     a.scatter(state[0, :, 0],
-              state[0, :, 1])
+              state[0, :, 2])
     a.plot(state[:, :, 0],
-           state[:, :, 1])
+           state[:, :, 2])
+    a.set_xlabel('$x$')
+    a.set_xlabel('$z$')
     f.tight_layout()
     f.savefig('figs/trajectories.pdf')
+
+    print(np.max(np.abs(c0_initial_condition - c1_initial_condition)))
     return None
 
 def main():
-    niterations = 32
+    niterations = 64
     c = bfps.NavierStokes(simname = 'fluid_solver')
     subprocess.call('rm *fluid_solver* NavierStokes*', shell = True)
     c.launch(
