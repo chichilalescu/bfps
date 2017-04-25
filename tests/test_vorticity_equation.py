@@ -37,8 +37,66 @@ import bfps.tools
 from bfps_addons import NSReader
 import matplotlib.pyplot as plt
 
+def compare_moments(
+        c0, c1):
+    df0 = c0.get_data_file()
+    df1 = c1.get_data_file()
+    f = plt.figure(figsize=(6,10))
+    a = f.add_subplot(211)
+    a.plot(df0['statistics/moments/vorticity'][:, 2, 3],
+           color = 'blue',
+           marker = '+')
+    a.plot(df1['statistics/moments/vorticity'][:, 2, 3],
+           color = 'red',
+           marker = 'x')
+    a = f.add_subplot(212)
+    a.plot(df0['statistics/moments/velocity'][:, 2, 3],
+           color = 'blue',
+           marker = '+')
+    a.plot(df1['statistics/moments/velocity'][:, 2, 3],
+           color = 'red',
+           marker = 'x')
+    f.tight_layout()
+    f.savefig('figs/moments.pdf')
+    return None
+
+def compare_trajectories(
+        c0, c1):
+    """
+        c0 is NSReader of NavierStokes data
+        c1 is NSReader of NSVorticityEquation data
+    """
+    f = plt.figure(figsize = (6, 10))
+    ntrajectories = 8
+
+    a = f.add_subplot(211)
+    pf = c0.get_particle_file()
+    a.scatter(pf['tracers0/state'][0, :ntrajectories, 0],
+              pf['tracers0/state'][0, :ntrajectories, 1])
+    a.plot(pf['tracers0/state'][:, :ntrajectories, 0],
+           pf['tracers0/state'][:, :ntrajectories, 1])
+    print(pf['tracers0/state'][0, :ntrajectories, 0])
+    pf.close()
+
+    a = f.add_subplot(212)
+    pf = h5py.File(c1.simname + '_checkpoint_0.h5', 'r')
+    state = []
+    nsteps = len(pf['tracers0/state'].keys())
+    for ss in range(nsteps):
+        state.append(pf['tracers0/state/{0}'.format(
+            ss*c1.parameters['niter_out'])][:ntrajectories])
+    state = np.array(state)
+    print(state[0, :, 0])
+    a.scatter(state[0, :, 0],
+              state[0, :, 1])
+    a.plot(state[:, :, 0],
+           state[:, :, 1])
+    f.tight_layout()
+    f.savefig('figs/trajectories.pdf')
+    return None
+
 def main():
-    niterations = 4
+    niterations = 32
     c = bfps.NavierStokes(simname = 'fluid_solver')
     subprocess.call('rm *fluid_solver* NavierStokes*', shell = True)
     c.launch(
@@ -49,6 +107,7 @@ def main():
              '--niter_out', '{0}'.format(niterations),
              '--niter_stat', '1',
              '--nparticles', '100',
+             '--particle-rand-seed', '2',
              '--niter_part', '1',
              '--wd', './'] +
             sys.argv[1:])
@@ -69,42 +128,14 @@ def main():
              '--niter_stat', '1',
              '--checkpoints_per_file', '{0}'.format(2*niterations),
              '--nparticles', '100',
+             '--particle-rand-seed', '2',
              '--wd', './'] +
             sys.argv[1:])
     subprocess.call('cat err_file_vorticity_equation_0', shell = True)
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
-    df0 = c0.get_data_file()
-    df1 = c1.get_data_file()
-    f = plt.figure(figsize=(6,10))
-    a = f.add_subplot(211)
-    a.plot(df0['statistics/moments/vorticity'][:, 2, 3],
-           color = 'blue',
-           marker = '+')
-    a.plot(df1['statistics/moments/vorticity'][:, 2, 3],
-           color = 'red',
-           marker = 'x')
-    a = f.add_subplot(212)
-    a.plot(df0['statistics/moments/velocity'][:, 2, 3],
-           color = 'blue',
-           marker = '+')
-    a.plot(df1['statistics/moments/velocity'][:, 2, 3],
-           color = 'red',
-           marker = 'x')
-    f.tight_layout()
-    f.savefig('figs/moments.pdf')
-    #f = plt.figure(figsize = (6, 10))
-    #a = f.add_subplot(111)
-    #a.plot(c0.statistics['enstrophy(t, k)'][0])
-    #a.plot(c1.statistics['enstrophy(t, k)'][0])
-    #a.set_yscale('log')
-    #f.tight_layout()
-    #f.savefig('figs/spectra.pdf')
-    #f = h5py.File('vorticity_equation_cvorticity_i00000.h5', 'r')
-    #print(c0.statistics['enstrophy(t, k)'][0])
-    #print(c1.statistics['enstrophy(t, k)'][0])
-    #c0.do_plots()
-    #c1.do_plots()
+    compare_moments(c0, c1)
+    compare_trajectories(c0, c1)
     return None
 
 if __name__ == '__main__':
