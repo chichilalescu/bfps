@@ -1113,6 +1113,7 @@ class NavierStokes(_fluid_particle_base):
             opt.nparticles = 0
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
+                self.variables += 'hid_t particle_file;\n'
                 self.name += '-particles'
                 self.add_3D_rFFTW_field(
                         name = 'rFFTW_acc')
@@ -1179,7 +1180,7 @@ class NavierStokes(_fluid_particle_base):
                            write_to_file = True,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
-        self.run(                
+        self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
                 njobs = opt.njobs,
