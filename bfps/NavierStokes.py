@@ -553,7 +553,7 @@ class NavierStokes(_fluid_particle_base):
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
-                self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
+                self.particle_loop += '//ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
@@ -1113,7 +1113,6 @@ class NavierStokes(_fluid_particle_base):
             opt.nparticles = 0
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
-                self.variables += 'hid_t particle_file;\n'
                 self.name += '-particles'
                 self.add_3D_rFFTW_field(
                         name = 'rFFTW_acc')
@@ -1127,6 +1126,22 @@ class NavierStokes(_fluid_particle_base):
                         interpolator = 'cubic_spline',
                         acc_name = 'rFFTW_acc',
                         class_name = 'rFFTW_distributed_particles')
+                self.variables += 'hid_t particle_file;\n'
+                self.main_start += """
+                    if (myrank == 0)
+                    {
+                        // set caching parameters
+                        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                        herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                        DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
+                        sprintf(fname, "%s_particles.h5", simname);
+                        particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                    }
+                    """
+                self.main_end = ('if (myrank == 0)\n' +
+                                 '{\n' +
+                                 'H5Fclose(particle_file);\n' +
+                                 '}\n') + self.main_end
         self.finalize_code()
         self.launch_jobs(opt = opt)
         return None
