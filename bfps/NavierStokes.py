@@ -553,7 +553,7 @@ class NavierStokes(_fluid_particle_base):
                                     'fs->ift_velocity();\n')
                     self.particle_loop += update_field
                 self.particle_loop += '{0}->read_rFFTW(fs->rvelocity);\n'.format(interpolator[s])
-                self.particle_loop += '//ps{0}->step();\n'.format(s0 + s)
+                self.particle_loop += 'ps{0}->step();\n'.format(s0 + s)
             self.particle_stat_src += 'ps{0}->write(false);\n'.format(s0 + s)
         self.particle_stat_src += output_vel_acc
         self.particle_stat_src += '}\n'
