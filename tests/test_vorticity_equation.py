@@ -76,7 +76,7 @@ def compare_trajectories(
     a.plot(pf['tracers0/state'][:, :ntrajectories, 0],
            pf['tracers0/state'][:, :ntrajectories, 2])
     a.set_xlabel('$x$')
-    a.set_xlabel('$z$')
+    a.set_ylabel('$z$')
     c0_initial_condition = pf['tracers0/state'][0, :ntrajectories]
     pf.close()
 
@@ -94,7 +94,7 @@ def compare_trajectories(
     a.plot(state[:, :, 0],
            state[:, :, 2])
     a.set_xlabel('$x$')
-    a.set_xlabel('$z$')
+    a.set_ylabel('$z$')
     f.tight_layout()
     f.savefig('figs/trajectories.pdf')
 
