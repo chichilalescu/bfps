@@ -38,20 +38,22 @@ from bfps_addons import NSReader
 import matplotlib.pyplot as plt
 
 def main():
+    niterations = 4
     c = bfps.NavierStokes(simname = 'fluid_solver')
+    subprocess.call('rm *fluid_solver* NavierStokes*', shell = True)
     c.launch(
             ['-n', '32',
              '--simname', 'fluid_solver',
              '--ncpu', '4',
-             '--niter_todo', '16',
-             '--niter_out', '16',
+             '--niter_todo', '{0}'.format(niterations),
+             '--niter_out', '{0}'.format(niterations),
              '--niter_stat', '1',
-             '--nparticles', '10',
+             '--nparticles', '100',
              '--niter_part', '1',
-             '--wd', './',
-             '--dtfactor', '0.1'] +
+             '--wd', './'] +
             sys.argv[1:])
-    #subprocess.call('rm *vorticity_equation* NSVE*', shell = True)
+    subprocess.call('cat err_file_fluid_solver_0', shell = True)
+    subprocess.call('rm *vorticity_equation* NSVE*', shell = True)
     data = c.read_cfield(iteration = 0)
     f = h5py.File('vorticity_equation_checkpoint_0.h5', 'w')
     f['vorticity/complex/0'] = data
@@ -60,37 +62,37 @@ def main():
     c.launch(
             ['-n', '32',
              '--simname', 'vorticity_equation',
-             '--np', '2',
-             '--ntpp', '2',
-             '--niter_todo', '16',
+             '--np', '4',
+             '--ntpp', '1',
+             '--niter_todo', '{0}'.format(niterations),
              '--niter_out', '1',
              '--niter_stat', '1',
-             '--checkpoints_per_file', '32',
-             '--nparticles', '10',
+             '--checkpoints_per_file', '{0}'.format(2*niterations),
+             '--nparticles', '100',
              '--wd', './'] +
             sys.argv[1:])
     subprocess.call('cat err_file_vorticity_equation_0', shell = True)
-    #c0 = NSReader(simname = 'fluid_solver')
-    #c1 = NSReader(simname = 'vorticity_equation')
-    #df0 = c0.get_data_file()
-    #df1 = c1.get_data_file()
-    #f = plt.figure(figsize=(6,10))
-    #a = f.add_subplot(211)
-    #a.plot(df0['statistics/moments/vorticity'][:, 2, 3],
-    #       color = 'blue',
-    #       marker = '.')
-    #a.plot(df1['statistics/moments/vorticity'][:, 2, 3],
-    #       color = 'red',
-    #       marker = '.')
-    #a = f.add_subplot(212)
-    #a.plot(df0['statistics/moments/velocity'][:, 2, 3],
-    #       color = 'blue',
-    #       marker = '.')
-    #a.plot(df1['statistics/moments/velocity'][:, 2, 3],
-    #       color = 'red',
-    #       marker = '.')
-    #f.tight_layout()
-    #f.savefig('figs/moments.pdf')
+    c0 = NSReader(simname = 'fluid_solver')
+    c1 = NSReader(simname = 'vorticity_equation')
+    df0 = c0.get_data_file()
+    df1 = c1.get_data_file()
+    f = plt.figure(figsize=(6,10))
+    a = f.add_subplot(211)
+    a.plot(df0['statistics/moments/vorticity'][:, 2, 3],
+           color = 'blue',
+           marker = '+')
+    a.plot(df1['statistics/moments/vorticity'][:, 2, 3],
+           color = 'red',
+           marker = 'x')
+    a = f.add_subplot(212)
+    a.plot(df0['statistics/moments/velocity'][:, 2, 3],
+           color = 'blue',
+           marker = '+')
+    a.plot(df1['statistics/moments/velocity'][:, 2, 3],
+           color = 'red',
+           marker = 'x')
+    f.tight_layout()
+    f.savefig('figs/moments.pdf')
     #f = plt.figure(figsize = (6, 10))
     #a = f.add_subplot(111)
     #a.plot(c0.statistics['enstrophy(t, k)'][0])
