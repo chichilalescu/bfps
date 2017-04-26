@@ -102,47 +102,135 @@ def compare_trajectories(
         np.max(np.abs(c0_initial_condition - c1_initial_condition))))
     return None
 
+def check_interpolation(
+        c0, c1,
+        nparticles = 2):
+    """
+        c0 is NSReader of NavierStokes data
+        c1 is NSReader of NSVorticityEquation data
+    """
+    f = plt.figure(figsize = (6, 10))
+
+    a = f.add_subplot(211)
+    pf = c0.get_particle_file()
+    x0 = pf['tracers0/state'][0, :, 0]
+    y0 = pf['tracers0/state'][0, :, 2]
+    v0 = np.sum(
+            pf['tracers0/rhs'][1, 0]**2,
+            axis = 1)**.5
+    a.scatter(
+            x0, y0,
+            c = v0,
+            vmin = v0.min(),
+            vmax = v0.max(),
+            edgecolors = 'none',
+            s = 5.,
+            cmap = plt.get_cmap('magma'))
+    a.set_xlabel('$x$')
+    a.set_ylabel('$z$')
+    pf.close()
+
+    a = f.add_subplot(212)
+    pf = h5py.File(c1.simname + '_checkpoint_0.h5', 'r')
+    state = pf['tracers0/state/0']
+    x1 = state[:, 0]
+    y1 = state[:, 2]
+    v1 = np.sum(
+            pf['tracers0/rhs/1'][1]**2,
+            axis = 1)**.5
+    # using v0 for colors on purpose, because we want the velocity to be the same,
+    # so v1.min() should be equal to v0.min() etc.
+    a.scatter(
+            x1, y1,
+            c = v1,
+            vmin = v0.min(),
+            vmax = v0.max(),
+            edgecolors = 'none',
+            s = 5.,
+            cmap = plt.get_cmap('magma'))
+    a.set_xlabel('$x$')
+    a.set_ylabel('$z$')
+    f.tight_layout()
+    f.savefig('figs/trajectories.pdf')
+    return None
+
 def main():
     niterations = 64
+    particle_initial_condition = None
+    nparticles = 100
+    run_NS = True
+    run_NSVE = False
+    plain_interpolation_test = True
+    if plain_interpolation_test:
+        niterations = 1
+        pcloudX = np.pi
+        pcloudY = np.pi
+        particle_cloud_size = np.pi
+        nparticles = 32*4
+        particle_initial_condition = np.zeros(
+                (nparticles,
+                 nparticles,
+                 3),
+                dtype = np.float64)
+        xvals = (pcloudX +
+                 np.linspace(-particle_cloud_size/2,
+                              particle_cloud_size/2,
+                              nparticles))
+        yvals = (pcloudY +
+                 np.linspace(-particle_cloud_size/2,
+                              particle_cloud_size/2,
+                              nparticles))
+        particle_initial_condition[..., 0] = xvals[None, None, :]
+        particle_initial_condition[..., 2] = yvals[None, :, None]
+        particle_initial_condition = particle_initial_condition.reshape(-1, 3)
+        nparticles = nparticles**2
     c = bfps.NavierStokes(simname = 'fluid_solver')
-    subprocess.call('rm *fluid_solver* NavierStokes*', shell = True)
-    c.launch(
-            ['-n', '32',
-             '--simname', 'fluid_solver',
-             '--ncpu', '4',
-             '--niter_todo', '{0}'.format(niterations),
-             '--niter_out', '{0}'.format(niterations),
-             '--niter_stat', '1',
-             '--nparticles', '100',
-             '--particle-rand-seed', '2',
-             '--niter_part', '1',
-             '--wd', './'] +
-            sys.argv[1:])
-    subprocess.call('cat err_file_fluid_solver_0', shell = True)
-    subprocess.call('rm *vorticity_equation* NSVE*', shell = True)
-    data = c.read_cfield(iteration = 0)
-    f = h5py.File('vorticity_equation_checkpoint_0.h5', 'w')
-    f['vorticity/complex/0'] = data
-    f.close()
-    c = bfps.NSVorticityEquation()
-    c.launch(
-            ['-n', '32',
-             '--simname', 'vorticity_equation',
-             '--np', '4',
-             '--ntpp', '1',
-             '--niter_todo', '{0}'.format(niterations),
-             '--niter_out', '1',
-             '--niter_stat', '1',
-             '--checkpoints_per_file', '{0}'.format(2*niterations),
-             '--nparticles', '100',
-             '--particle-rand-seed', '2',
-             '--wd', './'] +
-            sys.argv[1:])
-    subprocess.call('cat err_file_vorticity_equation_0', shell = True)
+    if run_NS:
+        run_NSVE = True
+        subprocess.call('rm *fluid_solver* NavierStokes*', shell = True)
+        c.launch(
+                ['-n', '32',
+                 '--simname', 'fluid_solver',
+                 '--ncpu', '4',
+                 '--niter_todo', '{0}'.format(niterations),
+                 '--niter_out', '{0}'.format(niterations),
+                 '--niter_stat', '1',
+                 '--nparticles', '{0}'.format(nparticles),
+                 '--particle-rand-seed', '2',
+                 '--niter_part', '1',
+                 '--wd', './'] +
+                sys.argv[1:],
+                particle_initial_condition = particle_initial_condition)
+        subprocess.call('cat err_file_fluid_solver_0', shell = True)
+        subprocess.call('rm *vorticity_equation* NSVE*', shell = True)
+    if run_NSVE:
+        data = c.read_cfield(iteration = 0)
+        f = h5py.File('vorticity_equation_checkpoint_0.h5', 'w')
+        f['vorticity/complex/0'] = data
+        f.close()
+        c = bfps.NSVorticityEquation()
+        c.launch(
+                ['-n', '32',
+                 '--simname', 'vorticity_equation',
+                 '--np', '4',
+                 '--ntpp', '1',
+                 '--niter_todo', '{0}'.format(niterations),
+                 '--niter_out', '1',
+                 '--niter_stat', '1',
+                 '--checkpoints_per_file', '{0}'.format(2*niterations),
+                 '--nparticles', '{0}'.format(nparticles),
+                 '--particle-rand-seed', '2',
+                 '--wd', './'] +
+                sys.argv[1:],
+                particle_initial_condition = particle_initial_condition)
+        subprocess.call('cat err_file_vorticity_equation_0', shell = True)
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
     compare_moments(c0, c1)
-    compare_trajectories(c0, c1)
+    if plain_interpolation_test:
+        check_interpolation(c0, c1, nparticles = int(nparticles**.5))
+    else:
+        compare_trajectories(c0, c1)
     return None
 
 if __name__ == '__main__':

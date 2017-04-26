@@ -871,9 +871,12 @@ class NavierStokes(_fluid_particle_base):
         else:
             pbase_shape = particle_ic.shape[:-1]
             assert(particle_ic.shape[-1] == 3)
-            number_of_particles = 1
-            for val in pbase_shape[1:]:
-                number_of_particles *= val
+            if len(pbase_shape) == 1:
+                number_of_particles = pbase_shape[0]
+            else:
+                number_of_particles = 1
+                for val in pbase_shape[1:]:
+                    number_of_particles *= val
 
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
@@ -1143,13 +1146,13 @@ class NavierStokes(_fluid_particle_base):
                                  'H5Fclose(particle_file);\n' +
                                  '}\n') + self.main_end
         self.finalize_code()
-        self.launch_jobs(opt = opt)
+        self.launch_jobs(opt = opt, **kwargs)
         return None
     def launch_jobs(
             self,
-            opt = None):
+            opt = None,
+            particle_initial_condition = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            particle_initial_condition = None
             if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
                 if opt.pcloud_type == 'random-cube':

@@ -755,7 +755,7 @@ class NSVorticityEquation(_fluid_particle_base):
                     smoothness = opt.smoothness)
         self.fill_up_fluid_code()
         self.finalize_code()
-        self.launch_jobs(opt = opt)
+        self.launch_jobs(opt = opt, **kwargs)
         return None
     def get_checkpoint_0_fname(self):
         return os.path.join(
@@ -789,7 +789,8 @@ class NSVorticityEquation(_fluid_particle_base):
         return data
     def launch_jobs(
             self,
-            opt = None):
+            opt = None,
+            particle_initial_condition = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
             # take care of fields' initial condition
             if not os.path.exists(self.get_checkpoint_0_fname()):
@@ -817,7 +818,6 @@ class NSVorticityEquation(_fluid_particle_base):
                     f['vorticity/complex/{0}'.format(0)] = data
                 f.close()
             # take care of particles' initial condition
-            particle_initial_condition = None
             if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
                 if opt.pcloud_type == 'random-cube':
