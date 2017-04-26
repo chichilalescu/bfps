@@ -42,7 +42,7 @@ public:
         assert(0 <= in_local_y && in_local_y < local_field_dims[IDX_Y]);
         assert(0 <= in_local_z && in_local_z < local_field_dims[IDX_Z]);
         return (((in_local_z)*field_memory_dims[IDX_Y] +
-                in_local_y)*(field_memory_dims[IDX_Z]) +
+                in_local_y)*(field_memory_dims[IDX_X]) +
                 in_local_x);
     }
 };
