@@ -88,20 +88,20 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
 
             if((partGridIdx_z-interp_neighbours) < 0){
                 assert(partGridIdx_z+interp_neighbours+1 < int(field_grid_dim[IDX_Z]));
-                interp_limit_mz[0] = ((partGridIdx_z-interp_neighbours)+field_grid_dim[IDX_Z])%field_grid_dim[IDX_Z];
+                interp_limit_mz[0] = std::max(current_partition_interval.first, partGridIdx_z-interp_neighbours+int(field_grid_dim[IDX_Z]));
                 interp_limit_z[0] = current_partition_interval.second-1;
 
-                interp_limit_mz[1] = std::max(0, current_partition_interval.first);// max is not really needed here
+                interp_limit_mz[1] = std::max(0, current_partition_interval.first);
                 interp_limit_z[1] = std::min(partGridIdx_z+interp_neighbours+1, current_partition_interval.second-1);
 
                 nb_z_intervals = 2;
             }
-            else if(int(field_grid_dim[2]) <= (partGridIdx_z+interp_neighbours+1)){
+            else if(int(field_grid_dim[IDX_Z]) <= (partGridIdx_z+interp_neighbours+1)){
                 interp_limit_mz[0] = std::max(current_partition_interval.first, partGridIdx_z-interp_neighbours);
-                interp_limit_z[0] = std::min(int(field_grid_dim[IDX_Z])-1,current_partition_interval.second-1);// max is not really needed here
+                interp_limit_z[0] = std::min(int(field_grid_dim[IDX_Z])-1,current_partition_interval.second-1);
 
                 interp_limit_mz[1] = std::max(0, current_partition_interval.first);
-                interp_limit_z[1] = std::min(int((partGridIdx_z+interp_neighbours+1+field_grid_dim[IDX_Z])%field_grid_dim[IDX_Z]), current_partition_interval.second-1);
+                interp_limit_z[1] = std::min(partGridIdx_z+interp_neighbours+1-int(field_grid_dim[IDX_Z]), current_partition_interval.second-1);
 
                 nb_z_intervals = 2;
             }
@@ -187,7 +187,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
             }
         }
-        else if(Parent::my_rank == Parent::nb_processes_involved - 1){
+        if(Parent::my_rank == Parent::nb_processes_involved - 1){
             const int idxDim = IDX_Z;
             for(int idxPart = 0 ; idxPart < size ; ++idxPart){
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] || values[idxPart*3+idxDim] < 0);
@@ -199,7 +199,7 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
             }
         }
-        else{
+        if(Parent::my_rank != 0 && Parent::my_rank != Parent::nb_processes_involved - 1){
             const int idxDim = IDX_Z;
             for(int idxPart = 0 ; idxPart < size ; ++idxPart){
                 assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);

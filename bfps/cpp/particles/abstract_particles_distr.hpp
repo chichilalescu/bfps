@@ -163,6 +163,11 @@ public:
             int nextDestProc = my_rank;
             for(int idxLower = 1 ; idxLower <= interpolation_size ; idxLower += partition_interval_size_per_proc[nextDestProc]){
                 nextDestProc = (nextDestProc-1+nb_processes_involved)%nb_processes_involved;
+                if(nextDestProc == my_rank){
+                    // We are back on our process
+                    break;
+                }
+
                 const int destProc = nextDestProc;
                 const int lowerRankDiff = (nextDestProc < my_rank ? my_rank - nextDestProc : nb_processes_involved-nextDestProc+my_rank);
 
@@ -189,6 +194,11 @@ public:
             nextDestProc = my_rank;
             for(int idxUpper = 1 ; idxUpper <= interpolation_size ; idxUpper += partition_interval_size_per_proc[nextDestProc]){
                 nextDestProc = (nextDestProc+1+nb_processes_involved)%nb_processes_involved;
+                if(nextDestProc == my_rank){
+                    // We are back on our process
+                    break;
+                }
+
                 const int destProc = nextDestProc;
                 const int upperRankDiff = (nextDestProc > my_rank ? nextDestProc - my_rank: nb_processes_involved-my_rank+nextDestProc);
 

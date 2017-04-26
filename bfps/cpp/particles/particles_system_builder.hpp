@@ -122,21 +122,21 @@ struct particles_system_build_container {
 
         // The size of the field grid (global size) all_size seems
         std::array<size_t,3> field_grid_dim;
-        field_grid_dim[IDX_X] = fs_field->rlayout->sizes[IDX_X];// nx
-        field_grid_dim[IDX_Y] = fs_field->rlayout->sizes[IDX_Y];// nx
-        field_grid_dim[IDX_Z] = fs_field->rlayout->sizes[IDX_Z];// nz
+        field_grid_dim[IDX_X] = fs_field->rlayout->sizes[FIELD_IDX_X];// nx
+        field_grid_dim[IDX_Y] = fs_field->rlayout->sizes[FIELD_IDX_Y];// nx
+        field_grid_dim[IDX_Z] = fs_field->rlayout->sizes[FIELD_IDX_Z];// nz
 
         // The size of the local field grid (the field nodes that belong to current process)
         std::array<size_t,3> local_field_dims;
-        local_field_dims[IDX_X] = fs_field->rlayout->subsizes[IDX_X];
-        local_field_dims[IDX_Y] = fs_field->rlayout->subsizes[IDX_Y];
-        local_field_dims[IDX_Z] = fs_field->rlayout->subsizes[IDX_Z];
+        local_field_dims[IDX_X] = fs_field->rlayout->subsizes[FIELD_IDX_X];
+        local_field_dims[IDX_Y] = fs_field->rlayout->subsizes[FIELD_IDX_Y];
+        local_field_dims[IDX_Z] = fs_field->rlayout->subsizes[FIELD_IDX_Z];
 
         // The offset of the local field grid
         std::array<size_t,3> local_field_offset;
-        local_field_offset[IDX_X] = fs_field->rlayout->starts[IDX_X];
-        local_field_offset[IDX_Y] = fs_field->rlayout->starts[IDX_Y];
-        local_field_offset[IDX_Z] = fs_field->rlayout->starts[IDX_Z];
+        local_field_offset[IDX_X] = fs_field->rlayout->starts[FIELD_IDX_X];
+        local_field_offset[IDX_Y] = fs_field->rlayout->starts[FIELD_IDX_Y];
+        local_field_offset[IDX_Z] = fs_field->rlayout->starts[FIELD_IDX_Z];
 
 
         // Retreive split from fftw to know processes that have no work
@@ -171,9 +171,9 @@ struct particles_system_build_container {
 
         // The offset of the local field grid
         std::array<size_t,3> local_field_mem_size;
-        local_field_mem_size[IDX_X] = fs_field->rmemlayout->subsizes[IDX_X];
-        local_field_mem_size[IDX_Y] = fs_field->rmemlayout->subsizes[IDX_Y];
-        local_field_mem_size[IDX_Z] = fs_field->rmemlayout->subsizes[IDX_Z];
+        local_field_mem_size[IDX_X] = fs_field->rmemlayout->subsizes[FIELD_IDX_X];
+        local_field_mem_size[IDX_Y] = fs_field->rmemlayout->subsizes[FIELD_IDX_Y];
+        local_field_mem_size[IDX_Z] = fs_field->rmemlayout->subsizes[FIELD_IDX_Z];
 
         // The spatial box size (all particles should be included inside)
         std::array<particles_rnumber,3> spatial_box_width;

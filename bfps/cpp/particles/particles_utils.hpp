@@ -20,9 +20,15 @@
 #endif
 
 enum IDXS_3D {
-    IDX_X = 2,
+    IDX_X = 0,
     IDX_Y = 1,
-    IDX_Z = 0
+    IDX_Z = 2
+};
+
+enum FIELD_IDXS_3D {
+    FIELD_IDX_X = 2,
+    FIELD_IDX_Y = 1,
+    FIELD_IDX_Z = 0
 };
 
 namespace particles_utils {

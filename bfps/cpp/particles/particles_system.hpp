@@ -123,7 +123,7 @@ public:
     void move(const real_number dt) final {
         TIMEZONE("particles_system::move");
         computer.move_particles(my_particles_positions.get(), my_nb_particles,
-                                my_particles_rhs.data(), std::min(step_idx+1,int(my_particles_rhs.size())),
+                                my_particles_rhs.data(), std::min(step_idx,int(my_particles_rhs.size())),
                                 dt);
     }
 
