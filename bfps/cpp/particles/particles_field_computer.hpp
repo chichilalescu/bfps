@@ -25,9 +25,8 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
     const positions_updater_class positions_updater;
 
     const std::array<real_number,3> spatial_box_width;
+    const std::array<real_number,3> spatial_box_offset;
     const std::array<real_number,3> box_step_width;
-    const real_number my_spatial_low_limit_z;
-    const real_number my_spatial_up_limit_z;
 
     int deriv[3];
 
@@ -44,8 +43,11 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
     }
 
     real_number get_norm_pos_in_cell(const real_number in_pos, const int idx_pos) const {
-        const real_number cell_idx = floor(in_pos/box_step_width[idx_pos]);
-        const real_number pos_in_cell = (in_pos - cell_idx*box_step_width[idx_pos]) / box_step_width[idx_pos];
+        const real_number shifted_pos = in_pos - spatial_box_offset[idx_pos];
+        const real_number nb_box_repeat = floor(shifted_pos/spatial_box_width[idx_pos]);
+        const real_number pos_in_box = shifted_pos - nb_box_repeat*spatial_box_width[idx_pos];
+        const real_number cell_idx = floor(pos_in_box/box_step_width[idx_pos]);
+        const real_number pos_in_cell = (pos_in_box - cell_idx*box_step_width[idx_pos]) / box_step_width[idx_pos];
         assert(0 <= pos_in_cell && pos_in_cell < 1);
         return pos_in_cell;
     }
@@ -68,9 +70,9 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
             interpolator.compute_beta(deriv[IDX_Y], reltv_y, by);
             interpolator.compute_beta(deriv[IDX_Z], reltv_z, bz);
 
-            const int partGridIdx_x = int(particles_positions[idxPart*3+IDX_X]/box_step_width[IDX_X]);
-            const int partGridIdx_y = int(particles_positions[idxPart*3+IDX_Y]/box_step_width[IDX_Y]);
-            const int partGridIdx_z = int(particles_positions[idxPart*3+IDX_Z]/box_step_width[IDX_Z]);
+            const int partGridIdx_x = pbc_field_layer(particles_positions[idxPart*3+IDX_X], IDX_X);
+            const int partGridIdx_y = pbc_field_layer(particles_positions[idxPart*3+IDX_Y], IDX_Y);
+            const int partGridIdx_z = pbc_field_layer(particles_positions[idxPart*3+IDX_Z], IDX_Z);
 
             assert(0 <= partGridIdx_x && partGridIdx_x < int(field_grid_dim[IDX_X]));
             assert(0 <= partGridIdx_y && partGridIdx_y < int(field_grid_dim[IDX_Y]));
@@ -140,7 +142,6 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
                 }
             }
         }
-        //DEBUG_MSG("exiting particles_field_computer::apply_computation\n");
     }
 
     virtual void reduce_particles_rhs(real_number particles_current_rhs[],
@@ -155,72 +156,18 @@ class particles_field_computer : public abstract_particles_distr<real_number, 3,
         }
     }
 
-
-    ////////////////////////////////////////////////////////////////////////
-    /// Re-distribution related
-    ////////////////////////////////////////////////////////////////////////
-
-    void apply_pbc_xy(real_number* inout_particles, const int size) const final {
-        TIMEZONE("particles_field_computer::apply_pbc_xy");
-        const std::array<int, 2> dims_xy={IDX_X, IDX_Y};
-        for(int idxPart = 0 ; idxPart < size ; ++idxPart){
-            // Consider it will never move for more than one box repeatition
-            for(const int idxDim : dims_xy){
-                if(inout_particles[idxPart*3+idxDim] < 0) inout_particles[idxPart*3+idxDim] += spatial_box_width[idxDim];
-                else if(spatial_box_width[idxDim] <= inout_particles[idxPart*3+idxDim]) inout_particles[idxPart*3+idxDim] -= spatial_box_width[idxDim];
-                assert(0 <= inout_particles[idxPart*3+idxDim] && inout_particles[idxPart*3+idxDim] < spatial_box_width[idxDim]);
-            }
-        }
-    }
-
-    void apply_pbc_z_new_particles(real_number* values, const int size) const final {
-        TIMEZONE("particles_field_computer::apply_pbc_z_new_particles");
-        if(Parent::my_rank == 0){
-            const int idxDim = IDX_Z;
-            for(int idxPart = 0 ; idxPart < size ; ++idxPart){
-                assert(values[idxPart*3+idxDim] < my_spatial_up_limit_z || spatial_box_width[idxDim] <= values[idxPart*3+idxDim]);
-                assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim]);
-
-                if(spatial_box_width[idxDim] <= values[idxPart*3+idxDim]) values[idxPart*3+idxDim] -= spatial_box_width[idxDim];
-
-                assert(0 <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < spatial_box_width[idxDim]);
-                assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
-            }
-        }
-        if(Parent::my_rank == Parent::nb_processes_involved - 1){
-            const int idxDim = IDX_Z;
-            for(int idxPart = 0 ; idxPart < size ; ++idxPart){
-                assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] || values[idxPart*3+idxDim] < 0);
-                assert(values[idxPart*3+idxDim] < spatial_box_width[idxDim]);
-
-                if(values[idxPart*3+idxDim] < 0) values[idxPart*3+idxDim] += spatial_box_width[idxDim];
-
-                assert(0 <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < spatial_box_width[idxDim]);
-                assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
-            }
-        }
-        if(Parent::my_rank != 0 && Parent::my_rank != Parent::nb_processes_involved - 1){
-            const int idxDim = IDX_Z;
-            for(int idxPart = 0 ; idxPart < size ; ++idxPart){
-                assert(my_spatial_low_limit_z <= values[idxPart*3+idxDim] && values[idxPart*3+idxDim] < my_spatial_up_limit_z);
-            }
-        }
-    }
-
 public:
 
     particles_field_computer(MPI_Comm in_current_com, const std::array<size_t,3>& in_field_grid_dim,
                              const std::pair<int,int>& in_current_partitions,
                              const interpolator_class& in_interpolator,
                              const field_class& in_field,
-                             const std::array<real_number,3>& in_spatial_box_width,
-                             const std::array<real_number,3>& in_box_step_width, const real_number in_my_spatial_low_limit_z,
-                             const real_number in_my_spatial_up_limit_z)
-        : abstract_particles_distr<real_number, 3,3,1>(in_current_com, in_current_partitions),
+                             const std::array<real_number,3>& in_spatial_box_width, const std::array<real_number,3>& in_spatial_box_offset,
+                             const std::array<real_number,3>& in_box_step_width)
+        : abstract_particles_distr<real_number, 3,3,1>(in_current_com, in_current_partitions, in_field_grid_dim),
           field_grid_dim(in_field_grid_dim), current_partition_interval(in_current_partitions),
           interpolator(in_interpolator), field(in_field), positions_updater(),
-          spatial_box_width(in_spatial_box_width), box_step_width(in_box_step_width),
-          my_spatial_low_limit_z(in_my_spatial_low_limit_z), my_spatial_up_limit_z(in_my_spatial_up_limit_z){
+          spatial_box_width(in_spatial_box_width), spatial_box_offset(in_spatial_box_offset), box_step_width(in_box_step_width){
         deriv[IDX_X] = 0;
         deriv[IDX_Y] = 0;
         deriv[IDX_Z] = 0;
@@ -237,6 +184,19 @@ public:
         TIMEZONE("particles_field_computer::move_particles");
         positions_updater.move_particles(particles_positions, nb_particles,
                                          particles_current_rhs, nb_rhs, dt);
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    /// Re-distribution related
+    ////////////////////////////////////////////////////////////////////////
+
+    virtual int pbc_field_layer(const real_number& a_z_pos, const int idx_dim) const final {
+        const real_number shifted_pos = a_z_pos - spatial_box_offset[idx_dim];
+        const int nb_level_to_pos = int(shifted_pos/box_step_width[idx_dim]);
+        const int int_field_grid_dim = int(field_grid_dim[idx_dim]);
+        const int pbc_level = ((nb_level_to_pos%int_field_grid_dim)+int_field_grid_dim)%int_field_grid_dim;
+        assert(0 <= pbc_level && pbc_level < int(field_grid_dim[idx_dim]));
+        return pbc_level;
     }
 
 };

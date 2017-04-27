@@ -181,6 +181,12 @@ struct particles_system_build_container {
         spatial_box_width[IDX_Y] = 4 * acos(0) / (fs_kk->dky);
         spatial_box_width[IDX_Z] = 4 * acos(0) / (fs_kk->dkz);
 
+        // Box is in the corner
+        std::array<particles_rnumber,3> spatial_box_offset;
+        spatial_box_offset[IDX_X] = 0;
+        spatial_box_offset[IDX_Y] = 0;
+        spatial_box_offset[IDX_Z] = 0;
+
         // The distance between two field nodes in z
         std::array<particles_rnumber,3> spatial_partition_width;
         spatial_partition_width[IDX_X] = spatial_box_width[IDX_X]/particles_rnumber(field_grid_dim[IDX_X]);
@@ -194,6 +200,7 @@ struct particles_system_build_container {
         particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
          = new particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
+                                                                                                   spatial_box_offset,
                                                                                                    spatial_partition_width,
                                                                                                    my_spatial_low_limit_z,
                                                                                                    my_spatial_up_limit_z,
