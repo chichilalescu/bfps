@@ -243,10 +243,10 @@ def check_interpolation(
     return None
 
 def main():
-    niterations = 128
+    niterations = 64
     particle_initial_condition = None
     nparticles = 100
-    run_NS = False
+    run_NS = True
     run_NSVE = False
     plain_interpolation_test = False
     if plain_interpolation_test:
@@ -286,6 +286,7 @@ def main():
                  '--nparticles', '{0}'.format(nparticles),
                  '--particle-rand-seed', '2',
                  '--niter_part', '1',
+                 '--njobs', '2',
                  '--wd', './'] +
                 sys.argv[1:],
                 particle_initial_condition = particle_initial_condition)
@@ -305,9 +306,10 @@ def main():
                  '--niter_todo', '{0}'.format(niterations),
                  '--niter_out', '1',
                  '--niter_stat', '1',
-                 '--checkpoints_per_file', '{0}'.format(2*niterations),
+                 '--checkpoints_per_file', '{0}'.format(3*niterations),
                  '--nparticles', '{0}'.format(nparticles),
                  '--particle-rand-seed', '2',
+                 '--njobs', '2',
                  '--wd', './'] +
                 sys.argv[1:],
                 particle_initial_condition = particle_initial_condition)
