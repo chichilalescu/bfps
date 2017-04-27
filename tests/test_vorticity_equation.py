@@ -243,9 +243,9 @@ def check_interpolation(
     return None
 
 def main():
-    niterations = 64
+    niterations = 128
     particle_initial_condition = None
-    nparticles = 100
+    nparticles = 10000
     run_NS = True
     run_NSVE = False
     plain_interpolation_test = False
