@@ -148,8 +148,6 @@ def compare_trajectories(
     ax.plot(state1[:, bad_index, 0], dashes = (1, 1))
     ay.plot(state1[:, bad_index, 1], dashes = (1, 1))
     az.plot(state1[:, bad_index, 2], dashes = (1, 1))
-    for a in [ax, ay, az]:
-        a.plot(np.zeros(state0.shape[0]), dashes = (3, 3), color = 'black')
     f.tight_layout()
     f.savefig('figs/trajectories.pdf')
     return None
@@ -210,7 +208,7 @@ def main():
     niterations = 128
     particle_initial_condition = None
     nparticles = 100
-    run_NS = False
+    run_NS = True
     run_NSVE = False
     plain_interpolation_test = False
     if plain_interpolation_test:

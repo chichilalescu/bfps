@@ -192,7 +192,7 @@ public:
 
     virtual int pbc_field_layer(const real_number& a_z_pos, const int idx_dim) const final {
         const real_number shifted_pos = a_z_pos - spatial_box_offset[idx_dim];
-        const int nb_level_to_pos = int(shifted_pos/box_step_width[idx_dim]);
+        const int nb_level_to_pos = int(floor(shifted_pos/box_step_width[idx_dim]));
         const int int_field_grid_dim = int(field_grid_dim[idx_dim]);
         const int pbc_level = ((nb_level_to_pos%int_field_grid_dim)+int_field_grid_dim)%int_field_grid_dim;
         assert(0 <= pbc_level && pbc_level < int(field_grid_dim[idx_dim]));
