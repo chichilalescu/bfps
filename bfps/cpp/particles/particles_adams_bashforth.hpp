@@ -9,13 +9,16 @@
 
 template <class real_number, int size_particle_positions = 3, int size_particle_rhs = 3>
 class particles_adams_bashforth {
+    static_assert(size_particle_positions == size_particle_rhs,
+                  "Not having the same dimension for positions and rhs looks like a bug,"
+                  "otherwise comment this assertion.");
 public:
     static const int Max_steps = 6;
 
-    void move_particles(real_number particles_positions[],
-                       const int nb_particles,
-                       const std::unique_ptr<real_number[]> particles_rhs[],
-                       const int nb_rhs, const real_number dt) const{
+    void move_particles(real_number*__restrict__ particles_positions,
+                        const int nb_particles,
+                        const std::unique_ptr<real_number[]> particles_rhs[],
+                        const int nb_rhs, const real_number dt) const{
         TIMEZONE("particles_adams_bashforth::move_particles");
 
         if(Max_steps < nb_rhs){
@@ -25,83 +28,105 @@ public:
         }
 
         // Not needed: TIMEZONE_OMP_INIT_PREPARALLEL(omp_get_max_threads())
-        #pragma omp parallel default(shared)
+#pragma omp parallel default(shared)
         {
             particles_utils::IntervalSplitter<int> interval(nb_particles,
-                                                       omp_get_num_threads(),
-                                                       omp_get_thread_num());
-            const int last_idx = interval.getMyOffset()+interval.getMySize();
+                                                            omp_get_num_threads(),
+                                                            omp_get_thread_num());
+
+            const int value_start = interval.getMyOffset()*size_particle_positions;
+            const int value_end = (interval.getMyOffset()+interval.getMySize())*size_particle_positions;
 
             // TODO full unroll + blocking
             switch (nb_rhs){
             case 1:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × [0]
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * particles_rhs[0][idx_part*size_particle_rhs + idx_dim];
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × [0]
+                    particles_positions[idx_value] += dt * rhs_0[idx_value];
                 }
+            }
                 break;
             case 2:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × (3[0] - [1])/2
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * (3.*particles_rhs[0][idx_part*size_particle_rhs + idx_dim]
-                                          - particles_rhs[1][idx_part*size_particle_rhs + idx_dim])/2.;
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                const real_number* __restrict__ rhs_1 = particles_rhs[1].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × (3[0] - [1])/2
+                    particles_positions[idx_value]
+                            += dt * (3.*rhs_0[idx_value]
+                                     - rhs_1[idx_value])/2.;
                 }
+            }
                 break;
             case 3:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × (23[0] - 16[1] + 5[2])/12
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * (23.*particles_rhs[0][idx_part*size_particle_rhs + idx_dim]
-                                       - 16.*particles_rhs[1][idx_part*size_particle_rhs + idx_dim]
-                                       +  5.*particles_rhs[2][idx_part*size_particle_rhs + idx_dim])/12.;
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                const real_number* __restrict__ rhs_1 = particles_rhs[1].get();
+                const real_number* __restrict__ rhs_2 = particles_rhs[2].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × (23[0] - 16[1] + 5[2])/12
+                    particles_positions[idx_value]
+                            += dt * (23.*rhs_0[idx_value]
+                                     - 16.*rhs_1[idx_value]
+                                     +  5.*rhs_2[idx_value])/12.;
                 }
+            }
                 break;
             case 4:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × (55[0] - 59[1] + 37[2] - 9[3])/24
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * (55.*particles_rhs[0][idx_part*size_particle_rhs + idx_dim]
-                                       - 59.*particles_rhs[1][idx_part*size_particle_rhs + idx_dim]
-                                       + 37.*particles_rhs[2][idx_part*size_particle_rhs + idx_dim]
-                                       -  9.*particles_rhs[3][idx_part*size_particle_rhs + idx_dim])/24.;
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                const real_number* __restrict__ rhs_1 = particles_rhs[1].get();
+                const real_number* __restrict__ rhs_2 = particles_rhs[2].get();
+                const real_number* __restrict__ rhs_3 = particles_rhs[3].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × (55[0] - 59[1] + 37[2] - 9[3])/24
+                    particles_positions[idx_value]
+                            += dt * (55.*rhs_0[idx_value]
+                                     - 59.*rhs_1[idx_value]
+                                     + 37.*rhs_2[idx_value]
+                                     -  9.*rhs_3[idx_value])/24.;
                 }
+            }
                 break;
             case 5:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × (1901[0] - 2774[1] + 2616[2] - 1274[3] + 251[4])/720
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * (1901.*particles_rhs[0][idx_part*size_particle_rhs + idx_dim]
-                                       - 2774.*particles_rhs[1][idx_part*size_particle_rhs + idx_dim]
-                                       + 2616.*particles_rhs[2][idx_part*size_particle_rhs + idx_dim]
-                                       - 1274.*particles_rhs[3][idx_part*size_particle_rhs + idx_dim]
-                                       +  251.*particles_rhs[4][idx_part*size_particle_rhs + idx_dim])/720.;
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                const real_number* __restrict__ rhs_1 = particles_rhs[1].get();
+                const real_number* __restrict__ rhs_2 = particles_rhs[2].get();
+                const real_number* __restrict__ rhs_3 = particles_rhs[3].get();
+                const real_number* __restrict__ rhs_4 = particles_rhs[4].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × (1901[0] - 2774[1] + 2616[2] - 1274[3] + 251[4])/720
+                    particles_positions[idx_value]
+                            += dt * (1901.*rhs_0[idx_value]
+                                     - 2774.*rhs_1[idx_value]
+                                     + 2616.*rhs_2[idx_value]
+                                     - 1274.*rhs_3[idx_value]
+                                     +  251.*rhs_4[idx_value])/720.;
                 }
+            }
                 break;
             case 6:
-                for(int idx_part = interval.getMyOffset() ; idx_part < last_idx ; ++idx_part){
-                    for(int idx_dim = 0 ; idx_dim < size_particle_positions ; ++idx_dim){
-                        // dt × (4277[0] - 7923[1] + 9982[2] - 7298[3] + 2877[4] - 475[5])/1440
-                        particles_positions[idx_part*size_particle_positions + idx_dim]
-                                += dt * (4277.*particles_rhs[0][idx_part*size_particle_rhs + idx_dim]
-                                       - 7923.*particles_rhs[1][idx_part*size_particle_rhs + idx_dim]
-                                       + 9982.*particles_rhs[2][idx_part*size_particle_rhs + idx_dim]
-                                       - 7298.*particles_rhs[3][idx_part*size_particle_rhs + idx_dim]
-                                       + 2877.*particles_rhs[4][idx_part*size_particle_rhs + idx_dim]
-                                       -  475.*particles_rhs[5][idx_part*size_particle_rhs + idx_dim])/1440.;
-                    }
+            {
+                const real_number* __restrict__ rhs_0 = particles_rhs[0].get();
+                const real_number* __restrict__ rhs_1 = particles_rhs[1].get();
+                const real_number* __restrict__ rhs_2 = particles_rhs[2].get();
+                const real_number* __restrict__ rhs_3 = particles_rhs[3].get();
+                const real_number* __restrict__ rhs_4 = particles_rhs[4].get();
+                const real_number* __restrict__ rhs_5 = particles_rhs[5].get();
+                for(int idx_value = value_start ; idx_value < value_end ; ++idx_value){
+                    // dt × (4277[0] - 7923[1] + 9982[2] - 7298[3] + 2877[4] - 475[5])/1440
+                    particles_positions[idx_value]
+                            += dt * (4277.*rhs_0[idx_value]
+                                     - 7923.*rhs_1[idx_value]
+                                     + 9982.*rhs_2[idx_value]
+                                     - 7298.*rhs_3[idx_value]
+                                     + 2877.*rhs_4[idx_value]
+                                     -  475.*rhs_5[idx_value])/1440.;
                 }
+            }
                 break;
             }
         }

@@ -216,14 +216,21 @@ public:
         std::vector<int> nb_particles_per_proc(nb_processes);
         {
             TIMEZONE("partition");
+
+            const real_number spatial_box_offset = in_spatial_limit_per_proc[0];
+            const real_number spatial_box_width = in_spatial_limit_per_proc[nb_processes] - in_spatial_limit_per_proc[0];
+
             int previousOffset = 0;
             for(int idx_proc = 0 ; idx_proc < nb_processes-1 ; ++idx_proc){
-                const real_number limitPartition = in_spatial_limit_per_proc[idx_proc+1];
+                const real_number limitPartitionShifted = in_spatial_limit_per_proc[idx_proc+1]-spatial_box_offset;
                 const int localOffset = particles_utils::partition_extra<size_particle_positions>(
                                                 &split_particles_positions[previousOffset*size_particle_positions],
                                                  load_splitter.getMySize()-previousOffset,
                                                  [&](const real_number val[]){
-                    return val[IDX_Z] < limitPartition;
+                    const real_number shiftPos = val[IDX_Z]-spatial_box_offset;
+                    const real_number nbRepeat = floor(shiftPos/spatial_box_width);
+                    const real_number posInBox = shiftPos - (spatial_box_width*nbRepeat);
+                    return posInBox < limitPartitionShifted;
                 },
                 [&](const int idx1, const int idx2){
                     std::swap(split_particles_indexes[idx1], split_particles_indexes[idx2]);

@@ -27,7 +27,7 @@ public:
     ~field_accessor(){}
 
     const real_number& getValue(const size_t in_index, const int in_dim) const {
-        assert(in_index < field_memory_dims[0]*field_memory_dims[1]*field_memory_dims[2]);
+        assert(in_index < field_memory_dims[IDX_X]*field_memory_dims[IDX_Y]*field_memory_dims[IDX_Z]);
         return field_date[in_index*nb_dim + in_dim];
     }
 
@@ -41,11 +41,8 @@ public:
         assert(0 <= in_local_x && in_local_x < local_field_dims[IDX_X]);
         assert(0 <= in_local_y && in_local_y < local_field_dims[IDX_Y]);
         assert(0 <= in_local_z && in_local_z < local_field_dims[IDX_Z]);
-        static_assert(IDX_X == 2 && IDX_Y == 1 && IDX_Z == 0,
-                      "Dimension idx does not match, please ensure getIndexFromLocalPosition"
-                      "is correct before commenting this assert");
-        return (((in_local_z)*field_memory_dims[1] +
-                in_local_y)*(field_memory_dims[2]) +
+        return (((in_local_z)*field_memory_dims[IDX_Y] +
+                in_local_y)*(field_memory_dims[IDX_X]) +
                 in_local_x);
     }
 };

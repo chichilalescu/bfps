@@ -66,13 +66,15 @@ def compare_trajectories(
         c0 is NSReader of NavierStokes data
         c1 is NSReader of NSVorticityEquation data
     """
-    f = plt.figure(figsize = (6, 10))
-    ntrajectories = 32
+    f = plt.figure(figsize = (6, 6))
+    ntrajectories = 100
 
-    a = f.add_subplot(211)
+    a = f.add_subplot(111)
     pf = c0.get_particle_file()
     a.scatter(pf['tracers0/state'][0, :ntrajectories, 0],
-              pf['tracers0/state'][0, :ntrajectories, 2])
+              pf['tracers0/state'][0, :ntrajectories, 2],
+              marker = '+',
+              color = 'blue')
     a.plot(pf['tracers0/state'][:, :ntrajectories, 0],
            pf['tracers0/state'][:, :ntrajectories, 2])
     a.set_xlabel('$x$')
@@ -80,7 +82,6 @@ def compare_trajectories(
     c0_initial_condition = pf['tracers0/state'][0, :ntrajectories]
     pf.close()
 
-    a = f.add_subplot(212)
     pf = h5py.File(c1.simname + '_checkpoint_0.h5', 'r')
     state = []
     nsteps = len(pf['tracers0/state'].keys())
@@ -90,9 +91,12 @@ def compare_trajectories(
     state = np.array(state)
     c1_initial_condition = state[0, :]
     a.scatter(state[0, :, 0],
-              state[0, :, 2])
+              state[0, :, 2],
+              marker = 'x',
+              color = 'red')
     a.plot(state[:, :, 0],
-           state[:, :, 2])
+           state[:, :, 2],
+           dashes = (1, 1))
     a.set_xlabel('$x$')
     a.set_ylabel('$z$')
     f.tight_layout()
@@ -116,7 +120,7 @@ def check_interpolation(
     x0 = pf['tracers0/state'][0, :, 0]
     y0 = pf['tracers0/state'][0, :, 2]
     v0 = np.sum(
-            pf['tracers0/rhs'][1, 0]**2,
+            pf['tracers0/rhs'][1, 1]**2,
             axis = 1)**.5
     a.scatter(
             x0, y0,
@@ -155,12 +159,12 @@ def check_interpolation(
     return None
 
 def main():
-    niterations = 64
+    niterations = 128
     particle_initial_condition = None
     nparticles = 100
-    run_NS = True
+    run_NS = False
     run_NSVE = False
-    plain_interpolation_test = True
+    plain_interpolation_test = False
     if plain_interpolation_test:
         niterations = 1
         pcloudX = np.pi

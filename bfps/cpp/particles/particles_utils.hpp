@@ -20,9 +20,15 @@
 #endif
 
 enum IDXS_3D {
-    IDX_X = 2,
+    IDX_X = 0,
     IDX_Y = 1,
-    IDX_Z = 0
+    IDX_Z = 2
+};
+
+enum FIELD_IDXS_3D {
+    FIELD_IDX_X = 2,
+    FIELD_IDX_Y = 1,
+    FIELD_IDX_Z = 0
 };
 
 namespace particles_utils {
@@ -93,7 +99,7 @@ inline int partition_extra(real_number* array, const int size, Predicate1 pdc, P
 template <int nb_values, class real_number, class Predicate1, class Predicate2>
 inline void partition_extra_z(real_number* array, const int size, const int nb_partitions,
                               int partitions_size[], int partitions_offset[],
-                              Predicate1 partitions_limits, Predicate2 pdcswap)
+                              Predicate1 partitions_levels, Predicate2 pdcswap)
 {
     if(nb_partitions == 0){
         return ;
@@ -108,10 +114,9 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
     }
 
     if(nb_partitions == 2){
-        const real_number limit = partitions_limits(0);
         const int size_current = partition_extra<nb_values>(array, size,
                 [&](const real_number inval[]){
-            return inval[IDX_Z] < limit;
+            return partitions_levels(inval[IDX_Z]) == 0;
         }, pdcswap);
         partitions_size[0] = size_current;
         partitions_size[1] = size-size_current;
@@ -137,11 +142,10 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
 
             const int size_unpart = partitions_offset[current_part.second]- partitions_offset[current_part.first];
 
-            const real_number limit = partitions_limits(idx_middle);
             const int size_current = partition_extra<nb_values>(&array[partitions_offset[current_part.first]*nb_values],
                                                      size_unpart,
                     [&](const real_number inval[]){
-                return inval[IDX_Z] < limit;
+                return partitions_levels(inval[IDX_Z]) <= idx_middle;
             }, pdcswap, partitions_offset[current_part.first]);
 
             partitions_offset[idx_middle+1] = size_current + partitions_offset[current_part.first];
@@ -155,14 +159,14 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
 
 template <int nb_values, class real_number, class Predicate1, class Predicate2>
 inline std::pair<std::vector<int>,std::vector<int>> partition_extra_z(real_number* array, const int size,
-                                                                      const int nb_partitions, Predicate1 partitions_limits,
+                                                                      const int nb_partitions, Predicate1 partitions_levels,
                                                                         Predicate2 pdcswap){
 
     std::vector<int> partitions_size(nb_partitions);
     std::vector<int> partitions_offset(nb_partitions+1);
     partition_extra_z<nb_values, real_number, Predicate1, Predicate2>(array, size, nb_partitions,
                                                          partitions_size.data(), partitions_offset.data(),
-                                                         partitions_limits, pdcswap);
+                                                         partitions_levels, pdcswap);
     return {std::move(partitions_size), std::move(partitions_offset)};
 }
 
