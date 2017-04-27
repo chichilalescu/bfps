@@ -60,7 +60,7 @@ def compare_moments(
     f.savefig('figs/moments.pdf')
     return None
 
-def compare_trajectories_old(
+def overlap_trajectories(
         c0, c1):
     """
         c0 is NSReader of NavierStokes data
@@ -106,7 +106,7 @@ def compare_trajectories_old(
         np.max(np.abs(c0_initial_condition - c1_initial_condition))))
     return None
 
-def compare_trajectories(
+def overlap_worst_trajectory(
         c0, c1):
     """
         c0 is NSReader of NavierStokes data
@@ -148,6 +148,44 @@ def compare_trajectories(
     ax.plot(state1[:, bad_index, 0], dashes = (1, 1))
     ay.plot(state1[:, bad_index, 1], dashes = (1, 1))
     az.plot(state1[:, bad_index, 2], dashes = (1, 1))
+    f.tight_layout()
+    f.savefig('figs/trajectories.pdf')
+    return None
+
+def get_maximum_trajectory_error(
+        c0, c1):
+    """
+        c0 is NSReader of NavierStokes data
+        c1 is NSReader of NSVorticityEquation data
+    """
+
+    ntrajectories = 100
+    pf0 = c0.get_particle_file()
+    state0 = pf0['tracers0/state'][:, :ntrajectories]
+    pf0.close()
+
+    pf1 = h5py.File(c1.simname + '_checkpoint_0.h5', 'r')
+    state1 = []
+    nsteps = len(pf1['tracers0/state'].keys())
+    for ss in range(nsteps):
+        state1.append(pf1['tracers0/state/{0}'.format(
+            ss*c1.parameters['niter_out'])][:ntrajectories])
+    state1 = np.array(state1)
+    pf1.close()
+
+    diff = np.abs(state0 - state1)
+    max_distance = np.max(diff, axis = 1)
+
+    f = plt.figure(figsize = (6, 10))
+
+    a = f.add_subplot(111)
+    a.set_xlabel('iteration')
+
+    a.plot(max_distance[:, 0], label = '$x$ difference')
+    a.plot(max_distance[:, 1], label = '$y$ difference')
+    a.plot(max_distance[:, 2], label = '$z$ difference')
+    a.legend(loc = 'best')
+
     f.tight_layout()
     f.savefig('figs/trajectories.pdf')
     return None
@@ -208,7 +246,7 @@ def main():
     niterations = 128
     particle_initial_condition = None
     nparticles = 100
-    run_NS = True
+    run_NS = False
     run_NSVE = False
     plain_interpolation_test = False
     if plain_interpolation_test:
@@ -276,11 +314,11 @@ def main():
         subprocess.call('cat err_file_vorticity_equation_0', shell = True)
     c0 = NSReader(simname = 'fluid_solver')
     c1 = NSReader(simname = 'vorticity_equation')
-    compare_moments(c0, c1)
     if plain_interpolation_test:
         check_interpolation(c0, c1, nparticles = int(nparticles**.5))
     else:
-        compare_trajectories(c0, c1)
+        get_maximum_trajectory_error(c0, c1)
+        #overlap_worst_trajectory(c0, c1)
     return None
 
 if __name__ == '__main__':
