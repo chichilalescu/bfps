@@ -118,7 +118,8 @@ struct particles_system_build_container {
              const int nparticles, // to check coherency between parameters and hdf input file
              const std::string& fname_input, // particles input filename
             const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
-             MPI_Comm mpi_comm){
+             MPI_Comm mpi_comm,
+            const int in_current_iteration){
 
         // The size of the field grid (global size) all_size seems
         std::array<size_t,3> field_grid_dim;
@@ -208,7 +209,8 @@ struct particles_system_build_container {
                                                                                                    local_field_dims,
                                                                                                    local_field_offset,
                                                                                                    local_field_mem_size,
-                                                                                                   mpi_comm);
+                                                                                                   mpi_comm,
+                                                                                                   in_current_iteration);
 
         // Load particles from hdf5
         particles_input_hdf5<particles_rnumber, 3,3> generator(mpi_comm, fname_input,
@@ -246,14 +248,15 @@ inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_s
         const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
         const int interpolation_size,
         const int spline_mode,
-        MPI_Comm mpi_comm){
+        MPI_Comm mpi_comm,
+        const int in_current_iteration){
     return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<particles_rnumber>>,
                        int, 1, 7, 1, // interpolation_size
                        int, 0, 3, 1, // spline_mode
                        particles_system_build_container<field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
-                           fs_field,fs_kk, nsteps, nparticles, fname_input, inDatanameState, inDatanameRhs, mpi_comm);
+                           fs_field,fs_kk, nsteps, nparticles, fname_input, inDatanameState, inDatanameRhs, mpi_comm, in_current_iteration);
 }
 
 

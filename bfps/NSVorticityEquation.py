@@ -148,7 +148,8 @@ class NSVorticityEquation(_fluid_particle_base):
                     std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
                     tracers0_neighbours,        // parameter (interpolation no neighbours)
                     tracers0_smoothness,        // parameter
-                    MPI_COMM_WORLD);
+                    MPI_COMM_WORLD,
+                    fs->iteration+1);
             particles_output_hdf5<double,3,3> particles_output_writer_mpi(
                         MPI_COMM_WORLD,
                         "tracers0",

@@ -48,7 +48,8 @@ public:
                      const field_rnumber* in_field_data, const std::array<size_t,3>& in_local_field_dims,
                      const std::array<size_t,3>& in_local_field_offset,
                      const std::array<size_t,3>& in_field_memory_dims,
-                     MPI_Comm in_mpi_com)
+                     MPI_Comm in_mpi_com,
+                     const int in_current_iteration = 1)
         : mpi_com(in_mpi_com),
           current_partition_interval({in_local_field_offset[IDX_Z], in_local_field_offset[IDX_Z] + in_local_field_dims[IDX_Z]}),
           partition_interval_size(current_partition_interval.second - current_partition_interval.first),
@@ -58,7 +59,7 @@ public:
                    interpolator, field, in_spatial_box_width, in_spatial_box_offset, in_spatial_partition_width),
           spatial_box_width(in_spatial_box_width), spatial_partition_width(in_spatial_partition_width),
           my_spatial_low_limit(in_my_spatial_low_limit), my_spatial_up_limit(in_my_spatial_up_limit),
-          my_nb_particles(0), step_idx(1){
+          my_nb_particles(0), step_idx(in_current_iteration){
 
         current_my_nb_particles_per_partition.reset(new int[partition_interval_size]);
         current_offset_particles_for_partition.reset(new int[partition_interval_size+1]);
