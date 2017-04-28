@@ -175,19 +175,20 @@ def get_maximum_trajectory_error(
 
     diff = np.abs(state0 - state1)
     max_distance = np.max(diff, axis = 1)
+    print(max_distance)
 
-    f = plt.figure(figsize = (6, 10))
+    #f = plt.figure(figsize = (6, 10))
 
-    a = f.add_subplot(111)
-    a.set_xlabel('iteration')
+    #a = f.add_subplot(111)
+    #a.set_xlabel('iteration')
 
-    a.plot(max_distance[:, 0], label = '$x$ difference')
-    a.plot(max_distance[:, 1], label = '$y$ difference')
-    a.plot(max_distance[:, 2], label = '$z$ difference')
-    a.legend(loc = 'best')
+    #a.plot(max_distance[:, 0], label = '$x$ difference')
+    #a.plot(max_distance[:, 1], label = '$y$ difference')
+    #a.plot(max_distance[:, 2], label = '$z$ difference')
+    #a.legend(loc = 'best')
 
-    f.tight_layout()
-    f.savefig('figs/trajectories.pdf')
+    #f.tight_layout()
+    #f.savefig('figs/trajectories.pdf')
     return None
 
 def check_interpolation(
@@ -243,7 +244,7 @@ def check_interpolation(
     return None
 
 def main():
-    niterations = 128
+    niterations = 32
     particle_initial_condition = None
     nparticles = 10000
     run_NS = True
@@ -285,7 +286,7 @@ def main():
                  '--niter_stat', '1',
                  '--nparticles', '{0}'.format(nparticles),
                  '--particle-rand-seed', '2',
-                 '--niter_part', '1',
+                 '--niter_part', '{0}'.format(niterations),
                  '--njobs', '2',
                  '--wd', './'] +
                 sys.argv[1:],
@@ -304,9 +305,9 @@ def main():
                  '--np', '4',
                  '--ntpp', '1',
                  '--niter_todo', '{0}'.format(niterations),
-                 '--niter_out', '1',
+                 '--niter_out', '{0}'.format(niterations},
                  '--niter_stat', '1',
-                 '--checkpoints_per_file', '{0}'.format(3*niterations),
+                 '--checkpoints_per_file', '{0}'.format(3),
                  '--nparticles', '{0}'.format(nparticles),
                  '--particle-rand-seed', '2',
                  '--njobs', '2',
