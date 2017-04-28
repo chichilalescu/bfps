@@ -167,7 +167,6 @@ class _code(_base):
                 #endif
                     #ifdef USE_TIMINGOUTPUT
                     global_timer_manager.show(MPI_COMM_WORLD);
-                    global_timer_manager.showMpi(MPI_COMM_WORLD);
                     global_timer_manager.showHtml(MPI_COMM_WORLD);
                     #endif
                     MPI_Finalize();
