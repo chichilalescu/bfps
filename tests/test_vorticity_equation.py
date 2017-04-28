@@ -305,7 +305,7 @@ def main():
                  '--np', '4',
                  '--ntpp', '1',
                  '--niter_todo', '{0}'.format(niterations),
-                 '--niter_out', '{0}'.format(niterations},
+                 '--niter_out', '{0}'.format(niterations),
                  '--niter_stat', '1',
                  '--checkpoints_per_file', '{0}'.format(3),
                  '--nparticles', '{0}'.format(nparticles),
