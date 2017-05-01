@@ -871,9 +871,12 @@ class NavierStokes(_fluid_particle_base):
         else:
             pbase_shape = particle_ic.shape[:-1]
             assert(particle_ic.shape[-1] == 3)
-            number_of_particles = 1
-            for val in pbase_shape[1:]:
-                number_of_particles *= val
+            if len(pbase_shape) == 1:
+                number_of_particles = pbase_shape[0]
+            else:
+                number_of_particles = 1
+                for val in pbase_shape[1:]:
+                    number_of_particles *= val
 
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
@@ -1126,14 +1129,30 @@ class NavierStokes(_fluid_particle_base):
                         interpolator = 'cubic_spline',
                         acc_name = 'rFFTW_acc',
                         class_name = 'rFFTW_distributed_particles')
+                self.variables += 'hid_t particle_file;\n'
+                self.main_start += """
+                    if (myrank == 0)
+                    {
+                        // set caching parameters
+                        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                        herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                        DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
+                        sprintf(fname, "%s_particles.h5", simname);
+                        particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                    }
+                    """
+                self.main_end = ('if (myrank == 0)\n' +
+                                 '{\n' +
+                                 'H5Fclose(particle_file);\n' +
+                                 '}\n') + self.main_end
         self.finalize_code()
-        self.launch_jobs(opt = opt)
+        self.launch_jobs(opt = opt, **kwargs)
         return None
     def launch_jobs(
             self,
-            opt = None):
+            opt = None,
+            particle_initial_condition = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            particle_initial_condition = None
             if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
                 if opt.pcloud_type == 'random-cube':
@@ -1179,7 +1198,7 @@ class NavierStokes(_fluid_particle_base):
                            write_to_file = True,
                            spectra_slope = 2.0,
                            amplitude = 0.05)
-        self.run(                
+        self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
                 njobs = opt.njobs,

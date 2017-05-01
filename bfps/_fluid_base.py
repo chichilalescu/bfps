@@ -88,6 +88,7 @@ class _fluid_particle_base(_code):
         self.particle_definitions = ''
         self.particle_start = ''
         self.particle_loop = ''
+        self.particle_output = ''
         self.particle_end  = ''
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
@@ -142,8 +143,7 @@ class _fluid_particle_base(_code):
             postprocess_mode = False):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
-        self.variables  += (self.fluid_variables +
-                            'hid_t particle_file;\n')
+        self.variables  += self.fluid_variables
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
                              'hsize_t space;\n' +
@@ -216,22 +216,6 @@ class _fluid_particle_base(_code):
                         }}
                         //endcpp
                         """.format(fftw_prefix) + self.main_end
-        if self.particle_species > 0:
-            self.main_start += """
-                if (myrank == 0)
-                {
-                    // set caching parameters
-                    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-                    herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
-                    DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
-                    sprintf(fname, "%s_particles.h5", simname);
-                    particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
-                }
-                """
-            self.main_end = ('if (myrank == 0)\n' +
-                             '{\n' +
-                             'H5Fclose(particle_file);\n' +
-                             '}\n') + self.main_end
         self.main        = """
                            //begincpp
                            int data_file_problem;
@@ -297,9 +281,9 @@ class _fluid_particle_base(_code):
             self.main       += self.fluid_loop
             self.main       += output_time_difference.format('frame_index')
             self.main       += '}\n'
+        self.main       += self.fluid_end
         if self.particle_species > 0:
             self.main   += self.particle_end
-        self.main       += self.fluid_end
         return None
     def read_rfield(
             self,

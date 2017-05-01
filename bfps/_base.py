@@ -249,15 +249,22 @@ class _base(object):
                help = 'code is run by default in a grid of NxNxN')
         parser.add_argument(
                 '--ncpu',
-                type = int, dest = 'ncpu',
+                type = int,
+                dest = 'ncpu',
                 default = -1)
         parser.add_argument(
                 '--np', '--nprocesses',
-                type = int, dest = 'nb_processes',
+                metavar = 'NPROCESSES',
+                help = 'number of mpi processes to use',
+                type = int,
+                dest = 'nb_processes',
                 default = 4)
         parser.add_argument(
                 '--ntpp', '--nthreads-per-process',
-                type = int, dest = 'nb_threads_per_process',
+                type = int,
+                dest = 'nb_threads_per_process',
+                metavar = 'NTHREADS_PER_PROCESS',
+                help = 'number of threads to use per MPI process',
                 default = 1)
         parser.add_argument(
                 '--no-submit',

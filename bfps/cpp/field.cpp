@@ -101,6 +101,7 @@ field<rnumber, be, fc>::field(
                     sizes, subsizes, starts, this->comm);
             this->data = fftw_interface<rnumber>::alloc_real(
                     this->rmemlayout->local_size);
+            memset(this->data, 0, sizeof(rnumber)*this->rmemlayout->local_size);
             this->c2r_plan = fftw_interface<rnumber>::mpi_plan_many_dft_c2r(
                     3, nfftw, ncomp(fc),
                     FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,

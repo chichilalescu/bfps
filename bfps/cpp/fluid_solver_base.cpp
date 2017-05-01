@@ -538,16 +538,19 @@ fluid_solver_base<rnumber>::fluid_solver_base(
     std::fill_n(this->kshell, this->nshells, 0.0);
     this->nshell = new int64_t[this->nshells];
     std::fill_n(this->nshell, this->nshells, 0);
+    DEBUG_MSG("fluid_solver_base::fluid_solver_base before declaring shared_array\n");
 
     shared_array<double> kshell_local_threaded(this->nshells,[&](double* kshell_local){
         std::fill_n(kshell_local, this->nshells, 0.0);
     });
-    shared_array<double> nshell_local_threaded(this->nshells,[&](double* nshell_local){
-        std::fill_n(nshell_local, this->nshells, 0.0);
+    DEBUG_MSG("fluid_solver_base::fluid_solver_base before declaring shared_array\n");
+    shared_array<int64_t> nshell_local_threaded(this->nshells,[&](int64_t* nshell_local){
+        std::fill_n(nshell_local, this->nshells, 0);
     });
 
     std::vector<std::unordered_map<int, double>> Fourier_filter_threaded(omp_get_max_threads());
 
+    DEBUG_MSG("fluid_solver_base::fluid_solver_base before cloop_k2_nxmodes\n");
     CLOOP_K2_NXMODES(
                 this,
 
@@ -583,8 +586,12 @@ fluid_solver_base<rnumber>::fluid_solver_base(
                 MPI_DOUBLE, MPI_SUM, this->cd->comm);
     for (unsigned int n=0; n<this->nshells; n++)
     {
-        this->kshell[n] /= this->nshell[n];
+        if (this->nshell[n] != 0)
+            this->kshell[n] /= this->nshell[n];
+        else
+            this->kshell[n] = -1;
     }
+    DEBUG_MSG("exiting fluid_solver_base::fluid_solver_base\n");
 }
 
 template <class rnumber>

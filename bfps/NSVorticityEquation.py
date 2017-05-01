@@ -92,11 +92,7 @@ class NSVorticityEquation(_fluid_particle_base):
                     hsize_t dims[4];
                     hid_t space, dset;
                     // store kspace information
-                    hid_t parameter_file = stat_file;
-                    //char fname[256];
-                    //sprintf(fname, "%s.h5", simname);
-                    //parameter_file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT);
-                    dset = H5Dopen(parameter_file, "/kspace/kshell", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
                     space = H5Dget_space(dset);
                     H5Sget_simple_extent_dims(space, dims, NULL);
                     H5Sclose(space);
@@ -108,19 +104,75 @@ class NSVorticityEquation(_fluid_particle_base):
                     }
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kshell.front());
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/nshell", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/nshell", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->nshell.front());
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/kM", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/kM", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->kM);
                     H5Dclose(dset);
-                    dset = H5Dopen(parameter_file, "/kspace/dk", H5P_DEFAULT);
+                    dset = H5Dopen(stat_file, "/kspace/dk", H5P_DEFAULT);
                     H5Dwrite(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &fs->kk->dk);
                     H5Dclose(dset);
-                    //H5Fclose(parameter_file);
                 }
                 //endcpp
                 """
+        return None
+    def add_particles(
+            self,
+            integration_steps = 2,
+            neighbours = 1,
+            smoothness = 1):
+        assert(integration_steps > 0 and integration_steps < 6)
+        self.particle_species = 1
+        self.parameters['tracers0_integration_steps'] = int(integration_steps)
+        self.parameters['tracers0_neighbours'] = int(neighbours)
+        self.parameters['tracers0_smoothness'] = int(smoothness)
+        self.parameters['tracers0_interpolator'] = 'spline'
+        self.particle_includes += """
+                #include "particles/particles_system_builder.hpp"
+                #include "particles/particles_output_hdf5.hpp"
+                """
+        ## initialize
+        self.particle_start += """
+            DEBUG_MSG(
+                    "current fname is %s\\n and iteration is %d",
+                    fs->get_current_fname().c_str(),
+                    fs->iteration);
+            std::unique_ptr<abstract_particles_system<double>> ps = particles_system_builder(
+                    fs->cvelocity,              // (field object)
+                    fs->kk,                     // (kspace object, contains dkx, dky, dkz)
+                    tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
+                    nparticles,                 // to check coherency between parameters and hdf input file
+                    fs->get_current_fname(),    // particles input filename
+                    std::string("/tracers0/state/") + std::to_string(fs->iteration), // dataset name for initial input
+                    std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
+                    tracers0_neighbours,        // parameter (interpolation no neighbours)
+                    tracers0_smoothness,        // parameter
+                    MPI_COMM_WORLD,
+                    fs->iteration+1);
+            particles_output_hdf5<double,3,3> particles_output_writer_mpi(
+                        MPI_COMM_WORLD,
+                        "tracers0",
+                        nparticles,
+                        tracers0_integration_steps);
+                    """
+        self.particle_loop += """
+                fs->compute_velocity(fs->cvorticity);
+                fs->cvelocity->ift();
+                ps->completeLoop(dt);
+                """
+        self.particle_output = """
+                {
+                    particles_output_writer_mpi.open_file(fs->get_current_fname());
+                    particles_output_writer_mpi.save(ps->getParticlesPositions(),
+                                                     ps->getParticlesRhs(),
+                                                     ps->getParticlesIndexes(),
+                                                     ps->getLocalNbParticles(),
+                                                     fs->iteration);
+                    particles_output_writer_mpi.close_file();
+                }
+                           """
+        self.particle_end += 'ps.release();\n'
         return None
     def create_stat_output(
             self,
@@ -314,6 +366,7 @@ class NSVorticityEquation(_fluid_particle_base):
         self.fluid_loop = 'fs->step(dt);\n'
         self.fluid_loop += ('if (fs->iteration % niter_out == 0)\n{\n' +
                             self.fluid_output +
+                            self.particle_output +
                             self.store_checkpoint +
                             '\n}\n' +
                             'if (stop_code_now){\n' +
@@ -321,6 +374,7 @@ class NSVorticityEquation(_fluid_particle_base):
                             'break;\n}\n')
         self.fluid_end = ('if (fs->iteration % niter_out != 0)\n{\n' +
                           self.fluid_output +
+                          self.particle_output +
                           self.store_checkpoint +
                           'DEBUG_MSG("checkpoint value is %d\\n", checkpoint);\n' +
                           '\n}\n' +
@@ -501,7 +555,8 @@ class NSVorticityEquation(_fluid_particle_base):
         return None
     def write_par(
             self,
-            iter0 = 0):
+            iter0 = 0,
+            particle_ic = None):
         _fluid_particle_base.write_par(self, iter0 = iter0)
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             kspace = self.get_kspace()
@@ -545,6 +600,36 @@ class NSVorticityEquation(_fluid_particle_base):
                                                  4),
                                      dtype = np.int64)
             ofile['checkpoint'] = int(0)
+        if self.particle_species == 0:
+            return None
+
+        if type(particle_ic) == type(None):
+            pbase_shape = (self.parameters['nparticles'],)
+            number_of_particles = self.parameters['nparticles']
+        else:
+            pbase_shape = particle_ic.shape[:-1]
+            assert(particle_ic.shape[-1] == 3)
+            number_of_particles = 1
+            for val in pbase_shape[1:]:
+                number_of_particles *= val
+        with h5py.File(self.get_checkpoint_0_fname(), 'a') as ofile:
+            s = 0
+            ofile.create_group('tracers{0}'.format(s))
+            ofile.create_group('tracers{0}/rhs'.format(s))
+            ofile.create_group('tracers{0}/state'.format(s))
+            ofile['tracers{0}/rhs'.format(s)].create_dataset(
+                    '0',
+                    shape = (
+                        (self.parameters['tracers{0}_integration_steps'.format(s)],) +
+                        pbase_shape +
+                        (3,)),
+                    dtype = np.float)
+            ofile['tracers{0}/state'.format(s)].create_dataset(
+                    '0',
+                    shape = (
+                        pbase_shape +
+                        (3,)),
+                    dtype = np.float)
         return None
     def specific_parser_arguments(
             self,
@@ -580,6 +665,40 @@ class NSVorticityEquation(_fluid_particle_base):
                dest = 'dtfactor',
                default = 0.5,
                help = 'dt is computed as DTFACTOR / N')
+        parser.add_argument(
+               '--particle-rand-seed',
+               type = int,
+               dest = 'particle_rand_seed',
+               default = None)
+        parser.add_argument(
+               '--pclouds',
+               type = int,
+               dest = 'pclouds',
+               default = 1,
+               help = ('number of particle clouds. Particle "clouds" '
+                       'consist of particles distributed according to '
+                       'pcloud-type.'))
+        parser.add_argument(
+                '--pcloud-type',
+                choices = ['random-cube',
+                           'regular-cube'],
+                dest = 'pcloud_type',
+                default = 'random-cube')
+        parser.add_argument(
+               '--particle-cloud-size',
+               type = float,
+               dest = 'particle_cloud_size',
+               default = 2*np.pi)
+        parser.add_argument(
+                '--neighbours',
+                type = int,
+                dest = 'neighbours',
+                default = 1)
+        parser.add_argument(
+                '--smoothness',
+                type = int,
+                dest = 'smoothness',
+                default = 1)
         return None
     def prepare_launch(
             self,
@@ -628,20 +747,55 @@ class NSVorticityEquation(_fluid_particle_base):
             args = [],
             **kwargs):
         opt = self.prepare_launch(args = args)
+        if type(opt.nparticles) != type(None):
+            if opt.nparticles > 0:
+                self.name += '-particles'
+                self.add_particles(
+                    integration_steps = 4,
+                    neighbours = opt.neighbours,
+                    smoothness = opt.smoothness)
         self.fill_up_fluid_code()
         self.finalize_code()
-        self.launch_jobs(opt = opt)
+        self.launch_jobs(opt = opt, **kwargs)
         return None
-    def launch_jobs(
-            self,
-            opt = None):
-        if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            self.write_par()
-            init_condition_file = os.path.join(
+    def get_checkpoint_0_fname(self):
+        return os.path.join(
                     self.work_dir,
                     self.simname + '_checkpoint_0.h5')
-            if not os.path.exists(init_condition_file):
-                f = h5py.File(init_condition_file, 'w')
+    def generate_tracer_state(
+            self,
+            rseed = None,
+            iteration = 0,
+            species = 0,
+            write_to_file = False,
+            ncomponents = 3,
+            testing = False,
+            data = None):
+        if (type(data) == type(None)):
+            if not type(rseed) == type(None):
+                np.random.seed(rseed)
+            #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
+            data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
+            data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
+        if testing:
+            #data[0] = np.array([3.26434, 4.24418, 3.12157])
+            data[:] = np.array([ 0.72086101,  2.59043666,  6.27501953])
+        with h5py.File(self.get_checkpoint_0_fname(), 'a') as data_file:
+            data_file['tracers{0}/state/0'.format(species)][:] = data
+        if write_to_file:
+            data.tofile(
+                    os.path.join(
+                        self.work_dir,
+                        "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
+        return data
+    def launch_jobs(
+            self,
+            opt = None,
+            particle_initial_condition = None):
+        if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
+            # take care of fields' initial condition
+            if not os.path.exists(self.get_checkpoint_0_fname()):
+                f = h5py.File(self.get_checkpoint_0_fname(), 'w')
                 if len(opt.src_simname) > 0:
                     source_cp = 0
                     src_file = 'not_a_file'
@@ -664,6 +818,38 @@ class NSVorticityEquation(_fluid_particle_base):
                            amplitude = 0.05)
                     f['vorticity/complex/{0}'.format(0)] = data
                 f.close()
+            # take care of particles' initial condition
+            if opt.pclouds > 1:
+                np.random.seed(opt.particle_rand_seed)
+                if opt.pcloud_type == 'random-cube':
+                    particle_initial_condition = (
+                        np.random.random((opt.pclouds, 1, 3))*2*np.pi +
+                        np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+                elif opt.pcloud_type == 'regular-cube':
+                    onedarray = np.linspace(
+                            -opt.particle_cloud_size/2,
+                            opt.particle_cloud_size/2,
+                            self.parameters['nparticles'])
+                    particle_initial_condition = np.zeros(
+                            (opt.pclouds,
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'],
+                             self.parameters['nparticles'], 3),
+                            dtype = np.float64)
+                    particle_initial_condition[:] = \
+                        np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+                    particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+                    particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+                    particle_initial_condition[..., 2] += onedarray[None, :, None, None]
+            self.write_par(
+                    particle_ic = particle_initial_condition)
+            if self.parameters['nparticles'] > 0:
+                data = self.generate_tracer_state(
+                        species = 0,
+                        rseed = opt.particle_rand_seed,
+                        data = particle_initial_condition)
+                for s in range(1, self.particle_species):
+                    self.generate_tracer_state(species = s, data = data)
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
