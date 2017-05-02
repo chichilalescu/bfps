@@ -53,7 +53,7 @@ class bfps_timer {
 
 public:
     /// Constructor
-    bfps_timer() { start(); }
+    bfps_timer() : m_cumulate(std::chrono::nanoseconds::zero()) { start(); }
 
     /// Copy constructor
     bfps_timer(const bfps_timer& other) = delete;
@@ -68,7 +68,7 @@ public:
     void reset() {
         m_start = std::chrono::high_resolution_clock::time_point();
         m_end = std::chrono::high_resolution_clock::time_point();
-        m_cumulate = std::chrono::nanoseconds();
+        m_cumulate = std::chrono::nanoseconds::zero();
         start();
     }
 
