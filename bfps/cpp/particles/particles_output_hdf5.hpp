@@ -26,11 +26,14 @@ class particles_output_hdf5 : public abstract_particles_output<real_number,
     hid_t dset_id_state;
     hid_t dset_id_rhs;
 
+    bool use_collective_io;
+
 public:
     particles_output_hdf5(MPI_Comm in_mpi_com,
                           const std::string ps_name,
                           const int inTotalNbParticles,
-                          const int in_nb_rhs)
+                          const int in_nb_rhs,
+                          const bool in_use_collective_io = false)
             : abstract_particles_output<real_number,
                                         size_particle_positions,
                                         size_particle_rhs>(
@@ -41,7 +44,8 @@ public:
               file_id(0),
               total_nb_particles(inTotalNbParticles),
               dset_id_state(0),
-              dset_id_rhs(0){}
+              dset_id_rhs(0),
+              use_collective_io(in_use_collective_io){}
 
     int open_file(std::string filename){
         if(Parent::isInvolved()){
@@ -185,7 +189,7 @@ public:
         hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
         assert(plist_id >= 0);
         {
-            int rethdf = H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);
+            int rethdf = H5Pset_dxpl_mpio(plist_id, use_collective_io ? H5FD_MPIO_COLLECTIVE : H5FD_MPIO_INDEPENDENT);
             assert(rethdf >= 0);
         }
 
