@@ -24,8 +24,8 @@
 
 
 
-#ifndef NSVE_HPP
-#define NSVE_HPP
+#ifndef NSVEP_HPP
+#define NSVEP_HPP
 
 
 
@@ -33,9 +33,11 @@
 #include "base.hpp"
 #include "vorticity_equation.hpp"
 #include "full_code/direct_numerical_simulation.hpp"
+#include "particles/particles_system_builder.hpp"
+#include "particles/particles_output_hdf5.hpp"
 
 template <typename rnumber>
-class NSVE: public direct_numerical_simulation
+class NSVEp: public direct_numerical_simulation
 {
     public:
 
@@ -44,26 +46,34 @@ class NSVE: public direct_numerical_simulation
         double famplitude;
         double fk0;
         double fk1;
+        double nu;
         int fmode;
         char forcing_type[512];
         int histogram_bins;
         double max_velocity_estimate;
         double max_vorticity_estimate;
-        double nu;
+
+        int niter_part;
+        int nparticles;
+        int tracers0_integration_steps;
+        int tracers0_neighbours;
+        int tracers0_smoothness;
 
         /* other stuff */
         vorticity_equation<rnumber, FFTW> *fs;
         field<rnumber, FFTW, THREE> *tmp_vec_field;
         field<rnumber, FFTW, ONE> *tmp_scal_field;
+        std::unique_ptr<abstract_particles_system<double>> ps;
+        particles_output_hdf5<double,3,3> *particles_output_writer_mpi;
 
 
-        NSVE(
+        NSVEp(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
             direct_numerical_simulation(
                     COMMUNICATOR,
                     simulation_name){}
-        ~NSVE(){}
+        ~NSVEp(){}
 
         int initialize(void);
         int main_loop(void);
@@ -73,5 +83,5 @@ class NSVE: public direct_numerical_simulation
         int do_stats(void);
 };
 
-#endif//NSVE_HPP
+#endif//NSVEP_HPP
 

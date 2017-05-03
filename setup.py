@@ -90,6 +90,7 @@ print('This is bfps version ' + VERSION)
 ### lists of files and MANIFEST.in
 src_file_list = ['full_code/direct_numerical_simulation',
                  'full_code/NSVE',
+                 'full_code/NSVEp',
                  'vorticity_equation',
                  'field',
                  'kspace',

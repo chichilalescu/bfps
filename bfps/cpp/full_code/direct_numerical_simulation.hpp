@@ -30,6 +30,14 @@
 
 #include "base.hpp"
 
+int grow_single_dataset(hid_t dset, int tincrement);
+
+herr_t grow_dataset_visitor(
+    hid_t o_id,
+    const char *name,
+    const H5O_info_t *info,
+    void *op_data);
+
 class direct_numerical_simulation
 {
     public:
@@ -37,6 +45,23 @@ class direct_numerical_simulation
         MPI_Comm comm;
 
         std::string simname;
+
+        int iteration, checkpoint;
+        int checkpoints_per_file;
+        int niter_out;
+        int niter_stat;
+        int niter_todo;
+        hid_t stat_file;
+        bool stop_code_now;
+
+
+        int nx;
+        int ny;
+        int nz;
+        int dealias_type;
+        double dkx;
+        double dky;
+        double dkz;
 
         direct_numerical_simulation(
                 const MPI_Comm COMMUNICATOR,
@@ -46,6 +71,10 @@ class direct_numerical_simulation
         virtual int initialize(void) = 0;
         virtual int main_loop(void) = 0;
         virtual int finalize(void) = 0;
+
+        int read_iteration(void);
+        int write_iteration(void);
+        int grow_file_datasets(void);
 };
 
 #endif//DIRECT_NUMERICAL_SIMULATION_HPP

@@ -1,10 +1,10 @@
 #include <string>
 #include <cmath>
-#include "NSVE.hpp"
+#include "NSVEp.hpp"
 
 
 template <typename rnumber>
-int NSVE<rnumber>::initialize(void)
+int NSVEp<rnumber>::initialize(void)
 {
     this->read_iteration();
     this->read_parameters();
@@ -57,11 +57,29 @@ int NSVE<rnumber>::initialize(void)
 
     if (this->myrank == 0 && this->iteration == 0)
         this->fs->kk->store(stat_file);
+
+    this->ps = particles_system_builder(
+                fs->cvelocity,              // (field object)
+                fs->kk,                     // (kspace object, contains dkx, dky, dkz)
+                tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
+                nparticles,                 // to check coherency between parameters and hdf input file
+                fs->get_current_fname(),    // particles input filename
+                std::string("/tracers0/state/") + std::to_string(fs->iteration), // dataset name for initial input
+                std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
+                tracers0_neighbours,        // parameter (interpolation no neighbours)
+                tracers0_smoothness,        // parameter
+                this->comm,
+                fs->iteration+1);
+    this->particles_output_writer_mpi = new particles_output_hdf5<double,3,3>(
+                MPI_COMM_WORLD,
+                "tracers0",
+                nparticles,
+                tracers0_integration_steps);
     return EXIT_SUCCESS;
 }
 
 template <typename rnumber>
-int NSVE<rnumber>::main_loop(void)
+int NSVEp<rnumber>::main_loop(void)
 {
     clock_t time0, time1;
     double time_difference, local_time_difference;
@@ -78,11 +96,24 @@ int NSVE<rnumber>::main_loop(void)
     #endif
         if (this->iteration % this->niter_stat == 0)
             this->do_stats();
+
+        this->fs->compute_velocity(fs->cvorticity);
+        this->fs->cvelocity->ift();
+        this->ps->completeLoop(dt);
+
         this->fs->step(dt);
         this->iteration = this->fs->iteration;
         if (this->fs->iteration % this->niter_out == 0)
         {
             this->fs->io_checkpoint(false);
+            this->particles_output_writer_mpi->open_file(fs->get_current_fname());
+            this->particles_output_writer_mpi->save(
+                    this->ps->getParticlesPositions(),
+                    this->ps->getParticlesRhs(),
+                    this->ps->getParticlesIndexes(),
+                    this->ps->getLocalNbParticles(),
+                    this->fs->iteration);
+            this->particles_output_writer_mpi->close_file();
             this->checkpoint = this->fs->checkpoint;
             this->write_iteration();
         }
@@ -127,6 +158,14 @@ int NSVE<rnumber>::main_loop(void)
     if (this->iteration % this->niter_out != 0)
     {
         this->fs->io_checkpoint(false);
+        this->particles_output_writer_mpi->open_file(fs->get_current_fname());
+        this->particles_output_writer_mpi->save(
+                this->ps->getParticlesPositions(),
+                this->ps->getParticlesRhs(),
+                this->ps->getParticlesIndexes(),
+                this->ps->getLocalNbParticles(),
+                this->fs->iteration);
+        this->particles_output_writer_mpi->close_file();
         this->checkpoint = this->fs->checkpoint;
         this->write_iteration();
     }
@@ -134,17 +173,19 @@ int NSVE<rnumber>::main_loop(void)
 }
 
 template <typename rnumber>
-int NSVE<rnumber>::finalize(void)
+int NSVEp<rnumber>::finalize(void)
 {
     if (this->myrank == 0)
         H5Fclose(this->stat_file);
     delete this->fs;
     delete this->tmp_vec_field;
+    this->ps.release();
+    delete this->particles_output_writer_mpi;
     return EXIT_SUCCESS;
 }
 
 template <typename rnumber>
-int NSVE<rnumber>::do_stats()
+int NSVEp<rnumber>::do_stats()
 {
     hid_t stat_group;
     if (this->myrank == 0)
@@ -194,6 +235,6 @@ int NSVE<rnumber>::do_stats()
     return EXIT_SUCCESS;
 }
 
-template class NSVE<float>;
-template class NSVE<double>;
+template class NSVEp<float>;
+template class NSVEp<double>;
 
