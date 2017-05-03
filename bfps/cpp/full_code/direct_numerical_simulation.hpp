@@ -41,7 +41,7 @@ class direct_numerical_simulation
         direct_numerical_simulation(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name);
-        ~direct_numerical_simulation(){}
+        virtual ~direct_numerical_simulation(){}
 
         virtual int initialize(void) = 0;
         virtual int main_loop(void) = 0;
