@@ -74,6 +74,7 @@ class DNS(_code):
                 '"scope_timer.hpp"',
                 '"fftw_interface.hpp"',
                 '"full_code/main_code.hpp"',
+                '<cmath>',
                 '<iostream>',
                 '<hdf5.h>',
                 '<string>',
