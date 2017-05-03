@@ -128,7 +128,8 @@ particle_headers = [
         'cpp/particles/particles_output_mpiio.hpp',
         'cpp/particles/particles_system_builder.hpp',
         'cpp/particles/particles_system.hpp',
-        'cpp/particles/particles_utils.hpp']
+        'cpp/particles/particles_utils.hpp',
+        'cpp/particles/env_utils.hpp']
 
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
