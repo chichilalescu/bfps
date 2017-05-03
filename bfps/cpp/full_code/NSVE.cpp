@@ -364,6 +364,8 @@ int NSVE<rnumber>::do_stats()
                 this->stat_file,
                 "statistics",
                 H5P_DEFAULT);
+    else
+        stat_group = 0;
     fs->compute_velocity(fs->cvorticity);
     *tmp_vec_field = fs->cvelocity->get_cdata();
     tmp_vec_field->compute_stats(
