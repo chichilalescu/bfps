@@ -175,6 +175,65 @@ kspace<be, dt>::~kspace()
 
 template <field_backend be,
           kspace_dealias_type dt>
+int kspace<be, dt>::store(hid_t stat_file)
+{
+    TIMEZONE("kspace::store");
+    assert(this->layout->myrank == 0);
+    hsize_t dims[4];
+    hid_t space, dset;
+    // store kspace information
+    dset = H5Dopen(stat_file, "/kspace/kshell", H5P_DEFAULT);
+    space = H5Dget_space(dset);
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    H5Sclose(space);
+    if (this->nshells != dims[0])
+    {
+        DEBUG_MSG(
+                "ERROR: computed nshells %d not equal to data file nshells %d\n",
+                this->nshells, dims[0]);
+    }
+    H5Dwrite(
+            dset,
+            H5T_NATIVE_DOUBLE,
+            H5S_ALL,
+            H5S_ALL,
+            H5P_DEFAULT,
+            &this->kshell.front());
+    H5Dclose(dset);
+    dset = H5Dopen(
+            stat_file,
+            "/kspace/nshell",
+            H5P_DEFAULT);
+    H5Dwrite(
+            dset,
+            H5T_NATIVE_INT64,
+            H5S_ALL,
+            H5S_ALL,
+            H5P_DEFAULT,
+            &this->nshell.front());
+    H5Dclose(dset);
+    dset = H5Dopen(stat_file, "/kspace/kM", H5P_DEFAULT);
+    H5Dwrite(
+            dset,
+            H5T_NATIVE_DOUBLE,
+            H5S_ALL,
+            H5S_ALL,
+            H5P_DEFAULT,
+            &this->kM);
+    H5Dclose(dset);
+    dset = H5Dopen(stat_file, "/kspace/dk", H5P_DEFAULT);
+    H5Dwrite(dset,
+            H5T_NATIVE_DOUBLE,
+            H5S_ALL,
+            H5S_ALL,
+            H5P_DEFAULT,
+            &this->dk);
+    H5Dclose(dset);
+    return EXIT_SUCCESS;
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
 void kspace<be, dt>::low_pass(typename fftw_interface<rnumber>::complex *__restrict__ a, const double kmax)
