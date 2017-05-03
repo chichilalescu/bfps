@@ -28,26 +28,41 @@
 #define MAIN_CODE_HPP
 
 
+
+#include <cfenv>
+#include <string>
+#include <iostream>
 #include "base.hpp"
 #include "field.hpp"
 #include "scope_timer.hpp"
 
+int myrank, nprocs;
+
 template <class DNS>
-main_code(
-        const std::string &simname,
+int main_code(
+        int argc,
+        char *argv[],
         const bool floating_point_exceptions)
 {
     /* floating point exception switch */
-    if (this->floating_point_exceptions)
+    if (floating_point_exceptions)
         feenableexcept(FE_INVALID | FE_OVERFLOW);
     else
         // using std::cerr because DEBUG_MSG requires myrank to be defined
-        std::cerr << ("FPE have been turned OFF" << std::endl;
+        std::cerr << "FPE have been turned OFF" << std::endl;
 
+    if (argc != 2)
+    {
+        std::cerr <<
+            "Wrong number of command line arguments. Stopping." <<
+            std::endl;
+        MPI_Finalize();
+        return EXIT_SUCCESS;
+    }
+    std::string simname = std::string(argv[1]);
 
 
     /* initialize MPI environment */
-    int myrank, nprocs;
 #ifdef NO_FFTWOMP
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -83,11 +98,8 @@ main_code(
 
     /* import fftw wisdom */
     if (myrank == 0)
-    {
-        char fname[256];
-        sprintf(fname, "%s_fftw_wisdom.txt", simname.c_str());
-        fftwf_import_wisdom_from_filename(fname);
-    }
+        fftwf_import_wisdom_from_filename(
+                (simname + std::string("_fftw_wisdom.txt")).c_str());
     fftwf_mpi_broadcast_wisdom(MPI_COMM_WORLD);
 
 
@@ -105,7 +117,7 @@ main_code(
      * recover from should not be important enough to not clean up fftw and MPI
      * things.
      */
-    DNS *dns(
+    DNS *dns = new DNS(
             MPI_COMM_WORLD,
             simname);
     int return_value;
@@ -124,17 +136,16 @@ main_code(
         DEBUG_MSG("problem calling dns->finalize(), return value is %d",
                   return_value);
 
+    delete dns;
+
 
 
     /* export fftw wisdom */
     fftwf_mpi_gather_wisdom(MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
     if (myrank == 0)
-    {
-        char fname[256];
-        sprintf(fname, "%s_fftw_wisdom.txt", simname);
-        fftwf_export_wisdom_to_filename(fname);
-    }
+        fftwf_export_wisdom_to_filename(
+                (simname + std::string("_fftw_wisdom.txt")).c_str());
 
 
 
@@ -142,7 +153,7 @@ main_code(
     fftwf_mpi_cleanup();
     fftw_mpi_cleanup();
 #ifndef NO_FFTWOMP
-    if (nbThreads > 1){
+    if (nThreads > 1){
         fftw_cleanup_threads();
         fftwf_cleanup_threads();
     }

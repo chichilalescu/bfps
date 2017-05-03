@@ -74,11 +74,16 @@ class _base(object):
             self,
             parameters = None,
             function_suffix = '',
+            template_class = '',
+            template_prefix = '',
             file_group = 'parameters'):
         if type(parameters) == type(None):
             parameters = self.parameters
         key = sorted(list(parameters.keys()))
-        src_txt = ('int read_parameters' + function_suffix + '()\n{\n' +
+        src_txt = (template_prefix +
+                   'int ' +
+                   template_class +
+                   'read_parameters' + function_suffix + '()\n{\n' +
                    'hid_t parameter_file;\n' +
                    'hid_t dset, memtype, space;\n' +
                    'char fname[256];\n' +

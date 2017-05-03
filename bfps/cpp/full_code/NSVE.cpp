@@ -2,6 +2,36 @@
 #include <cmath>
 #include "NSVE.hpp"
 
+int grow_single_dataset(hid_t dset, int tincrement)
+{
+    int ndims;
+    hsize_t space;
+    space = H5Dget_space(dset);
+    ndims = H5Sget_simple_extent_ndims(space);
+    hsize_t *dims = new hsize_t[ndims];
+    H5Sget_simple_extent_dims(space, dims, NULL);
+    dims[0] += tincrement;
+    H5Dset_extent(dset, dims);
+    H5Sclose(space);
+    delete[] dims;
+    return EXIT_SUCCESS;
+}
+
+herr_t grow_dataset_visitor(
+    hid_t o_id,
+    const char *name,
+    const H5O_info_t *info,
+    void *op_data)
+{
+    if (info->type == H5O_TYPE_DATASET)
+    {
+        hsize_t dset = H5Dopen(o_id, name, H5P_DEFAULT);
+        grow_single_dataset(dset, *((int*)(op_data)));
+        H5Dclose(dset);
+    }
+    return EXIT_SUCCESS;
+}
+
 template <typename rnumber>
 int NSVE<rnumber>::read_iteration(void)
 {
