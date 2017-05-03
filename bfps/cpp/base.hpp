@@ -24,6 +24,7 @@
 
 
 
+#include <cassert>
 #include <mpi.h>
 #include <stdarg.h>
 #include <iostream>

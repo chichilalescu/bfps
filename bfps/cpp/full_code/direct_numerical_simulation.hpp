@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2015 Max Planck Institute                                *
+*  Copyright 2017 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -29,16 +29,23 @@
 
 
 #include "base.hpp"
-#include "field.hpp"
 
 class direct_numerical_simulation
 {
     public:
-        bool floating_point_exceptions;
         int myrank, nprocs;
         MPI_Comm comm;
 
-        std::
+        std::string simname;
+
+        direct_numerical_simulation(
+                const MPI_Comm COMMUNICATOR,
+                const std::string &simulation_name);
+        ~direct_numerical_simulation(){}
+
+        virtual int initialize(void) = 0;
+        virtual int main_loop(void) = 0;
+        virtual int finalize(void) = 0;
 };
 
 #endif//DIRECT_NUMERICAL_SIMULATION_HPP
