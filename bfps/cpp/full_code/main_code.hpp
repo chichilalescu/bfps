@@ -56,6 +56,7 @@ int main_code(
         std::cerr <<
             "Wrong number of command line arguments. Stopping." <<
             std::endl;
+        MPI_Init(&argc, &argv);
         MPI_Finalize();
         return EXIT_SUCCESS;
     }
