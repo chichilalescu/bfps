@@ -73,8 +73,8 @@ public:
         AssertMpi(MPI_Comm_rank(mpi_com, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_com, &nb_processes));
 
-        const size_t MinBytesPerProcess = env_utils::GetValue<size_t>("BFPS_PO_MIN_BYTES", 4 * 1024 * 1024); // Default 4MB
-        const size_t ChunkBytes = env_utils::GetValue<size_t>("BFPS_PO_CHUNK_BYTES", 2 * 1024 * 1024); // Default 2MB
+        const size_t MinBytesPerProcess = env_utils::GetValue<size_t>("BFPS_PO_MIN_BYTES", 32 * 1024 * 1024); // Default 32MB
+        const size_t ChunkBytes = env_utils::GetValue<size_t>("BFPS_PO_CHUNK_BYTES", 8 * 1024 * 1024); // Default 8MB
         const int MaxProcessesInvolved = std::min(nb_processes, env_utils::GetValue<int>("BFPS_PO_MAX_PROCESSES", 128));
 
         // We split the processes using positions size only
