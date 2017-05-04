@@ -88,7 +88,10 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['vorticity_equation',
+src_file_list = ['full_code/direct_numerical_simulation',
+                 'full_code/NSVE',
+                 'full_code/NSVEp',
+                 'vorticity_equation',
                  'field',
                  'kspace',
                  'field_layout',
@@ -131,6 +134,8 @@ particle_headers = [
         'cpp/particles/particles_utils.hpp',
         'cpp/particles/env_utils.hpp']
 
+full_code_headers = ['cpp/full_code/main_code.hpp']
+
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
                ['cpp/bfps_timer.hpp'] +
@@ -138,7 +143,8 @@ header_list = (['cpp/base.hpp'] +
                ['cpp/shared_array.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list] +
-               particle_headers)
+               particle_headers +
+               full_code_headers)
 
 with open('MANIFEST.in', 'w') as manifest_in_file:
     for fname in (['bfps/cpp/' + ff + '.cpp' for ff in src_file_list] +

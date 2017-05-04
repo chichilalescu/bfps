@@ -68,6 +68,8 @@ class kspace
                 const double DKZ = 1.0);
         ~kspace();
 
+        int store(hid_t stat_file);
+
         template <typename rnumber,
                   field_components fc>
         void low_pass(
