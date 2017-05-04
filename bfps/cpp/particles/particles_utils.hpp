@@ -36,11 +36,18 @@ namespace particles_utils {
 class GetMpiType{
     const MPI_Datatype type;
 public:
+    explicit GetMpiType(const long long int&) : type(MPI_LONG_LONG_INT){}
+    explicit GetMpiType(const unsigned char&) : type(MPI_UNSIGNED_CHAR){}
+    explicit GetMpiType(const unsigned short&) : type(MPI_UNSIGNED_SHORT){}
+    explicit GetMpiType(const unsigned int&) : type(MPI_UNSIGNED){}
+    explicit GetMpiType(const unsigned long&) : type(MPI_UNSIGNED_LONG){}
+    explicit GetMpiType(const char&) : type(MPI_CHAR){}
+    explicit GetMpiType(const short&) : type(MPI_SHORT){}
     explicit GetMpiType(const int&) : type(MPI_INT){}
+    explicit GetMpiType(const long&) : type(MPI_LONG){}
+    explicit GetMpiType(const long double&) : type(MPI_LONG_DOUBLE){}
     explicit GetMpiType(const double&) : type(MPI_DOUBLE){}
     explicit GetMpiType(const float&) : type(MPI_FLOAT){}
-    explicit GetMpiType(const char&) : type(MPI_CHAR){}
-    explicit GetMpiType(const long&) : type(MPI_LONG){}
 
     /*do not make it explicit*/ operator MPI_Datatype() const { return type; }
 };
