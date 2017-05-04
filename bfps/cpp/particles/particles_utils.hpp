@@ -199,8 +199,14 @@ public:
         }
         else{
             step_split = double(nb_items)/double(nb_intervals);
-            offset_mine = NumType(step_split*double(my_idx));
-            size_mine = (my_idx != nb_intervals-1 ? NumType(step_split*double(my_idx+1)) : nb_items) -offset_mine;
+            if(nb_intervals <= my_idx){
+                offset_mine = nb_items;
+                size_mine = 0;
+            }
+            else{
+                offset_mine = NumType(step_split*double(my_idx));
+                size_mine = (my_idx != nb_intervals-1 ? NumType(step_split*double(my_idx+1)) : nb_items) -offset_mine;
+            }
         }
     }
 

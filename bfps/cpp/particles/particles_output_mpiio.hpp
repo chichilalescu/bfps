@@ -26,25 +26,31 @@ public:
                            const int in_nb_rhs, const int in_nb_step_prealloc = -1)
             : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles, in_nb_rhs),
               filename(in_filename), nb_step_prealloc(in_nb_step_prealloc), current_step_in_file(0){
-        {
-            TIMEZONE("particles_output_mpiio::MPI_File_open");
-            AssertMpi(MPI_File_open(Parent::getCom(), const_cast<char*>(filename.c_str()),
-                MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_file));
-        }
-        if(nb_step_prealloc != -1){
-            TIMEZONE("particles_output_mpiio::MPI_File_set_size");
-            AssertMpi(MPI_File_set_size(mpi_file,
-                nb_step_prealloc*Parent::getTotalNbParticles()*sizeof(real_number)*(size_particle_positions+size_particle_rhs*Parent::getNbRhs())));
+        if(Parent::isInvolved()){
+            {
+                TIMEZONE("particles_output_mpiio::MPI_File_open");
+                AssertMpi(MPI_File_open(Parent::getComWriter(), const_cast<char*>(filename.c_str()),
+                    MPI_MODE_CREATE|MPI_MODE_WRONLY, MPI_INFO_NULL, &mpi_file));
+            }
+            if(nb_step_prealloc != -1){
+                TIMEZONE("particles_output_mpiio::MPI_File_set_size");
+                AssertMpi(MPI_File_set_size(mpi_file,
+                    nb_step_prealloc*Parent::getTotalNbParticles()*sizeof(real_number)*(size_particle_positions+size_particle_rhs*Parent::getNbRhs())));
+            }
         }
     }
 
     ~particles_output_mpiio(){
-        TIMEZONE("particles_output_mpiio::MPI_File_close");
-        AssertMpi(MPI_File_close(&mpi_file));
+        if(Parent::isInvolved()){
+            TIMEZONE("particles_output_mpiio::MPI_File_close");
+            AssertMpi(MPI_File_close(&mpi_file));
+        }
     }
 
     void write(const int /*time_step*/, const real_number* particles_positions, const std::unique_ptr<real_number[]>* particles_rhs,
                            const int nb_particles, const int particles_idx_offset) final{
+        assert(Parent::isInvolved());
+
         TIMEZONE("particles_output_mpiio::write");
 
         assert(nb_step_prealloc == -1 || current_step_in_file < nb_step_prealloc);
