@@ -2,12 +2,13 @@ from bfps.DNS import DNS
 
 
 def main():
-    niterations = 16
-    nparticles = 100
-    c = DNS(dns_type = 'NSVEp')
+    niterations = 32
+    nparticles = 10000
+    c = DNS()
     c.launch(
-            ['-n', '32',
-             '--simname', 'vorticity_equation',
+            ['NSVEp',
+             '-n', '32',
+             '--simname', 'dns_nsvep',
              '--np', '4',
              '--ntpp', '1',
              '--niter_todo', '{0}'.format(niterations),
@@ -16,7 +17,7 @@ def main():
              '--checkpoints_per_file', '{0}'.format(3),
              '--nparticles', '{0}'.format(nparticles),
              '--particle-rand-seed', '2',
-             #'--njobs', '2',
+             '--njobs', '2',
              '--wd', './'])
     return None
 

@@ -28,6 +28,7 @@ import sys
 import argparse
 
 import bfps
+from .DNS import DNS
 from .NavierStokes import NavierStokes
 from .NSVorticityEquation import NSVorticityEquation
 from .FluidResize import FluidResize
@@ -64,13 +65,22 @@ def main():
                'NSManyParticles-double']
     parser.add_argument(
             'base_class',
-            choices = NSoptions + NSVEoptions + FRoptions + FCoptions + NSMPopt,
+            choices = ['DNS'] +
+                      NSoptions +
+                      NSVEoptions +
+                      FRoptions +
+                      FCoptions +
+                      NSMPopt,
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
     opt = parser.parse_args(sys.argv[1:2])
     # error is thrown if first option is not a base class, so launch
     # cannot be executed by mistake.
+    if opt.base_class == 'DNS':
+        c = DNS()
+        c.launch(args = sys.argv[2:])
+        return None
     if 'double' in opt.base_class:
         precision = 'double'
     else:
