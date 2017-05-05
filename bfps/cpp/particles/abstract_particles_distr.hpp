@@ -166,7 +166,7 @@ public:
         int nbProcToRecvLower;
         {
             int nextDestProc = my_rank;
-            for(int idxLower = 1 ; idxLower <= interpolation_size ; idxLower += partition_interval_size_per_proc[nextDestProc]){
+            for(int idxLower = 1 ; idxLower <= interpolation_size+1 ; idxLower += partition_interval_size_per_proc[nextDestProc]){
                 nextDestProc = (nextDestProc-1+nb_processes_involved)%nb_processes_involved;
                 if(nextDestProc == my_rank){
                     // We are back on our process
@@ -177,9 +177,11 @@ public:
                 const int lowerRankDiff = (nextDestProc < my_rank ? my_rank - nextDestProc : nb_processes_involved-nextDestProc+my_rank);
 
                 const int nbPartitionsToSend = std::min(current_partition_size, interpolation_size-(idxLower-1));
+                assert(nbPartitionsToSend >= 0);
                 const int nbParticlesToSend = current_offset_particles_for_partition[nbPartitionsToSend] - current_offset_particles_for_partition[0];
 
                 const int nbPartitionsToRecv = std::min(partition_interval_size_per_proc[destProc], (interpolation_size+1)-(idxLower-1));
+                assert(nbPartitionsToRecv > 0);
                 const int nbParticlesToRecv = -1;
 
                 NeighborDescriptor descriptor;
@@ -197,7 +199,7 @@ public:
             nbProcToRecvLower = neigDescriptors.size();
 
             nextDestProc = my_rank;
-            for(int idxUpper = 1 ; idxUpper <= interpolation_size ; idxUpper += partition_interval_size_per_proc[nextDestProc]){
+            for(int idxUpper = 1 ; idxUpper <= interpolation_size+1 ; idxUpper += partition_interval_size_per_proc[nextDestProc]){
                 nextDestProc = (nextDestProc+1+nb_processes_involved)%nb_processes_involved;
                 if(nextDestProc == my_rank){
                     // We are back on our process
@@ -208,9 +210,11 @@ public:
                 const int upperRankDiff = (nextDestProc > my_rank ? nextDestProc - my_rank: nb_processes_involved-my_rank+nextDestProc);
 
                 const int nbPartitionsToSend = std::min(current_partition_size, (interpolation_size+1)-(idxUpper-1));
+                assert(nbPartitionsToSend > 0);
                 const int nbParticlesToSend = current_offset_particles_for_partition[current_partition_size] - current_offset_particles_for_partition[current_partition_size-nbPartitionsToSend];
 
                 const int nbPartitionsToRecv = std::min(partition_interval_size_per_proc[destProc], interpolation_size-(idxUpper-1));
+                assert(nbPartitionsToSend >= 0);
                 const int nbParticlesToRecv = -1;
 
                 NeighborDescriptor descriptor;
@@ -234,25 +238,28 @@ public:
             NeighborDescriptor& descriptor = neigDescriptors[idxDescr];
 
             if(descriptor.isLower){
-                whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                mpiRequests.emplace_back();
-                AssertMpi(MPI_Isend(const_cast<int*>(&descriptor.nbParticlesToSend), 1, MPI_INT, descriptor.destProc, TAG_LOW_UP_NB_PARTICLES,
-                          current_com, &mpiRequests.back()));
-
-                if(descriptor.nbParticlesToSend){
+                if(descriptor.nbPartitionsToSend > 0){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                     mpiRequests.emplace_back();
-                    AssertMpi(MPI_Isend(const_cast<real_number*>(&particles_positions[0]), descriptor.nbParticlesToSend*size_particle_positions, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_LOW_UP_PARTICLES,
+                    AssertMpi(MPI_Isend(const_cast<int*>(&descriptor.nbParticlesToSend), 1, MPI_INT, descriptor.destProc, TAG_LOW_UP_NB_PARTICLES,
                               current_com, &mpiRequests.back()));
 
-                    assert(descriptor.toRecvAndMerge == nullptr);
-                    descriptor.toRecvAndMerge.reset(new real_number[descriptor.nbParticlesToSend*size_particle_rhs]);
-                    whatNext.emplace_back(std::pair<Action,int>{MERGE_PARTICLES, idxDescr});
-                    mpiRequests.emplace_back();
-                    AssertMpi(MPI_Irecv(descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend*size_particle_rhs, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_UP_LOW_RESULTS,
-                              current_com, &mpiRequests.back()));
+                    if(descriptor.nbParticlesToSend){
+                        whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
+                        mpiRequests.emplace_back();
+                        AssertMpi(MPI_Isend(const_cast<real_number*>(&particles_positions[0]), descriptor.nbParticlesToSend*size_particle_positions, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_LOW_UP_PARTICLES,
+                                  current_com, &mpiRequests.back()));
+
+                        assert(descriptor.toRecvAndMerge == nullptr);
+                        descriptor.toRecvAndMerge.reset(new real_number[descriptor.nbParticlesToSend*size_particle_rhs]);
+                        whatNext.emplace_back(std::pair<Action,int>{MERGE_PARTICLES, idxDescr});
+                        mpiRequests.emplace_back();
+                        AssertMpi(MPI_Irecv(descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend*size_particle_rhs, particles_utils::GetMpiType(real_number()), descriptor.destProc, TAG_UP_LOW_RESULTS,
+                                  current_com, &mpiRequests.back()));
+                    }
                 }
 
+                assert(descriptor.nbPartitionsToRecv);
                 whatNext.emplace_back(std::pair<Action,int>{RECV_PARTICLES, idxDescr});
                 mpiRequests.emplace_back();
                 AssertMpi(MPI_Irecv(&descriptor.nbParticlesToRecv,
@@ -260,6 +267,7 @@ public:
                           current_com, &mpiRequests.back()));
             }
             else{
+                assert(descriptor.nbPartitionsToSend);
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
                 mpiRequests.emplace_back();
                 AssertMpi(MPI_Isend(const_cast<int*>(&descriptor.nbParticlesToSend), 1, MPI_INT, descriptor.destProc, TAG_UP_LOW_NB_PARTICLES,
@@ -279,11 +287,13 @@ public:
                               current_com, &mpiRequests.back()));
                 }
 
-                whatNext.emplace_back(std::pair<Action,int>{RECV_PARTICLES, idxDescr});
-                mpiRequests.emplace_back();
-                AssertMpi(MPI_Irecv(&descriptor.nbParticlesToRecv,
-                          1, MPI_INT, descriptor.destProc, TAG_LOW_UP_NB_PARTICLES,
-                          current_com, &mpiRequests.back()));
+                if(descriptor.nbPartitionsToRecv){
+                    whatNext.emplace_back(std::pair<Action,int>{RECV_PARTICLES, idxDescr});
+                    mpiRequests.emplace_back();
+                    AssertMpi(MPI_Irecv(&descriptor.nbParticlesToRecv,
+                              1, MPI_INT, descriptor.destProc, TAG_LOW_UP_NB_PARTICLES,
+                              current_com, &mpiRequests.back()));
+                }
             }
         }
 
