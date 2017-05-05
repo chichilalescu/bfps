@@ -16,8 +16,8 @@
 
 // why is "size_particle_rhs" a template parameter?
 // I think it's safe to assume this will always be 3.
-template <class real_number, int size_particle_positions, int size_particle_rhs>
-class particles_input_hdf5 : public abstract_particles_input<real_number> {
+template <class partsize_t, class real_number, int size_particle_positions, int size_particle_rhs>
+class particles_input_hdf5 : public abstract_particles_input<partsize_t, real_number> {
     const std::string filename;
 
     MPI_Comm mpi_comm;
@@ -26,10 +26,10 @@ class particles_input_hdf5 : public abstract_particles_input<real_number> {
 
     hsize_t nb_total_particles;
     hsize_t nb_rhs;
-    int nb_particles_for_me;
+    partsize_t nb_particles_for_me;
 
     std::unique_ptr<real_number[]> my_particles_positions;
-    std::unique_ptr<int[]> my_particles_indexes;
+    std::unique_ptr<partsize_t[]> my_particles_indexes;
     std::vector<std::unique_ptr<real_number[]>> my_particles_rhs;
 
     static std::vector<real_number> BuildLimitsAllProcesses(MPI_Comm mpi_comm,
@@ -70,7 +70,7 @@ public:
                          const std::vector<real_number>& in_spatial_limit_per_proc)
         : filename(inFilename),
           mpi_comm(in_mpi_comm), my_rank(-1), nb_processes(-1), nb_total_particles(0),
-          nb_particles_for_me(-1){
+          nb_particles_for_me(0){
         TIMEZONE("particles_input_hdf5");
 
         AssertMpi(MPI_Comm_rank(mpi_comm, &my_rank));
@@ -207,32 +207,32 @@ public:
             assert(rethdf >= 0);
         }
 
-        std::unique_ptr<int[]> split_particles_indexes(new int[load_splitter.getMySize()]);
-        for(int idx_part = 0 ; idx_part < int(load_splitter.getMySize()) ; ++idx_part){
-            split_particles_indexes[idx_part] = idx_part + load_splitter.getMyOffset();
+        std::unique_ptr<partsize_t[]> split_particles_indexes(new partsize_t[load_splitter.getMySize()]);
+        for(partsize_t idx_part = 0 ; idx_part < partsize_t(load_splitter.getMySize()) ; ++idx_part){
+            split_particles_indexes[idx_part] = idx_part + partsize_t(load_splitter.getMyOffset());
         }
 
         // Permute
-        std::vector<int> nb_particles_per_proc(nb_processes);
+        std::vector<partsize_t> nb_particles_per_proc(nb_processes);
         {
             TIMEZONE("partition");
 
             const real_number spatial_box_offset = in_spatial_limit_per_proc[0];
             const real_number spatial_box_width = in_spatial_limit_per_proc[nb_processes] - in_spatial_limit_per_proc[0];
 
-            int previousOffset = 0;
+            partsize_t previousOffset = 0;
             for(int idx_proc = 0 ; idx_proc < nb_processes-1 ; ++idx_proc){
                 const real_number limitPartitionShifted = in_spatial_limit_per_proc[idx_proc+1]-spatial_box_offset;
-                const int localOffset = particles_utils::partition_extra<size_particle_positions>(
+                const partsize_t localOffset = particles_utils::partition_extra<partsize_t, size_particle_positions>(
                                                 &split_particles_positions[previousOffset*size_particle_positions],
-                                                 load_splitter.getMySize()-previousOffset,
+                                                 partsize_t(load_splitter.getMySize())-previousOffset,
                                                  [&](const real_number val[]){
                     const real_number shiftPos = val[IDX_Z]-spatial_box_offset;
                     const real_number nbRepeat = floor(shiftPos/spatial_box_width);
                     const real_number posInBox = shiftPos - (spatial_box_width*nbRepeat);
                     return posInBox < limitPartitionShifted;
                 },
-                [&](const int idx1, const int idx2){
+                [&](const partsize_t idx1, const partsize_t idx2){
                     std::swap(split_particles_indexes[idx1], split_particles_indexes[idx2]);
                     for(int idx_rhs = 0 ; idx_rhs < int(nb_rhs) ; ++idx_rhs){
                         for(int idx_val = 0 ; idx_val < size_particle_rhs ; ++idx_val){
@@ -245,7 +245,7 @@ public:
                 nb_particles_per_proc[idx_proc] = localOffset;
                 previousOffset += localOffset;
             }
-            nb_particles_per_proc[nb_processes-1] = load_splitter.getMySize() - previousOffset;
+            nb_particles_per_proc[nb_processes-1] = partsize_t(load_splitter.getMySize()) - previousOffset;
         }
 
         {
@@ -258,8 +258,8 @@ public:
             exchanger.alltoallv<real_number>(split_particles_positions.get(), my_particles_positions.get(), size_particle_positions);
             split_particles_positions.release();
 
-            my_particles_indexes.reset(new int[exchanger.getTotalToRecv()]);
-            exchanger.alltoallv<int>(split_particles_indexes.get(), my_particles_indexes.get());
+            my_particles_indexes.reset(new partsize_t[exchanger.getTotalToRecv()]);
+            exchanger.alltoallv<partsize_t>(split_particles_indexes.get(), my_particles_indexes.get());
             split_particles_indexes.release();
 
             my_particles_rhs.resize(nb_rhs);
@@ -281,12 +281,12 @@ public:
     ~particles_input_hdf5(){
     }
 
-    int getTotalNbParticles() final{
-        return nb_total_particles;
+    partsize_t getTotalNbParticles() final{
+        return partsize_t(nb_total_particles);
     }
 
-    int getLocalNbParticles() final{
-        return int(nb_particles_for_me);
+    partsize_t getLocalNbParticles() final{
+        return nb_particles_for_me;
     }
 
     int getNbRhs() final{
@@ -303,7 +303,7 @@ public:
         return std::move(my_particles_rhs);
     }
 
-    std::unique_ptr<int[]> getMyParticlesIndexes() final {
+    std::unique_ptr<partsize_t[]> getMyParticlesIndexes() final {
         assert(my_particles_indexes != nullptr);
         return std::move(my_particles_indexes);
     }

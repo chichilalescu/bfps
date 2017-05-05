@@ -3,7 +3,7 @@
 
 #include <memory>
 
-template <class real_number>
+template <class partsize_t, class real_number>
 class abstract_particles_system {
 public:
     virtual void compute() = 0;
@@ -22,9 +22,9 @@ public:
 
     virtual const std::unique_ptr<real_number[]>* getParticlesRhs() const = 0;
 
-    virtual const int* getParticlesIndexes() const = 0;
+    virtual const partsize_t* getParticlesIndexes() const = 0;
 
-    virtual int getLocalNbParticles() const = 0;
+    virtual partsize_t getLocalNbParticles() const = 0;
 
     virtual int getNbRhs() const = 0;
 };

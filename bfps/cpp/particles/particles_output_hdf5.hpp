@@ -8,20 +8,23 @@
 #include "abstract_particles_output.hpp"
 #include "scope_timer.hpp"
 
-template <class real_number,
+template <class partsize_t,
+          class real_number,
           int size_particle_positions,
           int size_particle_rhs>
-class particles_output_hdf5 : public abstract_particles_output<real_number,
+class particles_output_hdf5 : public abstract_particles_output<partsize_t,
+                                                               real_number,
                                                                size_particle_positions,
                                                                size_particle_rhs>{
-    using Parent = abstract_particles_output<real_number,
+    using Parent = abstract_particles_output<partsize_t,
+                                             real_number,
                                              size_particle_positions,
                                              size_particle_rhs>;
 
     const std::string particle_species_name;
 
     hid_t file_id;
-    const int total_nb_particles;
+    const partsize_t total_nb_particles;
 
     hid_t dset_id_state;
     hid_t dset_id_rhs;
@@ -31,10 +34,11 @@ class particles_output_hdf5 : public abstract_particles_output<real_number,
 public:
     particles_output_hdf5(MPI_Comm in_mpi_com,
                           const std::string ps_name,
-                          const int inTotalNbParticles,
+                          const partsize_t inTotalNbParticles,
                           const int in_nb_rhs,
                           const bool in_use_collective_io = false)
-            : abstract_particles_output<real_number,
+            : abstract_particles_output<partsize_t,
+                                        real_number,
                                         size_particle_positions,
                                         size_particle_rhs>(
                                                 in_mpi_com,
@@ -172,8 +176,8 @@ public:
             const int idx_time_step,
             const real_number* particles_positions,
             const std::unique_ptr<real_number[]>* particles_rhs,
-            const int nb_particles,
-            const int particles_idx_offset) final{
+            const partsize_t nb_particles,
+            const partsize_t particles_idx_offset) final{
         assert(Parent::isInvolved());
 
         TIMEZONE("particles_output_hdf5::write");
