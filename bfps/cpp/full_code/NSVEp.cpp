@@ -1,6 +1,7 @@
 #include <string>
 #include <cmath>
 #include "NSVEp.hpp"
+#include "scope_timer.hpp"
 
 
 template <typename rnumber>
