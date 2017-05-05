@@ -374,10 +374,11 @@ public:
 
         if(myrank != 0){
             const std::string strOutput = myResults.str();
-            int sizeOutput = strOutput.length();
+            assert(strOutput.length() <= std::numeric_limits<int>::max());
+            int sizeOutput = int(strOutput.length());
             retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
             assert(retMpi == MPI_SUCCESS);
-            retMpi = MPI_Send((void*)strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
+            retMpi = MPI_Send(const_cast<char*>(strOutput.data()), sizeOutput, MPI_CHAR, 0, 100, inComm);
             assert(retMpi == MPI_SUCCESS);
         }
         else{
@@ -445,7 +446,7 @@ public:
         if(myRank == 0){
             nbEventsPerProc.reset(new int[nbProcess]);
         }
-        const int myNbEvents = myEvents.size();
+        const int myNbEvents = int(myEvents.size());
         retMpi = MPI_Gather(const_cast<int*>(&myNbEvents), 1, MPI_INT,
                        nbEventsPerProc.get(), 1, MPI_INT,
                        0, inComm);
@@ -463,13 +464,13 @@ public:
             diplsByte[0] = 0;
             for(int idx = 1 ; idx <= nbProcess ; ++idx){
                 dipls[idx] = dipls[idx-1] + nbEventsPerProc[idx-1];
-                diplsByte[idx] = dipls[idx] * sizeof(SerializedEvent);
-                nbEventsPerProcByte[idx-1] = nbEventsPerProc[idx-1] * sizeof(SerializedEvent);
+                diplsByte[idx] = dipls[idx] * int(sizeof(SerializedEvent));
+                nbEventsPerProcByte[idx-1] = nbEventsPerProc[idx-1] * int(sizeof(SerializedEvent));
             }
             allEvents.reset(new SerializedEvent[dipls[nbProcess]]);
         }
 
-        retMpi = MPI_Gatherv(myEvents.data(), myNbEvents * sizeof(SerializedEvent), MPI_BYTE,
+        retMpi = MPI_Gatherv(myEvents.data(), myNbEvents * int(sizeof(SerializedEvent)), MPI_BYTE,
                     allEvents.get(), nbEventsPerProcByte.get(), diplsByte.get(),
                     MPI_BYTE, 0, inComm);
         assert(retMpi == MPI_SUCCESS);
@@ -497,7 +498,7 @@ public:
                     newEvent.totalTime = allEvents[idxEvent].totalTime;
                     newEvent.minTime = allEvents[idxEvent].minTime;
                     newEvent.maxTime = allEvents[idxEvent].maxTime;
-                    newEvent.occurrence = allEvents[idxEvent].totalTime;
+                    newEvent.occurrence = allEvents[idxEvent].occurrence;
                     newEvent.nbProcess = 1;
                     newEvent.minTimeProcess = allEvents[idxEvent].totalTime;
                     newEvent.maxTimeProcess = allEvents[idxEvent].totalTime;
@@ -638,10 +639,11 @@ public:
 
             if(myRank != 0){
                 const std::string strOutput = myResults.str();
-                int sizeOutput = strOutput.length();
+                assert(strOutput.length() <= std::numeric_limits<int>::max());
+                int sizeOutput = int(strOutput.length());
                 retMpi = MPI_Send(&sizeOutput, 1, MPI_INT, 0, 99, inComm);
                 assert(retMpi == MPI_SUCCESS);
-                retMpi = MPI_Send((void*)strOutput.data(), sizeOutput, MPI_CHAR, 0, 100, inComm);
+                retMpi = MPI_Send(const_cast<char*>(strOutput.data()), sizeOutput, MPI_CHAR, 0, 100, inComm);
                 assert(retMpi == MPI_SUCCESS);
             }
             else{

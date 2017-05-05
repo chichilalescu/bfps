@@ -10,9 +10,9 @@
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
 
-template <class real_number, int size_particle_positions, int size_particle_rhs>
-class particles_output_mpiio : public abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>{
-    using Parent = abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>;
+template <class partsize_t, class real_number, int size_particle_positions, int size_particle_rhs>
+class particles_output_mpiio : public abstract_particles_output<partsize_t, real_number, size_particle_positions, size_particle_rhs>{
+    using Parent = abstract_particles_output<partsize_t, real_number, size_particle_positions, size_particle_rhs>;
 
     const std::string filename;
     const int nb_step_prealloc;
@@ -22,9 +22,9 @@ class particles_output_mpiio : public abstract_particles_output<real_number, siz
     MPI_File mpi_file;
 
 public:
-    particles_output_mpiio(MPI_Comm in_mpi_com, const std::string in_filename, const int inTotalNbParticles,
+    particles_output_mpiio(MPI_Comm in_mpi_com, const std::string in_filename, const partsize_t inTotalNbParticles,
                            const int in_nb_rhs, const int in_nb_step_prealloc = -1)
-            : abstract_particles_output<real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles, in_nb_rhs),
+            : abstract_particles_output<partsize_t, real_number, size_particle_positions, size_particle_rhs>(in_mpi_com, inTotalNbParticles, in_nb_rhs),
               filename(in_filename), nb_step_prealloc(in_nb_step_prealloc), current_step_in_file(0){
         if(Parent::isInvolved()){
             {
@@ -48,7 +48,7 @@ public:
     }
 
     void write(const int /*time_step*/, const real_number* particles_positions, const std::unique_ptr<real_number[]>* particles_rhs,
-                           const int nb_particles, const int particles_idx_offset) final{
+                           const partsize_t nb_particles, const partsize_t particles_idx_offset) final{
         assert(Parent::isInvolved());
 
         TIMEZONE("particles_output_mpiio::write");

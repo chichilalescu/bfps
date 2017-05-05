@@ -12,8 +12,8 @@
 #include "particles_adams_bashforth.hpp"
 #include "scope_timer.hpp"
 
-template <class real_number, class field_rnumber, class interpolator_class, int interp_neighbours>
-class particles_system : public abstract_particles_system<real_number> {
+template <class partsize_t, class real_number, class field_rnumber, class interpolator_class, int interp_neighbours>
+class particles_system : public abstract_particles_system<partsize_t, real_number> {
     MPI_Comm mpi_com;
 
     const std::pair<int,int> current_partition_interval;
@@ -23,10 +23,10 @@ class particles_system : public abstract_particles_system<real_number> {
 
     interpolator_class interpolator;
 
-    particles_field_computer<real_number, interpolator_class, field_accessor<field_rnumber>, interp_neighbours, particles_adams_bashforth<real_number, 3,3>> computer;
+    particles_field_computer<partsize_t, real_number, interpolator_class, field_accessor<field_rnumber>, interp_neighbours, particles_adams_bashforth<partsize_t, real_number, 3,3>> computer;
 
-    std::unique_ptr<int[]> current_my_nb_particles_per_partition;
-    std::unique_ptr<int[]> current_offset_particles_for_partition;
+    std::unique_ptr<partsize_t[]> current_my_nb_particles_per_partition;
+    std::unique_ptr<partsize_t[]> current_offset_particles_for_partition;
 
     const std::array<real_number,3> spatial_box_width;
     const std::array<real_number,3> spatial_partition_width;
@@ -34,8 +34,8 @@ class particles_system : public abstract_particles_system<real_number> {
     const real_number my_spatial_up_limit;
 
     std::unique_ptr<real_number[]> my_particles_positions;
-    std::unique_ptr<int[]> my_particles_positions_indexes;
-    int my_nb_particles;
+    std::unique_ptr<partsize_t[]> my_particles_positions_indexes;
+    partsize_t my_nb_particles;
     std::vector<std::unique_ptr<real_number[]>> my_particles_rhs;
 
     int step_idx;
@@ -61,14 +61,14 @@ public:
           my_spatial_low_limit(in_my_spatial_low_limit), my_spatial_up_limit(in_my_spatial_up_limit),
           my_nb_particles(0), step_idx(in_current_iteration){
 
-        current_my_nb_particles_per_partition.reset(new int[partition_interval_size]);
-        current_offset_particles_for_partition.reset(new int[partition_interval_size+1]);
+        current_my_nb_particles_per_partition.reset(new partsize_t[partition_interval_size]);
+        current_offset_particles_for_partition.reset(new partsize_t[partition_interval_size+1]);
     }
 
     ~particles_system(){
     }
 
-    void init(abstract_particles_input<real_number>& particles_input){
+    void init(abstract_particles_input<partsize_t, real_number>& particles_input){
         TIMEZONE("particles_system::init");
 
         my_particles_positions = particles_input.getMyParticles();
@@ -76,20 +76,20 @@ public:
         my_particles_rhs = particles_input.getMyRhs();
         my_nb_particles = particles_input.getLocalNbParticles();
 
-        for(int idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
+        for(partsize_t idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
             const int partition_level = computer.pbc_field_layer(my_particles_positions[idx_part*3+IDX_Z], IDX_Z);
             assert(partition_level >= current_partition_interval.first);
             assert(partition_level < current_partition_interval.second);
         }
 
-        particles_utils::partition_extra_z<3>(&my_particles_positions[0], my_nb_particles, partition_interval_size,
+        particles_utils::partition_extra_z<partsize_t, 3>(&my_particles_positions[0], my_nb_particles, partition_interval_size,
                                               current_my_nb_particles_per_partition.get(), current_offset_particles_for_partition.get(),
         [&](const real_number& z_pos){
             const int partition_level = computer.pbc_field_layer(z_pos, IDX_Z);
             assert(current_partition_interval.first <= partition_level && partition_level < current_partition_interval.second);
             return partition_level - current_partition_interval.first;
         },
-        [&](const int idx1, const int idx2){
+        [&](const partsize_t idx1, const partsize_t idx2){
             std::swap(my_particles_positions_indexes[idx1], my_particles_positions_indexes[idx2]);
             for(int idx_rhs = 0 ; idx_rhs < int(my_particles_rhs.size()) ; ++idx_rhs){
                 for(int idx_val = 0 ; idx_val < 3 ; ++idx_val){
@@ -103,7 +103,7 @@ public:
             for(int idxPartition = 0 ; idxPartition < partition_interval_size ; ++idxPartition){
                 assert(current_my_nb_particles_per_partition[idxPartition] ==
                        current_offset_particles_for_partition[idxPartition+1] - current_offset_particles_for_partition[idxPartition]);
-                for(int idx = current_offset_particles_for_partition[idxPartition] ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
+                for(partsize_t idx = current_offset_particles_for_partition[idxPartition] ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
                     assert(computer.pbc_field_layer(my_particles_positions[idx*3+IDX_Z], IDX_Z)-current_partition_interval.first == idxPartition);
                 }
             }
@@ -131,7 +131,7 @@ public:
         computer.redistribute(current_my_nb_particles_per_partition.get(),
                               &my_nb_particles,
                               &my_particles_positions,
-                              my_particles_rhs.data(), my_particles_rhs.size(),
+                              my_particles_rhs.data(), int(my_particles_rhs.size()),
                               &my_particles_positions_indexes);
     }
 
@@ -142,7 +142,7 @@ public:
     void shift_rhs_vectors() final {
         if(my_particles_rhs.size()){
             std::unique_ptr<real_number[]> next_current(std::move(my_particles_rhs.back()));
-            for(int idx_rhs = my_particles_rhs.size()-1 ; idx_rhs > 0 ; --idx_rhs){
+            for(int idx_rhs = int(my_particles_rhs.size())-1 ; idx_rhs > 0 ; --idx_rhs){
                 my_particles_rhs[idx_rhs] = std::move(my_particles_rhs[idx_rhs-1]);
             }
             my_particles_rhs[0] = std::move(next_current);
@@ -167,11 +167,11 @@ public:
         return my_particles_rhs.data();
     }
 
-    const int* getParticlesIndexes() const final {
+    const partsize_t* getParticlesIndexes() const final {
         return my_particles_positions_indexes.get();
     }
 
-    int getLocalNbParticles() const final {
+    partsize_t getLocalNbParticles() const final {
         return my_nb_particles;
     }
 
@@ -180,7 +180,7 @@ public:
     }
 
     void checkNan() const { // TODO remove
-        for(int idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
+        for(partsize_t idx_part = 0 ; idx_part < my_nb_particles ; ++idx_part){ // TODO remove me
             assert(std::isnan(my_particles_positions[idx_part*3+IDX_X]) == false);
             assert(std::isnan(my_particles_positions[idx_part*3+IDX_Y]) == false);
             assert(std::isnan(my_particles_positions[idx_part*3+IDX_Z]) == false);

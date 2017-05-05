@@ -108,14 +108,14 @@ inline RetType evaluate(IterType1 value1, IterType2 value2, Args... args){
 ///
 //////////////////////////////////////////////////////////////////////////////
 
-template <class field_rnumber, field_backend be, class particles_rnumber>
+template <class partsize_t, class field_rnumber, field_backend be, class particles_rnumber>
 struct particles_system_build_container {
     template <const int interpolation_size, const int spline_mode>
-    static std::unique_ptr<abstract_particles_system<particles_rnumber>> instanciate(
+    static std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>> instanciate(
              const field<field_rnumber, be, THREE>* fs_field, // (field object)
              const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
              const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
-             const int nparticles, // to check coherency between parameters and hdf input file
+             const partsize_t nparticles, // to check coherency between parameters and hdf input file
              const std::string& fname_input, // particles input filename
             const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
              MPI_Comm mpi_comm,
@@ -198,8 +198,8 @@ struct particles_system_build_container {
         const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
-         = new particles_system<particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
+        particles_system<partsize_t, particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
+         = new particles_system<partsize_t, particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
                                                                                                    spatial_box_offset,
                                                                                                    spatial_partition_width,
@@ -213,7 +213,7 @@ struct particles_system_build_container {
                                                                                                    in_current_iteration);
 
         // Load particles from hdf5
-        particles_input_hdf5<particles_rnumber, 3,3> generator(mpi_comm, fname_input,
+        particles_input_hdf5<partsize_t, particles_rnumber, 3,3> generator(mpi_comm, fname_input,
                                             inDatanameState, inDatanameRhs, my_spatial_low_limit_z, my_spatial_up_limit_z);
 
         // Ensure parameters match the input file
@@ -233,27 +233,27 @@ struct particles_system_build_container {
         assert(part_sys->getNbRhs() == nsteps);
 
         // Return the created particles system
-        return std::unique_ptr<abstract_particles_system<particles_rnumber>>(part_sys);
+        return std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>(part_sys);
     }
 };
 
 
-template <class field_rnumber, field_backend be, class particles_rnumber = double>
-inline std::unique_ptr<abstract_particles_system<particles_rnumber>> particles_system_builder(
+template <class partsize_t, class field_rnumber, field_backend be, class particles_rnumber = double>
+inline std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>> particles_system_builder(
         const field<field_rnumber, be, THREE>* fs_field, // (field object)
         const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
         const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
-        const int nparticles, // to check coherency between parameters and hdf input file
+        const partsize_t nparticles, // to check coherency between parameters and hdf input file
         const std::string& fname_input, // particles input filename
         const std::string& inDatanameState, const std::string& inDatanameRhs, // input dataset names
         const int interpolation_size,
         const int spline_mode,
         MPI_Comm mpi_comm,
         const int in_current_iteration){
-    return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<particles_rnumber>>,
+    return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>,
                        int, 1, 7, 1, // interpolation_size
                        int, 0, 3, 1, // spline_mode
-                       particles_system_build_container<field_rnumber,be,particles_rnumber>>(
+                       particles_system_build_container<partsize_t, field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
                            fs_field,fs_kk, nsteps, nparticles, fname_input, inDatanameState, inDatanameRhs, mpi_comm, in_current_iteration);

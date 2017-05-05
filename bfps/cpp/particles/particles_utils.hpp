@@ -36,29 +36,36 @@ namespace particles_utils {
 class GetMpiType{
     const MPI_Datatype type;
 public:
+    explicit GetMpiType(const long long int&) : type(MPI_LONG_LONG_INT){}
+    explicit GetMpiType(const unsigned char&) : type(MPI_UNSIGNED_CHAR){}
+    explicit GetMpiType(const unsigned short&) : type(MPI_UNSIGNED_SHORT){}
+    explicit GetMpiType(const unsigned int&) : type(MPI_UNSIGNED){}
+    explicit GetMpiType(const unsigned long&) : type(MPI_UNSIGNED_LONG){}
+    explicit GetMpiType(const char&) : type(MPI_CHAR){}
+    explicit GetMpiType(const short&) : type(MPI_SHORT){}
     explicit GetMpiType(const int&) : type(MPI_INT){}
+    explicit GetMpiType(const long&) : type(MPI_LONG){}
+    explicit GetMpiType(const long double&) : type(MPI_LONG_DOUBLE){}
     explicit GetMpiType(const double&) : type(MPI_DOUBLE){}
     explicit GetMpiType(const float&) : type(MPI_FLOAT){}
-    explicit GetMpiType(const char&) : type(MPI_CHAR){}
-    explicit GetMpiType(const long&) : type(MPI_LONG){}
 
     /*do not make it explicit*/ operator MPI_Datatype() const { return type; }
 };
 
 
-template <int nb_values, class real_number, class Predicate>
-inline int partition(real_number* array, const int size, Predicate pdc)
+template <class partsize_t, int nb_values, class real_number, class Predicate>
+inline partsize_t partition(real_number* array, const partsize_t size, Predicate pdc)
 {
     if(size == 0) return 0;
     if(size == 1) return (pdc(&array[0])?1:0);
 
-    int idxInsert = 0;
+    partsize_t idxInsert = 0;
 
-    for(int idx = 0 ; idx < size && pdc(&array[idx*nb_values]); ++idx){
+    for(partsize_t idx = 0 ; idx < size && pdc(&array[idx*nb_values]); ++idx){
         idxInsert += 1;
     }
 
-    for(int idx = idxInsert ; idx < size ; ++idx){
+    for(partsize_t idx = idxInsert ; idx < size ; ++idx){
         if(pdc(&array[idx*nb_values])){
             for(int idxVal = 0 ; idxVal < nb_values ; ++idxVal){
                 std::swap(array[idx*nb_values + idxVal], array[idxInsert*nb_values + idxVal]);
@@ -71,19 +78,19 @@ inline int partition(real_number* array, const int size, Predicate pdc)
 }
 
 
-template <int nb_values, class real_number, class Predicate1, class Predicate2>
-inline int partition_extra(real_number* array, const int size, Predicate1 pdc, Predicate2 pdcswap, const int offset_idx_swap = 0)
+template <class partsize_t, int nb_values, class real_number, class Predicate1, class Predicate2>
+inline partsize_t partition_extra(real_number* array, const partsize_t size, Predicate1 pdc, Predicate2 pdcswap, const partsize_t offset_idx_swap = 0)
 {
     if(size == 0) return 0;
     if(size == 1) return (pdc(&array[0])?1:0);
 
-    int idxInsert = 0;
+    partsize_t idxInsert = 0;
 
-    for(int idx = 0 ; idx < size && pdc(&array[idx*nb_values]); ++idx){
+    for(partsize_t idx = 0 ; idx < size && pdc(&array[idx*nb_values]); ++idx){
         idxInsert += 1;
     }
 
-    for(int idx = idxInsert ; idx < size ; ++idx){
+    for(partsize_t idx = idxInsert ; idx < size ; ++idx){
         if(pdc(&array[idx*nb_values])){
             for(int idxVal = 0 ; idxVal < nb_values ; ++idxVal){
                 std::swap(array[idx*nb_values + idxVal], array[idxInsert*nb_values + idxVal]);
@@ -96,9 +103,9 @@ inline int partition_extra(real_number* array, const int size, Predicate1 pdc, P
     return idxInsert;
 }
 
-template <int nb_values, class real_number, class Predicate1, class Predicate2>
-inline void partition_extra_z(real_number* array, const int size, const int nb_partitions,
-                              int partitions_size[], int partitions_offset[],
+template <class partsize_t, int nb_values, class real_number, class Predicate1, class Predicate2>
+inline void partition_extra_z(real_number* array, const partsize_t size, const int nb_partitions,
+                              partsize_t partitions_size[], partsize_t partitions_offset[],
                               Predicate1 partitions_levels, Predicate2 pdcswap)
 {
     if(nb_partitions == 0){
@@ -114,7 +121,7 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
     }
 
     if(nb_partitions == 2){
-        const int size_current = partition_extra<nb_values>(array, size,
+        const partsize_t size_current = partition_extra<partsize_t, nb_values>(array, size,
                 [&](const real_number inval[]){
             return partitions_levels(inval[IDX_Z]) == 0;
         }, pdcswap);
@@ -140,9 +147,9 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
         else{
             const int idx_middle = (current_part.second-current_part.first)/2 + current_part.first - 1;
 
-            const int size_unpart = partitions_offset[current_part.second]- partitions_offset[current_part.first];
+            const partsize_t size_unpart = partitions_offset[current_part.second]- partitions_offset[current_part.first];
 
-            const int size_current = partition_extra<nb_values>(&array[partitions_offset[current_part.first]*nb_values],
+            const partsize_t size_current = partition_extra<partsize_t, nb_values>(&array[partitions_offset[current_part.first]*nb_values],
                                                      size_unpart,
                     [&](const real_number inval[]){
                 return partitions_levels(inval[IDX_Z]) <= idx_middle;
@@ -157,13 +164,13 @@ inline void partition_extra_z(real_number* array, const int size, const int nb_p
     }
 }
 
-template <int nb_values, class real_number, class Predicate1, class Predicate2>
-inline std::pair<std::vector<int>,std::vector<int>> partition_extra_z(real_number* array, const int size,
+template <class partsize_t, int nb_values, class real_number, class Predicate1, class Predicate2>
+inline std::pair<std::vector<partsize_t>,std::vector<partsize_t>> partition_extra_z(real_number* array, const partsize_t size,
                                                                       const int nb_partitions, Predicate1 partitions_levels,
                                                                         Predicate2 pdcswap){
 
-    std::vector<int> partitions_size(nb_partitions);
-    std::vector<int> partitions_offset(nb_partitions+1);
+    std::vector<partsize_t> partitions_size(nb_partitions);
+    std::vector<partsize_t> partitions_offset(nb_partitions+1);
     partition_extra_z<nb_values, real_number, Predicate1, Predicate2>(array, size, nb_partitions,
                                                          partitions_size.data(), partitions_offset.data(),
                                                          partitions_levels, pdcswap);

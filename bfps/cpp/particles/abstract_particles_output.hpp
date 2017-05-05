@@ -13,7 +13,7 @@
 #include "scope_timer.hpp"
 #include "env_utils.hpp"
 
-template <class real_number, int size_particle_positions, int size_particle_rhs>
+template <class partsize_t, class real_number, int size_particle_positions, int size_particle_rhs>
 class abstract_particles_output {
     MPI_Comm mpi_com;
     MPI_Comm mpi_com_writer;
@@ -21,31 +21,31 @@ class abstract_particles_output {
     int my_rank;
     int nb_processes;
 
-    const int total_nb_particles;
+    const partsize_t total_nb_particles;
     const int nb_rhs;
 
-    std::unique_ptr<std::pair<int,int>[]> buffer_indexes_send;
+    std::unique_ptr<std::pair<partsize_t,partsize_t>[]> buffer_indexes_send;
     std::unique_ptr<real_number[]> buffer_particles_positions_send;
     std::vector<std::unique_ptr<real_number[]>> buffer_particles_rhs_send;
-    int size_buffers_send;
+    partsize_t size_buffers_send;
 
     std::unique_ptr<real_number[]> buffer_particles_positions_recv;
     std::vector<std::unique_ptr<real_number[]>> buffer_particles_rhs_recv;
-    std::unique_ptr<int[]> buffer_indexes_recv;
-    int size_buffers_recv;
+    std::unique_ptr<partsize_t[]> buffer_indexes_recv;
+    partsize_t size_buffers_recv;
 
     int nb_processes_involved;
     bool current_is_involved;
-    int particles_chunk_per_process;
-    int particles_chunk_current_size;
-    int particles_chunk_current_offset;
+    partsize_t particles_chunk_per_process;
+    partsize_t particles_chunk_current_size;
+    partsize_t particles_chunk_current_offset;
 
 protected:
     MPI_Comm& getComWriter(){
         return mpi_com_writer;
     }
 
-    int getTotalNbParticles() const {
+    partsize_t getTotalNbParticles() const {
         return total_nb_particles;
     }
 
@@ -62,13 +62,13 @@ protected:
     }
 
 public:
-    abstract_particles_output(MPI_Comm in_mpi_com, const int inTotalNbParticles, const int in_nb_rhs)
+    abstract_particles_output(MPI_Comm in_mpi_com, const partsize_t inTotalNbParticles, const int in_nb_rhs) throw()
             : mpi_com(in_mpi_com), my_rank(-1), nb_processes(-1),
                 total_nb_particles(inTotalNbParticles), nb_rhs(in_nb_rhs),
                 buffer_particles_rhs_send(in_nb_rhs), size_buffers_send(-1),
                 buffer_particles_rhs_recv(in_nb_rhs), size_buffers_recv(-1),
                 nb_processes_involved(0), current_is_involved(true), particles_chunk_per_process(0),
-                particles_chunk_current_size(0), particles_chunk_current_offset(0){
+                particles_chunk_current_size(0), particles_chunk_current_offset(0) {
 
         AssertMpi(MPI_Comm_rank(mpi_com, &my_rank));
         AssertMpi(MPI_Comm_size(mpi_com, &nb_processes));
@@ -87,13 +87,13 @@ public:
                 extraChunkBytes += 1;
             }
             const size_t bytesPerProcess = (MinBytesPerProcess+extraChunkBytes*ChunkBytes);
-            particles_chunk_per_process = (bytesPerProcess+sizeof(real_number)*size_particle_positions-1)/(sizeof(real_number)*size_particle_positions);
-            nb_processes_involved = (total_nb_particles+particles_chunk_per_process-1)/particles_chunk_per_process;
+            particles_chunk_per_process = partsize_t((bytesPerProcess+sizeof(real_number)*size_particle_positions-1)/(sizeof(real_number)*size_particle_positions));
+            nb_processes_involved = int((total_nb_particles+particles_chunk_per_process-1)/particles_chunk_per_process);
         }
         // else limit based on minBytesPerProcess
         else{
             nb_processes_involved = std::max(1,std::min(MaxProcessesInvolved,int((totalBytesForPositions+MinBytesPerProcess-1)/MinBytesPerProcess)));
-            particles_chunk_per_process = (MinBytesPerProcess+sizeof(real_number)*size_particle_positions-1)/(sizeof(real_number)*size_particle_positions);
+            particles_chunk_per_process = partsize_t((MinBytesPerProcess+sizeof(real_number)*size_particle_positions-1)/(sizeof(real_number)*size_particle_positions));
         }
 
         // Print out
@@ -144,8 +144,8 @@ public:
     void save(
             const real_number input_particles_positions[],
             const std::unique_ptr<real_number[]> input_particles_rhs[],
-            const int index_particles[],
-            const int nb_particles,
+            const partsize_t index_particles[],
+            const partsize_t nb_particles,
             const int idx_time_step){
         TIMEZONE("abstract_particles_output::save");
         assert(total_nb_particles != -1);
@@ -154,7 +154,7 @@ public:
             TIMEZONE("sort-to-distribute");
 
             if(size_buffers_send < nb_particles && nb_particles){
-                buffer_indexes_send.reset(new std::pair<int,int>[nb_particles]);
+                buffer_indexes_send.reset(new std::pair<partsize_t,partsize_t>[nb_particles]);
                 buffer_particles_positions_send.reset(new real_number[nb_particles*size_particle_positions]);
                 for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                     buffer_particles_rhs_send[idx_rhs].reset(new real_number[nb_particles*size_particle_rhs]);
@@ -162,18 +162,19 @@ public:
                 size_buffers_send = nb_particles;
             }
 
-            for(int idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
+            for(partsize_t idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
                 buffer_indexes_send[idx_part].first = idx_part;
                 buffer_indexes_send[idx_part].second = index_particles[idx_part];
             }
 
-            std::sort(&buffer_indexes_send[0], &buffer_indexes_send[nb_particles], [](const std::pair<int,int>& p1, const std::pair<int,int>& p2){
+            std::sort(&buffer_indexes_send[0], &buffer_indexes_send[nb_particles], [](const std::pair<partsize_t,partsize_t>& p1,
+                                                                                      const std::pair<partsize_t,partsize_t>& p2){
                 return p1.second < p2.second;
             });
 
-            for(int idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
-                const int src_idx = buffer_indexes_send[idx_part].first;
-                const int dst_idx = idx_part;
+            for(partsize_t idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
+                const partsize_t src_idx = buffer_indexes_send[idx_part].first;
+                const partsize_t dst_idx = idx_part;
 
                 for(int idx_val = 0 ; idx_val < size_particle_positions ; ++idx_val){
                     buffer_particles_positions_send[dst_idx*size_particle_positions + idx_val]
@@ -188,10 +189,10 @@ public:
             }
         }
 
-        int* buffer_indexes_send_tmp = reinterpret_cast<int*>(buffer_indexes_send.get());// trick re-use buffer_indexes_send memory
-        std::vector<int> nb_particles_to_send(nb_processes, 0);
-        for(int idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
-            const int dest_proc = buffer_indexes_send[idx_part].second/particles_chunk_per_process;
+        partsize_t* buffer_indexes_send_tmp = reinterpret_cast<partsize_t*>(buffer_indexes_send.get());// trick re-use buffer_indexes_send memory
+        std::vector<partsize_t> nb_particles_to_send(nb_processes, 0);
+        for(partsize_t idx_part = 0 ; idx_part < nb_particles ; ++idx_part){
+            const int dest_proc = int(buffer_indexes_send[idx_part].second/particles_chunk_per_process);
             assert(dest_proc < nb_processes_involved);
             nb_particles_to_send[dest_proc] += 1;
             buffer_indexes_send_tmp[idx_part] = buffer_indexes_send[idx_part].second;
@@ -204,7 +205,7 @@ public:
         assert(nb_to_receive == particles_chunk_current_size);
 
         if(size_buffers_recv < nb_to_receive && nb_to_receive){
-            buffer_indexes_recv.reset(new int[nb_to_receive]);
+            buffer_indexes_recv.reset(new partsize_t[nb_to_receive]);
             buffer_particles_positions_recv.reset(new real_number[nb_to_receive*size_particle_positions]);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 buffer_particles_rhs_recv[idx_rhs].reset(new real_number[nb_to_receive*size_particle_rhs]);
@@ -215,7 +216,7 @@ public:
         {
             TIMEZONE("exchange");
             // Could be done with multiple asynchronous coms
-            exchanger.alltoallv<int>(buffer_indexes_send_tmp, buffer_indexes_recv.get());
+            exchanger.alltoallv<partsize_t>(buffer_indexes_send_tmp, buffer_indexes_recv.get());
             exchanger.alltoallv<real_number>(buffer_particles_positions_send.get(), buffer_particles_positions_recv.get(), size_particle_positions);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 exchanger.alltoallv<real_number>(buffer_particles_rhs_send[idx_rhs].get(), buffer_particles_rhs_recv[idx_rhs].get(), size_particle_rhs);
@@ -229,7 +230,7 @@ public:
         }
 
         if(size_buffers_send < nb_to_receive && nb_to_receive){
-            buffer_indexes_send.reset(new std::pair<int,int>[nb_to_receive]);
+            buffer_indexes_send.reset(new std::pair<partsize_t,partsize_t>[nb_to_receive]);
             buffer_particles_positions_send.reset(new real_number[nb_to_receive*size_particle_positions]);
             for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
                 buffer_particles_rhs_send[idx_rhs].reset(new real_number[nb_to_receive*size_particle_rhs]);
@@ -239,9 +240,9 @@ public:
 
         {
             TIMEZONE("copy-local-order");
-            for(int idx_part = 0 ; idx_part < nb_to_receive ; ++idx_part){
-                const int src_idx = idx_part;
-                const int dst_idx = buffer_indexes_recv[idx_part]-particles_chunk_current_offset;
+            for(partsize_t idx_part = 0 ; idx_part < nb_to_receive ; ++idx_part){
+                const partsize_t src_idx = idx_part;
+                const partsize_t dst_idx = buffer_indexes_recv[idx_part]-particles_chunk_current_offset;
                 assert(0 <= dst_idx);
                 assert(dst_idx < particles_chunk_current_size);
 
@@ -263,7 +264,7 @@ public:
     }
 
     virtual void write(const int idx_time_step, const real_number* positions, const std::unique_ptr<real_number[]>* rhs,
-                       const int nb_particles, const int particles_idx_offset) = 0;
+                       const partsize_t nb_particles, const partsize_t particles_idx_offset) = 0;
 };
 
 #endif
