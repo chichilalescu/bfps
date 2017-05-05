@@ -63,7 +63,7 @@ int NSVEp<rnumber>::initialize(void)
                 fs->cvelocity,              // (field object)
                 fs->kk,                     // (kspace object, contains dkx, dky, dkz)
                 tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
-                nparticles,                 // to check coherency between parameters and hdf input file
+                (long long int)nparticles,  // to check coherency between parameters and hdf input file
                 fs->get_current_fname(),    // particles input filename
                 std::string("/tracers0/state/") + std::to_string(fs->iteration), // dataset name for initial input
                 std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
@@ -71,7 +71,7 @@ int NSVEp<rnumber>::initialize(void)
                 tracers0_smoothness,        // parameter
                 this->comm,
                 fs->iteration+1);
-    this->particles_output_writer_mpi = new particles_output_hdf5<double,3,3>(
+    this->particles_output_writer_mpi = new particles_output_hdf5<long long int,double,3,3>(
                 MPI_COMM_WORLD,
                 "tracers0",
                 nparticles,

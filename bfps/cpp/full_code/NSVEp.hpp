@@ -63,8 +63,8 @@ class NSVEp: public direct_numerical_simulation
         vorticity_equation<rnumber, FFTW> *fs;
         field<rnumber, FFTW, THREE> *tmp_vec_field;
         field<rnumber, FFTW, ONE> *tmp_scal_field;
-        std::unique_ptr<abstract_particles_system<double>> ps;
-        particles_output_hdf5<double,3,3> *particles_output_writer_mpi;
+        std::unique_ptr<abstract_particles_system<long long int, double>> ps;
+        particles_output_hdf5<long long int, double,3,3> *particles_output_writer_mpi;
 
 
         NSVEp(

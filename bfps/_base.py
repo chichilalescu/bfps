@@ -56,7 +56,7 @@ class _base(object):
         key = sorted(list(parameters.keys()))
         src_txt = ''
         for i in range(len(key)):
-            if (type(parameters[key[i]]) == int  && parameters[key[i]] >= 1<<30) || type(parameters[key[i]]) == long:
+            if (type(parameters[key[i]]) == int  and parameters[key[i]] >= 1<<30):
                 src_txt += 'long long int ' + key[i] + ';\n'
             elif type(parameters[key[i]]) == int:
                 src_txt += 'int ' + key[i] + ';\n'
@@ -101,7 +101,7 @@ class _base(object):
         for i in range(len(key)):
             src_txt += 'dset = H5Dopen(parameter_file, "/{0}/{1}", H5P_DEFAULT);\n'.format(
                     file_group, key[i])
-            if (type(parameters[key[i]]) == int  && parameters[key[i]] >= 1<<30) || type(parameters[key[i]]) == long:
+            if (type(parameters[key[i]]) == int and parameters[key[i]] >= 1<<30):
                 src_txt += 'H5Dread(dset, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
             elif type(parameters[key[i]]) == int:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
