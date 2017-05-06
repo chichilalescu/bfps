@@ -364,9 +364,10 @@ class DNS(_code):
             particle_ic = None):
         assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
         assert (self.parameters['niter_todo'] % self.parameters['niter_out']  == 0)
-        assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
-        assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
+        if self.dns_type == 'NSVEp':
+            assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
+            assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
         _code.write_par(self, iter0 = iter0)
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:
             ofile['bfps_info/exec_name'] = self.name
@@ -786,35 +787,37 @@ class DNS(_code):
                     f['vorticity/complex/{0}'.format(0)] = data
                 f.close()
             # take care of particles' initial condition
-            if opt.pclouds > 1:
-                np.random.seed(opt.particle_rand_seed)
-                if opt.pcloud_type == 'random-cube':
-                    particle_initial_condition = (
-                        np.random.random((opt.pclouds, 1, 3))*2*np.pi +
-                        np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
-                elif opt.pcloud_type == 'regular-cube':
-                    onedarray = np.linspace(
-                            -opt.particle_cloud_size/2,
-                            opt.particle_cloud_size/2,
-                            self.parameters['nparticles'])
-                    particle_initial_condition = np.zeros(
-                            (opt.pclouds,
-                             self.parameters['nparticles'],
-                             self.parameters['nparticles'],
-                             self.parameters['nparticles'], 3),
-                            dtype = np.float64)
-                    particle_initial_condition[:] = \
-                        np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
-                    particle_initial_condition[..., 0] += onedarray[None, None, None, :]
-                    particle_initial_condition[..., 1] += onedarray[None, None, :, None]
-                    particle_initial_condition[..., 2] += onedarray[None, :, None, None]
+            if self.dns_type == 'NSVEp':
+                if opt.pclouds > 1:
+                    np.random.seed(opt.particle_rand_seed)
+                    if opt.pcloud_type == 'random-cube':
+                        particle_initial_condition = (
+                            np.random.random((opt.pclouds, 1, 3))*2*np.pi +
+                            np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+                    elif opt.pcloud_type == 'regular-cube':
+                        onedarray = np.linspace(
+                                -opt.particle_cloud_size/2,
+                                opt.particle_cloud_size/2,
+                                self.parameters['nparticles'])
+                        particle_initial_condition = np.zeros(
+                                (opt.pclouds,
+                                 self.parameters['nparticles'],
+                                 self.parameters['nparticles'],
+                                 self.parameters['nparticles'], 3),
+                                dtype = np.float64)
+                        particle_initial_condition[:] = \
+                            np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+                        particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+                        particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+                        particle_initial_condition[..., 2] += onedarray[None, :, None, None]
             self.write_par(
                     particle_ic = particle_initial_condition)
-            if self.parameters['nparticles'] > 0:
-                data = self.generate_tracer_state(
-                        species = 0,
-                        rseed = opt.particle_rand_seed,
-                        data = particle_initial_condition)
+            if self.dns_type == 'NSVEp':
+                if self.parameters['nparticles'] > 0:
+                    data = self.generate_tracer_state(
+                            species = 0,
+                            rseed = opt.particle_rand_seed,
+                            data = particle_initial_condition)
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
