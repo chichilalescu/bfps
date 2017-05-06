@@ -66,10 +66,11 @@ class NSVE: public direct_numerical_simulation
         ~NSVE(){}
 
         int initialize(void);
-        int main_loop(void);
+        int step(void);
         int finalize(void);
 
         int read_parameters(void);
+        int write_checkpoint(void);
         int do_stats(void);
 };
 

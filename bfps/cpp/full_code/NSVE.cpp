@@ -62,75 +62,19 @@ int NSVE<rnumber>::initialize(void)
 }
 
 template <typename rnumber>
-int NSVE<rnumber>::main_loop(void)
+int NSVE<rnumber>::step(void)
 {
-    clock_t time0, time1;
-    double time_difference, local_time_difference;
-    time0 = clock();
-    bool stop_code_now = false;
-    int max_iter = (this->iteration + this->niter_todo -
-                    (this->iteration % this->niter_todo));
-    for (; this->iteration < max_iter;)
-    {
-    #ifdef USE_TIMINGOUTPUT
-        const std::string loopLabel = ("code::main_start::loop-" +
-                                       std::to_string(this->iteration));
-        TIMEZONE(loopLabel.c_str());
-    #endif
-        if (this->iteration % this->niter_stat == 0)
-            this->do_stats();
-        this->fs->step(dt);
-        this->iteration = this->fs->iteration;
-        if (this->fs->iteration % this->niter_out == 0)
-        {
-            this->fs->io_checkpoint(false);
-            this->checkpoint = this->fs->checkpoint;
-            this->write_iteration();
-        }
-        if (stop_code_now)
-            break;
-        time1 = clock();
-        local_time_difference = ((
-                (unsigned int)(time1 - time0)) /
-                ((double)CLOCKS_PER_SEC));
-        time_difference = 0.0;
-        MPI_Allreduce(
-                &local_time_difference,
-                &time_difference,
-                1,
-                MPI_DOUBLE,
-                MPI_SUM,
-                MPI_COMM_WORLD);
-        if (this->myrank == 0)
-            std::cout << "iteration " << iteration << " took " << time_difference/nprocs << " seconds" << std::endl;
-        if (this->myrank == 0)
-            std::cerr << "iteration " << iteration << " took " << time_difference/nprocs << " seconds" << std::endl;
-        time0 = time1;
-    }
-    if (this->iteration % this->niter_stat == 0)
-        this->do_stats();
-    time1 = clock();
-    local_time_difference = ((
-            (unsigned int)(time1 - time0)) /
-            ((double)CLOCKS_PER_SEC));
-    time_difference = 0.0;
-    MPI_Allreduce(
-            &local_time_difference,
-            &time_difference,
-            1,
-            MPI_DOUBLE,
-            MPI_SUM,
-            MPI_COMM_WORLD);
-    if (this->myrank == 0)
-        std::cout << "iteration " << iteration << " took " << time_difference/nprocs << " seconds" << std::endl;
-    if (this->myrank == 0)
-        std::cerr << "iteration " << iteration << " took " << time_difference/nprocs << " seconds" << std::endl;
-    if (this->iteration % this->niter_out != 0)
-    {
-        this->fs->io_checkpoint(false);
-        this->checkpoint = this->fs->checkpoint;
-        this->write_iteration();
-    }
+    this->fs->step(this->dt);
+    this->iteration = this->fs->iteration;
+    return EXIT_SUCCESS;
+}
+
+template <typename rnumber>
+int NSVE<rnumber>::write_checkpoint(void)
+{
+    this->fs->io_checkpoint(false);
+    this->checkpoint = this->fs->checkpoint;
+    this->write_iteration();
     return EXIT_SUCCESS;
 }
 
@@ -147,6 +91,8 @@ int NSVE<rnumber>::finalize(void)
 template <typename rnumber>
 int NSVE<rnumber>::do_stats()
 {
+    if (!(this->iteration % this->niter_stat == 0))
+        return EXIT_SUCCESS;
     hid_t stat_group;
     if (this->myrank == 0)
         stat_group = H5Gopen(
@@ -174,24 +120,6 @@ int NSVE<rnumber>::do_stats()
 
     if (this->myrank == 0)
         H5Gclose(stat_group);
-
-    if (myrank == 0)
-    {
-        std::string fname = (
-                std::string("stop_") +
-                std::string(simname));
-        {
-            struct stat file_buffer;
-            this->stop_code_now = (
-                    stat(fname.c_str(), &file_buffer) == 0);
-        }
-    }
-    MPI_Bcast(
-            &this->stop_code_now,
-            1,
-            MPI_C_BOOL,
-            0,
-            MPI_COMM_WORLD);
     return EXIT_SUCCESS;
 }
 

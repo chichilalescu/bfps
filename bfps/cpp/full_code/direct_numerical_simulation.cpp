@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "direct_numerical_simulation.hpp"
 
 int grow_single_dataset(hid_t dset, int tincrement)
@@ -38,6 +41,7 @@ direct_numerical_simulation::direct_numerical_simulation(
 {
     MPI_Comm_rank(this->comm, &this->myrank);
     MPI_Comm_size(this->comm, &this->nprocs);
+    this->stop_code_now = false;
 }
 
 
@@ -127,6 +131,98 @@ int direct_numerical_simulation::write_iteration(void)
                 &this->checkpoint);
         H5Dclose(dset);
     }
+    return EXIT_SUCCESS;
+}
+
+int direct_numerical_simulation::main_loop(void)
+{
+    clock_t time0, time1;
+    double time_difference, local_time_difference;
+    time0 = clock();
+    int max_iter = (this->iteration + this->niter_todo -
+                    (this->iteration % this->niter_todo));
+    for (; this->iteration < max_iter;)
+    {
+    #ifdef USE_TIMINGOUTPUT
+        const std::string loopLabel = ("code::main_start::loop-" +
+                                       std::to_string(this->iteration));
+        TIMEZONE(loopLabel.c_str());
+    #endif
+        this->do_stats();
+
+        this->step();
+        if (this->iteration % this->niter_out == 0)
+            this->write_checkpoint();
+        this->check_stopping_condition();
+        if (this->stop_code_now)
+            break;
+        time1 = clock();
+        local_time_difference = ((
+                (unsigned int)(time1 - time0)) /
+                ((double)CLOCKS_PER_SEC));
+        time_difference = 0.0;
+        MPI_Allreduce(
+                &local_time_difference,
+                &time_difference,
+                1,
+                MPI_DOUBLE,
+                MPI_SUM,
+                MPI_COMM_WORLD);
+        if (this->myrank == 0)
+            std::cout << "iteration " << iteration <<
+                         " took " << time_difference/nprocs <<
+                         " seconds" << std::endl;
+        if (this->myrank == 0)
+            std::cerr << "iteration " << iteration <<
+                         " took " << time_difference/nprocs <<
+                         " seconds" << std::endl;
+        time0 = time1;
+    }
+    this->do_stats();
+    time1 = clock();
+    local_time_difference = ((
+            (unsigned int)(time1 - time0)) /
+            ((double)CLOCKS_PER_SEC));
+    time_difference = 0.0;
+    MPI_Allreduce(
+            &local_time_difference,
+            &time_difference,
+            1,
+            MPI_DOUBLE,
+            MPI_SUM,
+            MPI_COMM_WORLD);
+    if (this->myrank == 0)
+        std::cout << "iteration " << iteration <<
+                     " took " << time_difference/nprocs <<
+                     " seconds" << std::endl;
+    if (this->myrank == 0)
+        std::cerr << "iteration " << iteration <<
+                     " took " << time_difference/nprocs <<
+                     " seconds" << std::endl;
+    if (this->iteration % this->niter_out != 0)
+        this->write_checkpoint();
+    return EXIT_SUCCESS;
+}
+
+int direct_numerical_simulation::check_stopping_condition(void)
+{
+    if (myrank == 0)
+    {
+        std::string fname = (
+                std::string("stop_") +
+                std::string(this->simname));
+        {
+            struct stat file_buffer;
+            this->stop_code_now = (
+                    stat(fname.c_str(), &file_buffer) == 0);
+        }
+    }
+    MPI_Bcast(
+            &this->stop_code_now,
+            1,
+            MPI_C_BOOL,
+            0,
+            MPI_COMM_WORLD);
     return EXIT_SUCCESS;
 }
 

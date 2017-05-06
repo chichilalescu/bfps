@@ -68,13 +68,17 @@ class direct_numerical_simulation
                 const std::string &simulation_name);
         virtual ~direct_numerical_simulation(){}
 
+        virtual int write_checkpoint(void) = 0;
         virtual int initialize(void) = 0;
-        virtual int main_loop(void) = 0;
+        virtual int step(void) = 0;
+        virtual int do_stats(void) = 0;
         virtual int finalize(void) = 0;
 
+        int main_loop(void);
         int read_iteration(void);
         int write_iteration(void);
         int grow_file_datasets(void);
+        int check_stopping_condition(void);
 };
 
 #endif//DIRECT_NUMERICAL_SIMULATION_HPP
