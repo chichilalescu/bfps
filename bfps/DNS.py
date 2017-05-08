@@ -489,12 +489,20 @@ class DNS(_code):
                 type = str, dest = 'simname',
                 default = 'test')
         parser.add_argument(
-               '-n', '--cube-size',
+               '-n', '--grid-size',
                type = int,
                dest = 'n',
                default = 32,
                metavar = 'N',
                help = 'code is run by default in a grid of NxNxN')
+        for coord in ['x', 'y', 'z']:
+            parser.add_argument(
+                   '--L{0}'.format(coord), '--box-length-{0}'.format(coord),
+                   type = float,
+                   dest = 'L{0}'.format(coord),
+                   default = 2.0,
+                   metavar = 'length{0}'.format(coord),
+                   help = 'length of the box in the {0} direction will be `length{0} x pi`'.format(coord))
         parser.add_argument(
                 '--wd',
                 type = str, dest = 'work_dir',
@@ -641,6 +649,12 @@ class DNS(_code):
             self.parameters['niter_out'] = self.parameters['niter_todo']
         if len(opt.src_work_dir) == 0:
             opt.src_work_dir = os.path.realpath(opt.work_dir)
+        if type(opt.dkx) == type(None):
+            opt.dkx = 2. / opt.Lx
+        if type(opt.dky) == type(None):
+            opt.dky = 2. / opt.Ly
+        if type(opt.dkx) == type(None):
+            opt.dkz = 2. / opt.Lz
         self.pars_from_namespace(opt)
         return opt
     def launch(
