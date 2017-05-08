@@ -566,16 +566,6 @@ class DNS(_code):
                type = float,
                dest = 'particle_cloud_size',
                default = 2*np.pi)
-        parser.add_argument(
-                '--neighbours',
-                type = int,
-                dest = 'neighbours',
-                default = 1)
-        parser.add_argument(
-                '--smoothness',
-                type = int,
-                dest = 'smoothness',
-                default = 1)
         return None
     def add_parser_arguments(
             self,
@@ -666,7 +656,10 @@ class DNS(_code):
             field_size = 3*(opt.nx+2)*opt.ny*opt.nz*self.fluid_dtype.itemsize
             checkpoint_size = field_size
             if self.dns_type == 'NSVEp':
-                particle_size = (1+opt.tracers0_integration_steps)*3*opt.nparticles*8
+                rhs_size = self.parameters['tracers0_integration_steps']
+                if type(opt.tracers0_integration_steps) != type(None):
+                    rhs_size = opt.tracers0_integration_steps
+                particle_size = (1+rhs_size)*3*opt.nparticles*8
                 checkpoint_size += particle_size
             if checkpoint_size < 1e9:
                 opt.checkpoints_per_file = int(1e9 / checkpoint_size)
