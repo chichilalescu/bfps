@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "direct_numerical_simulation.hpp"
+#include "scope_timer.hpp"
 
 int grow_single_dataset(hid_t dset, int tincrement)
 {
