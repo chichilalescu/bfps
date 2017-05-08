@@ -38,7 +38,7 @@ from bfps._fluid_base import _fluid_particle_base
 class NSVorticityEquation(_fluid_particle_base):
     def __init__(
             self,
-            name = 'NSVE-v' + bfps.__version__,
+            name = 'NSVorticityEquation-v' + bfps.__version__,
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
