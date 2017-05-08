@@ -69,7 +69,7 @@ class NSVE: public direct_numerical_simulation
         int step(void);
         int finalize(void);
 
-        int read_parameters(void);
+        virtual int read_parameters(void);
         int write_checkpoint(void);
         int do_stats(void);
 };

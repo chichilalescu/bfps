@@ -80,7 +80,8 @@ class _base(object):
             template_prefix = '',
             file_group = 'parameters',
             just_declaration = False,
-            simname_variable = 'simname'):
+            simname_variable = 'simname',
+            prepend_this = False):
         if type(parameters) == type(None):
             parameters = self.parameters
         key = sorted(list(parameters.keys()))
@@ -98,19 +99,22 @@ class _base(object):
                     'char *string_data;\n' +
                     'sprintf(fname, "%s.h5", {0});\n'.format(simname_variable) +
                     'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
+        key_prefix = ''
+        if prepend_this:
+            key_prefix = 'this->'
         for i in range(len(key)):
             src_txt += 'dset = H5Dopen(parameter_file, "/{0}/{1}", H5P_DEFAULT);\n'.format(
                     file_group, key[i])
             if (type(parameters[key[i]]) == int and parameters[key[i]] >= 1<<30):
-                src_txt += 'H5Dread(dset, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
             elif type(parameters[key[i]]) == int:
-                src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
             elif type(parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
                             'memtype = H5Dget_type(dset);\n' +
                             'string_data = (char*)malloc(256);\n' +
                             'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
-                            'sprintf({0}, "%s", string_data);\n'.format(key[i]) +
+                            'sprintf({0}, "%s", string_data);\n'.format(key_prefix + key[i]) +
                             'free(string_data);\n'
                             'H5Sclose(space);\n' +
                             'H5Tclose(memtype);\n')
@@ -120,9 +124,9 @@ class _base(object):
                 elif parameters[key[i]].dtype == np.float64:
                     template_par = 'double'
                 src_txt += '{0} = read_vector<{1}>(parameter_file, "/{2}/{0}");\n'.format(
-                        key[i], template_par, file_group)
+                        key_prefix + key[i], template_par, file_group)
             else:
-                src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
             src_txt += 'H5Dclose(dset);\n'
         src_txt += 'H5Fclose(parameter_file);\n'
         src_txt += 'return 0;\n}\n' # finishing read_parameters

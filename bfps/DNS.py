@@ -114,15 +114,22 @@ class DNS(_code):
         with open(self.name + '.cpp', 'w') as outfile:
             outfile.write(self.version_message + '\n\n')
             outfile.write(self.includes + '\n\n')
-            outfile.write(self.cread_pars(
-                template_class = '{0}<rnumber>::'.format(self.dns_type),
-                template_prefix = 'template <typename rnumber> ',
-                simname_variable = 'simname.c_str()') + '\n\n')
+            outfile.write(
+                    self.cread_pars(
+                       template_class = '{0}<rnumber>::'.format(self.dns_type),
+                        template_prefix = 'template <typename rnumber> ',
+                        simname_variable = 'this->simname.c_str()',
+                        prepend_this = True) +
+                    '\n\n')
             for rnumber in ['float', 'double']:
                 outfile.write(self.cread_pars(
                     template_class = '{0}<{1}>::'.format(self.dns_type, rnumber),
                     template_prefix = 'template '.format(rnumber),
                     just_declaration = True) + '\n\n')
+            if self.dns_type == 'NSVEparticles':
+                outfile.write('template <typename rnumber> int NSVE<rnumber>::read_parameters(){return EXIT_SUCCESS;}\n')
+                outfile.write('template int NSVE<float>::read_parameters();\n')
+                outfile.write('template int NSVE<double>::read_parameters();\n\n')
             outfile.write(self.main + '\n')
         return None
     def generate_default_parameters(self):
@@ -365,7 +372,7 @@ class DNS(_code):
         assert (self.parameters['niter_todo'] % self.parameters['niter_stat'] == 0)
         assert (self.parameters['niter_todo'] % self.parameters['niter_out']  == 0)
         assert (self.parameters['niter_out']  % self.parameters['niter_stat'] == 0)
-        if self.dns_type == 'NSVEp':
+        if self.dns_type in ['NSVEp', 'NSVEparticles']:
             assert (self.parameters['niter_todo'] % self.parameters['niter_part'] == 0)
             assert (self.parameters['niter_out']  % self.parameters['niter_part'] == 0)
         _code.write_par(self, iter0 = iter0)
@@ -591,6 +598,17 @@ class DNS(_code):
         self.parameters_to_parser_arguments(
                 parser_NSVEp,
                 self.NSVEp_extra_parameters)
+
+        parser_NSVEp2 = subparsers.add_parser(
+                'NSVEparticles',
+                help = 'plain Navier-Stokes vorticity formulation, with basic fluid tracers')
+        self.simulation_parser_arguments(parser_NSVEp2)
+        self.job_parser_arguments(parser_NSVEp2)
+        self.particle_parser_arguments(parser_NSVEp2)
+        self.parameters_to_parser_arguments(parser_NSVEp2)
+        self.parameters_to_parser_arguments(
+                parser_NSVEp2,
+                self.NSVEp_extra_parameters)
         return None
     def prepare_launch(
             self,
@@ -625,7 +643,7 @@ class DNS(_code):
         self.dns_type = opt.DNS_class
         self.name = self.dns_type + '-' + self.fluid_precision + '-v' + bfps.__version__
         # merge parameters if needed
-        if self.dns_type == 'NSVEp':
+        if self.dns_type in ['NSVEp', 'NSVEparticles']:
             for k in self.NSVEp_extra_parameters.keys():
                 self.parameters[k] = self.NSVEp_extra_parameters[k]
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
@@ -655,11 +673,14 @@ class DNS(_code):
             # hardcoded FFTW complex representation size
             field_size = 3*(opt.nx+2)*opt.ny*opt.nz*self.fluid_dtype.itemsize
             checkpoint_size = field_size
-            if self.dns_type == 'NSVEp':
+            if self.dns_type in ['NSVEp', 'NSVEparticles']:
                 rhs_size = self.parameters['tracers0_integration_steps']
                 if type(opt.tracers0_integration_steps) != type(None):
                     rhs_size = opt.tracers0_integration_steps
-                particle_size = (1+rhs_size)*3*opt.nparticles*8
+                nparticles = opt.nparticles
+                if type(nparticles) == type(None):
+                    nparticles = self.NSVEp_extra_parameters['nparticles']
+                particle_size = (1+rhs_size)*3*nparticles*8
                 checkpoint_size += particle_size
             if checkpoint_size < 1e9:
                 opt.checkpoints_per_file = int(1e9 / checkpoint_size)
@@ -856,7 +877,7 @@ class DNS(_code):
                     f['vorticity/complex/{0}'.format(0)] = data
                 f.close()
             # take care of particles' initial condition
-            if self.dns_type == 'NSVEp':
+            if self.dns_type in ['NSVEp', 'NSVEparticles']:
                 if opt.pclouds > 1:
                     np.random.seed(opt.particle_rand_seed)
                     if opt.pcloud_type == 'random-cube':
@@ -881,7 +902,7 @@ class DNS(_code):
                         particle_initial_condition[..., 2] += onedarray[None, :, None, None]
             self.write_par(
                     particle_ic = particle_initial_condition)
-            if self.dns_type == 'NSVEp':
+            if self.dns_type in ['NSVEp', 'NSVEparticles']:
                 if self.parameters['nparticles'] > 0:
                     data = self.generate_tracer_state(
                             species = 0,
