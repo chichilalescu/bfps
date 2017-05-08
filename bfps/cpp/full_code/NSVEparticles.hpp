@@ -37,7 +37,7 @@
 #include "particles/particles_output_hdf5.hpp"
 
 template <typename rnumber>
-class NSVEparticles: public NSVE
+class NSVEparticles: public NSVE<rnumber>
 {
     public:
 
@@ -56,7 +56,7 @@ class NSVEparticles: public NSVE
         NSVEparticles(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
-            NSVE(
+            NSVE<rnumber>(
                     COMMUNICATOR,
                     simulation_name){}
         ~NSVEparticles(){}

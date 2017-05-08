@@ -10,17 +10,17 @@ int NSVEparticles<rnumber>::initialize(void)
     this->NSVE<rnumber>::initialize();
 
     this->ps = particles_system_builder(
-                fs->cvelocity,              // (field object)
-                fs->kk,                     // (kspace object, contains dkx, dky, dkz)
+                this->fs->cvelocity,              // (field object)
+                this->fs->kk,                     // (kspace object, contains dkx, dky, dkz)
                 tracers0_integration_steps, // to check coherency between parameters and hdf input file (nb rhs)
                 (long long int)nparticles,  // to check coherency between parameters and hdf input file
-                fs->get_current_fname(),    // particles input filename
-                std::string("/tracers0/state/") + std::to_string(fs->iteration), // dataset name for initial input
-                std::string("/tracers0/rhs/")  + std::to_string(fs->iteration), // dataset name for initial input
+                this->fs->get_current_fname(),    // particles input filename
+                std::string("/tracers0/state/") + std::to_string(this->fs->iteration), // dataset name for initial input
+                std::string("/tracers0/rhs/")  + std::to_string(this->fs->iteration), // dataset name for initial input
                 tracers0_neighbours,        // parameter (interpolation no neighbours)
                 tracers0_smoothness,        // parameter
                 this->comm,
-                fs->iteration+1);
+                this->fs->iteration+1);
     this->particles_output_writer_mpi = new particles_output_hdf5<long long int,double,3,3>(
                 MPI_COMM_WORLD,
                 "tracers0",
@@ -32,7 +32,7 @@ int NSVEparticles<rnumber>::initialize(void)
 template <typename rnumber>
 int NSVEparticles<rnumber>::step(void)
 {
-    this->fs->compute_velocity(fs->cvorticity);
+    this->fs->compute_velocity(this->fs->cvorticity);
     this->fs->cvelocity->ift();
     this->ps->completeLoop(this->dt);
     this->NSVE<rnumber>::step();
@@ -43,7 +43,7 @@ template <typename rnumber>
 int NSVEparticles<rnumber>::write_checkpoint(void)
 {
     this->NSVE<rnumber>::write_checkpoint();
-    this->particles_output_writer_mpi->open_file(fs->get_current_fname());
+    this->particles_output_writer_mpi->open_file(this->fs->get_current_fname());
     this->particles_output_writer_mpi->save(
             this->ps->getParticlesPositions(),
             this->ps->getParticlesRhs(),
