@@ -655,6 +655,21 @@ class DNS(_code):
             opt.dky = 2. / opt.Ly
         if type(opt.dkx) == type(None):
             opt.dkz = 2. / opt.Lz
+        if type(opt.nx) == type(None):
+            opt.nx = opt.n
+        if type(opt.ny) == type(None):
+            opt.ny = opt.n
+        if type(opt.nz) == type(None):
+            opt.nz = opt.n
+        if type(opt.checkpoints_per_file) == type(None):
+            # hardcoded FFTW complex representation size
+            field_size = 3*(opt.nx+2)*opt.ny*opt.nz*self.fluid_dtype.itemsize
+            checkpoint_size = field_size
+            if self.dns_type == 'NSVEp':
+                particle_size = (1+opt.tracers0_integration_steps)*3*opt.nparticles*8
+                checkpoint_size += particle_size
+            if checkpoint_size < 1e9:
+                opt.checkpoints_per_file = int(1e9 / checkpoint_size)
         self.pars_from_namespace(opt)
         return opt
     def launch(
