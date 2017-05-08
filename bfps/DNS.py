@@ -778,6 +778,50 @@ class DNS(_code):
                     os.path.join(self.work_dir,
                                  self.simname + "_c{0}_i{1:0>5x}".format(field_name, iteration)))
         return Kdata1
+    def copy_complex_field(
+            self,
+            src_file_name,
+            src_dset_name,
+            dst_file,
+            dst_dset_name,
+            make_link = True):
+        # I define a min_shape thingie, but for now I only trust this method for
+        # the case of increasing/decreasing by the same factor in all directions.
+        # in principle we could write something more generic, but i'm not sure
+        # how complicated that would be
+        dst_shape = (self.parameters['nz'],
+                     self.parameters['ny'],
+                     (self.parameters['nx']+2) // 2,
+                     3)
+        src_file = h5py.File(src_file_name, 'r')
+        if (src_file[src_dset_name].shape == dst_shape):
+            if make_link and (src_file[src_dset_name].dtype == self.ctype):
+                dst_file[dst_dset_name] = h5py.ExternalLink(
+                        src_file_name,
+                        src_dset_name)
+            else:
+                dst_file.create_dataset(
+                        dst_dset_name,
+                        shape = dst_shape,
+                        dtype = self.ctype,
+                        fillvalue = 0.0)
+                for kz in range(src_file[src_dset_name].shape[0]):
+                    dst_file[dst_dset_name][kz] = src_file[src_dset_name][kz]
+        else:
+            print('aloha')
+            min_shape = (min(dst_shape[0], src_file[src_dset_name].shape[0]),
+                         min(dst_shape[1], src_file[src_dset_name].shape[1]),
+                         min(dst_shape[2], src_file[src_dset_name].shape[2]),
+                         3)
+            dst_file.create_dataset(
+                    dst_dset_name,
+                    shape = dst_shape,
+                    dtype = self.ctype,
+                    fillvalue = 0.0)
+            for kz in range(min_shape[0]):
+                dst_file[dst_dset_name][kz,:min_shape[1], :min_shape[2]] = \
+                        src_file[src_dset_name][kz, :min_shape[1], :min_shape[2]]
+        return None
     def launch_jobs(
             self,
             opt = None,
@@ -798,9 +842,11 @@ class DNS(_code):
                             f0.close()
                             break
                         source_cp += 1
-                    f['vorticity/complex/{0}'.format(0)] = h5py.ExternalLink(
+                    self.copy_complex_field(
                             src_file,
-                            'vorticity/complex/{0}'.format(opt.src_iteration))
+                            'vorticity/complex/{0}'.format(opt.src_iteration),
+                            f,
+                            'vorticity/complex/{0}'.format(0))
                 else:
                     data = self.generate_vector_field(
                            write_to_file = False,
