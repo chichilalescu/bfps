@@ -813,11 +813,12 @@ class DNS(_code):
                          min(dst_shape[1], src_file[src_dset_name].shape[1]),
                          min(dst_shape[2], src_file[src_dset_name].shape[2]),
                          3)
+            print(self.ctype)
             dst_file.create_dataset(
                     dst_dset_name,
                     shape = dst_shape,
-                    dtype = self.ctype,
-                    fillvalue = 0.0)
+                    dtype = np.dtype(self.ctype),
+                    fillvalue = complex(0))
             for kz in range(min_shape[0]):
                 dst_file[dst_dset_name][kz,:min_shape[1], :min_shape[2]] = \
                         src_file[src_dset_name][kz, :min_shape[1], :min_shape[2]]
