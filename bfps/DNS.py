@@ -700,29 +700,26 @@ class DNS(_code):
     def generate_tracer_state(
             self,
             rseed = None,
-            iteration = 0,
-            species = 0,
-            write_to_file = False,
-            ncomponents = 3,
-            testing = False,
-            data = None):
-        if (type(data) == type(None)):
+            species = 0):
+        with h5py.File(self.get_checkpoint_0_fname(), 'a') as data_file:
+            dset = data_file[
+                'tracers{0}/state/0'.format(species)]
             if not type(rseed) == type(None):
                 np.random.seed(rseed)
-            #point with problems: 5.37632864e+00,   6.10414710e+00,   6.25256493e+00]
-            data = np.zeros(self.parameters['nparticles']*ncomponents).reshape(-1, ncomponents)
-            data[:, :3] = np.random.random((self.parameters['nparticles'], 3))*2*np.pi
-        if testing:
-            #data[0] = np.array([3.26434, 4.24418, 3.12157])
-            data[:] = np.array([ 0.72086101,  2.59043666,  6.27501953])
-        with h5py.File(self.get_checkpoint_0_fname(), 'a') as data_file:
-            data_file['tracers{0}/state/0'.format(species)][:] = data
-        if write_to_file:
-            data.tofile(
-                    os.path.join(
-                        self.work_dir,
-                        "tracers{0}_state_i{1:0>5x}".format(species, iteration)))
-        return data
+            nn = self.parameters['nparticles']
+            cc = int(0)
+            batch_size = int(1e6)
+            while nn > 0:
+                if nn > batch_size:
+                    dset[cc*batch_size:(cc+1)*batch_size] = np.random.random(
+                            (batch_size, 3))*2*np.pi
+                    nn -= batch_size
+                else:
+                    dset[cc*batch_size:cc*batch_size+nn] = np.random.random(
+                            (nn, 3))*2*np.pi
+                    nn = 0
+                cc += 1
+        return None
     def generate_vector_field(
             self,
             rseed = 7547,
@@ -876,38 +873,37 @@ class DNS(_code):
                            amplitude = 0.05)
                     f['vorticity/complex/{0}'.format(0)] = data
                 f.close()
-            # take care of particles' initial condition
-            if self.dns_type in ['NSVEp', 'NSVEparticles']:
-                if opt.pclouds > 1:
-                    np.random.seed(opt.particle_rand_seed)
-                    if opt.pcloud_type == 'random-cube':
-                        particle_initial_condition = (
-                            np.random.random((opt.pclouds, 1, 3))*2*np.pi +
-                            np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
-                    elif opt.pcloud_type == 'regular-cube':
-                        onedarray = np.linspace(
-                                -opt.particle_cloud_size/2,
-                                opt.particle_cloud_size/2,
-                                self.parameters['nparticles'])
-                        particle_initial_condition = np.zeros(
-                                (opt.pclouds,
-                                 self.parameters['nparticles'],
-                                 self.parameters['nparticles'],
-                                 self.parameters['nparticles'], 3),
-                                dtype = np.float64)
-                        particle_initial_condition[:] = \
-                            np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
-                        particle_initial_condition[..., 0] += onedarray[None, None, None, :]
-                        particle_initial_condition[..., 1] += onedarray[None, None, :, None]
-                        particle_initial_condition[..., 2] += onedarray[None, :, None, None]
+            ## take care of particles' initial condition
+            #if self.dns_type in ['NSVEp', 'NSVEparticles']:
+            #    if opt.pclouds > 1:
+            #        np.random.seed(opt.particle_rand_seed)
+            #        if opt.pcloud_type == 'random-cube':
+            #            particle_initial_condition = (
+            #                np.random.random((opt.pclouds, 1, 3))*2*np.pi +
+            #                np.random.random((1, self.parameters['nparticles'], 3))*opt.particle_cloud_size)
+            #        elif opt.pcloud_type == 'regular-cube':
+            #            onedarray = np.linspace(
+            #                    -opt.particle_cloud_size/2,
+            #                    opt.particle_cloud_size/2,
+            #                    self.parameters['nparticles'])
+            #            particle_initial_condition = np.zeros(
+            #                    (opt.pclouds,
+            #                     self.parameters['nparticles'],
+            #                     self.parameters['nparticles'],
+            #                     self.parameters['nparticles'], 3),
+            #                    dtype = np.float64)
+            #            particle_initial_condition[:] = \
+            #                np.random.random((opt.pclouds, 1, 1, 1, 3))*2*np.pi
+            #            particle_initial_condition[..., 0] += onedarray[None, None, None, :]
+            #            particle_initial_condition[..., 1] += onedarray[None, None, :, None]
+            #            particle_initial_condition[..., 2] += onedarray[None, :, None, None]
             self.write_par(
-                    particle_ic = particle_initial_condition)
+                    particle_ic = None)
             if self.dns_type in ['NSVEp', 'NSVEparticles']:
                 if self.parameters['nparticles'] > 0:
-                    data = self.generate_tracer_state(
+                    self.generate_tracer_state(
                             species = 0,
-                            rseed = opt.particle_rand_seed,
-                            data = particle_initial_condition)
+                            rseed = opt.particle_rand_seed)
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
