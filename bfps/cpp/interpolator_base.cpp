@@ -96,10 +96,18 @@ template class interpolator_base<float, 3>;
 template class interpolator_base<float, 4>;
 template class interpolator_base<float, 5>;
 template class interpolator_base<float, 6>;
+template class interpolator_base<float, 7>;
+template class interpolator_base<float, 8>;
+template class interpolator_base<float, 9>;
+template class interpolator_base<float, 10>;
 template class interpolator_base<double, 1>;
 template class interpolator_base<double, 2>;
 template class interpolator_base<double, 3>;
 template class interpolator_base<double, 4>;
 template class interpolator_base<double, 5>;
 template class interpolator_base<double, 6>;
+template class interpolator_base<double, 7>;
+template class interpolator_base<double, 8>;
+template class interpolator_base<double, 9>;
+template class interpolator_base<double, 10>;
 

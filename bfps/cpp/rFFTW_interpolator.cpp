@@ -193,10 +193,18 @@ template class rFFTW_interpolator<float, 3>;
 template class rFFTW_interpolator<float, 4>;
 template class rFFTW_interpolator<float, 5>;
 template class rFFTW_interpolator<float, 6>;
+template class rFFTW_interpolator<float, 7>;
+template class rFFTW_interpolator<float, 8>;
+template class rFFTW_interpolator<float, 9>;
+template class rFFTW_interpolator<float, 10>;
 template class rFFTW_interpolator<double, 1>;
 template class rFFTW_interpolator<double, 2>;
 template class rFFTW_interpolator<double, 3>;
 template class rFFTW_interpolator<double, 4>;
 template class rFFTW_interpolator<double, 5>;
 template class rFFTW_interpolator<double, 6>;
+template class rFFTW_interpolator<double, 7>;
+template class rFFTW_interpolator<double, 8>;
+template class rFFTW_interpolator<double, 9>;
+template class rFFTW_interpolator<double, 10>;
 
