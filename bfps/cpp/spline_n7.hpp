@@ -28,11 +28,11 @@
 
 #define SPLINE_N7
 
-void beta_n7_m0(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n7_m1(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n7_m2(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n7_m3(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n7_m4(const int deriv, const double x, double *__restrict__ poly_val)
+void beta_n7_m0(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m1(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m2(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m3(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m4(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//SPLINE_N7
 

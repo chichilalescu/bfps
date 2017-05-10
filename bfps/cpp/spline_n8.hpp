@@ -28,11 +28,11 @@
 
 #define SPLINE_N8
 
-void beta_n8_m0(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n8_m1(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n8_m2(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n8_m3(const int deriv, const double x, double *__restrict__ poly_val)
-void beta_n8_m4(const int deriv, const double x, double *__restrict__ poly_val)
+void beta_n8_m0(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n8_m1(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n8_m2(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n8_m3(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n8_m4(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//SPLINE_N8
 
