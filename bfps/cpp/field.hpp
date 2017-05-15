@@ -255,8 +255,8 @@ class field
                 ptrdiff_t yindex,
                 ptrdiff_t zindex) const
         {
-            return ((yindex*this->rmemlayout->subsizes[1] +
-                     zindex)*this->rmemlayout->subsizes[2] +
+            return ((zindex*this->rmemlayout->subsizes[1] +
+                     yindex)*this->rmemlayout->subsizes[2] +
                     xindex);
         }
 
