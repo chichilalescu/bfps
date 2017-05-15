@@ -91,7 +91,6 @@ print('This is bfps version ' + VERSION)
 src_file_list = ['full_code/direct_numerical_simulation',
                  'full_code/NSVE',
                  'full_code/NSVEparticles',
-                 'full_code/NSVEp',
                  'vorticity_equation',
                  'field',
                  'kspace',
