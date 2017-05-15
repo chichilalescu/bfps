@@ -1,6 +1,7 @@
 from bfps.DNS import DNS
 import numpy as np
 import h5py
+import sys
 
 
 def main():
@@ -21,7 +22,8 @@ def main():
              '--nparticles', '{0}'.format(nparticles),
              '--particle-rand-seed', '2',
              '--njobs', '{0}'.format(njobs),
-             '--wd', './'])
+             '--wd', './'] + 
+             sys.argv[1:] )
     return None
 
 if __name__ == '__main__':
