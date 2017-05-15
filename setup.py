@@ -138,7 +138,10 @@ particle_headers = [
         'cpp/particles/particles_utils.hpp',
         'cpp/particles/env_utils.hpp']
 
-full_code_headers = ['cpp/full_code/main_code.hpp']
+full_code_headers = ['cpp/full_code/main_code.hpp',
+                     'cpp/full_code/codes_with_no_output.hpp',
+                     'cpp/full_code/NSVE_no_output.hpp',
+                     'cpp/full_code/NSVEparticles_no_output.hpp']
 
 header_list = (['cpp/base.hpp'] +
                ['cpp/fftw_interface.hpp'] +
