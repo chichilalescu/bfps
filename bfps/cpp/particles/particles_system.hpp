@@ -7,23 +7,20 @@
 #include "particles_output_hdf5.hpp"
 #include "particles_output_mpiio.hpp"
 #include "particles_field_computer.hpp"
-#include "field_accessor.hpp"
 #include "abstract_particles_input.hpp"
 #include "particles_adams_bashforth.hpp"
 #include "scope_timer.hpp"
 
-template <class partsize_t, class real_number, class field_rnumber, class interpolator_class, int interp_neighbours>
+template <class partsize_t, class real_number, class field_rnumber, class field_class, class interpolator_class, int interp_neighbours>
 class particles_system : public abstract_particles_system<partsize_t, real_number> {
     MPI_Comm mpi_com;
 
     const std::pair<int,int> current_partition_interval;
     const int partition_interval_size;
 
-    field_accessor<field_rnumber> field;
-
     interpolator_class interpolator;
 
-    particles_field_computer<partsize_t, real_number, interpolator_class, field_accessor<field_rnumber>, interp_neighbours, particles_adams_bashforth<partsize_t, real_number, 3,3>> computer;
+    particles_field_computer<partsize_t, real_number, interpolator_class, field_class, interp_neighbours, particles_adams_bashforth<partsize_t, real_number, 3,3>> computer;
 
     std::unique_ptr<partsize_t[]> current_my_nb_particles_per_partition;
     std::unique_ptr<partsize_t[]> current_offset_particles_for_partition;
@@ -45,18 +42,17 @@ public:
                      const std::array<real_number,3>& in_spatial_box_offset,
                      const std::array<real_number,3>& in_spatial_partition_width,
                      const real_number in_my_spatial_low_limit, const real_number in_my_spatial_up_limit,
-                     const field_rnumber* in_field_data, const std::array<size_t,3>& in_local_field_dims,
+                     const std::array<size_t,3>& in_local_field_dims,
                      const std::array<size_t,3>& in_local_field_offset,
-                     const std::array<size_t,3>& in_field_memory_dims,
+                     const field_class& in_field,
                      MPI_Comm in_mpi_com,
                      const int in_current_iteration = 1)
         : mpi_com(in_mpi_com),
           current_partition_interval({in_local_field_offset[IDX_Z], in_local_field_offset[IDX_Z] + in_local_field_dims[IDX_Z]}),
           partition_interval_size(current_partition_interval.second - current_partition_interval.first),
-          field(in_field_data, in_local_field_dims, in_local_field_offset, in_field_memory_dims),
           interpolator(),
           computer(in_mpi_com, field_grid_dim, current_partition_interval,
-                   interpolator, field, in_spatial_box_width, in_spatial_box_offset, in_spatial_partition_width),
+                   interpolator, in_field, in_spatial_box_width, in_spatial_box_offset, in_spatial_partition_width),
           spatial_box_width(in_spatial_box_width), spatial_partition_width(in_spatial_partition_width),
           my_spatial_low_limit(in_my_spatial_low_limit), my_spatial_up_limit(in_my_spatial_up_limit),
           my_nb_particles(0), step_idx(in_current_iteration){
