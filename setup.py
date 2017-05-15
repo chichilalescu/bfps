@@ -113,6 +113,10 @@ src_file_list = ['full_code/direct_numerical_simulation',
                  'spline_n4',
                  'spline_n5',
                  'spline_n6',
+                 'spline_n7',
+                 'spline_n8',
+                 'spline_n9',
+                 'spline_n10',
                  'Lagrange_polys',
                  'scope_timer']
 
@@ -141,6 +145,7 @@ header_list = (['cpp/base.hpp'] +
                ['cpp/bfps_timer.hpp'] +
                ['cpp/omputils.hpp'] +
                ['cpp/shared_array.hpp'] +
+               ['cpp/spline.hpp'] +
                ['cpp/' + fname + '.hpp'
                 for fname in src_file_list] +
                particle_headers +
