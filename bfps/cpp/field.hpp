@@ -134,6 +134,13 @@ class field
             return *(this->data + rindex*ncomp(fc) + component);
         }
 
+        inline const rnumber& rval(ptrdiff_t rindex, unsigned int component = 0) const
+        {
+            assert(fc == ONE || fc == THREE);
+            assert(component >= 0 && component < ncomp(fc));
+            return *(this->data + rindex*ncomp(fc) + component);
+        }
+
         inline rnumber &rval(ptrdiff_t rindex, int comp1, int comp0)
         {
             assert(fc == THREExTHREE);
@@ -241,6 +248,25 @@ class field
             return ((yindex*this->clayout->subsizes[1] +
                      zindex)*this->clayout->subsizes[2] +
                     xindex);
+        }
+
+        ptrdiff_t get_rindex(
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex) const
+        {
+            return ((zindex*this->rmemlayout->subsizes[1] +
+                     yindex)*this->rmemlayout->subsizes[2] +
+                    xindex);
+        }
+
+        ptrdiff_t get_rindex_from_global(const ptrdiff_t in_global_x, const ptrdiff_t in_global_y, const ptrdiff_t in_global_z) const {
+            assert(in_global_x >= 0 && in_global_x < this->rlayout->sizes[2]);
+            assert(in_global_y >= 0 && in_global_y < this->rlayout->sizes[1]);
+            assert(in_global_z >= 0 && in_global_z < this->rlayout->sizes[0]);
+            return get_rindex(in_global_x - this->rlayout->starts[2],
+                              in_global_y - this->rlayout->starts[1],
+                              in_global_z - this->rlayout->starts[0]);
         }
 };
 

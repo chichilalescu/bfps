@@ -170,12 +170,6 @@ struct particles_system_build_container {
                    || (my_rank != nb_processes_involved-1 && local_field_offset[IDX_Z]+local_field_dims[IDX_Z] != field_grid_dim[IDX_Z])));
         }
 
-        // The offset of the local field grid
-        std::array<size_t,3> local_field_mem_size;
-        local_field_mem_size[IDX_X] = fs_field->rmemlayout->subsizes[FIELD_IDX_X];
-        local_field_mem_size[IDX_Y] = fs_field->rmemlayout->subsizes[FIELD_IDX_Y];
-        local_field_mem_size[IDX_Z] = fs_field->rmemlayout->subsizes[FIELD_IDX_Z];
-
         // The spatial box size (all particles should be included inside)
         std::array<particles_rnumber,3> spatial_box_width;
         spatial_box_width[IDX_X] = 4 * acos(0) / (fs_kk->dkx);
@@ -198,17 +192,16 @@ struct particles_system_build_container {
         const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<partsize_t, particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
-         = new particles_system<partsize_t, particles_rnumber, field_rnumber, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
+        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
+         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
                                                                                                    spatial_box_offset,
                                                                                                    spatial_partition_width,
                                                                                                    my_spatial_low_limit_z,
                                                                                                    my_spatial_up_limit_z,
-                                                                                                   fs_field->get_rdata(),
                                                                                                    local_field_dims,
                                                                                                    local_field_offset,
-                                                                                                   local_field_mem_size,
+                                                                                                   (*fs_field),
                                                                                                    mpi_comm,
                                                                                                    in_current_iteration);
 

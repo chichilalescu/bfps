@@ -126,7 +126,6 @@ particle_headers = [
         'cpp/particles/abstract_particles_output.hpp',
         'cpp/particles/abstract_particles_system.hpp',
         'cpp/particles/alltoall_exchanger.hpp',
-        'cpp/particles/field_accessor.hpp',
         'cpp/particles/particles_adams_bashforth.hpp',
         'cpp/particles/particles_field_computer.hpp',
         'cpp/particles/particles_input_hdf5.hpp',
