@@ -261,6 +261,9 @@ class field
         }
 
         ptrdiff_t get_rindex_from_global(const ptrdiff_t in_global_x, const ptrdiff_t in_global_y, const ptrdiff_t in_global_z) const {
+            assert(in_global_x >= 0 && in_global_x < this->rlayout->sizes[2]);
+            assert(in_global_y >= 0 && in_global_y < this->rlayout->sizes[1]);
+            assert(in_global_z >= 0 && in_global_z < this->rlayout->sizes[0]);
             return get_rindex(in_global_x - this->rlayout->starts[2],
                               in_global_y - this->rlayout->starts[1],
                               in_global_z - this->rlayout->starts[0]);
