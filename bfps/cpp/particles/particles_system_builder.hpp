@@ -108,11 +108,11 @@ inline RetType evaluate(IterType1 value1, IterType2 value2, Args... args){
 ///
 //////////////////////////////////////////////////////////////////////////////
 
-template <class partsize_t, class field_rnumber, field_backend be, class particles_rnumber>
+template <class partsize_t, class field_rnumber, field_backend be, field_components fc, class particles_rnumber>
 struct particles_system_build_container {
     template <const int interpolation_size, const int spline_mode>
     static std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>> instanciate(
-             const field<field_rnumber, be, THREE>* fs_field, // (field object)
+             const field<field_rnumber, be, fc>* fs_field, // (field object)
              const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
              const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
              const partsize_t nparticles, // to check coherency between parameters and hdf input file
@@ -192,8 +192,8 @@ struct particles_system_build_container {
         const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
-         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
+        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, fc>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size, ncomp(fc)>>* part_sys
+         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, fc>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode, interpolation_size, ncomp(fc)>>(field_grid_dim,
                                                                                                    spatial_box_width,
                                                                                                    spatial_box_offset,
                                                                                                    spatial_partition_width,
@@ -231,9 +231,9 @@ struct particles_system_build_container {
 };
 
 
-template <class partsize_t, class field_rnumber, field_backend be, class particles_rnumber = double>
+template <class partsize_t, class field_rnumber, field_backend be, field_components fc, class particles_rnumber = double>
 inline std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>> particles_system_builder(
-        const field<field_rnumber, be, THREE>* fs_field, // (field object)
+        const field<field_rnumber, be, fc>* fs_field, // (field object)
         const kspace<be, SMOOTH>* fs_kk, // (kspace object, contains dkx, dky, dkz)
         const int nsteps, // to check coherency between parameters and hdf input file (nb rhs)
         const partsize_t nparticles, // to check coherency between parameters and hdf input file
@@ -246,7 +246,7 @@ inline std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>
     return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>,
                        int, 1, 11, 1, // interpolation_size
                        int, 0, 3, 1, // spline_mode
-                       particles_system_build_container<partsize_t, field_rnumber,be,particles_rnumber>>(
+                       particles_system_build_container<partsize_t, field_rnumber,be,fc,particles_rnumber>>(
                            interpolation_size, // template iterator 1
                            spline_mode, // template iterator 2
                            fs_field,fs_kk, nsteps, nparticles, fname_input, inDatanameState, inDatanameRhs, mpi_comm, in_current_iteration);

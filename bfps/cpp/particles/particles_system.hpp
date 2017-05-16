@@ -11,7 +11,8 @@
 #include "particles_adams_bashforth.hpp"
 #include "scope_timer.hpp"
 
-template <class partsize_t, class real_number, class field_rnumber, class field_class, class interpolator_class, int interp_neighbours>
+template <class partsize_t, class real_number, class field_rnumber, class field_class, class interpolator_class, int interp_neighbours,
+          class size_particle_rhs>
 class particles_system : public abstract_particles_system<partsize_t, real_number> {
     MPI_Comm mpi_com;
 
@@ -20,7 +21,7 @@ class particles_system : public abstract_particles_system<partsize_t, real_numbe
 
     interpolator_class interpolator;
 
-    particles_field_computer<partsize_t, real_number, interpolator_class, field_class, interp_neighbours, particles_adams_bashforth<partsize_t, real_number, 3,3>> computer;
+    particles_field_computer<partsize_t, real_number, interpolator_class, field_class, interp_neighbours, particles_adams_bashforth<partsize_t, real_number, 3, size_particle_rhs>, size_particle_rhs> computer;
 
     std::unique_ptr<partsize_t[]> current_my_nb_particles_per_partition;
     std::unique_ptr<partsize_t[]> current_offset_particles_for_partition;
@@ -88,9 +89,9 @@ public:
         [&](const partsize_t idx1, const partsize_t idx2){
             std::swap(my_particles_positions_indexes[idx1], my_particles_positions_indexes[idx2]);
             for(int idx_rhs = 0 ; idx_rhs < int(my_particles_rhs.size()) ; ++idx_rhs){
-                for(int idx_val = 0 ; idx_val < 3 ; ++idx_val){
-                    std::swap(my_particles_rhs[idx_rhs][idx1*3 + idx_val],
-                              my_particles_rhs[idx_rhs][idx2*3 + idx_val]);
+                for(int idx_val = 0 ; idx_val < size_particle_rhs ; ++idx_val){
+                    std::swap(my_particles_rhs[idx_rhs][idx1*size_particle_rhs + idx_val],
+                              my_particles_rhs[idx_rhs][idx2*size_particle_rhs + idx_val]);
                 }
             }
         });
@@ -142,7 +143,7 @@ public:
                 my_particles_rhs[idx_rhs] = std::move(my_particles_rhs[idx_rhs-1]);
             }
             my_particles_rhs[0] = std::move(next_current);
-            particles_utils::memzero(my_particles_rhs[0], 3*my_nb_particles);
+            particles_utils::memzero(my_particles_rhs[0], size_particle_rhs*my_nb_particles);
         }
     }
 
@@ -182,9 +183,9 @@ public:
             assert(std::isnan(my_particles_positions[idx_part*3+IDX_Z]) == false);
 
             for(int idx_rhs = 0 ; idx_rhs < my_particles_rhs.size() ; ++idx_rhs){
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_X]) == false);
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_Y]) == false);
-                assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*3+IDX_Z]) == false);
+                for(int idx_rhs_val = 0 ; idx_rhs_val < size_particle_rhs ; ++idx_rhs_val){
+                    assert(std::isnan(my_particles_rhs[idx_rhs][idx_part*size_particle_rhs+idx_rhs_val]) == false);
+                }
             }
         }
     }

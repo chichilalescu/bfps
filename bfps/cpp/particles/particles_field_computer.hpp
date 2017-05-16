@@ -13,9 +13,10 @@ template <class partsize_t,
           class interpolator_class,
           class field_class,
           int interp_neighbours,
-          class positions_updater_class >
-class particles_field_computer : public abstract_particles_distr<partsize_t, real_number, 3,3,1> {
-    using Parent = abstract_particles_distr<partsize_t, real_number, 3,3,1>;
+          class positions_updater_class,
+          class size_particle_rhs>
+class particles_field_computer : public abstract_particles_distr<partsize_t, real_number, 3,size_particle_rhs,1> {
+    using Parent = abstract_particles_distr<partsize_t, real_number, 3,size_particle_rhs,1>;
 
     const std::array<int,3> field_grid_dim;
     const std::pair<int,int> current_partition_interval;
@@ -39,7 +40,7 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
                                    const partsize_t nb_particles) const final{
         // Set values to zero initialy
         std::fill(particles_current_rhs,
-                  particles_current_rhs+nb_particles*3,
+                  particles_current_rhs+nb_particles*size_particle_rhs,
                   0);
     }
 
@@ -135,9 +136,9 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
                             const ptrdiff_t tindex = field.get_rindex_from_global(idx_x_pbc, idx_y_pbc, idx_z_pbc);
 
                             // getValue does not necessary return real_number
-                            particles_current_rhs[idxPart*3+IDX_X] += real_number(field.rval(tindex,IDX_X))*coef;
-                            particles_current_rhs[idxPart*3+IDX_Y] += real_number(field.rval(tindex,IDX_Y))*coef;
-                            particles_current_rhs[idxPart*3+IDX_Z] += real_number(field.rval(tindex,IDX_Z))*coef;
+                            for(int idx_rhs_val = 0 ; idx_rhs_val < size_particle_rhs ; ++idx_rhs_val){
+                                particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val] += real_number(field.rval(tindex,idx_rhs_val))*coef;
+                            }
                         }
                     }
                 }
@@ -151,9 +152,9 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
         TIMEZONE("particles_field_computer::reduce_particles");
         // Simply sum values
         for(partsize_t idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
-            particles_current_rhs[idxPart*3+IDX_X] += extra_particles_current_rhs[idxPart*3+IDX_X];
-            particles_current_rhs[idxPart*3+IDX_Y] += extra_particles_current_rhs[idxPart*3+IDX_Y];
-            particles_current_rhs[idxPart*3+IDX_Z] += extra_particles_current_rhs[idxPart*3+IDX_Z];
+            for(int idx_rhs_val = 0 ; idx_rhs_val < size_particle_rhs ; ++idx_rhs_val){
+                particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val] += extra_particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val];
+            }
         }
     }
 
