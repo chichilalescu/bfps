@@ -244,7 +244,7 @@ inline std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>
         MPI_Comm mpi_comm,
         const int in_current_iteration){
     return Template_double_for_if::evaluate<std::unique_ptr<abstract_particles_system<partsize_t, particles_rnumber>>,
-                       int, 1, 7, 1, // interpolation_size
+                       int, 1, 11, 1, // interpolation_size
                        int, 0, 3, 1, // spline_mode
                        particles_system_build_container<partsize_t, field_rnumber,be,particles_rnumber>>(
                            interpolation_size, // template iterator 1
