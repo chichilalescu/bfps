@@ -722,6 +722,8 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         std::fill_n(local_hist, nbins*nvals, 0);
     });
 
+    shared_array<double> local_pow_tmp(nvals);
+
     double *binsize = new double[nvals];
     for (int i=0; i<nvals; i++)
         binsize[i] = 2*max_estimate[i] / nbins;
@@ -733,6 +735,9 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
+            double* pow_tmp = local_pow_tmp.getMine();
+            std::fill_n(pow_tmp, nvals, 1);
+
             double *local_moments = local_moments_threaded.getMine();
             double *val_tmp = val_tmp_threaded.getMine();
             ptrdiff_t *local_hist = local_hist_threaded.getMine();
@@ -766,9 +771,8 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     local_hist[bin*nvals+i]++;
             }
             for (int n=1; n < int(nmoments)-1; n++){
-                double pow_tmp = 1;
                 for (int i=0; i<nvals; i++){
-                    local_moments[n*nvals + i] += (pow_tmp = val_tmp[i]*pow_tmp);
+                    local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
 				}
 			}
                 });
