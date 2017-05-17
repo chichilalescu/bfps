@@ -40,7 +40,7 @@ kspace<be, dt>::kspace(
         const double DKY,
         const double DKZ)
 {
-    TIMEZONE("field::kspace");
+    TIMEZONE("kspace::kspace");
     /* get layout */
     this->layout = new field_layout<ONE>(
             source_layout->sizes,
@@ -128,8 +128,8 @@ kspace<be, dt>::kspace(
             if (k2 < this->kM2)
             {
                 double knorm = sqrt(k2);
-                kshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes;
-                nshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
+                kshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes*knorm;
+                nshell_local_thread.getMine()[int(knorm/this->dk)] += nxmodes;
             }
             if (dt == SMOOTH){
                 dealias_filter_threaded[omp_get_thread_num()][int(round(k2 / this->dk2))] = exp(-36.0 * pow(k2/this->kM2, 18.));
