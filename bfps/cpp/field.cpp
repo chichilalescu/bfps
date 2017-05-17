@@ -736,7 +736,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
             double* pow_tmp = local_pow_tmp.getMine();
-            std::fill_n(pow_tmp, nvals, 0);
+            std::fill_n(pow_tmp, nvals, 1);
 
             double *local_moments = local_moments_threaded.getMine();
             double *val_tmp = val_tmp_threaded.getMine();
