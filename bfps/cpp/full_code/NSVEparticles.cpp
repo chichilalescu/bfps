@@ -68,15 +68,19 @@ int NSVEparticles<rnumber>::do_stats()
 {
     // fluid stats go here
     this->NSVE<rnumber>::do_stats();
-    // particle sampling should go here
-//    if (this->iteration % this->niter_part == 0)
-//    {
-//        sample_from_particles_system(*this->fs->cvelocity,// field to save TODO
-//                                     this->ps,
-//                                     0, // hdf5 datagroup TODO
-//                                     "TODO" // dataset basename TODO
-//                                     );
-//    }
+
+    //after fluid stats, cvelocity contains Fourier representation of vel field
+    this->fs->cvelocity->ift();
+
+    if (this->iteration % this->niter_part == 0)
+    {
+        // sample velocity
+        //sample_from_particles_system(*this->fs->cvelocity,// field to save 
+        //                             this->ps,
+        //                             0, // hdf5 datagroup TODO
+        //                             "TODO" // dataset basename TODO
+        //                             );
+    }
     return EXIT_SUCCESS;
 }
 
