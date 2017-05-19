@@ -6,7 +6,7 @@
 #include "abstract_particles_system.hpp"
 #include "particles_system.hpp"
 #include "particles_input_hdf5.hpp"
-#include "particles_interp_spline.hpp"
+#include "particles_generic_interp.hpp"
 
 #include "field.hpp"
 #include "kspace.hpp"
@@ -192,8 +192,8 @@ struct particles_system_build_container {
         const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
-         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_interp_spline<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
+        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>* part_sys
+         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, THREE>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size>(field_grid_dim,
                                                                                                    spatial_box_width,
                                                                                                    spatial_box_offset,
                                                                                                    spatial_partition_width,
