@@ -91,6 +91,11 @@ class field
                 const std::string field_name,
                 const int iteration);
 
+        int io_binary(
+                const std::string fname,
+                const int iteration,
+                const bool read = true);
+
         /* essential FFT stuff */
         void dft();
         void ift();
