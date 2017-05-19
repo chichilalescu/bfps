@@ -1,5 +1,5 @@
-#ifndef PARTICLES_INTER_SPLINE_HPP
-#define PARTICLES_INTER_SPLINE_HPP
+#ifndef PARTICLES_INTERP_LAGRANGE_HPP
+#define PARTICLES_INTERP_LAGRANGE_HPP
 
 template <class real_number, int interp_neighbours>
 class particles_interp_lagrange;
@@ -87,4 +87,4 @@ public:
 };
 
 
-#endif
+#endif//PARTICLES_INTERP_LAGRANGE_HPP
