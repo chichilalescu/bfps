@@ -129,14 +129,13 @@ particle_headers = [
         'cpp/particles/particles_adams_bashforth.hpp',
         'cpp/particles/particles_field_computer.hpp',
         'cpp/particles/particles_input_hdf5.hpp',
-        'cpp/particles/particles_interp_spline.hpp',
+        'cpp/particles/particles_generic_interp.hpp',
         'cpp/particles/particles_output_hdf5.hpp',
         'cpp/particles/particles_output_mpiio.hpp',
         'cpp/particles/particles_system_builder.hpp',
         'cpp/particles/particles_system.hpp',
         'cpp/particles/particles_utils.hpp',
-        'cpp/particles/env_utils.hpp',
-        'cpp/particles/particles_interp_lagrange.hpp' ]
+        'cpp/particles/env_utils.hpp' ]
 
 full_code_headers = ['cpp/full_code/main_code.hpp',
                      'cpp/full_code/codes_with_no_output.hpp',
