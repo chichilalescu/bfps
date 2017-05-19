@@ -187,6 +187,9 @@ class CompileLibCommand(distutils.cmd.Command):
         if not os.path.isdir('obj'):
             os.makedirs('obj')
             need_to_compile = True
+        if not os.path.isdir('obj/full_code'):
+            os.makedirs('obj/full_code')
+            need_to_compile = True
         if not os.path.isfile('bfps/libbfps.a'):
             need_to_compile = True
         else:
