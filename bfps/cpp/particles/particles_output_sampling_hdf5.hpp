@@ -60,7 +60,7 @@ public:
         {
             assert(size_particle_rhs >= 0);
             const hsize_t datacount[3] = {hsize_t(Parent::getNbRhs()),
-                                          hsize_t(Parent::total_nb_particles),
+                                          hsize_t(Parent::getTotalNbParticles()),
                                           hsize_t(size_particle_rhs)};
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);

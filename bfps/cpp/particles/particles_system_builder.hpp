@@ -206,6 +206,7 @@ struct particles_system_build_container {
                                                local_field_offset,
                                                (*fs_field),
                                                mpi_comm,
+                                               nparticles,
                                                in_current_iteration);
 
         // Load particles from hdf5

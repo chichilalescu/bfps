@@ -32,7 +32,11 @@ public:
 
     virtual partsize_t getLocalNbParticles() const = 0;
 
+    virtual partsize_t getGlobalNbParticles() const = 0;
+
     virtual int getNbRhs() const = 0;
+
+    virtual int get_step_idx() const = 0;
 
     //- Not generic to enable sampling begin
     virtual void sample_compute_field(const field<float, FFTW, ONE>& sample_field,

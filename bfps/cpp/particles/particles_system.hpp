@@ -42,6 +42,7 @@ class particles_system : public abstract_particles_system<partsize_t, real_numbe
     std::unique_ptr<real_number[]> my_particles_positions;
     std::unique_ptr<partsize_t[]> my_particles_positions_indexes;
     partsize_t my_nb_particles;
+    const partsize_t total_nb_particles;
     std::vector<std::unique_ptr<real_number[]>> my_particles_rhs;
 
     int step_idx;
@@ -55,6 +56,7 @@ public:
                      const std::array<size_t,3>& in_local_field_offset,
                      const field_class& in_field,
                      MPI_Comm in_mpi_com,
+                     const partsize_t in_total_nb_particles,
                      const int in_current_iteration = 1)
         : mpi_com(in_mpi_com),
           current_partition_interval({in_local_field_offset[IDX_Z], in_local_field_offset[IDX_Z] + in_local_field_dims[IDX_Z]}),
@@ -67,7 +69,7 @@ public:
           default_field(in_field),
           spatial_box_width(in_spatial_box_width), spatial_partition_width(in_spatial_partition_width),
           my_spatial_low_limit(in_my_spatial_low_limit), my_spatial_up_limit(in_my_spatial_up_limit),
-          my_nb_particles(0), step_idx(in_current_iteration){
+          my_nb_particles(0), total_nb_particles(in_total_nb_particles), step_idx(in_current_iteration){
 
         current_my_nb_particles_per_partition.reset(new partsize_t[partition_interval_size]);
         current_offset_particles_for_partition.reset(new partsize_t[partition_interval_size+1]);
@@ -190,6 +192,10 @@ public:
         step_idx += 1;
     }
 
+    int  get_step_idx() const final {
+        return step_idx;
+    }
+
     void shift_rhs_vectors() final {
         if(my_particles_rhs.size()){
             std::unique_ptr<real_number[]> next_current(std::move(my_particles_rhs.back()));
@@ -224,6 +230,10 @@ public:
 
     partsize_t getLocalNbParticles() const final {
         return my_nb_particles;
+    }
+
+    partsize_t getGlobalNbParticles() const final {
+        return total_nb_particles;
     }
 
     int getNbRhs() const final {

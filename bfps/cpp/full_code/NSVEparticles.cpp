@@ -74,8 +74,8 @@ int NSVEparticles<rnumber>::do_stats()
 //        sample_from_particles_system(*this->fs->cvelocity,// field to save TODO
 //                                     this->ps,
 //                                     0, // hdf5 datagroup TODO
-//                                     "TODO", // dataset basename TODO
-//                                     this->particles_output_writer_mpi->getTotalNbParticles());
+//                                     "TODO" // dataset basename TODO
+//                                     );
 //    }
     return EXIT_SUCCESS;
 }
