@@ -4,23 +4,19 @@
 #include <array>
 #include <utility>
 
-#include "abstract_particles_distr.hpp"
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
 
 template <class partsize_t,
           class real_number,
           class interpolator_class,
-          int interp_neighbours,
-          class positions_updater_class>
+          int interp_neighbours>
 class particles_field_computer {
 
     const std::array<int,3> field_grid_dim;
     const std::pair<int,int> current_partition_interval;
 
     const interpolator_class& interpolator;
-
-    const positions_updater_class positions_updater;
 
     const std::array<real_number,3> spatial_box_width;
     const std::array<real_number,3> spatial_box_offset;
@@ -33,11 +29,10 @@ public:
     particles_field_computer(const std::array<size_t,3>& in_field_grid_dim,
                              const std::pair<int,int>& in_current_partitions,
                              const interpolator_class& in_interpolator,
-                             const field_class& in_field,
                              const std::array<real_number,3>& in_spatial_box_width, const std::array<real_number,3>& in_spatial_box_offset,
                              const std::array<real_number,3>& in_box_step_width)
         : field_grid_dim({{int(in_field_grid_dim[0]),int(in_field_grid_dim[1]),int(in_field_grid_dim[2])}}), current_partition_interval(in_current_partitions),
-          interpolator(in_interpolator), field(in_field), positions_updater(),
+          interpolator(in_interpolator),
           spatial_box_width(in_spatial_box_width), spatial_box_offset(in_spatial_box_offset), box_step_width(in_box_step_width){
         deriv[IDX_X] = 0;
         deriv[IDX_Y] = 0;
@@ -172,19 +167,6 @@ public:
                 particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val] += extra_particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val];
             }
         }
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    /// Update position
-    ////////////////////////////////////////////////////////////////////////
-
-    void move_particles(real_number particles_positions[],
-                   const partsize_t nb_particles,
-                   const std::unique_ptr<real_number[]> particles_current_rhs[],
-                   const int nb_rhs, const real_number dt) const {
-        TIMEZONE("particles_field_computer::move_particles");
-        positions_updater.move_particles(particles_positions, nb_particles,
-                                         particles_current_rhs, nb_rhs, dt);
     }
 
     ////////////////////////////////////////////////////////////////////////

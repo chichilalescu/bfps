@@ -121,7 +121,7 @@ src_file_list = ['full_code/direct_numerical_simulation',
                  'scope_timer']
 
 particle_headers = [
-        'cpp/particles/abstract_particles_distr.hpp',
+        'cpp/particles/particles_distr_mpi.hpp',
         'cpp/particles/abstract_particles_input.hpp',
         'cpp/particles/abstract_particles_output.hpp',
         'cpp/particles/abstract_particles_system.hpp',
@@ -135,7 +135,9 @@ particle_headers = [
         'cpp/particles/particles_system_builder.hpp',
         'cpp/particles/particles_system.hpp',
         'cpp/particles/particles_utils.hpp',
-        'cpp/particles/env_utils.hpp' ]
+        'cpp/particles/particles_output_sampling_hdf5.hpp',
+        'cpp/particles/particles_sampling.hpp',
+        'cpp/particles/env_utils.hpp']
 
 full_code_headers = ['cpp/full_code/main_code.hpp',
                      'cpp/full_code/codes_with_no_output.hpp',

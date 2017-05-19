@@ -2,7 +2,7 @@
 #include <cmath>
 #include "NSVEparticles.hpp"
 #include "scope_timer.hpp"
-
+#include "particles/particles_sampling.hpp"
 
 template <typename rnumber>
 int NSVEparticles<rnumber>::initialize(void)
@@ -69,9 +69,14 @@ int NSVEparticles<rnumber>::do_stats()
     // fluid stats go here
     this->NSVE<rnumber>::do_stats();
     // particle sampling should go here
-    //if (this->iteration % this->niter_part == 0)
-    //{
-    //}
+//    if (this->iteration % this->niter_part == 0)
+//    {
+//        sample_from_particles_system(*this->fs->cvelocity,// field to save TODO
+//                                     this->ps,
+//                                     0, // hdf5 datagroup TODO
+//                                     "TODO", // dataset basename TODO
+//                                     this->particles_output_writer_mpi->getTotalNbParticles());
+//    }
     return EXIT_SUCCESS;
 }
 

@@ -3,6 +3,12 @@
 
 #include <memory>
 
+//- Not generic to enable sampling begin
+#include "field.hpp"
+#include "kspace.hpp"
+//- Not generic to enable sampling end
+
+
 template <class partsize_t, class real_number>
 class abstract_particles_system {
 public:
@@ -27,6 +33,21 @@ public:
     virtual partsize_t getLocalNbParticles() const = 0;
 
     virtual int getNbRhs() const = 0;
+
+    //- Not generic to enable sampling begin
+    virtual void sample_compute_field(const field<float, FFTW, ONE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    virtual void sample_compute_field(const field<float, FFTW, THREE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    virtual void sample_compute_field(const field<float, FFTW, THREExTHREE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    virtual void sample_compute_field(const field<double, FFTW, ONE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    virtual void sample_compute_field(const field<double, FFTW, THREE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    virtual void sample_compute_field(const field<double, FFTW, THREExTHREE>& sample_field,
+                                real_number sample_rhs[]) = 0;
+    //- Not generic to enable sampling end
 };
 
 #endif

@@ -192,18 +192,21 @@ struct particles_system_build_container {
         const particles_rnumber my_spatial_up_limit_z = particles_rnumber(local_field_offset[IDX_Z]+local_field_dims[IDX_Z])*spatial_partition_width[IDX_Z];
 
         // Create the particles system
-        particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, fc>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>, interpolation_size, ncomp(fc)>>* part_sys
-         = new particles_system<partsize_t, particles_rnumber, field_rnumber, field<field_rnumber, be, fc>, particles_generic_interp<particles_rnumber, interpolation_size,spline_mode, interpolation_size, ncomp(fc)>>(field_grid_dim,
-                                                                                                   spatial_box_width,
-                                                                                                   spatial_box_offset,
-                                                                                                   spatial_partition_width,
-                                                                                                   my_spatial_low_limit_z,
-                                                                                                   my_spatial_up_limit_z,
-                                                                                                   local_field_dims,
-                                                                                                   local_field_offset,
-                                                                                                   (*fs_field),
-                                                                                                   mpi_comm,
-                                                                                                   in_current_iteration);
+        using particles_system_type = particles_system<partsize_t, particles_rnumber, field_rnumber,
+                                                       field<field_rnumber, be, fc>,
+                                                       particles_generic_interp<particles_rnumber, interpolation_size,spline_mode>,
+                                                       interpolation_size, ncomp(fc)>;
+        particles_system_type* part_sys = new particles_system_type(field_grid_dim,
+                                               spatial_box_width,
+                                               spatial_box_offset,
+                                               spatial_partition_width,
+                                               my_spatial_low_limit_z,
+                                               my_spatial_up_limit_z,
+                                               local_field_dims,
+                                               local_field_offset,
+                                               (*fs_field),
+                                               mpi_comm,
+                                               in_current_iteration);
 
         // Load particles from hdf5
         particles_input_hdf5<partsize_t, particles_rnumber, 3,3> generator(mpi_comm, fname_input,
