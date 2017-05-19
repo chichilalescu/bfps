@@ -135,7 +135,8 @@ particle_headers = [
         'cpp/particles/particles_system_builder.hpp',
         'cpp/particles/particles_system.hpp',
         'cpp/particles/particles_utils.hpp',
-        'cpp/particles/env_utils.hpp']
+        'cpp/particles/env_utils.hpp',
+        'cpp/particles/particles_interp_lagrange.hpp' ]
 
 full_code_headers = ['cpp/full_code/main_code.hpp',
                      'cpp/full_code/codes_with_no_output.hpp',
