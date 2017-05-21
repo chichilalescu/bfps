@@ -69,18 +69,47 @@ int NSVEparticles<rnumber>::do_stats()
     // fluid stats go here
     this->NSVE<rnumber>::do_stats();
 
+
+    if (!(this->iteration % this->niter_part == 0))
+        return EXIT_SUCCESS;
+
+    hid_t file_id, pgroup_id;
+
+    // open particle file, and tracers0 group
+    hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
+    assert(plist_id_par >= 0);
+    int retTest = H5Pset_fapl_mpio(
+            plist_id_par,
+            this->particles_output_writer_mpi->getComWriter(),
+            MPI_INFO_NULL);
+    assert(retTest >= 0);
+
+    // Parallel HDF5 write
+    file_id = H5Fopen(
+            (this->simname + "_particles.h5").c_str(),
+            H5F_ACC_RDWR | H5F_ACC_DEBUG,
+            plist_id_par);
+    // file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC | H5F_ACC_DEBUG/*H5F_ACC_EXCL*/, H5P_DEFAULT/*H5F_ACC_RDWR*/, plist_id_par);
+    assert(file_id >= 0);
+    H5Pclose(plist_id_par);
+
+    pgroup_id = H5Gopen(
+            file_id,
+            "tracers0",
+            H5P_DEFAULT);
+
     //after fluid stats, cvelocity contains Fourier representation of vel field
     this->fs->cvelocity->ift();
 
-    if (this->iteration % this->niter_part == 0)
-    {
-        // sample velocity
-        //sample_from_particles_system(*this->fs->cvelocity,// field to save 
-        //                             this->ps,
-        //                             0, // hdf5 datagroup TODO
-        //                             "TODO" // dataset basename TODO
-        //                             );
-    }
+
+    // sample velocity
+    sample_from_particles_system(*this->fs->cvelocity,// field to save
+                                 this->ps,
+                                 pgroup_id, // hdf5 datagroup TODO
+                                 "velocity" // dataset basename TODO
+                                 );
+    H5Gclose(pgroup_id);
+    H5Fclose(file_id);
     return EXIT_SUCCESS;
 }
 
