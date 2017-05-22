@@ -27,7 +27,9 @@
 #ifndef DIRECT_NUMERICAL_SIMULATION_HPP
 #define DIRECT_NUMERICAL_SIMULATION_HPP
 
-
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "base.hpp"
 
 int grow_single_dataset(hid_t dset, int tincrement);
@@ -40,6 +42,8 @@ herr_t grow_dataset_visitor(
 
 class direct_numerical_simulation
 {
+    private:
+        clock_t time0, time1;
     public:
         int myrank, nprocs;
         MPI_Comm comm;
@@ -79,6 +83,38 @@ class direct_numerical_simulation
         int write_iteration(void);
         int grow_file_datasets(void);
         int check_stopping_condition(void);
+
+        int start_simple_timer(void)
+        {
+            this->time0 = clock();
+            return EXIT_SUCCESS;
+        }
+
+        int print_simple_timer(void)
+        {
+            this->time1 = clock();
+            double local_time_difference = ((
+                    (unsigned int)(this->time1 - this->time0)) /
+                    ((double)CLOCKS_PER_SEC));
+            double time_difference = 0.0;
+            MPI_Allreduce(
+                    &local_time_difference,
+                    &time_difference,
+                    1,
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    MPI_COMM_WORLD);
+            if (this->myrank == 0)
+                std::cout << "iteration " << this->iteration <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            if (this->myrank == 0)
+                std::cerr << "iteration " << this->iteration <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            this->time0 = this->time1;
+            return EXIT_SUCCESS;
+        }
 };
 
 #endif//DIRECT_NUMERICAL_SIMULATION_HPP

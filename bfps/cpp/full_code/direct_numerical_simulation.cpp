@@ -137,9 +137,7 @@ int direct_numerical_simulation::write_iteration(void)
 
 int direct_numerical_simulation::main_loop(void)
 {
-    clock_t time0, time1;
-    double time_difference, local_time_difference;
-    time0 = clock();
+    this->start_simple_timer();
     int max_iter = (this->iteration + this->niter_todo -
                     (this->iteration % this->niter_todo));
     for (; this->iteration < max_iter;)
@@ -157,49 +155,10 @@ int direct_numerical_simulation::main_loop(void)
         this->check_stopping_condition();
         if (this->stop_code_now)
             break;
-        time1 = clock();
-        local_time_difference = ((
-                (unsigned int)(time1 - time0)) /
-                ((double)CLOCKS_PER_SEC));
-        time_difference = 0.0;
-        MPI_Allreduce(
-                &local_time_difference,
-                &time_difference,
-                1,
-                MPI_DOUBLE,
-                MPI_SUM,
-                MPI_COMM_WORLD);
-        if (this->myrank == 0)
-            std::cout << "iteration " << iteration <<
-                         " took " << time_difference/nprocs <<
-                         " seconds" << std::endl;
-        if (this->myrank == 0)
-            std::cerr << "iteration " << iteration <<
-                         " took " << time_difference/nprocs <<
-                         " seconds" << std::endl;
-        time0 = time1;
+        this->print_simple_timer();
     }
     this->do_stats();
-    time1 = clock();
-    local_time_difference = ((
-            (unsigned int)(time1 - time0)) /
-            ((double)CLOCKS_PER_SEC));
-    time_difference = 0.0;
-    MPI_Allreduce(
-            &local_time_difference,
-            &time_difference,
-            1,
-            MPI_DOUBLE,
-            MPI_SUM,
-            MPI_COMM_WORLD);
-    if (this->myrank == 0)
-        std::cout << "iteration " << iteration <<
-                     " took " << time_difference/nprocs <<
-                     " seconds" << std::endl;
-    if (this->myrank == 0)
-        std::cerr << "iteration " << iteration <<
-                     " took " << time_difference/nprocs <<
-                     " seconds" << std::endl;
+    this->print_simple_timer();
     if (this->iteration % this->niter_out != 0)
         this->write_checkpoint();
     return EXIT_SUCCESS;
