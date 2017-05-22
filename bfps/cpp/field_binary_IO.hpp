@@ -25,18 +25,38 @@
 
 
 #include <vector>
+#include <string>
 #include "base.hpp"
+#include "fftw_interface.hpp"
 #include "field_layout.hpp"
+#include "field.hpp"
 
 #ifndef FIELD_BINARY_IO_HPP
 
 #define FIELD_BINARY_IO_HPP
 
-template <MPI_Datatype element_type, field_components fc>
+/* could this be a boolean somehow?*/
+enum field_representation: bool {
+    REAL = true,
+    COMPLEX = false};
+
+template <typename rnumber>
+constexpr MPI_Datatype mpi_type(
+        field_representation fr)
+{
+    return ((fr == REAL) ?
+            mpi_real_type<rnumber>::real() :
+            mpi_real_type<rnumber>::complex());
+}
+
+template <typename rnumber, field_representation fr, field_components fc>
 class field_binary_IO:public field_layout<fc>
 {
-    public:
+    private:
+        MPI_Comm io_comm;
+        int io_comm_myrank, io_comm_nprocs;
         MPI_Datatype mpi_array_dtype;
+    public:
 
         /* methods */
         field_binary_IO(
@@ -45,6 +65,13 @@ class field_binary_IO:public field_layout<fc>
                 const hsize_t *STARTS,
                 const MPI_Comm COMM_TO_USE);
         ~field_binary_IO();
+
+        int read(
+                const std::string fname,
+                void *buffer);
+        int write(
+                const std::string fname,
+                void *buffer);
 };
 
 #endif//FIELD_BINARY_IO_HPP

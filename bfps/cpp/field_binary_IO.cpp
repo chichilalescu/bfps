@@ -30,8 +30,8 @@
 #include "scope_timer.hpp"
 #include "field_binary_IO.hpp"
 
-template <MPI_Datatype element_type, field_components fc>
-field_binary_IO<element_type, fc>::field_binary_IO(
+template <typename rnumber, field_representation fr, field_components fc>
+field_binary_IO<rnumber, fr, fc>::field_binary_IO(
                 const hsize_t *SIZES,
                 const hsize_t *SUBSIZES,
                 const hsize_t *STARTS,
@@ -66,7 +66,7 @@ field_binary_IO<element_type, fc>::field_binary_IO(
                 &tstarts.front(),
                 MPI_ORDER_C,
                 //MPI_UNSIGNED_CHAR, // in case element type fails
-                element_type,
+                mpi_type<rnumber>(fr),
                 &this->mpi_array_dtype);
     MPI_Type_commit(&this->mpi_array_dtype);
 
@@ -93,8 +93,8 @@ field_binary_IO<element_type, fc>::field_binary_IO(
     if (no_of_excluded_ranks == 0)
     {
         this->io_comm = this->comm;
-        this->io_nprocs = this->nprocs;
-        this->io_myrank = this->myrank;
+        this->io_comm_nprocs = this->nprocs;
+        this->io_comm_myrank = this->myrank;
     }
     else
     {
@@ -113,21 +113,120 @@ field_binary_IO<element_type, fc>::field_binary_IO(
         MPI_Group_free(&tgroup);
         if (this->subsizes[0] > 0)
         {
-            MPI_Comm_rank(this->io_comm, &this->io_myrank);
-            MPI_Comm_size(this->io_comm, &this->io_nprocs);
+            MPI_Comm_rank(this->io_comm, &this->io_comm_myrank);
+            MPI_Comm_size(this->io_comm, &this->io_comm_nprocs);
         }
         else
         {
-            this->io_myrank = MPI_PROC_NULL;
-            this->io_nprocs = -1;
+            this->io_comm_myrank = MPI_PROC_NULL;
+            this->io_comm_nprocs = -1;
         }
     }
 }
 
-template <MPI_Datatype element_type, field_components fc>
-field_binary_IO<element_type, fc>::~field_binary_IO()
+template <typename rnumber, field_representation fr, field_components fc>
+field_binary_IO<rnumber, fr, fc>::~field_binary_IO()
 {
     TIMEZONE("field_binary_IO::~field_binary_IO");
     MPI_Type_free(&this->mpi_array_dtype);
+    if (this->nprocs != this->io_comm_nprocs &&
+        this->io_comm_myrank != MPI_PROC_NULL)
+    {
+        MPI_Comm_free(&this->io_comm);
+    }
 }
+
+template <typename rnumber, field_representation fr, field_components fc>
+int field_binary_IO<rnumber, fr, fc>::read(
+        const std::string fname,
+        void *buffer)
+{
+    TIMEZONE("field_binary_IO::read");
+    char representation[] = "native";
+    if (this->subsizes[0] > 0)
+    {
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_File f;
+        char ffname[512];
+        sprintf(ffname, "%s", fname.c_str());
+
+        MPI_File_open(
+                    this->io_comm,
+                    ffname,
+                    MPI_MODE_RDONLY,
+                    info,
+                    &f);
+        MPI_File_set_view(
+                    f,
+                    0,
+                    mpi_type<rnumber>(fr),
+                    this->mpi_array_dtype,
+                    representation,
+                    info);
+        MPI_File_read_all(
+                    f,
+                    buffer,
+                    this->local_size,
+                    mpi_type<rnumber>(fr),
+                    MPI_STATUS_IGNORE);
+        MPI_File_close(&f);
+    }
+    return EXIT_SUCCESS;
+}
+
+template <typename rnumber, field_representation fr, field_components fc>
+int field_binary_IO<rnumber, fr, fc>::write(
+        const std::string fname,
+        void *buffer)
+{
+    TIMEZONE("field_binary_IO::write");
+    char representation[] = "native";
+    if (this->subsizes[0] > 0)
+    {
+        MPI_Info info;
+        MPI_Info_create(&info);
+        MPI_File f;
+        char ffname[512];
+        sprintf(ffname, "%s", fname.c_str());
+
+        MPI_File_open(
+                    this->io_comm,
+                    ffname,
+                    MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                    info,
+                    &f);
+        MPI_File_set_view(
+                    f,
+                    0,
+                    mpi_type<rnumber>(fr),
+                    this->mpi_array_dtype,
+                    representation,
+                    info);
+        MPI_File_write_all(
+                    f,
+                    buffer,
+                    this->local_size,
+                    mpi_type<rnumber>(fr),
+                    MPI_STATUS_IGNORE);
+        MPI_File_close(&f);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+template class field_binary_IO<float , REAL   , ONE>;
+template class field_binary_IO<float , COMPLEX, ONE>;
+template class field_binary_IO<double, REAL   , ONE>;
+template class field_binary_IO<double, COMPLEX, ONE>;
+
+template class field_binary_IO<float , REAL   , THREE>;
+template class field_binary_IO<float , COMPLEX, THREE>;
+template class field_binary_IO<double, REAL   , THREE>;
+template class field_binary_IO<double, COMPLEX, THREE>;
+
+template class field_binary_IO<float , REAL   , THREExTHREE>;
+template class field_binary_IO<float , COMPLEX, THREExTHREE>;
+template class field_binary_IO<double, REAL   , THREExTHREE>;
+template class field_binary_IO<double, COMPLEX, THREExTHREE>;
 
