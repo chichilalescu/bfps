@@ -1,0 +1,21 @@
+before_script:
+  - rm obj/* 
+  - rm -r build/*
+  - export destdir=/tmp/bfpsinstall
+  - rm -r $destdir
+  - mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/
+  - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
+  - export PATH=$PATH:$destdir/bin/
+
+
+simple-test:
+  script:
+    - python3 setup.py compile_library --timing-output 1
+    - python3 setup.py install --prefix=$destdir
+    - python3 $destdir/bin/bfps DNS NSVEparticles --niter_todo 8 --niter_stat 2 --niter_part 2
+  tags:
+    - fftw3
+    - hdf5
+    - mpi
+    - python3
+
