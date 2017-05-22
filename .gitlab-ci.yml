@@ -1,11 +1,19 @@
-before_script:
-  - export destdir=/tmp/bfpsinstall
-  - mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/ ; echo "replace return"
-  - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
-  - export PATH=$PATH:$destdir/bin/
+stages:
+- build
+- test
+- cleanup
+
+build_job:
+  stage: build
+  script:
+    - export destdir=/tmp/bfpsinstall
+    - # mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/
+    - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
+    - export PATH=$PATH:$destdir/bin/
 
 
 simple-test:
+  stage: test
   script:
     - pwd
     - ls
@@ -19,8 +27,8 @@ simple-test:
     - python3
 
 
-after_script:
-  - rm obj/* ||:
-  - rm -r build/* ||:
-  - rm -r $destdir ||:
+cleanup_job:
+  stage: cleanup
+  script:
+    - "if [[ -d $destdir ]] ; then rm -rf $destdir ; fi"
 
