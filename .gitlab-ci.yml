@@ -1,6 +1,4 @@
 before_script:
-  - rm obj/* 
-  - rm -r build/*
   - export destdir=/tmp/bfpsinstall
   - rm -r $destdir
   - mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/
@@ -18,4 +16,8 @@ simple-test:
     - hdf5
     - mpi
     - python3
+
+after_script:
+  - rm obj/* 
+  - rm -r build/*
 
