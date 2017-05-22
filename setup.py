@@ -252,8 +252,10 @@ setup(
         packages = ['bfps'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
         cmdclass={'compile_library' : CompileLibCommand},
-        package_data = {'bfps': header_list + ['libbfps.a',
-                                               'install_info.pickle']},
+        package_data = {'bfps': header_list +
+                                ['libbfps.a',
+                                 'install_info.pickle'] +
+                                ['test_data/test_checkpoint_0.h5']},
         entry_points = {
             'console_scripts': [
                 'bfps = bfps.__main__:main',
