@@ -43,13 +43,8 @@ class field_binary_IO:public field_layout<fc>
                 const hsize_t *SIZES,
                 const hsize_t *SUBSIZES,
                 const hsize_t *STARTS,
-                const MPI_Comm COMM_TO_USE):
-            field_layout<fc>(
-                    SIZES,
-                    SUBSIZES,
-                    STARTS,
-                    COMM_TO_USE);
-        ~field_binary_IO(){}
+                const MPI_Comm COMM_TO_USE);
+        ~field_binary_IO();
 };
 
 #endif//FIELD_BINARY_IO_HPP

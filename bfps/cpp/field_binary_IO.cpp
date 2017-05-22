@@ -25,15 +25,13 @@
 
 
 #include <vector>
+#include <array>
 #include "base.hpp"
-#include "field_layout.hpp"
-
-#ifndef FIELD_BINARY_IO_HPP
-
-#define FIELD_BINARY_IO_HPP
+#include "scope_timer.hpp"
+#include "field_binary_IO.hpp"
 
 template <MPI_Datatype element_type, field_components fc>
-field_binary_IO::field_binary_IO(
+field_binary_IO<element_type, fc>::field_binary_IO(
                 const hsize_t *SIZES,
                 const hsize_t *SUBSIZES,
                 const hsize_t *STARTS,
@@ -45,23 +43,91 @@ field_binary_IO::field_binary_IO(
                     COMM_TO_USE)
 {
     TIMEZONE("field_binary_IO::field_binary_IO");
+    std::vector<int> tsizes   ;
+    std::vector<int> tsubsizes;
+    std::vector<int> tstarts  ;
+    tsizes.resize(ndim(fc));
+    tsubsizes.resize(ndim(fc));
+    tstarts.resize(ndim(fc));
+    for (int i=0; i<ndim(fc); i++)
+    {
+        tsizes[i] = int(this->sizes[i]);
+        tsubsizes[i] = int(this->subsizes[i]);
+        tstarts[i] = int(this->starts[i]);
+    }
+    // these are required if using unsigned char in the subarray creation
+    //tsizes[ndim(fc)-1] *= sizeof(element_type);
+    //tsubsizes[ndim(fc)-1] *= sizeof(element_type);
+    //tstarts[ndim(fc)-1] *= sizeof(element_type);
     MPI_Type_create_subarray(
-                ndims,
-                tsizes,
-                tsubsizes,
-                tstarts,
+                ndim(fc),
+                &tsizes.front(),
+                &tsubsizes.front(),
+                &tstarts.front(),
                 MPI_ORDER_C,
-                MPI_UNSIGNED_CHAR,
+                //MPI_UNSIGNED_CHAR, // in case element type fails
+                element_type,
                 &this->mpi_array_dtype);
     MPI_Type_commit(&this->mpi_array_dtype);
+
+    // check if there are processes without any data
+    int local_zero_array[this->nprocs], zero_array[this->nprocs];
+    for (int i=0; i<this->nprocs; i++)
+        local_zero_array[i] = 0;
+    local_zero_array[this->myrank] = (this->subsizes[0] == 0) ? 1 : 0;
+    MPI_Allreduce(
+                local_zero_array,
+                zero_array,
+                this->nprocs,
+                MPI_INT,
+                MPI_SUM,
+                this->comm);
+    int no_of_excluded_ranks = 0;
+    for (int i = 0; i<this->nprocs; i++)
+        no_of_excluded_ranks += zero_array[i];
+    DEBUG_MSG_WAIT(
+                this->comm,
+                "subsizes[0] = %d %d\n",
+                this->subsizes[0],
+            tsubsizes[0]);
+    if (no_of_excluded_ranks == 0)
+    {
+        this->io_comm = this->comm;
+        this->io_nprocs = this->nprocs;
+        this->io_myrank = this->myrank;
+    }
+    else
+    {
+        int excluded_rank[no_of_excluded_ranks];
+        for (int i=0, j=0; i<this->nprocs; i++)
+            if (zero_array[i])
+            {
+                excluded_rank[j] = i;
+                j++;
+            }
+        MPI_Group tgroup0, tgroup;
+        MPI_Comm_group(this->comm, &tgroup0);
+        MPI_Group_excl(tgroup0, no_of_excluded_ranks, excluded_rank, &tgroup);
+        MPI_Comm_create(this->comm, tgroup, &this->io_comm);
+        MPI_Group_free(&tgroup0);
+        MPI_Group_free(&tgroup);
+        if (this->subsizes[0] > 0)
+        {
+            MPI_Comm_rank(this->io_comm, &this->io_myrank);
+            MPI_Comm_size(this->io_comm, &this->io_nprocs);
+        }
+        else
+        {
+            this->io_myrank = MPI_PROC_NULL;
+            this->io_nprocs = -1;
+        }
+    }
 }
 
 template <MPI_Datatype element_type, field_components fc>
-field_binary_IO::field_binary_IO~field_binary_IO()
+field_binary_IO<element_type, fc>::~field_binary_IO()
 {
     TIMEZONE("field_binary_IO::~field_binary_IO");
     MPI_Type_free(&this->mpi_array_dtype);
 }
-
-#endif//FIELD_BINARY_IO_HPP
 
