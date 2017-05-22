@@ -1,5 +1,5 @@
 before_script:
-  - export destdir=/tmp/bfpsinstall ||:
+  - export destdir=/tmp/bfpsinstall
   - mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/ ||:
   - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
   - export PATH=$PATH:$destdir/bin/
