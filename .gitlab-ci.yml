@@ -7,6 +7,8 @@ before_script:
 
 simple-test:
   script:
+    - pwd
+    - ls
     - python3 setup.py compile_library --timing-output 1
     - python3 setup.py install --prefix=$destdir
     - python3 $destdir/bin/bfps DNS NSVEparticles --niter_todo 8 --niter_stat 2 --niter_part 2
