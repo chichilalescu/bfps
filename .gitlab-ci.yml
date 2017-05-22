@@ -7,7 +7,6 @@ build_job:
   stage: build
   script:
     - export destdir=/tmp/bfpsinstall
-    - # mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/
     - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
     - export PATH=$PATH:$destdir/bin/
 
@@ -30,5 +29,5 @@ simple-test:
 cleanup_job:
   stage: cleanup
   script:
-    - "if [[ -d $destdir ]] ; then rm -rf $destdir ; fi"
+    - if [[ -d $destdir ]] ; then rm -rf $destdir ; fi
 
