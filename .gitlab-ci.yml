@@ -7,6 +7,7 @@ build_job:
   stage: build
   script:
     - export destdir=/tmp/bfpsinstall
+    - if [[ ! -d $destdir/lib/python3.6/site-packages/ ]] ; then mkdir -p $destdir/lib/python3.6/site-packages/ ; fi
     - export PYTHONPATH=$destdir/lib/python3.6/site-packages/:$PYTHONPATH
     - export PATH=$destdir/bin/:$PATH
 
@@ -14,11 +15,6 @@ build_job:
 simple-test:
   stage: test
   script:
-    - pwd
-    - ls
-    - which python3
-    - source ~/.bashrc
-    - which python3
     - /home/ubuntu/anaconda3/bin/python3 setup.py compile_library --timing-output 1
     - /home/ubuntu/anaconda3/bin/python3 setup.py install --prefix=$destdir
     - /home/ubuntu/anaconda3/bin/python3 $destdir/bin/bfps DNS NSVEparticles --niter_todo 8 --niter_stat 2 --niter_part 2
