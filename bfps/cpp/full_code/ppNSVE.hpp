@@ -24,62 +24,40 @@
 
 
 
-#ifndef POSTPROCESS_HPP
-#define POSTPROCESS_HPP
+#ifndef PPNSVE_HPP
+#define PPNSVE_HPP
 
 
+
+#include <cstdlib>
 #include "base.hpp"
+#include "vorticity_equation.hpp"
+#include "full_code/direct_numerical_simulation.hpp"
+#include "full_code/NSVE.hpp"
 
-int grow_single_dataset(hid_t dset, int tincrement);
-
-herr_t grow_dataset_visitor(
-    hid_t o_id,
-    const char *name,
-    const H5O_info_t *info,
-    void *op_data);
-
-class direct_numerical_simulation
+template <typename rnumber>
+class ppNSVE: public NSVE<rnumber>
 {
     public:
-        int myrank, nprocs;
-        MPI_Comm comm;
-
-        std::string simname;
-
-        int iteration, checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
-        hid_t stat_file;
-        bool stop_code_now;
 
 
-        int nx;
-        int ny;
-        int nz;
-        int dealias_type;
-        double dkx;
-        double dky;
-        double dkz;
-
-        direct_numerical_simulation(
+        ppNSVE(
                 const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name);
-        virtual ~direct_numerical_simulation(){}
+                const std::string &simulation_name):
+            NSVE<rnumber>(
+                    COMMUNICATOR,
+                    simulation_name){}
+        ~ppNSVE(){}
 
-        virtual int write_checkpoint(void) = 0;
-        virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
-        virtual int finalize(void) = 0;
+        int initialize(void);
+        int step(void);
+        int finalize(void);
 
+        virtual int read_parameters(void);
+        int write_checkpoint(void);
+        int do_stats(void);
         int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
-        int check_stopping_condition(void);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//PPNSVE_HPP
 
