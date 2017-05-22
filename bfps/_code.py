@@ -341,8 +341,9 @@ class _code(_base):
 
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
-            os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
-            print('added to LD_LIBRARY_PATH the location {0}'.format(bfps.lib_dir))
+            if os.getenv('LD_LIBRARY_PATH') != None:
+                os.environ['LD_LIBRARY_PATH'] += ':{0}'.format(bfps.lib_dir)
+                print('added to LD_LIBRARY_PATH the location {0}'.format(bfps.lib_dir))
             for j in range(njobs):
                 suffix = self.simname + '_{0}'.format(iter0 + j*self.parameters['niter_todo'])
                 print('running code with command\n' + ' '.join(command_atoms))
