@@ -18,23 +18,54 @@ class particles_output_sampling_hdf5 : public abstract_particles_output<partsize
                                              size_particle_positions,
                                              size_particle_rhs>;
 
-    hid_t parent_group;
+    hid_t file_id, pgroup_id;
+
     const std::string dataset_name;
     const bool use_collective_io;
 
 public:
     particles_output_sampling_hdf5(MPI_Comm in_mpi_com,
                           const partsize_t inTotalNbParticles,
-                          const hid_t in_parent_group,
+                                   const std::string& in_filename,
+                                   const std::string& in_groupname,
                           const std::string& in_dataset_name,
                           const bool in_use_collective_io = false)
             : Parent(in_mpi_com, inTotalNbParticles, 1),
-              parent_group(in_parent_group),
               dataset_name(in_dataset_name),
-              use_collective_io(in_use_collective_io){}
+              use_collective_io(in_use_collective_io){
+        hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
+        assert(plist_id_par >= 0);
+        int retTest = H5Pset_fapl_mpio(
+                plist_id_par,
+                Parent::getComWriter(),
+                MPI_INFO_NULL);
+        assert(retTest >= 0);
+
+        // Parallel HDF5 write
+        file_id = H5Fopen(
+                in_filename.c_str(),
+                H5F_ACC_RDWR | H5F_ACC_DEBUG,
+                plist_id_par);
+        assert(file_id >= 0);
+        retTest = H5Pclose(plist_id_par);
+        assert(retTest >= 0);
+
+        pgroup_id = H5Gopen(
+                file_id,
+                in_groupname.c_str(),
+                H5P_DEFAULT);
+        assert(pgroup_id >= 0);
+    }
+
+    ~particles_output_sampling_hdf5(){
+        int retTest = H5Gclose(pgroup_id);
+        assert(retTest >= 0);
+        retTest = H5Fclose(file_id);
+        assert(retTest >= 0);
+    }
 
     void write(
-            const int idx_time_step,
+            const int /*idx_time_step*/,
             const real_number* /*particles_positions*/,
             const std::unique_ptr<real_number[]>* particles_rhs,
             const partsize_t nb_particles,
@@ -65,7 +96,7 @@ public:
             hid_t dataspace = H5Screate_simple(3, datacount, NULL);
             assert(dataspace >= 0);
 
-            hid_t dataset_id = H5Dcreate( parent_group,
+            hid_t dataset_id = H5Dcreate( pgroup_id,
                                           dataset_name.c_str(),
                                           type_id,
                                           dataspace,
