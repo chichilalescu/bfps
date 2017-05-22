@@ -17,13 +17,23 @@ void sample_from_particles_system(const field<rnumber, be, fc>& in_field, // a p
                                   const std::string& filename,
                                   const std::string& parent_groupname,
                                   const std::string& fname){
+    const std::string datasetname = fname + std::string("/") + std::to_string(ps->get_step_idx());
     const int size_particle_rhs = ncomp(fc);
+
+    // Stop here if already exists
+    if(particles_output_sampling_hdf5<partsize_t, particles_rnumber, 3, size_particle_rhs>::DatasetExistsCol(MPI_COMM_WORLD,
+                                                                                                             filename,
+                                                                                                             parent_groupname,
+                                                                                                             datasetname)){
+        return;
+    }
+
     const partsize_t nb_particles = ps->getLocalNbParticles();
     std::unique_ptr<particles_rnumber[]> sample_rhs(new particles_rnumber[size_particle_rhs*nb_particles]);
 
     ps->sample_compute_field(in_field, sample_rhs.get());
 
-    const std::string datasetname = fname + std::string("/") + std::to_string(ps->get_step_idx());
+
 
     particles_output_sampling_hdf5<partsize_t, particles_rnumber, 3, size_particle_rhs> outputclass(MPI_COMM_WORLD,
                                                                                                     ps->getGlobalNbParticles(),

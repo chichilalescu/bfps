@@ -24,6 +24,36 @@ class particles_output_sampling_hdf5 : public abstract_particles_output<partsize
     const bool use_collective_io;
 
 public:
+    static bool DatasetExistsCol(MPI_Comm in_mpi_com,
+                                  const std::string& in_filename,
+                                  const std::string& in_groupname,
+                                 const std::string& in_dataset_name){
+        int my_rank;
+        AssertMpi(MPI_Comm_rank(in_mpi_com, &my_rank));
+
+        int dataset_exists = -1;
+
+        if(my_rank == 0){
+            // Parallel HDF5 write
+            hid_t file_id = H5Fopen(
+                    in_filename.c_str(),
+                    H5F_ACC_RDWR | H5F_ACC_DEBUG,
+                    H5P_DEFAULT);
+            assert(file_id >= 0);
+
+            dataset_exists = H5Lexists(
+                    file_id,
+                    (in_groupname + "/" + in_dataset_name).c_str(),
+                    H5P_DEFAULT);
+
+            int retTest = H5Fclose(file_id);
+            assert(retTest >= 0);
+        }
+
+        AssertMpi(MPI_Bcast( &dataset_exists, 1, MPI_INT, 0, in_mpi_com ));
+        return dataset_exists;
+    }
+
     particles_output_sampling_hdf5(MPI_Comm in_mpi_com,
                           const partsize_t inTotalNbParticles,
                                    const std::string& in_filename,
