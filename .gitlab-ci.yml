@@ -7,8 +7,8 @@ build_job:
   stage: build
   script:
     - export destdir=/tmp/bfpsinstall
-    - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
-    - export PATH=$PATH:$destdir/bin/
+    - export PYTHONPATH=$destdir/lib/python3.6/site-packages/:$PYTHONPATH
+    - export PATH=$destdir/bin/:$PATH
 
 
 simple-test:
@@ -19,9 +19,9 @@ simple-test:
     - which python3
     - source ~/.bashrc
     - which python3
-    - python3 setup.py compile_library --timing-output 1
-    - python3 setup.py install --prefix=$destdir
-    - python3 $destdir/bin/bfps DNS NSVEparticles --niter_todo 8 --niter_stat 2 --niter_part 2
+    - /home/ubuntu/anaconda3/bin/python3 setup.py compile_library --timing-output 1
+    - /home/ubuntu/anaconda3/bin/python3 setup.py install --prefix=$destdir
+    - /home/ubuntu/anaconda3/bin/python3 $destdir/bin/bfps DNS NSVEparticles --niter_todo 8 --niter_stat 2 --niter_part 2
   tags:
     - fftw3
     - hdf5
