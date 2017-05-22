@@ -1,6 +1,5 @@
 before_script:
   - export destdir=/tmp/bfpsinstall
-  - rm -r $destdir
   - mkdir $destdir $destdir/lib/ $destdir/lib/python3.6/ $destdir/lib/python3.6/site-packages/
   - export PYTHONPATH=$PYTHONPATH:$destdir/lib/python3.6/site-packages/
   - export PATH=$PATH:$destdir/bin/
@@ -20,4 +19,5 @@ simple-test:
 after_script:
   - rm obj/* 
   - rm -r build/*
+  - rm -r $destdir
 
