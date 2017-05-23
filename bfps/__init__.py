@@ -52,3 +52,4 @@ from .FluidResize import FluidResize
 from .NavierStokes import NavierStokes
 from .NSVorticityEquation import NSVorticityEquation
 
+#import test

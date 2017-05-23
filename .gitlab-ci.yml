@@ -2,6 +2,16 @@
 simple_test:
   script:
     - source tests/ci-scripts/test.sh
+    - export destdir=/tmp/bfpsinstall
+    - if [[ -d $destdir ]] ; then rm -rf $destdir ; fi
+    - if [[ ! -d $destdir/lib/python3.6/site-packages/ ]] ; then mkdir -p $destdir/lib/python3.6/site-packages/ ; fi
+    - export PYTHONPATH=$destdir/lib/python3.6/site-packages/:$PYTHONPATH
+    - export PATH=$destdir/bin/:$PATH
+    - /home/ubuntu/anaconda3/bin/python3 setup.py compile_library --timing-output 1
+    - echo "destdir $destdir"
+    - /home/ubuntu/anaconda3/bin/python3 setup.py install --prefix=$destdir
+    - /home/ubuntu/anaconda3/bin/python3 $destdir/bin/bfps.test_NSVEparticles
+    - if [[ -d $destdir ]] ; then rm -rf $destdir ; fi
   tags:
     - fftw3
     - hdf5
