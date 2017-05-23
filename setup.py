@@ -255,12 +255,13 @@ setup(
         package_data = {'bfps': header_list +
                                 ['libbfps.a',
                                  'install_info.pickle'] +
-                                ['test_data/test_checkpoint_0.h5']},
+                                ['test/B32p1e4_checkpoint_0.h5']},
         entry_points = {
             'console_scripts': [
                 'bfps = bfps.__main__:main',
                 'bfps1 = bfps.__main__:main'],
             },
+        scripts = ['bfps/test/test_NSVEparticles.py'],
         version = VERSION,
 ########################################################################
 # useless stuff folows
