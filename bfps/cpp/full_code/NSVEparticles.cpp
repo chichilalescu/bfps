@@ -2,7 +2,7 @@
 #include <cmath>
 #include "NSVEparticles.hpp"
 #include "scope_timer.hpp"
-
+#include "particles/particles_sampling.hpp"
 
 template <typename rnumber>
 int NSVEparticles<rnumber>::initialize(void)
@@ -68,10 +68,23 @@ int NSVEparticles<rnumber>::do_stats()
 {
     // fluid stats go here
     this->NSVE<rnumber>::do_stats();
-    // particle sampling should go here
-    //if (this->iteration % this->niter_part == 0)
-    //{
-    //}
+
+
+    if (!(this->iteration % this->niter_part == 0))
+        return EXIT_SUCCESS;
+
+
+    //after fluid stats, cvelocity contains Fourier representation of vel field
+    this->fs->cvelocity->ift();
+
+    // sample velocity
+    sample_from_particles_system(*this->fs->cvelocity,// field to save
+                                 this->ps,
+                                 (this->simname + "_particles.h5"), // filename
+                                 "tracers0", // hdf5 parent group
+                                 "velocity" // dataset basename TODO
+                                 );
+
     return EXIT_SUCCESS;
 }
 

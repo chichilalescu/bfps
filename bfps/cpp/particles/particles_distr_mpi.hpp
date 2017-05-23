@@ -1,5 +1,5 @@
-#ifndef ABSTRACT_PARTICLES_DISTR_HPP
-#define ABSTRACT_PARTICLES_DISTR_HPP
+#ifndef PARTICLES_DISTR_MPI_HPP
+#define PARTICLES_DISTR_MPI_HPP
 
 #include <mpi.h>
 
@@ -14,8 +14,8 @@
 #include "particles_utils.hpp"
 
 
-template <class partsize_t, class real_number, int size_particle_positions, int size_particle_rhs, int size_particle_index>
-class abstract_particles_distr {
+template <class partsize_t, class real_number>
+class particles_distr_mpi {
 protected:
     static const int MaxNbRhs = 100;
 
@@ -92,7 +92,7 @@ protected:
 public:
     ////////////////////////////////////////////////////////////////////////////
 
-    abstract_particles_distr(MPI_Comm in_current_com,
+    particles_distr_mpi(MPI_Comm in_current_com,
                              const std::pair<int,int>& in_current_partitions,
                              const std::array<size_t,3>& in_field_grid_dim)
         : current_com(in_current_com),
@@ -130,11 +130,14 @@ public:
         assert(int(field_grid_dim[IDX_Z]) == partition_interval_offset_per_proc[nb_processes_involved]);
     }
 
-    virtual ~abstract_particles_distr(){}
+    virtual ~particles_distr_mpi(){}
 
     ////////////////////////////////////////////////////////////////////////////
 
-    void compute_distr(const partsize_t current_my_nb_particles_per_partition[],
+    template <class computer_class, class field_class, int size_particle_positions, int size_particle_rhs>
+    void compute_distr(computer_class& in_computer,
+                       field_class& in_field,
+                       const partsize_t current_my_nb_particles_per_partition[],
                        const real_number particles_positions[],
                        real_number particles_current_rhs[],
                        const int interpolation_size){
@@ -377,10 +380,10 @@ public:
 
                         assert(descriptor.toCompute != nullptr);
                         descriptor.results.reset(new real_number[NbParticlesToReceive*size_particle_rhs]);
-                        init_result_array(descriptor.results.get(), NbParticlesToReceive);
+                        in_computer.template init_result_array<size_particle_rhs>(descriptor.results.get(), NbParticlesToReceive);
 
                         if(more_than_one_thread == false){
-                            apply_computation(descriptor.toCompute.get(), descriptor.results.get(), NbParticlesToReceive);
+                            in_computer.template apply_computation<field_class, size_particle_rhs>(in_field, descriptor.toCompute.get(), descriptor.results.get(), NbParticlesToReceive);
                         }
                         else{
                             TIMEZONE_OMP_INIT_PRETASK(timeZoneTaskKey)
@@ -392,8 +395,8 @@ public:
                                     #pragma omp task default(shared) firstprivate(ptr_descriptor, idxPart, sizeToDo) priority(10) \
                                              TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
                                     {
-                                        TIMEZONE_OMP_TASK("apply_computation", timeZoneTaskKey);
-                                        apply_computation(&ptr_descriptor->toCompute[idxPart*size_particle_positions],
+                                        TIMEZONE_OMP_TASK("in_computer.apply_computation", timeZoneTaskKey);
+                                        in_computer.template apply_computation<field_class, size_particle_rhs>(in_field, &ptr_descriptor->toCompute[idxPart*size_particle_positions],
                                                 &ptr_descriptor->results[idxPart*size_particle_rhs], sizeToDo);
                                     }
                                 }
@@ -425,13 +428,13 @@ public:
                         if(descriptor.isLower){
                             TIMEZONE("reduce");
                             assert(descriptor.toRecvAndMerge != nullptr);
-                            reduce_particles_rhs(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                            in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
                             descriptor.toRecvAndMerge.release();
                         }
                         else {
                             TIMEZONE("reduce");
                             assert(descriptor.toRecvAndMerge != nullptr);
-                            reduce_particles_rhs(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
+                            in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
                                              descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
                             descriptor.toRecvAndMerge.release();
                         }
@@ -452,8 +455,8 @@ public:
                             // Low priority to help master thread when possible
                             #pragma omp task default(shared) firstprivate(idxPart, sizeToDo) priority(0) TIMEZONE_OMP_PRAGMA_TASK_KEY(timeZoneTaskKey)
                             {
-                                TIMEZONE_OMP_TASK("apply_computation", timeZoneTaskKey);
-                                apply_computation(&particles_positions[idxPart*size_particle_positions],
+                                TIMEZONE_OMP_TASK("in_computer.apply_computation", timeZoneTaskKey);
+                                in_computer.template apply_computation<field_class, size_particle_rhs>(in_field, &particles_positions[idxPart*size_particle_positions],
                                                   &particles_current_rhs[idxPart*size_particle_rhs],
                                                   sizeToDo);
                             }
@@ -470,13 +473,13 @@ public:
                     if(descriptor.isLower){
                         TIMEZONE("reduce_later");
                         assert(descriptor.toRecvAndMerge != nullptr);
-                        reduce_particles_rhs(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                        in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
                         descriptor.toRecvAndMerge.release();
                     }
                     else {
                         TIMEZONE("reduce_later");
                         assert(descriptor.toRecvAndMerge != nullptr);
-                        reduce_particles_rhs(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
+                        in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
                                          descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
                         descriptor.toRecvAndMerge.release();
                     }
@@ -489,7 +492,7 @@ public:
             TIMEZONE("compute-my_compute");
             // Compute my particles
             if(myTotalNbParticles){
-                apply_computation(particles_positions, particles_current_rhs, myTotalNbParticles);
+                in_computer.template apply_computation<field_class, size_particle_rhs>(in_field, particles_positions, particles_current_rhs, myTotalNbParticles);
             }
         }
 
@@ -497,20 +500,12 @@ public:
         assert(mpiRequests.size() == 0);
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-
-    virtual void init_result_array(real_number particles_current_rhs[],
-                                   const partsize_t nb_particles) const = 0;
-    virtual void apply_computation(const real_number particles_positions[],
-                                   real_number particles_current_rhs[],
-                                   const partsize_t nb_particles) const = 0;
-    virtual void reduce_particles_rhs(real_number particles_current_rhs[],
-                                  const real_number extra_particles_current_rhs[],
-                                  const partsize_t nb_particles) const = 0;
 
     ////////////////////////////////////////////////////////////////////////////
 
-    void redistribute(partsize_t current_my_nb_particles_per_partition[],
+    template <class computer_class, int size_particle_positions, int size_particle_rhs, int size_particle_index>
+    void redistribute(computer_class& in_computer,
+                      partsize_t current_my_nb_particles_per_partition[],
                       partsize_t* nb_particles,
                       std::unique_ptr<real_number[]>* inout_positions_particles,
                       std::unique_ptr<real_number[]> inout_rhs_particles[], const int in_nb_rhs,
@@ -533,7 +528,7 @@ public:
         // Find particles outside my interval
         const partsize_t nbOutLower = particles_utils::partition_extra<partsize_t, size_particle_positions>(&(*inout_positions_particles)[0], current_my_nb_particles_per_partition[0],
                     [&](const real_number val[]){
-            const int partition_level = pbc_field_layer(val[IDX_Z], IDX_Z);
+            const int partition_level = in_computer.pbc_field_layer(val[IDX_Z], IDX_Z);
             assert(partition_level == current_partition_interval.first
                    || partition_level == (current_partition_interval.first-1+int(field_grid_dim[IDX_Z]))%int(field_grid_dim[IDX_Z])
                    || partition_level == (current_partition_interval.first+1)%int(field_grid_dim[IDX_Z]));
@@ -558,7 +553,7 @@ public:
                     &(*inout_positions_particles)[(current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow)*size_particle_positions],
                     myTotalNbParticles - (current_offset_particles_for_partition[current_partition_size-1]+offesetOutLow),
                     [&](const real_number val[]){
-            const int partition_level = pbc_field_layer(val[IDX_Z], IDX_Z);
+            const int partition_level = in_computer.pbc_field_layer(val[IDX_Z], IDX_Z);
             assert(partition_level == (current_partition_interval.second-1)
                    || partition_level == ((current_partition_interval.second-1)-1+int(field_grid_dim[IDX_Z]))%int(field_grid_dim[IDX_Z])
                    || partition_level == ((current_partition_interval.second-1)+1)%int(field_grid_dim[IDX_Z]));
@@ -807,7 +802,7 @@ public:
                                              myTotalNbParticles,current_partition_size,
                                              current_my_nb_particles_per_partition, current_offset_particles_for_partition.get(),
                                              [&](const real_number& z_pos){
-                const int partition_level = pbc_field_layer(z_pos, IDX_Z);
+                const int partition_level = in_computer.pbc_field_layer(z_pos, IDX_Z);
                 assert(current_partition_interval.first <= partition_level && partition_level < current_partition_interval.second);
                 return partition_level - current_partition_interval.first;
             },
@@ -829,7 +824,7 @@ public:
                     assert(current_my_nb_particles_per_partition[idxPartition] ==
                            current_offset_particles_for_partition[idxPartition+1] - current_offset_particles_for_partition[idxPartition]);
                     for(partsize_t idx = current_offset_particles_for_partition[idxPartition] ; idx < current_offset_particles_for_partition[idxPartition+1] ; ++idx){
-                        assert(pbc_field_layer((*inout_positions_particles)[idx*3+IDX_Z], IDX_Z)-current_partition_interval.first == idxPartition);
+                        assert(in_computer.pbc_field_layer((*inout_positions_particles)[idx*3+IDX_Z], IDX_Z)-current_partition_interval.first == idxPartition);
                     }
                 }
             }
@@ -838,15 +833,6 @@ public:
 
         assert(mpiRequests.size() == 0);
     }
-
-    virtual int pbc_field_layer(const real_number& a_z_pos, const int idx_dim) const = 0;
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    virtual void move_particles(real_number particles_positions[],
-              const partsize_t nb_particles,
-              const std::unique_ptr<real_number[]> particles_current_rhs[],
-              const int nb_rhs, const real_number dt) const = 0;
 };
 
 #endif

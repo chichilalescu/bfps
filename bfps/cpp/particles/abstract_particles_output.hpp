@@ -45,10 +45,6 @@ protected:
         return mpi_com_writer;
     }
 
-    partsize_t getTotalNbParticles() const {
-        return total_nb_particles;
-    }
-
     int getNbRhs() const {
         return nb_rhs;
     }
@@ -126,6 +122,10 @@ public:
         if(current_is_involved){
             AssertMpi( MPI_Comm_free(&mpi_com_writer) );
         }
+    }   
+
+    partsize_t getTotalNbParticles() const {
+        return total_nb_particles;
     }
 
     void releaseMemory(){

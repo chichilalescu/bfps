@@ -4,26 +4,19 @@
 #include <array>
 #include <utility>
 
-#include "abstract_particles_distr.hpp"
 #include "scope_timer.hpp"
 #include "particles_utils.hpp"
 
 template <class partsize_t,
           class real_number,
           class interpolator_class,
-          class field_class,
-          int interp_neighbours,
-          class positions_updater_class >
-class particles_field_computer : public abstract_particles_distr<partsize_t, real_number, 3,3,1> {
-    using Parent = abstract_particles_distr<partsize_t, real_number, 3,3,1>;
+          int interp_neighbours>
+class particles_field_computer {
 
     const std::array<int,3> field_grid_dim;
     const std::pair<int,int> current_partition_interval;
 
     const interpolator_class& interpolator;
-    const field_class& field;
-
-    const positions_updater_class positions_updater;
 
     const std::array<real_number,3> spatial_box_width;
     const std::array<real_number,3> spatial_box_offset;
@@ -31,15 +24,31 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
 
     int deriv[3];
 
+public:
+
+    particles_field_computer(const std::array<size_t,3>& in_field_grid_dim,
+                             const std::pair<int,int>& in_current_partitions,
+                             const interpolator_class& in_interpolator,
+                             const std::array<real_number,3>& in_spatial_box_width, const std::array<real_number,3>& in_spatial_box_offset,
+                             const std::array<real_number,3>& in_box_step_width)
+        : field_grid_dim({{int(in_field_grid_dim[0]),int(in_field_grid_dim[1]),int(in_field_grid_dim[2])}}), current_partition_interval(in_current_partitions),
+          interpolator(in_interpolator),
+          spatial_box_width(in_spatial_box_width), spatial_box_offset(in_spatial_box_offset), box_step_width(in_box_step_width){
+        deriv[IDX_X] = 0;
+        deriv[IDX_Y] = 0;
+        deriv[IDX_Z] = 0;
+    }
+
     ////////////////////////////////////////////////////////////////////////
     /// Computation related
     ////////////////////////////////////////////////////////////////////////
 
-    virtual void init_result_array(real_number particles_current_rhs[],
-                                   const partsize_t nb_particles) const final{
+    template <int size_particle_rhs>
+    void init_result_array(real_number particles_current_rhs[],
+                                   const partsize_t nb_particles) const {
         // Set values to zero initialy
         std::fill(particles_current_rhs,
-                  particles_current_rhs+nb_particles*3,
+                  particles_current_rhs+nb_particles*size_particle_rhs,
                   0);
     }
 
@@ -53,9 +62,11 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
         return pos_in_cell;
     }
 
-    virtual void apply_computation(const real_number particles_positions[],
+    template <class field_class, int size_particle_rhs>
+    void apply_computation(const field_class& field,
+                                   const real_number particles_positions[],
                                    real_number particles_current_rhs[],
-                                   const partsize_t nb_particles) const final{
+                                   const partsize_t nb_particles) const {
         TIMEZONE("particles_field_computer::apply_computation");
         //DEBUG_MSG("just entered particles_field_computer::apply_computation\n");
         for(partsize_t idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
@@ -135,9 +146,9 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
                             const ptrdiff_t tindex = field.get_rindex_from_global(idx_x_pbc, idx_y_pbc, idx_z_pbc);
 
                             // getValue does not necessary return real_number
-                            particles_current_rhs[idxPart*3+IDX_X] += real_number(field.rval(tindex,IDX_X))*coef;
-                            particles_current_rhs[idxPart*3+IDX_Y] += real_number(field.rval(tindex,IDX_Y))*coef;
-                            particles_current_rhs[idxPart*3+IDX_Z] += real_number(field.rval(tindex,IDX_Z))*coef;
+                            for(int idx_rhs_val = 0 ; idx_rhs_val < size_particle_rhs ; ++idx_rhs_val){
+                                particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val] += real_number(field.rval(tindex,idx_rhs_val))*coef;
+                            }
                         }
                     }
                 }
@@ -145,53 +156,24 @@ class particles_field_computer : public abstract_particles_distr<partsize_t, rea
         }
     }
 
-    virtual void reduce_particles_rhs(real_number particles_current_rhs[],
+    template <int size_particle_rhs>
+    void reduce_particles_rhs(real_number particles_current_rhs[],
                                   const real_number extra_particles_current_rhs[],
-                                  const partsize_t nb_particles) const final{
+                                  const partsize_t nb_particles) const {
         TIMEZONE("particles_field_computer::reduce_particles");
         // Simply sum values
         for(partsize_t idxPart = 0 ; idxPart < nb_particles ; ++idxPart){
-            particles_current_rhs[idxPart*3+IDX_X] += extra_particles_current_rhs[idxPart*3+IDX_X];
-            particles_current_rhs[idxPart*3+IDX_Y] += extra_particles_current_rhs[idxPart*3+IDX_Y];
-            particles_current_rhs[idxPart*3+IDX_Z] += extra_particles_current_rhs[idxPart*3+IDX_Z];
+            for(int idx_rhs_val = 0 ; idx_rhs_val < size_particle_rhs ; ++idx_rhs_val){
+                particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val] += extra_particles_current_rhs[idxPart*size_particle_rhs+idx_rhs_val];
+            }
         }
-    }
-
-public:
-
-    particles_field_computer(MPI_Comm in_current_com, const std::array<size_t,3>& in_field_grid_dim,
-                             const std::pair<int,int>& in_current_partitions,
-                             const interpolator_class& in_interpolator,
-                             const field_class& in_field,
-                             const std::array<real_number,3>& in_spatial_box_width, const std::array<real_number,3>& in_spatial_box_offset,
-                             const std::array<real_number,3>& in_box_step_width)
-        : abstract_particles_distr<partsize_t, real_number, 3,3,1>(in_current_com, in_current_partitions, in_field_grid_dim),
-          field_grid_dim({{int(in_field_grid_dim[0]),int(in_field_grid_dim[1]),int(in_field_grid_dim[2])}}), current_partition_interval(in_current_partitions),
-          interpolator(in_interpolator), field(in_field), positions_updater(),
-          spatial_box_width(in_spatial_box_width), spatial_box_offset(in_spatial_box_offset), box_step_width(in_box_step_width){
-        deriv[IDX_X] = 0;
-        deriv[IDX_Y] = 0;
-        deriv[IDX_Z] = 0;
-    }
-
-    ////////////////////////////////////////////////////////////////////////
-    /// Update position
-    ////////////////////////////////////////////////////////////////////////
-
-    void move_particles(real_number particles_positions[],
-                   const partsize_t nb_particles,
-                   const std::unique_ptr<real_number[]> particles_current_rhs[],
-                   const int nb_rhs, const real_number dt) const final{
-        TIMEZONE("particles_field_computer::move_particles");
-        positions_updater.move_particles(particles_positions, nb_particles,
-                                         particles_current_rhs, nb_rhs, dt);
     }
 
     ////////////////////////////////////////////////////////////////////////
     /// Re-distribution related
     ////////////////////////////////////////////////////////////////////////
 
-    virtual int pbc_field_layer(const real_number& a_z_pos, const int idx_dim) const final {
+    int pbc_field_layer(const real_number& a_z_pos, const int idx_dim) const {
         const real_number shifted_pos = a_z_pos - spatial_box_offset[idx_dim];
         const int nb_level_to_pos = int(floor(shifted_pos/box_step_width[idx_dim]));
         const int int_field_grid_dim = int(field_grid_dim[idx_dim]);
