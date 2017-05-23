@@ -117,7 +117,7 @@ class vorticity_equation
                     read);
             if (read)
             {
-                #if (__GNUC__ <= 4 && __GNUC_MINOR__ <= 7)
+                #if (__GNUC__ <= 4 && __GNUC_MINOR__ < 7)
                     this->kk->low_pass<rnumber, THREE>(this->cvorticity->get_cdata(), this->kk->kM);
                     this->kk->force_divfree<rnumber>(this->cvorticity->get_cdata());
                 #else
