@@ -63,35 +63,39 @@ public:
             : Parent(in_mpi_com, inTotalNbParticles, 1),
               dataset_name(in_dataset_name),
               use_collective_io(in_use_collective_io){
-        hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
-        assert(plist_id_par >= 0);
-        int retTest = H5Pset_fapl_mpio(
-                plist_id_par,
-                Parent::getComWriter(),
-                MPI_INFO_NULL);
-        assert(retTest >= 0);
+        if(Parent::isInvolved()){
+            hid_t plist_id_par = H5Pcreate(H5P_FILE_ACCESS);
+            assert(plist_id_par >= 0);
+            int retTest = H5Pset_fapl_mpio(
+                    plist_id_par,
+                    Parent::getComWriter(),
+                    MPI_INFO_NULL);
+            assert(retTest >= 0);
 
-        // Parallel HDF5 write
-        file_id = H5Fopen(
-                in_filename.c_str(),
-                H5F_ACC_RDWR | H5F_ACC_DEBUG,
-                plist_id_par);
-        assert(file_id >= 0);
-        retTest = H5Pclose(plist_id_par);
-        assert(retTest >= 0);
+            // Parallel HDF5 write
+            file_id = H5Fopen(
+                    in_filename.c_str(),
+                    H5F_ACC_RDWR | H5F_ACC_DEBUG,
+                    plist_id_par);
+            assert(file_id >= 0);
+            retTest = H5Pclose(plist_id_par);
+            assert(retTest >= 0);
 
-        pgroup_id = H5Gopen(
-                file_id,
-                in_groupname.c_str(),
-                H5P_DEFAULT);
-        assert(pgroup_id >= 0);
+            pgroup_id = H5Gopen(
+                    file_id,
+                    in_groupname.c_str(),
+                    H5P_DEFAULT);
+            assert(pgroup_id >= 0);
+        }
     }
 
     ~particles_output_sampling_hdf5(){
-        int retTest = H5Gclose(pgroup_id);
-        assert(retTest >= 0);
-        retTest = H5Fclose(file_id);
-        assert(retTest >= 0);
+        if(Parent::isInvolved()){
+            int retTest = H5Gclose(pgroup_id);
+            assert(retTest >= 0);
+            retTest = H5Fclose(file_id);
+            assert(retTest >= 0);
+        }
     }
 
     void write(
