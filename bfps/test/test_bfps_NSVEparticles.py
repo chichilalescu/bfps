@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import os
 import numpy as np
 import h5py
@@ -15,8 +17,8 @@ def main():
     c.launch(
             ['NSVEparticles',
              '-n', '32',
-             '--src-simname', 'test',
-             '--src-wd', bfps.lib_dir + '/test_data',
+             '--src-simname', 'B32p1e4',
+             '--src-wd', bfps.lib_dir + '/test',
              '--src-iteration', '0',
              '--simname', 'dns_nsveparticles',
              '--np', '4',
@@ -32,8 +34,8 @@ def main():
              sys.argv[1:])
     f0 = h5py.File(
             os.path.join(
-                os.path.join(bfps.lib_dir, 'test_data'),
-                'test_checkpoint_0.h5'),
+                os.path.join(bfps.lib_dir, 'test'),
+                'B32p1e4_checkpoint_0.h5'),
             'r')
     f1 = h5py.File(c.get_checkpoint_0_fname(), 'r')
     for iteration in [0, 32, 64]:

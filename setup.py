@@ -249,17 +249,18 @@ from setuptools import setup
 
 setup(
         name = 'bfps',
-        packages = ['bfps'],
+        packages = ['bfps', 'bfps/test'],
         install_requires = ['numpy>=1.8', 'h5py>=2.2.1'],
         cmdclass={'compile_library' : CompileLibCommand},
         package_data = {'bfps': header_list +
                                 ['libbfps.a',
                                  'install_info.pickle'] +
-                                ['test_data/test_checkpoint_0.h5']},
+                                ['test/B32p1e4_checkpoint_0.h5']},
         entry_points = {
             'console_scripts': [
                 'bfps = bfps.__main__:main',
-                'bfps1 = bfps.__main__:main'],
+                'bfps1 = bfps.__main__:main',
+                'bfps.test_NSVEparticles = bfps.test.test_bfps_NSVEparticles:main'],
             },
         version = VERSION,
 ########################################################################
