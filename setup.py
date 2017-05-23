@@ -261,7 +261,7 @@ setup(
                 'bfps = bfps.__main__:main',
                 'bfps1 = bfps.__main__:main'],
             },
-        scripts = ['bfps/test/test_NSVEparticles.py'],
+        scripts = ['bfps/test/test_bfps_NSVEparticles.py'],
         version = VERSION,
 ########################################################################
 # useless stuff folows
