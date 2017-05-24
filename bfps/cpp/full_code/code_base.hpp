@@ -24,38 +24,73 @@
 
 
 
-#ifndef PPNSVE_HPP
-#define PPNSVE_HPP
-
-
+#ifndef CODE_BASE_HPP
+#define CODE_BASE_HPP
 
 #include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "base.hpp"
-#include "vorticity_equation.hpp"
-#include "full_code/direct_numerical_simulation.hpp"
-#include "full_code/NSVE.hpp"
 
-template <typename rnumber>
-class ppNSVE: public NSVE<rnumber>
+class code_base
 {
+    private:
+        clock_t time0, time1;
     public:
-        ppNSVE(
+        int myrank, nprocs;
+        MPI_Comm comm;
+
+        std::string simname;
+
+        bool stop_code_now;
+
+        int nx;
+        int ny;
+        int nz;
+        int dealias_type;
+        double dkx;
+        double dky;
+        double dkz;
+
+        code_base(
                 const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name):
-            NSVE<rnumber>(
-                    COMMUNICATOR,
-                    simulation_name){}
-        ~ppNSVE(){}
+                const std::string &simulation_name);
+        virtual ~code_base(){}
 
-        int initialize(void);
-        int step(void);
-        int finalize(void);
+        int check_stopping_condition(void);
 
-        virtual int read_parameters(void);
-        int write_checkpoint(void);
-        int do_stats(void);
-        int main_loop(void);
+        int start_simple_timer(void)
+        {
+            this->time0 = clock();
+            return EXIT_SUCCESS;
+        }
+
+        int print_simple_timer(void)
+        {
+            this->time1 = clock();
+            double local_time_difference = ((
+                    (unsigned int)(this->time1 - this->time0)) /
+                    ((double)CLOCKS_PER_SEC));
+            double time_difference = 0.0;
+            MPI_Allreduce(
+                    &local_time_difference,
+                    &time_difference,
+                    1,
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    MPI_COMM_WORLD);
+            if (this->myrank == 0)
+                std::cout << "iteration " << this->iteration <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            if (this->myrank == 0)
+                std::cerr << "iteration " << this->iteration <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            this->time0 = this->time1;
+            return EXIT_SUCCESS;
+        }
 };
 
-#endif//PPNSVE_HPP
+#endif//CODE_BASE_HPP
 

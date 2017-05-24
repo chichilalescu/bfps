@@ -31,45 +31,24 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "base.hpp"
+#include "full_code/code_base.hpp"
 
-int grow_single_dataset(hid_t dset, int tincrement);
-
-herr_t grow_dataset_visitor(
-    hid_t o_id,
-    const char *name,
-    const H5O_info_t *info,
-    void *op_data);
-
-class direct_numerical_simulation
+class direct_numerical_simulation: public code_base
 {
-    private:
-        clock_t time0, time1;
     public:
-        int myrank, nprocs;
-        MPI_Comm comm;
-
-        std::string simname;
-
         int iteration, checkpoint;
         int checkpoints_per_file;
         int niter_out;
         int niter_stat;
         int niter_todo;
         hid_t stat_file;
-        bool stop_code_now;
-
-
-        int nx;
-        int ny;
-        int nz;
-        int dealias_type;
-        double dkx;
-        double dky;
-        double dkz;
 
         direct_numerical_simulation(
                 const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name);
+                const std::string &simulation_name):
+            code_base(
+                    COMMUNICATOR,
+                    simulation_name){}
         virtual ~direct_numerical_simulation(){}
 
         virtual int write_checkpoint(void) = 0;
@@ -82,39 +61,6 @@ class direct_numerical_simulation
         int read_iteration(void);
         int write_iteration(void);
         int grow_file_datasets(void);
-        int check_stopping_condition(void);
-
-        int start_simple_timer(void)
-        {
-            this->time0 = clock();
-            return EXIT_SUCCESS;
-        }
-
-        int print_simple_timer(void)
-        {
-            this->time1 = clock();
-            double local_time_difference = ((
-                    (unsigned int)(this->time1 - this->time0)) /
-                    ((double)CLOCKS_PER_SEC));
-            double time_difference = 0.0;
-            MPI_Allreduce(
-                    &local_time_difference,
-                    &time_difference,
-                    1,
-                    MPI_DOUBLE,
-                    MPI_SUM,
-                    MPI_COMM_WORLD);
-            if (this->myrank == 0)
-                std::cout << "iteration " << this->iteration <<
-                             " took " << time_difference/this->nprocs <<
-                             " seconds" << std::endl;
-            if (this->myrank == 0)
-                std::cerr << "iteration " << this->iteration <<
-                             " took " << time_difference/this->nprocs <<
-                             " seconds" << std::endl;
-            this->time0 = this->time1;
-            return EXIT_SUCCESS;
-        }
 };
 
 #endif//DIRECT_NUMERICAL_SIMULATION_HPP

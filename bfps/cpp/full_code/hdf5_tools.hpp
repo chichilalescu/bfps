@@ -24,38 +24,28 @@
 
 
 
-#ifndef PPNSVE_HPP
-#define PPNSVE_HPP
+#ifndef HDF5_TOOLS_HPP
+#define HDF5_TOOLS_HPP
 
-
-
-#include <cstdlib>
 #include "base.hpp"
-#include "vorticity_equation.hpp"
-#include "full_code/direct_numerical_simulation.hpp"
-#include "full_code/NSVE.hpp"
 
-template <typename rnumber>
-class ppNSVE: public NSVE<rnumber>
+namespace hdf5_tools
 {
-    public:
-        ppNSVE(
-                const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name):
-            NSVE<rnumber>(
-                    COMMUNICATOR,
-                    simulation_name){}
-        ~ppNSVE(){}
+    int grow_single_dataset(
+            hid_t dset,
+            int tincrement);
 
-        int initialize(void);
-        int step(void);
-        int finalize(void);
+    herr_t grow_dataset_visitor(
+        hid_t o_id,
+        const char *name,
+        const H5O_info_t *info,
+        void *op_data);
 
-        virtual int read_parameters(void);
-        int write_checkpoint(void);
-        int do_stats(void);
-        int main_loop(void);
-};
+    int grow_file_datasets(
+            const hid_t stat_file,
+            const std::string group_name,
+            const int tincrement);
+}
 
-#endif//PPNSVE_HPP
+#endif//HDF5_TOOLS_HPP
 
