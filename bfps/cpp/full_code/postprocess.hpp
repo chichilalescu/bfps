@@ -40,6 +40,15 @@ class postprocess: public code_base
         std::vector<int> iteration_list;
         hid_t stat_file;
 
+        /* parameters that are read in read_parameters */
+        double dt;
+        double famplitude;
+        double fk0;
+        double fk1;
+        int fmode;
+        char forcing_type[512];
+        double nu;
+
         postprocess(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
@@ -53,6 +62,7 @@ class postprocess: public code_base
         virtual int finalize(void) = 0;
 
         int main_loop(void);
+        virtual int read_parameters(void);
 };
 
 #endif//POSTPROCESS_HPP

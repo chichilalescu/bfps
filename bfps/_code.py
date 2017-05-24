@@ -249,6 +249,8 @@ class _code(_base):
             assert(self.compile_code() == 0)
             if self.work_dir != os.path.realpath(os.getcwd()):
                 shutil.copy(self.name, self.work_dir)
+        if 'niter_todo' not in self.parameters.keys():
+            self.parameters['niter_todo'] = 1
         current_dir = os.getcwd()
         os.chdir(self.work_dir)
         os.chdir(current_dir)

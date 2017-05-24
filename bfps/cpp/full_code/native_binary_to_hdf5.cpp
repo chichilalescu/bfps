@@ -50,6 +50,20 @@ int native_binary_to_hdf5<rnumber>::finalize(void)
     return EXIT_SUCCESS;
 }
 
+template <typename rnumber>
+int native_binary_to_hdf5<rnumber>::read_parameters(void)
+{
+    this->postprocess::read_parameters();
+    hid_t parameter_file = H5Fopen(
+            (this->simname + std::string(".h5")).c_str(),
+            H5F_ACC_RDONLY,
+            H5P_DEFAULT);
+    this->iteration_list = hdf5_tools::read_vector<int>(
+            parameter_file,
+            "/native_binary_to_hdf5/iteration_list");
+    return EXIT_SUCCESS;
+}
+
 template class native_binary_to_hdf5<float>;
 template class native_binary_to_hdf5<double>;
 

@@ -111,32 +111,29 @@ std::vector<dtype> hdf5_tools::read_vector_with_single_rank(
     return data;
 }
 
-namespace hdf5_tools
-{
-template <>
-std::vector<int> read_vector(
+template
+std::vector<int> hdf5_tools::read_vector<int>(
         const hid_t,
         const std::string);
 
-template <>
-std::vector<double> read_vector(
+template
+std::vector<double> hdf5_tools::read_vector<double>(
         const hid_t,
         const std::string);
 
-template <>
-std::vector<int> read_vector_with_single_rank(
+template
+std::vector<int> hdf5_tools::read_vector_with_single_rank<int>(
         const int myrank,
         const int rank_to_use,
         const MPI_Comm COMM,
         const hid_t file_id,
         const std::string dset_name);
 
-template <>
-std::vector<double> read_vector_with_single_rank(
+template
+std::vector<double> hdf5_tools::read_vector_with_single_rank<double>(
         const int myrank,
         const int rank_to_use,
         const MPI_Comm COMM,
         const hid_t file_id,
         const std::string dset_name);
-}
 
