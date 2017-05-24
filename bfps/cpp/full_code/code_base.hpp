@@ -65,7 +65,8 @@ class code_base
             return EXIT_SUCCESS;
         }
 
-        int print_simple_timer(void)
+        int print_simple_timer(
+                const std::string operation_name)
         {
             this->time1 = clock();
             double local_time_difference = ((
@@ -80,11 +81,11 @@ class code_base
                     MPI_SUM,
                     MPI_COMM_WORLD);
             if (this->myrank == 0)
-                std::cout << "iteration " << this->iteration <<
+                std::cout << operation_name <<
                              " took " << time_difference/this->nprocs <<
                              " seconds" << std::endl;
             if (this->myrank == 0)
-                std::cerr << "iteration " << this->iteration <<
+                std::cerr << operation_name <<
                              " took " << time_difference/this->nprocs <<
                              " seconds" << std::endl;
             this->time0 = this->time1;

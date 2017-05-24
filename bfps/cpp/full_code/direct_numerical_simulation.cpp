@@ -106,10 +106,12 @@ int direct_numerical_simulation::main_loop(void)
         this->check_stopping_condition();
         if (this->stop_code_now)
             break;
-        this->print_simple_timer();
+        this->print_simple_timer(
+                "iteration " + std::to_string(this->iteration));
     }
     this->do_stats();
-    this->print_simple_timer();
+    this->print_simple_timer(
+            "final call to do_stats ");
     if (this->iteration % this->niter_out != 0)
         this->write_checkpoint();
     return EXIT_SUCCESS;

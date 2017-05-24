@@ -44,7 +44,7 @@ namespace hdf5_tools
     int grow_file_datasets(
             const hid_t stat_file,
             const std::string group_name,
-            const int tincrement);
+            int tincrement);
 }
 
 #endif//HDF5_TOOLS_HPP

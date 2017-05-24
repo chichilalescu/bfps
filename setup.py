@@ -88,13 +88,12 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['full_code/ppNSVE',
-                 'field_binary_IO',
-                 'full_code/hdf5_tools',
+src_file_list = ['full_code/hdf5_tools',
                  'full_code/code_base',
                  'full_code/direct_numerical_simulation',
                  'full_code/NSVE',
                  'full_code/NSVEparticles',
+                 'field_binary_IO',
                  'vorticity_equation',
                  'field',
                  'kspace',

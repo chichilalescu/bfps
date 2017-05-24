@@ -34,7 +34,7 @@ herr_t hdf5_tools::grow_dataset_visitor(
 int hdf5_tools::grow_file_datasets(
         const hid_t stat_file,
         const std::string group_name,
-        const int tincrement)
+        int tincrement)
 {
     int file_problems = 0;
 
