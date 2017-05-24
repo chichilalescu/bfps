@@ -33,6 +33,7 @@
 #include <vector>
 #include "base.hpp"
 #include "field.hpp"
+#include "field_binary_IO.hpp"
 #include "full_code/postprocess.hpp"
 
 template <typename rnumber>
@@ -41,6 +42,7 @@ class native_binary_to_hdf5: public postprocess
     public:
 
         field<rnumber, FFTW, THREE> *vec_field;
+        field_binary_IO<rnumber, COMPLEX, THREE> *bin_IO;
 
         native_binary_to_hdf5(
                 const MPI_Comm COMMUNICATOR,
