@@ -36,11 +36,11 @@ int NSVE<rnumber>::initialize(void)
             simname.c_str(),
             nx, ny, nz,
             dkx, dky, dkz,
-            FFTW_MEASURE);
+            DEFAULT_FFTW_FLAG);
     this->tmp_vec_field = new field<rnumber, FFTW, THREE>(
             nx, ny, nz,
             this->comm,
-            FFTW_MEASURE);
+            DEFAULT_FFTW_FLAG);
 
 
     this->fs->checkpoints_per_file = checkpoints_per_file;

@@ -24,79 +24,36 @@
 
 
 
-#ifndef CODE_BASE_HPP
-#define CODE_BASE_HPP
+#ifndef POSTPROCESS_HPP
+#define POSTPROCESS_HPP
 
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <vector>
 #include "base.hpp"
+#include "full_code/code_base.hpp"
 
-class code_base
+class postprocess: public code_base
 {
-    private:
-        clock_t time0, time1;
     public:
-        int myrank, nprocs;
-        MPI_Comm comm;
+        std::vector<int> iteration_list;
+        hid_t stat_file;
 
-        std::string simname;
-        int iteration;
-
-        bool stop_code_now;
-
-        int nx;
-        int ny;
-        int nz;
-        int dealias_type;
-        double dkx;
-        double dky;
-        double dkz;
-
-        code_base(
+        postprocess(
                 const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name);
-        virtual ~code_base(){}
-
-        int check_stopping_condition(void);
-
-        int start_simple_timer(void)
-        {
-            this->time0 = clock();
-            return EXIT_SUCCESS;
-        }
-
-        int print_simple_timer(
-                const std::string operation_name)
-        {
-            this->time1 = clock();
-            double local_time_difference = ((
-                    (unsigned int)(this->time1 - this->time0)) /
-                    ((double)CLOCKS_PER_SEC));
-            double time_difference = 0.0;
-            MPI_Allreduce(
-                    &local_time_difference,
-                    &time_difference,
-                    1,
-                    MPI_DOUBLE,
-                    MPI_SUM,
-                    MPI_COMM_WORLD);
-            if (this->myrank == 0)
-                std::cout << operation_name <<
-                             " took " << time_difference/this->nprocs <<
-                             " seconds" << std::endl;
-            if (this->myrank == 0)
-                std::cerr << operation_name <<
-                             " took " << time_difference/this->nprocs <<
-                             " seconds" << std::endl;
-            this->time0 = this->time1;
-            return EXIT_SUCCESS;
-        }
+                const std::string &simulation_name):
+            code_base(
+                    COMMUNICATOR,
+                    simulation_name){}
+        virtual ~postprocess(){}
 
         virtual int initialize(void) = 0;
-        virtual int main_loop(void) = 0;
+        virtual int work_on_current_iteration(void) = 0;
         virtual int finalize(void) = 0;
+
+        int main_loop(void);
 };
 
-#endif//CODE_BASE_HPP
+#endif//POSTPROCESS_HPP
 

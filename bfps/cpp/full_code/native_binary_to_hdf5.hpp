@@ -24,44 +24,37 @@
 
 
 
-#ifndef DIRECT_NUMERICAL_SIMULATION_HPP
-#define DIRECT_NUMERICAL_SIMULATION_HPP
+#ifndef NATIVE_BINARY_TO_HDF5_HPP
+#define NATIVE_BINARY_TO_HDF5_HPP
 
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <vector>
 #include "base.hpp"
-#include "full_code/code_base.hpp"
+#include "field.hpp"
+#include "full_code/postprocess.hpp"
 
-class direct_numerical_simulation: public code_base
+template <typename rnumber>
+class native_binary_to_hdf5: public postprocess
 {
     public:
-        int checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
-        hid_t stat_file;
 
-        direct_numerical_simulation(
+        field<rnumber, FFTW, THREE> *vec_field;
+
+        native_binary_to_hdf5(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
-            code_base(
+            postprocess(
                     COMMUNICATOR,
                     simulation_name){}
-        virtual ~direct_numerical_simulation(){}
+        virtual ~native_binary_to_hdf5(){}
 
-        virtual int write_checkpoint(void) = 0;
-        virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
-        virtual int finalize(void) = 0;
-
-        int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
+        int initialize(void);
+        int work_on_current_iteration(void);
+        int finalize(void);
+        virtual int read_parameters(void);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//NATIVE_BINARY_TO_HDF5_HPP
 
