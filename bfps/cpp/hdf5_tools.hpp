@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2015 Max Planck Institute                                *
+*  Copyright 2017 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -24,39 +24,43 @@
 
 
 
-#include <typeinfo>
-#include <cassert>
-#include "io_tools.hpp"
+#ifndef HDF5_TOOLS_HPP
+#define HDF5_TOOLS_HPP
 
+#include <vector>
+#include <hdf5.h>
+#include "base.hpp"
 
-template <typename number>
-std::vector<number> read_vector(
-        hid_t group,
-        std::string dset_name)
+namespace hdf5_tools
 {
-    std::vector<number> result;
-    hsize_t vector_length;
-    // first, read size of array
-    hid_t dset, dspace;
-    hid_t mem_dtype;
-    if (typeid(number) == typeid(int))
-        mem_dtype = H5Tcopy(H5T_NATIVE_INT);
-    else if (typeid(number) == typeid(double))
-        mem_dtype = H5Tcopy(H5T_NATIVE_DOUBLE);
-    dset = H5Dopen(group, dset_name.c_str(), H5P_DEFAULT);
-    dspace = H5Dget_space(dset);
-    assert(H5Sget_simple_extent_ndims(dspace) == 1);
-    H5Sget_simple_extent_dims(dspace, &vector_length, NULL);
-    result.resize(vector_length);
-    H5Dread(dset, mem_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &result.front());
-    H5Sclose(dspace);
-    H5Dclose(dset);
-    H5Tclose(mem_dtype);
-    return result;
+    int grow_single_dataset(
+            hid_t dset,
+            int tincrement);
+
+    herr_t grow_dataset_visitor(
+        hid_t o_id,
+        const char *name,
+        const H5O_info_t *info,
+        void *op_data);
+
+    int grow_file_datasets(
+            const hid_t stat_file,
+            const std::string group_name,
+            int tincrement);
+
+    template <typename number>
+    std::vector<number> read_vector(
+            const hid_t group,
+            const std::string dset_name);
+
+    template <typename number>
+    std::vector<number> read_vector_with_single_rank(
+            const int myrank,
+            const int rank_to_use,
+            const MPI_Comm COMM,
+            const hid_t group,
+            const std::string dset_name);
 }
 
-template std::vector<int> read_vector(
-        hid_t, std::string);
-template std::vector<double> read_vector(
-        hid_t, std::string);
+#endif//HDF5_TOOLS_HPP
 

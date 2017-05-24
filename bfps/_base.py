@@ -123,7 +123,7 @@ class _base(object):
                     template_par = 'int'
                 elif parameters[key[i]].dtype == np.float64:
                     template_par = 'double'
-                src_txt += '{0} = read_vector<{1}>(parameter_file, "/{2}/{0}");\n'.format(
+                src_txt += '{0} = hdf5_tools::read_vector<{1}>(parameter_file, "/{2}/{0}");\n'.format(
                         key_prefix + key[i], template_par, file_group)
             else:
                 src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])

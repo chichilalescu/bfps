@@ -88,7 +88,7 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['full_code/hdf5_tools',
+src_file_list = ['hdf5_tools',
                  'full_code/code_base',
                  'full_code/direct_numerical_simulation',
                  'full_code/NSVE',
@@ -108,7 +108,6 @@ src_file_list = ['full_code/hdf5_tools',
                  'interpolator_base',
                  'fluid_solver',
                  'fluid_solver_base',
-                 'io_tools',
                  'fftw_tools',
                  'spline_n1',
                  'spline_n2',
