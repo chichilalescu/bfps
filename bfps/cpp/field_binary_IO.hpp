@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2017 Max Planck Institute                                *
+*  Copyright 2015 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -24,44 +24,55 @@
 
 
 
-#ifndef DIRECT_NUMERICAL_SIMULATION_HPP
-#define DIRECT_NUMERICAL_SIMULATION_HPP
-
-#include <cstdlib>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <vector>
+#include <string>
 #include "base.hpp"
-#include "full_code/code_base.hpp"
+#include "fftw_interface.hpp"
+#include "field_layout.hpp"
+#include "field.hpp"
 
-class direct_numerical_simulation: public code_base
+#ifndef FIELD_BINARY_IO_HPP
+
+#define FIELD_BINARY_IO_HPP
+
+/* could this be a boolean somehow?*/
+enum field_representation: bool {
+    REAL = true,
+    COMPLEX = false};
+
+template <typename rnumber>
+constexpr MPI_Datatype mpi_type(
+        field_representation fr)
 {
+    return ((fr == REAL) ?
+            mpi_real_type<rnumber>::real() :
+            mpi_real_type<rnumber>::complex());
+}
+
+template <typename rnumber, field_representation fr, field_components fc>
+class field_binary_IO:public field_layout<fc>
+{
+    private:
+        MPI_Comm io_comm;
+        int io_comm_myrank, io_comm_nprocs;
+        MPI_Datatype mpi_array_dtype;
     public:
-        int checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
-        hid_t stat_file;
 
-        direct_numerical_simulation(
-                const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name):
-            code_base(
-                    COMMUNICATOR,
-                    simulation_name){}
-        virtual ~direct_numerical_simulation(){}
+        /* methods */
+        field_binary_IO(
+                const hsize_t *SIZES,
+                const hsize_t *SUBSIZES,
+                const hsize_t *STARTS,
+                const MPI_Comm COMM_TO_USE);
+        ~field_binary_IO();
 
-        virtual int write_checkpoint(void) = 0;
-        virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
-        virtual int finalize(void) = 0;
-
-        int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
+        int read(
+                const std::string fname,
+                void *buffer);
+        int write(
+                const std::string fname,
+                void *buffer);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//FIELD_BINARY_IO_HPP
 

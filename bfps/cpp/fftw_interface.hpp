@@ -167,4 +167,7 @@ public:
     }
 };
 
+
+
 #endif // FFTW_INTERFACE_HPP
+

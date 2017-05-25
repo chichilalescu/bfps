@@ -24,44 +24,40 @@
 
 
 
-#ifndef DIRECT_NUMERICAL_SIMULATION_HPP
-#define DIRECT_NUMERICAL_SIMULATION_HPP
+#ifndef NSVE_FIELD_STATS_HPP
+#define NSVE_FIELD_STATS_HPP
 
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <vector>
 #include "base.hpp"
-#include "full_code/code_base.hpp"
+#include "field.hpp"
+#include "field_binary_IO.hpp"
+#include "full_code/postprocess.hpp"
 
-class direct_numerical_simulation: public code_base
+template <typename rnumber>
+class NSVE_field_stats: public postprocess
 {
+    private:
+        field_binary_IO<rnumber, COMPLEX, THREE> *bin_IO;
     public:
-        int checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
-        hid_t stat_file;
+        field<rnumber, FFTW, THREE> *vorticity;
 
-        direct_numerical_simulation(
+        NSVE_field_stats(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
-            code_base(
+            postprocess(
                     COMMUNICATOR,
                     simulation_name){}
-        virtual ~direct_numerical_simulation(){}
+        virtual ~NSVE_field_stats(){}
 
-        virtual int write_checkpoint(void) = 0;
-        virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
-        virtual int finalize(void) = 0;
+        virtual int initialize(void);
+        virtual int work_on_current_iteration(void);
+        virtual int finalize(void);
 
-        int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
+        int read_current_cvorticity(void);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//NSVE_FIELD_STATS_HPP
 
