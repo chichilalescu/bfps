@@ -61,6 +61,7 @@ int native_binary_to_hdf5<rnumber>::read_parameters(void)
     this->iteration_list = hdf5_tools::read_vector<int>(
             parameter_file,
             "/native_binary_to_hdf5/iteration_list");
+    H5Fclose(parameter_file);
     return EXIT_SUCCESS;
 }
 

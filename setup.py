@@ -89,6 +89,8 @@ print('This is bfps version ' + VERSION)
 
 ### lists of files and MANIFEST.in
 src_file_list = ['hdf5_tools',
+                 'full_code/get_rfields',
+                 'full_code/NSVE_field_stats',
                  'full_code/native_binary_to_hdf5',
                  'full_code/postprocess',
                  'full_code/code_base',

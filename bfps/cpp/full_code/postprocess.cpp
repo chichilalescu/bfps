@@ -8,6 +8,8 @@
 
 int postprocess::main_loop(void)
 {
+    DEBUG_MSG("entered postprocess::main_loop\n");
+    DEBUG_MSG("interation_list.size = %d\n", iteration_list.size());
     this->start_simple_timer();
     for (unsigned int iteration_counter = 0;
          iteration_counter < iteration_list.size();
@@ -32,7 +34,6 @@ int postprocess::read_parameters()
     hid_t parameter_file;
     hid_t dset, memtype, space;
     char fname[256];
-    hsize_t dims[1];
     char *string_data;
     sprintf(fname, "%s.h5", this->simname.c_str());
     parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);

@@ -451,6 +451,12 @@ class PP(_code):
         self.simulation_parser_arguments(parser_native_binary_to_hdf5)
         self.job_parser_arguments(parser_native_binary_to_hdf5)
         self.parameters_to_parser_arguments(parser_native_binary_to_hdf5)
+        parser_get_rfields = subparsers.add_parser(
+                'get_rfields',
+                help = 'get real space velocity field')
+        self.simulation_parser_arguments(parser_get_rfields)
+        self.job_parser_arguments(parser_get_rfields)
+        self.parameters_to_parser_arguments(parser_get_rfields)
         return None
     def prepare_launch(
             self,
@@ -671,6 +677,8 @@ class PP(_code):
                 njobs = opt.njobs,
                 hours = opt.minutes // 60,
                 minutes = opt.minutes % 60,
-                no_submit = opt.no_submit)
+                no_submit = opt.no_submit,
+                err_file = 'err_' + self.dns_type,
+                out_file = 'out_' + self.dns_type)
         return None
 
