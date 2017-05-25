@@ -24,44 +24,46 @@
 
 
 
-#ifndef DIRECT_NUMERICAL_SIMULATION_HPP
-#define DIRECT_NUMERICAL_SIMULATION_HPP
+#ifndef POSTPROCESS_HPP
+#define POSTPROCESS_HPP
 
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <vector>
 #include "base.hpp"
 #include "full_code/code_base.hpp"
 
-class direct_numerical_simulation: public code_base
+class postprocess: public code_base
 {
     public:
-        int checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
+        std::vector<int> iteration_list;
         hid_t stat_file;
 
-        direct_numerical_simulation(
+        /* parameters that are read in read_parameters */
+        double dt;
+        double famplitude;
+        double fk0;
+        double fk1;
+        int fmode;
+        char forcing_type[512];
+        double nu;
+
+        postprocess(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
             code_base(
                     COMMUNICATOR,
                     simulation_name){}
-        virtual ~direct_numerical_simulation(){}
+        virtual ~postprocess(){}
 
-        virtual int write_checkpoint(void) = 0;
         virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
+        virtual int work_on_current_iteration(void) = 0;
         virtual int finalize(void) = 0;
 
         int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
+        virtual int read_parameters(void);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//POSTPROCESS_HPP
 

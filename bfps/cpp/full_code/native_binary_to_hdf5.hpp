@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2015 Max Planck Institute                                *
+*  Copyright 2017 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -24,18 +24,39 @@
 
 
 
-#include <hdf5.h>
+#ifndef NATIVE_BINARY_TO_HDF5_HPP
+#define NATIVE_BINARY_TO_HDF5_HPP
+
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <vector>
-#include <string>
+#include "base.hpp"
+#include "field.hpp"
+#include "field_binary_IO.hpp"
+#include "full_code/postprocess.hpp"
 
-#ifndef IO_TOOLS
+template <typename rnumber>
+class native_binary_to_hdf5: public postprocess
+{
+    public:
 
-#define IO_TOOLS
+        field<rnumber, FFTW, THREE> *vec_field;
+        field_binary_IO<rnumber, COMPLEX, THREE> *bin_IO;
 
-template <typename number>
-std::vector<number> read_vector(
-        hid_t group,
-        std::string dset_name);
+        native_binary_to_hdf5(
+                const MPI_Comm COMMUNICATOR,
+                const std::string &simulation_name):
+            postprocess(
+                    COMMUNICATOR,
+                    simulation_name){}
+        virtual ~native_binary_to_hdf5(){}
 
-#endif//IO_TOOLS
+        int initialize(void);
+        int work_on_current_iteration(void);
+        int finalize(void);
+        virtual int read_parameters(void);
+};
+
+#endif//NATIVE_BINARY_TO_HDF5_HPP
 

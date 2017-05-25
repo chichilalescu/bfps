@@ -24,44 +24,79 @@
 
 
 
-#ifndef DIRECT_NUMERICAL_SIMULATION_HPP
-#define DIRECT_NUMERICAL_SIMULATION_HPP
+#ifndef CODE_BASE_HPP
+#define CODE_BASE_HPP
 
 #include <cstdlib>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "base.hpp"
-#include "full_code/code_base.hpp"
 
-class direct_numerical_simulation: public code_base
+class code_base
 {
+    private:
+        clock_t time0, time1;
     public:
-        int checkpoint;
-        int checkpoints_per_file;
-        int niter_out;
-        int niter_stat;
-        int niter_todo;
-        hid_t stat_file;
+        int myrank, nprocs;
+        MPI_Comm comm;
 
-        direct_numerical_simulation(
+        std::string simname;
+        int iteration;
+
+        bool stop_code_now;
+
+        int nx;
+        int ny;
+        int nz;
+        int dealias_type;
+        double dkx;
+        double dky;
+        double dkz;
+
+        code_base(
                 const MPI_Comm COMMUNICATOR,
-                const std::string &simulation_name):
-            code_base(
-                    COMMUNICATOR,
-                    simulation_name){}
-        virtual ~direct_numerical_simulation(){}
+                const std::string &simulation_name);
+        virtual ~code_base(){}
 
-        virtual int write_checkpoint(void) = 0;
+        int check_stopping_condition(void);
+
+        int start_simple_timer(void)
+        {
+            this->time0 = clock();
+            return EXIT_SUCCESS;
+        }
+
+        int print_simple_timer(
+                const std::string operation_name)
+        {
+            this->time1 = clock();
+            double local_time_difference = ((
+                    (unsigned int)(this->time1 - this->time0)) /
+                    ((double)CLOCKS_PER_SEC));
+            double time_difference = 0.0;
+            MPI_Allreduce(
+                    &local_time_difference,
+                    &time_difference,
+                    1,
+                    MPI_DOUBLE,
+                    MPI_SUM,
+                    MPI_COMM_WORLD);
+            if (this->myrank == 0)
+                std::cout << operation_name <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            if (this->myrank == 0)
+                std::cerr << operation_name <<
+                             " took " << time_difference/this->nprocs <<
+                             " seconds" << std::endl;
+            this->time0 = this->time1;
+            return EXIT_SUCCESS;
+        }
+
         virtual int initialize(void) = 0;
-        virtual int step(void) = 0;
-        virtual int do_stats(void) = 0;
+        virtual int main_loop(void) = 0;
         virtual int finalize(void) = 0;
-
-        int main_loop(void);
-        int read_iteration(void);
-        int write_iteration(void);
-        int grow_file_datasets(void);
 };
 
-#endif//DIRECT_NUMERICAL_SIMULATION_HPP
+#endif//CODE_BASE_HPP
 
