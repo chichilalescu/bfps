@@ -175,9 +175,12 @@ class _base(object):
     def rewrite_par(
             self,
             group = None,
-            parameters = None):
+            parameters = None,
+            file_name = None):
         assert(group != 'parameters')
-        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+        if type(file_name) == None:
+            file_name = os.path.join(self.work_dir, self.simname + '.h5')
+        ofile = h5py.File(file_name, 'a')
         for k in parameters.keys():
             if group not in ofile.keys():
                 ofile.create_group(group)

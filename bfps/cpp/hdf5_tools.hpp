@@ -48,6 +48,21 @@ namespace hdf5_tools
             const std::string group_name,
             int tincrement);
 
+    int require_size_single_dataset(
+            hid_t dset,
+            int tincrement);
+
+    herr_t require_size_dataset_visitor(
+        hid_t o_id,
+        const char *name,
+        const H5O_info_t *info,
+        void *op_data);
+
+    int require_size_file_datasets(
+            const hid_t stat_file,
+            const std::string group_name,
+            int tincrement);
+
     template <typename number>
     std::vector<number> read_vector(
             const hid_t group,
