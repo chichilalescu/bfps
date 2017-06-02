@@ -7,13 +7,15 @@ int hdf5_tools::require_size_single_dataset(hid_t dset, int tsize)
     space = H5Dget_space(dset);
     ndims = H5Sget_simple_extent_ndims(space);
     hsize_t *dims = new hsize_t[ndims];
-    H5Sget_simple_extent_dims(space, dims, NULL);
-    if (dims[0] < tsize)
+    hsize_t *maxdims = new hsize_t[ndims];
+    H5Sget_simple_extent_dims(space, dims, maxdims);
+    if (dims[0] < hsize_t(tsize) && maxdims[0] == H5S_UNLIMITED)
     {
         dims[0] = tsize;
         H5Dset_extent(dset, dims);
     }
     H5Sclose(space);
+    delete[] maxdims;
     delete[] dims;
     return EXIT_SUCCESS;
 }
@@ -25,10 +27,15 @@ int hdf5_tools::grow_single_dataset(hid_t dset, int tincrement)
     space = H5Dget_space(dset);
     ndims = H5Sget_simple_extent_ndims(space);
     hsize_t *dims = new hsize_t[ndims];
-    H5Sget_simple_extent_dims(space, dims, NULL);
-    dims[0] += tincrement;
-    H5Dset_extent(dset, dims);
+    hsize_t *maxdims = new hsize_t[ndims];
+    H5Sget_simple_extent_dims(space, dims, maxdims);
+    if (maxdims[0] == H5S_UNLIMITED)
+    {
+        dims[0] += tincrement;
+        H5Dset_extent(dset, dims);
+    }
     H5Sclose(space);
+    delete[] maxdims;
     delete[] dims;
     return EXIT_SUCCESS;
 }
