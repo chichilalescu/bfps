@@ -234,9 +234,10 @@ class _base(object):
         if type(parameters) == type(None):
             parameters = self.parameters
         cmd_line_pars = vars(opt)
-        for k in ['nx', 'ny', 'nz']:
-            if type(cmd_line_pars[k]) == type(None):
-                cmd_line_pars[k] = opt.n
+        if 'n' in cmd_line_pars.keys():
+            for k in ['nx', 'ny', 'nz']:
+                if type(cmd_line_pars[k]) == type(None):
+                    cmd_line_pars[k] = opt.n
         for k in parameters.keys():
             if k in cmd_line_pars.keys():
                 if not type(cmd_line_pars[k]) == type(None):

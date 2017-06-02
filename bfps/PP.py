@@ -360,21 +360,6 @@ class PP(_code):
                 type = str, dest = 'simname',
                 default = 'test')
         parser.add_argument(
-               '-n', '--grid-size',
-               type = int,
-               dest = 'n',
-               default = 32,
-               metavar = 'N',
-               help = 'code is run by default in a grid of NxNxN')
-        for coord in ['x', 'y', 'z']:
-            parser.add_argument(
-                   '--L{0}'.format(coord), '--box-length-{0}'.format(coord),
-                   type = float,
-                   dest = 'L{0}'.format(coord),
-                   default = 2.0,
-                   metavar = 'length{0}'.format(coord),
-                   help = 'length of the box in the {0} direction will be `length{0} x pi`'.format(coord))
-        parser.add_argument(
                 '--wd',
                 type = str, dest = 'work_dir',
                 default = './')
@@ -384,31 +369,15 @@ class PP(_code):
                 type = str,
                 default = 'single')
         parser.add_argument(
-                '--src-wd',
-                type = str,
-                dest = 'src_work_dir',
-                default = '')
-        parser.add_argument(
-                '--src-simname',
-                type = str,
-                dest = 'src_simname',
-                default = '')
-        parser.add_argument(
-                '--src-iteration',
+                '--iter0',
                 type = int,
-                dest = 'src_iteration',
+                dest = 'iter0',
                 default = 0)
         parser.add_argument(
-               '--kMeta',
-               type = float,
-               dest = 'kMeta',
-               default = 2.0)
-        parser.add_argument(
-               '--dtfactor',
-               type = float,
-               dest = 'dtfactor',
-               default = 0.5,
-               help = 'dt is computed as DTFACTOR / N')
+                '--iter1',
+                type = int,
+                dest = 'iter1',
+                default = 0)
         return None
     def particle_parser_arguments(
             self,
@@ -493,21 +462,10 @@ class PP(_code):
         # merge parameters if needed
         for k in self.pp_parameters.keys():
              self.parameters[k] = self.pp_parameters[k]
-        if len(opt.src_work_dir) == 0:
-            opt.src_work_dir = os.path.realpath(opt.work_dir)
-        if type(opt.dkx) == type(None):
-            opt.dkx = 2. / opt.Lx
-        if type(opt.dky) == type(None):
-            opt.dky = 2. / opt.Ly
-        if type(opt.dkx) == type(None):
-            opt.dkz = 2. / opt.Lz
-        if type(opt.nx) == type(None):
-            opt.nx = opt.n
-        if type(opt.ny) == type(None):
-            opt.ny = opt.n
-        if type(opt.nz) == type(None):
-            opt.nz = opt.n
         self.pars_from_namespace(opt)
+        niter_out = self.get_data_file()['parameters/niter_todo'].value
+        self.pp_parameters['iteration_list'] = np.arange(
+                opt.iter0, opt.iter1+niter_out, niter_out, dtype = np.int)
         return opt
     def launch(
             self,
