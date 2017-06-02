@@ -8,8 +8,6 @@
 
 int postprocess::main_loop(void)
 {
-    DEBUG_MSG("entered postprocess::main_loop\n");
-    DEBUG_MSG("interation_list.size = %d\n", iteration_list.size());
     this->start_simple_timer();
     for (unsigned int iteration_counter = 0;
          iteration_counter < iteration_list.size();

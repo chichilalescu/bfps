@@ -85,7 +85,6 @@ int NSVE_field_stats<rnumber>::finalize(void)
 template <typename rnumber>
 int NSVE_field_stats<rnumber>::work_on_current_iteration(void)
 {
-    DEBUG_MSG("entered NSVE_field_stats::work_on_current_iteration\n");
     return EXIT_SUCCESS;
 }
 
