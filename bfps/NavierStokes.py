@@ -559,8 +559,12 @@ class NavierStokes(_fluid_particle_base):
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
         return None
+    def get_cache_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '_cache.h5')
+    def get_cache_file(self):
+        return h5py.File(self.get_postprocess_file_name(), 'r')
     def get_postprocess_file_name(self):
-        return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
+        return self.get_cache_file_name()
     def get_postprocess_file(self):
         return h5py.File(self.get_postprocess_file_name(), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
@@ -576,7 +580,7 @@ class NavierStokes(_fluid_particle_base):
         tensors, and the enstrophy spectrum is also used to
         compute the dissipation :math:`\\varepsilon(t)`.
         These basic quantities are stored in a newly created HDF5 file,
-        ``simname_postprocess.h5``.
+        ``simname_cache.h5``.
         """
         if len(list(self.statistics.keys())) > 0:
             return None
@@ -640,7 +644,7 @@ class NavierStokes(_fluid_particle_base):
         """Compute easy stats.
 
         Further computation of statistics based on the contents of
-        ``simname_postprocess.h5``.
+        ``simname_cache.h5``.
         Standard quantities are as follows
         (consistent with [Ishihara]_):
 

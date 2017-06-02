@@ -1040,23 +1040,36 @@ void compute_gradient(
     assert(!src->real_space_representation);
     assert((fc1 == ONE && fc2 == THREE) ||
            (fc1 == THREE && fc2 == THREExTHREE));
+    std::fill_n(dst->get_rdata(), dst->rmemlayout->local_size, 0);
+    dst->real_space_representation = false;
+    switch(fc1)
+            {
+                case ONE:
     kk->CLOOP_K2(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
                 ptrdiff_t yindex,
                 ptrdiff_t zindex,
                 double k2){
-            if (k2 < kk->kM2) switch(fc1)
+            if (k2 < kk->kM2)
             {
-                case ONE:
                     dst->cval(cindex, 0, 0) = -kk->kx[xindex]*src->cval(cindex, 1);
                     dst->cval(cindex, 0, 1) =  kk->kx[xindex]*src->cval(cindex, 0);
                     dst->cval(cindex, 1, 0) = -kk->ky[yindex]*src->cval(cindex, 1);
                     dst->cval(cindex, 1, 1) =  kk->ky[yindex]*src->cval(cindex, 0);
                     dst->cval(cindex, 2, 0) = -kk->kz[zindex]*src->cval(cindex, 1);
                     dst->cval(cindex, 2, 1) =  kk->kz[zindex]*src->cval(cindex, 0);
+                    }});
                     break;
                 case THREE:
+    kk->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
+            if (k2 < kk->kM2)
+            {
                     for (unsigned int field_component = 0;
                          field_component < ncomp(fc1);
                          field_component++)
@@ -1068,20 +1081,9 @@ void compute_gradient(
                         dst->cval(cindex, 2, field_component, 0) = -kk->kz[zindex]*src->cval(cindex, field_component, 1);
                         dst->cval(cindex, 2, field_component, 1) =  kk->kz[zindex]*src->cval(cindex, field_component, 0);
                     }
-                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][0] =
-                //    - kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                //dst->get_cdata()[(cindex*3+0)*ncomp(fc1)+field_component][1] =
-                //      kk->kx[xindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][0] =
-                //    - kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                //dst->get_cdata()[(cindex*3+1)*ncomp(fc1)+field_component][1] =
-                //      kk->ky[yindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
-                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][0] =
-                //    - kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][1];
-                //dst->get_cdata()[(cindex*3+2)*ncomp(fc1)+field_component][1] =
-                //      kk->kz[zindex]*src->get_cdata()[cindex*ncomp(fc1)+field_component][0];
+                    }});
+                    break;
             }
-            });
 }
 
 template class field<float, FFTW, ONE>;
