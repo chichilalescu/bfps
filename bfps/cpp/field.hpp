@@ -280,10 +280,18 @@ template <typename rnumber,
           field_components fc1,
           field_components fc2,
           kspace_dealias_type dt>
-void compute_gradient(
+int compute_gradient(
         kspace<be, dt> *kk,
         field<rnumber, be, fc1> *source,
         field<rnumber, be, fc2> *destination);
+
+template <typename rnumber,
+          field_backend be,
+          kspace_dealias_type dt>
+int invert_curl(
+        kspace<be, dt> *kk,
+        field<rnumber, be, THREE> *source,
+        field<rnumber, be, THREE> *destination);
 
 #endif//FIELD_HPP
 

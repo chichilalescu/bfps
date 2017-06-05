@@ -1031,7 +1031,7 @@ template <typename rnumber,
           field_components fc1,
           field_components fc2,
           kspace_dealias_type dt>
-void compute_gradient(
+int compute_gradient(
         kspace<be, dt> *kk,
         field<rnumber, be, fc1> *src,
         field<rnumber, be, fc2> *dst)
@@ -1084,6 +1084,42 @@ void compute_gradient(
                     }});
                     break;
             }
+    return EXIT_SUCCESS;
+}
+
+template <typename rnumber,
+          field_backend be,
+          kspace_dealias_type dt>
+int invert_curl(
+        kspace<be, dt> *kk,
+        field<rnumber, be, THREE> *src,
+        field<rnumber, be, THREE> *dst)
+{
+    TIMEZONE("invert_curl");
+    assert(!src->real_space_representation);
+    std::fill_n(dst->get_rdata(), dst->rmemlayout->local_size, 0);
+    dst->real_space_representation = false;
+    kk->CLOOP_K2(
+                [&](ptrdiff_t cindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex,
+                    double k2){
+        if (k2 <= kk->kM2 && k2 > 0)
+        {
+            dst->cval(cindex,0,0) = -(kk->ky[yindex]*src->cval(cindex,2,1) - kk->kz[zindex]*src->cval(cindex,1,1)) / k2;
+            dst->cval(cindex,0,1) =  (kk->ky[yindex]*src->cval(cindex,2,0) - kk->kz[zindex]*src->cval(cindex,1,0)) / k2;
+            dst->cval(cindex,1,0) = -(kk->kz[zindex]*src->cval(cindex,0,1) - kk->kx[xindex]*src->cval(cindex,2,1)) / k2;
+            dst->cval(cindex,1,1) =  (kk->kz[zindex]*src->cval(cindex,0,0) - kk->kx[xindex]*src->cval(cindex,2,0)) / k2;
+            dst->cval(cindex,2,0) = -(kk->kx[xindex]*src->cval(cindex,1,1) - kk->ky[yindex]*src->cval(cindex,0,1)) / k2;
+            dst->cval(cindex,2,1) =  (kk->kx[xindex]*src->cval(cindex,1,0) - kk->ky[yindex]*src->cval(cindex,0,0)) / k2;
+        }
+        else
+            std::fill_n((rnumber*)(dst->get_cdata()+3*cindex), 6, 0.0);
+    }
+    );
+    dst->symmetrize();
+    return EXIT_SUCCESS;
 }
 
 template class field<float, FFTW, ONE>;
@@ -1133,20 +1169,30 @@ template void field<double, FFTW, THREExTHREE>::compute_stats<SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         const hid_t, const std::string, const hsize_t, const double);
 
-template void compute_gradient<float, FFTW, THREE, THREExTHREE, SMOOTH>(
+template int compute_gradient<float, FFTW, THREE, THREExTHREE, SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         field<float, FFTW, THREE> *,
         field<float, FFTW, THREExTHREE> *);
-template void compute_gradient<double, FFTW, THREE, THREExTHREE, SMOOTH>(
+template int compute_gradient<double, FFTW, THREE, THREExTHREE, SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         field<double, FFTW, THREE> *,
         field<double, FFTW, THREExTHREE> *);
 
-template void compute_gradient<float, FFTW, ONE, THREE, SMOOTH>(
+template int compute_gradient<float, FFTW, ONE, THREE, SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         field<float, FFTW, ONE> *,
         field<float, FFTW, THREE> *);
-template void compute_gradient<double, FFTW, ONE, THREE, SMOOTH>(
+template int compute_gradient<double, FFTW, ONE, THREE, SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         field<double, FFTW, ONE> *,
         field<double, FFTW, THREE> *);
+
+template int invert_curl<float, FFTW, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<float, FFTW, THREE> *,
+        field<float, FFTW, THREE> *);
+template int invert_curl<double, FFTW, SMOOTH>(
+        kspace<FFTW, SMOOTH> *,
+        field<double, FFTW, THREE> *,
+        field<double, FFTW, THREE> *);
+
