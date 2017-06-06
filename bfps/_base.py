@@ -178,7 +178,7 @@ class _base(object):
             parameters = None,
             file_name = None):
         assert(group != 'parameters')
-        if type(file_name) == None:
+        if type(file_name) == type(None):
             file_name = os.path.join(self.work_dir, self.simname + '.h5')
         ofile = h5py.File(file_name, 'a')
         for k in parameters.keys():
