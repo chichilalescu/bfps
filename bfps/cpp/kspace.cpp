@@ -186,7 +186,7 @@ int kspace<be, dt>::store(hid_t stat_file)
     space = H5Dget_space(dset);
     H5Sget_simple_extent_dims(space, dims, NULL);
     H5Sclose(space);
-    if (this->nshells != dims[0])
+    if (this->nshells != int(dims[0]))
     {
         DEBUG_MSG(
                 "ERROR: computed nshells %d not equal to data file nshells %d\n",

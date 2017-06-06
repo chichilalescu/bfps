@@ -49,7 +49,7 @@ field_binary_IO<rnumber, fr, fc>::field_binary_IO(
     tsizes.resize(ndim(fc));
     tsubsizes.resize(ndim(fc));
     tstarts.resize(ndim(fc));
-    for (int i=0; i<ndim(fc); i++)
+    for (int i=0; i<int(ndim(fc)); i++)
     {
         tsizes[i] = int(this->sizes[i]);
         tsubsizes[i] = int(this->subsizes[i]);

@@ -75,7 +75,7 @@ void vorticity_equation<rnumber, be>::update_checkpoint()
                     H5P_DEFAULT);
             H5Gclose(group_id);
             H5Fclose(fid);
-            if ((fields_stored >= this->checkpoints_per_file) &&
+            if ((int(fields_stored) >= this->checkpoints_per_file) &&
                 !dset_exists)
                 this->checkpoint++;
         }
