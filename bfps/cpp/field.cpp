@@ -775,23 +775,23 @@ void field<rnumber, be, fc>::compute_rspace_stats(
             for (int n=1; n < int(nmoments)-1; n++){
                 for (int i=0; i<nvals; i++){
                     local_moments[n*nvals + i] += (pow_tmp[i] = val_tmp[i]*pow_tmp[i]);
-				}
-			}
+                }
+            }
                 });
 
           TIMEZONE("FIELD_RLOOP::Merge");
           local_moments_threaded.mergeParallel([&](const int idx, const double& v1, const double& v2) -> double {
               if(nvals == int(4) && idx == 0*nvals+3){
-                  return std::min(v1, v2);  
+                  return std::min(v1, v2);
               }
               if(nvals == int(4) && idx == 9*nvals+3){
-                  return std::max(v1, v2);  
+                  return std::max(v1, v2);
               }
               if(idx < int(ncomp(fc))){
-                  return std::min(v1, v2);        
-              }      
+                  return std::min(v1, v2);
+              }
               if(int(nmoments-1)*nvals <= idx && idx < int(int(nmoments-1)*nvals+ncomp(fc))){
-                  return std::max(v1, v2);        
+                  return std::max(v1, v2);
               }
               return v1 + v2;
           });
@@ -867,7 +867,10 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         H5Sclose(wspace);
         H5Sclose(mspace);
         H5Dclose(dset);
-        if (H5Lexists(group, "0slices", H5P_DEFAULT))
+        if (H5Lexists(
+                    group,
+                    (std::string("0slices/") + dset_name).c_str(),
+                    H5P_DEFAULT))
             this->write_0slice(
                     group,
                     dset_name,
