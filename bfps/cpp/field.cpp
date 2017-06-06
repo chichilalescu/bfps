@@ -554,7 +554,6 @@ int field<rnumber, be, fc>::write_0slice(
 {
     TIMEZONE("field::write_0slice");
     assert(this->real_space_representation);
-    assert(fc == THREE);
     if (this->myrank == 0)
     {
         hid_t dset, wspace, mspace;
