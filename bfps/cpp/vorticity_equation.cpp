@@ -539,7 +539,7 @@ void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(
     this->compute_pressure(pressure);
     this->compute_velocity(this->cvorticity);
     acceleration->real_space_representation = false;
-    std::fill_n(acceleration->get_rdata(), acceleration->rmemlayout->local_size, 0);
+    *acceleration = 0.0;
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
