@@ -552,17 +552,19 @@ int field<rnumber, be, fc>::write_0slice(
         const std::string field_name,
         const int iteration)
 {
+    // this should in principle work for any fc
     TIMEZONE("field::write_0slice");
     assert(this->real_space_representation);
     if (this->myrank == 0)
     {
         hid_t dset, wspace, mspace;
         int ndims;
-        hsize_t count[4], offset[4], dims[4];
+        hsize_t count[5], offset[5], dims[5];
         offset[0] = iteration;
         offset[1] = 0;
         offset[2] = 0;
         offset[3] = 0;
+        offset[4] = 0;
         dset = H5Dopen(
                 group,
                 ("0slices/" + field_name + "/real").c_str(),
@@ -573,6 +575,7 @@ int field<rnumber, be, fc>::write_0slice(
         count[0] = 1;
         count[1] = this->rmemlayout->sizes[1];
         count[2] = this->rmemlayout->sizes[2];
+        count[3] = 3;
         count[3] = 3;
         mspace = H5Screate_simple(ndims, count, NULL);
         // array in file should not have the extra 2 points
