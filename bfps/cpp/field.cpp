@@ -834,6 +834,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         hid_t dset, wspace, mspace;
         hsize_t count[ndim(fc)-1], offset[ndim(fc)-1], dims[ndim(fc)-1];
         dset = H5Dopen(group, ("moments/" + dset_name).c_str(), H5P_DEFAULT);
+        assert(dset>0);
         wspace = H5Dget_space(dset);
         H5Sget_simple_extent_dims(wspace, dims, NULL);
         offset[0] = toffset;
@@ -859,6 +860,7 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         H5Sclose(mspace);
         H5Dclose(dset);
         dset = H5Dopen(group, ("histograms/" + dset_name).c_str(), H5P_DEFAULT);
+        assert(dset > 0);
         wspace = H5Dget_space(dset);
         count[1] = nbins;
         mspace = H5Screate_simple(ndim(fc)-1, count, NULL);
@@ -869,12 +871,18 @@ void field<rnumber, be, fc>::compute_rspace_stats(
         H5Dclose(dset);
         if (H5Lexists(
                     group,
-                    (std::string("0slices/") + dset_name).c_str(),
+                    "0slices",
                     H5P_DEFAULT))
+        {
+            if (H5Lexists(
+                        group,
+                        (std::string("0slices/") + dset_name).c_str(),
+                        H5P_DEFAULT))
             this->write_0slice(
                     group,
                     dset_name,
                     toffset);
+        }
     }
     delete[] moments;
     delete[] hist;
