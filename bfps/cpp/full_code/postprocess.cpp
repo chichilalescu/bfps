@@ -22,6 +22,10 @@ int postprocess::main_loop(void)
         this->work_on_current_iteration();
         this->print_simple_timer(
                 "iteration " + std::to_string(this->iteration));
+
+        this->check_stopping_condition();
+        if (this->stop_code_now)
+            break;
     }
     return EXIT_SUCCESS;
 }
