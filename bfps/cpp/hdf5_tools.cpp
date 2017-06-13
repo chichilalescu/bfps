@@ -171,6 +171,23 @@ std::vector<dtype> hdf5_tools::read_vector_with_single_rank(
     return data;
 }
 
+std::string hdf5_tools::read_string(
+        const hid_t group,
+        const std::string dset_name)
+{
+    hid_t dset = H5Dopen(group, dset_name.c_str(), H5P_DEFAULT);
+    hid_t space = H5Dget_space(dset);
+    hid_t memtype = H5Dget_type(dset);
+    char *string_data = (char*)malloc(256);
+    H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);
+    std::string std_string_data = std::string(string_data);
+    free(string_data);
+    H5Sclose(space);
+    H5Tclose(memtype);
+    H5Dclose(dset);
+    return std_string_data;
+}
+
 template
 std::vector<int> hdf5_tools::read_vector<int>(
         const hid_t,

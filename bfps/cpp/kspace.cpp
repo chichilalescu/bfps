@@ -236,7 +236,9 @@ template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
-void kspace<be, dt>::low_pass(typename fftw_interface<rnumber>::complex *__restrict__ a, const double kmax)
+void kspace<be, dt>::low_pass(
+        typename fftw_interface<rnumber>::complex *__restrict__ a,
+        const double kmax)
 {
     const double km2 = kmax*kmax;
     this->CLOOP_K2(
@@ -453,6 +455,26 @@ template void kspace<FFTW, SMOOTH>::low_pass<double, THREE>(
         typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
 template void kspace<FFTW, SMOOTH>::low_pass<double, THREExTHREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax);
+
+template void kspace<FFTW, SMOOTH>::Gauss_filter<float, ONE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax);
+template void kspace<FFTW, SMOOTH>::Gauss_filter<float, THREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax);
+template void kspace<FFTW, SMOOTH>::Gauss_filter<float, THREExTHREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax);
+
+template void kspace<FFTW, SMOOTH>::Gauss_filter<double, ONE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax);
+template void kspace<FFTW, SMOOTH>::Gauss_filter<double, THREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax);
+template void kspace<FFTW, SMOOTH>::Gauss_filter<double, THREExTHREE>(
         typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
 
