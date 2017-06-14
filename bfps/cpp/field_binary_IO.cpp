@@ -85,11 +85,6 @@ field_binary_IO<rnumber, fr, fc>::field_binary_IO(
     int no_of_excluded_ranks = 0;
     for (int i = 0; i<this->nprocs; i++)
         no_of_excluded_ranks += zero_array[i];
-    DEBUG_MSG_WAIT(
-                this->comm,
-                "subsizes[0] = %d %d\n",
-                this->subsizes[0],
-            tsubsizes[0]);
     if (no_of_excluded_ranks == 0)
     {
         this->io_comm = this->comm;
