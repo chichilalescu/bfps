@@ -279,6 +279,43 @@ template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
           field_components fc>
+int kspace<be, dt>::filter(
+        typename fftw_interface<rnumber>::complex *__restrict__ a,
+        const double wavenumber,
+        std::string filter_type)
+{
+    if (filter_type == std::string("sharp_Fourier_sphere"))
+    {
+        this->template low_pass<rnumber, fc>(
+                a,
+                wavenumber);
+    }
+    else if (filter_type == std::string("Gauss"))
+    {
+        // I am using this complicated logarithm(16) thing after calibration.
+        //
+        // Calibration:
+        // 1. take some field f
+        // 2. compute spectrum of f, s0(k)
+        // 3. compute spectral cutoff at kc, obtain sc(k)
+        // 4. compute Gaussian filter with kc, obtain sg(k)
+        // 5. plot sc(k) / s0(k) and sg(k) / s0(k).
+        // 6. They will intersect at k = kc
+        // 7. The value of sg(k) / s0(k) at k = kc should be 1/2.
+        //
+        // I don't honestly know why I have sqrt(ln(2)) instead of
+        // sqrt(ln(4)). My calculation is that sigma = sqrt(ln(4)) / k.
+        this->template Gauss_filter<rnumber, fc>(
+                a,
+                sqrt(log(2))/wavenumber);
+    }
+    return EXIT_SUCCESS;
+}
+
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
 void kspace<be, dt>::dealias(typename fftw_interface<rnumber>::complex *__restrict__ a)
 {
     switch(dt)
@@ -477,6 +514,32 @@ template void kspace<FFTW, SMOOTH>::Gauss_filter<double, THREE>(
 template void kspace<FFTW, SMOOTH>::Gauss_filter<double, THREExTHREE>(
         typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax);
+
+template int kspace<FFTW, SMOOTH>::filter<float, ONE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter<float, THREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter<float, THREExTHREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+
+template int kspace<FFTW, SMOOTH>::filter<double, ONE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter<double, THREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter<double, THREExTHREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
 
 template void kspace<FFTW, SMOOTH>::dealias<float, ONE>(
         typename fftw_interface<float>::complex *__restrict__ a);
