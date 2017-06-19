@@ -35,6 +35,20 @@
 
 #define FIELD_HPP
 
+/** \class field
+ *  \brief Holds field data, performs FFTs and HDF5 I/O operations.
+ *
+ *  The purpose of this class is to manage memory for field data, create/destroy
+ *  FFT plans for them, and compute HDF5 input/output operations.
+ *
+ *  FFTW recommendations are to create different plans for different arrays,
+ *  hence the plans are member variables.
+ *  All plans are for in-place transforms, since even with out-of-place transforms
+ *  there are no guarantees that input data is not messed up by an inverse FFT, so
+ *  there's no point in wasting the memory.
+ *
+ *
+ */
 
 template <typename rnumber,
           field_backend be,
@@ -42,19 +56,18 @@ template <typename rnumber,
 class field
 {
     private:
-        /* data arrays */
-        rnumber *__restrict__ data;
+        rnumber *__restrict__ data; /**< data array */
     public:
-        hsize_t npoints;
-        bool real_space_representation;
-        /* basic MPI information */
-        int myrank, nprocs;
-        MPI_Comm comm;
+        hsize_t npoints; /**< total number of grid points. Useful for normalization. */
+        bool real_space_representation; /**< `true` if field is in real space representation. */
+
+        int myrank, nprocs; /**< basic MPI information. */
+        MPI_Comm comm;      /**< MPI communicator this fields lives in. */
 
         /* descriptions of field layout and distribution */
         /* for the FFTW backend, at least, the real space field requires more
          * space to be allocated than strictly needed for the data, hence the
-         * two layout descriptors.
+         * two real space layout descriptors.
          * */
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 

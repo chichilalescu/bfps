@@ -32,6 +32,21 @@
 #include <sys/stat.h>
 #include "base.hpp"
 
+/** \class code_base
+ *  \brief Defines basic timer and method to check stopping condition.
+ *
+ *  Any computational task will consist of a loop over temporal snapshots, be it
+ *  a simulation or a postprocessing job.
+ *  This class declares the three required methods (initialize, step and finalize
+ *  functionalities).
+ *  Implementation should be done in children classes, since it will be different
+ *  for simulations or postprocessing jobs.
+ *
+ *  What the class actually implements is a basic timer (calls to system clock),
+ *  and a method to check for a stopping condition.
+ *  These are meant to be used by children classes as needed.
+ */
+
 class code_base
 {
     private:
