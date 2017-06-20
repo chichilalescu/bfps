@@ -252,6 +252,13 @@ void kspace<be, dt>::low_pass(
                 });
 }
 
+/** \brief Filter a field using a Gaussian kernel.
+ *
+ *  Filter's mathematical expression in Fourier space is as follows:
+ *  \f[
+ *      \hat{g}_\ell(\mathbf{k}) = \exp(-k^2 \sigma^2 / 2)
+ *  \f]
+ */
 template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
@@ -275,6 +282,21 @@ void kspace<be, dt>::Gauss_filter(
                 });
 }
 
+/** \brief Filter a field.
+ *
+ *  This is a wrapper that can choose between a sharp Fourier spherical filter
+ *  and a Gaussian filter.
+ *  The cutoff wavenumber \f$k_c\f$ is a parameter, so the low pass Fourier
+ *  operation is straightforward.
+ *
+ *  For the Gaussian filter, it's mathematical expression in Fourier space is
+ *  as follows:
+ *  \f[
+ *      \hat{g}_\ell(\mathbf{k}) = \exp(-k^2 \ell^2 / 2)
+ *  \f]
+ *  And we choose the convention \f$\ell = \frac{\pi}{k_c}\f$.
+ *  This is the same convention used in \cite Buzzicotti2017 .
+ */
 template <field_backend be,
           kspace_dealias_type dt>
 template <typename rnumber,
@@ -292,22 +314,9 @@ int kspace<be, dt>::filter(
     }
     else if (filter_type == std::string("Gauss"))
     {
-        // I am using this complicated logarithm(16) thing after calibration.
-        //
-        // Calibration:
-        // 1. take some field f
-        // 2. compute spectrum of f, s0(k)
-        // 3. compute spectral cutoff at kc, obtain sc(k)
-        // 4. compute Gaussian filter with kc, obtain sg(k)
-        // 5. plot sc(k) / s0(k) and sg(k) / s0(k).
-        // 6. They will intersect at k = kc
-        // 7. The value of sg(k) / s0(k) at k = kc should be 1/2.
-        //
-        // I don't honestly know why I have sqrt(ln(2)) instead of
-        // sqrt(ln(4)). My calculation is that sigma = sqrt(ln(4)) / k.
         this->template Gauss_filter<rnumber, fc>(
                 a,
-                sqrt(log(2))/wavenumber);
+                2*acos(0.)/wavenumber);
     }
     return EXIT_SUCCESS;
 }
