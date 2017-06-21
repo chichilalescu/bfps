@@ -88,6 +88,16 @@ int NSVE<rnumber>::finalize(void)
     return EXIT_SUCCESS;
 }
 
+/** \brief Compute standard statistics for velocity and vorticity fields.
+ *
+ *  IMPORTANT: at the end of this subroutine, `this->fs->cvelocity` contains
+ *  the Fourier space representation of the velocity field, and
+ *  `this->tmp_vec_field` contains the real space representation of the
+ *  velocity field.
+ *  This behavior is relied upon in the `NSVEparticles` class, so please
+ *  don't break it.
+ */
+
 template <typename rnumber>
 int NSVE<rnumber>::do_stats()
 {
@@ -101,14 +111,6 @@ int NSVE<rnumber>::do_stats()
                 H5P_DEFAULT);
     else
         stat_group = 0;
-    fs->compute_velocity(fs->cvorticity);
-    *tmp_vec_field = fs->cvelocity->get_cdata();
-    tmp_vec_field->compute_stats(
-            fs->kk,
-            stat_group,
-            "velocity",
-            fs->iteration / niter_stat,
-            max_velocity_estimate/sqrt(3));
 
     *tmp_vec_field = fs->cvorticity->get_cdata();
     tmp_vec_field->compute_stats(
@@ -117,6 +119,15 @@ int NSVE<rnumber>::do_stats()
             "vorticity",
             fs->iteration / niter_stat,
             max_vorticity_estimate/sqrt(3));
+
+    fs->compute_velocity(fs->cvorticity);
+    *tmp_vec_field = fs->cvelocity->get_cdata();
+    tmp_vec_field->compute_stats(
+            fs->kk,
+            stat_group,
+            "velocity",
+            fs->iteration / niter_stat,
+            max_velocity_estimate/sqrt(3));
 
     if (this->myrank == 0)
         H5Gclose(stat_group);
