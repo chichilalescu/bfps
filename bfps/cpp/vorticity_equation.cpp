@@ -523,6 +523,11 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
     );
 }
 
+
+/** \brief Compute Lagrangian acceleration.
+ *
+ *  Acceleration is put in `acceleration` in the Fourier space representation.
+ */
 template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::compute_Lagrangian_acceleration(

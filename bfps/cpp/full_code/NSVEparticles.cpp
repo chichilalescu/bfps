@@ -16,12 +16,13 @@ int NSVEparticles<rnumber>::initialize(void)
                 (long long int)nparticles,  // to check coherency between parameters and hdf input file
                 this->fs->get_current_fname(),    // particles input filename
                 std::string("/tracers0/state/") + std::to_string(this->fs->iteration), // dataset name for initial input
-                std::string("/tracers0/rhs/")  + std::to_string(this->fs->iteration), // dataset name for initial input
+                std::string("/tracers0/rhs/")  + std::to_string(this->fs->iteration),  // dataset name for initial input
                 tracers0_neighbours,        // parameter (interpolation no neighbours)
                 tracers0_smoothness,        // parameter
                 this->comm,
                 this->fs->iteration+1);
-    this->particles_output_writer_mpi = new particles_output_hdf5<long long int,double,3,3>(
+    this->particles_output_writer_mpi = new particles_output_hdf5<
+        long long int, double, 3, 3>(
                 MPI_COMM_WORLD,
                 "tracers0",
                 nparticles,
@@ -63,27 +64,30 @@ int NSVEparticles<rnumber>::finalize(void)
     return EXIT_SUCCESS;
 }
 
+/** \brief Compute fluid stats and sample fields at particle locations.
+ */
+
 template <typename rnumber>
 int NSVEparticles<rnumber>::do_stats()
 {
-    // fluid stats go here
+    /// fluid stats go here
     this->NSVE<rnumber>::do_stats();
 
 
     if (!(this->iteration % this->niter_part == 0))
         return EXIT_SUCCESS;
 
-
-    //after fluid stats, cvelocity contains Fourier representation of vel field
-    this->fs->cvelocity->ift();
-
-    // sample velocity
-    sample_from_particles_system(*this->fs->cvelocity,// field to save
+    /// sample velocity
+    sample_from_particles_system(*this->tmp_vec_field,              // field to save
                                  this->ps,
                                  (this->simname + "_particles.h5"), // filename
-                                 "tracers0", // hdf5 parent group
-                                 "velocity" // dataset basename TODO
+                                 "tracers0",                        // hdf5 parent group
+                                 "velocity"                         // dataset basename TODO
                                  );
+
+    /// compute acceleration and sample it
+
+    this->fs->compute_Lagrangian_acceleration(this->tmp_vec_field);
 
     return EXIT_SUCCESS;
 }

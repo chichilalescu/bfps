@@ -36,6 +36,13 @@
 #include "particles/particles_system_builder.hpp"
 #include "particles/particles_output_hdf5.hpp"
 
+/** \brief Navier-Stokes solver that includes simple Lagrangian tracers.
+ *
+ *  Child of Navier Stokes vorticity equation solver, this class calls all the
+ *  methods from `NSVE`, and in addition integrates simple Lagrangian tracers
+ *  in the resulting velocity field.
+ */
+
 template <typename rnumber>
 class NSVEparticles: public NSVE<rnumber>
 {
