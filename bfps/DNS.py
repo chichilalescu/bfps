@@ -918,6 +918,7 @@ class DNS(_code):
                     if not os.path.exists(self.get_particle_file_name()):
                         with h5py.File(self.get_particle_file_name(), 'w') as particle_file:
                             particle_file.create_group('tracers0/velocity')
+                            particle_file.create_group('tracers0/acceleration')
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,

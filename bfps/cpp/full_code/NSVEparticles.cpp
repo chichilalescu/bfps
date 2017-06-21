@@ -86,8 +86,13 @@ int NSVEparticles<rnumber>::do_stats()
                                  );
 
     /// compute acceleration and sample it
-
     this->fs->compute_Lagrangian_acceleration(this->tmp_vec_field);
+    this->tmp_vec_field->ift();
+    sample_from_particles_system(*this->tmp_vec_field,
+                                 this->ps,
+                                 (this->simname + "_particles.h5"),
+                                 "tracers0",
+                                 "acceleration");
 
     return EXIT_SUCCESS;
 }
