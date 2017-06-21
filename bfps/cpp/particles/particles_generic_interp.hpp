@@ -252,13 +252,12 @@ public:
 
 
 template <>
-class particles_generic_interp<double, 9,0>{
+class particles_generic_interp<double, 9, 0>{
 public:
     using real_number = double;
 
     void compute_beta(const int in_derivative, const double in_part_val, double poly_val[]) const {
-        // TODO use beta_Lagrange_n9(in_derivative, in_part_val, poly_val);
-        beta_n9_m0(in_derivative, in_part_val, poly_val);
+        beta_Lagrange_n9(in_derivative, in_part_val, poly_val);
     }
 };
 
@@ -289,8 +288,7 @@ public:
     using real_number = double;
 
     void compute_beta(const int in_derivative, const double in_part_val, double poly_val[]) const {
-        // TODO use beta_Lagrange_n10(in_derivative, in_part_val, poly_val);
-        beta_n10_m0(in_derivative, in_part_val, poly_val);
+        beta_Lagrange_n10(in_derivative, in_part_val, poly_val);
     }
 };
 
@@ -315,3 +313,4 @@ public:
 };
 
 #endif//PARTICLES_INTERP_SPLINE_HPP
+
