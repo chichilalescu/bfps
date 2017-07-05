@@ -84,6 +84,12 @@ class kspace
 
         template <typename rnumber,
                   field_components fc>
+        void ball_filter(
+                typename fftw_interface<rnumber>::complex *__restrict__ a,
+                const double sigma);
+
+        template <typename rnumber,
+                  field_components fc>
         int filter(
                 typename fftw_interface<rnumber>::complex *__restrict__ a,
                 const double wavenumber,

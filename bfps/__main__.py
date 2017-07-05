@@ -30,6 +30,7 @@ import argparse
 import bfps
 from .DNS import DNS
 from .PP import PP
+from .TEST import TEST
 from .NavierStokes import NavierStokes
 from .NSVorticityEquation import NSVorticityEquation
 from .FluidResize import FluidResize
@@ -66,7 +67,7 @@ def main():
                'NSManyParticles-double']
     parser.add_argument(
             'base_class',
-            choices = ['DNS', 'PP'] +
+            choices = ['DNS', 'PP', 'TEST'] +
                       NSoptions +
                       NSVEoptions +
                       FRoptions +
@@ -84,6 +85,10 @@ def main():
         return None
     if opt.base_class == 'PP':
         c = PP()
+        c.launch(args = sys.argv[2:])
+        return None
+    if opt.base_class == 'TEST':
+        c = TEST()
         c.launch(args = sys.argv[2:])
         return None
     if 'double' in opt.base_class:

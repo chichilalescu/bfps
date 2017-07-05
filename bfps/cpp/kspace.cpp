@@ -252,6 +252,37 @@ void kspace<be, dt>::low_pass(
                 });
 }
 
+/** \brief Filter a field using a ball shaped top hat filter.
+ *
+ *  Filter's mathematical expression in Fourier space is as follows:
+ *  \f[
+ *      \hat{b}_\ell(\mathbf{k}) = \sin(k \ell / 2) / (k \ell / 2)
+ *  \f]
+ */
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+void kspace<be, dt>::ball_filter(
+        typename fftw_interface<rnumber>::complex *__restrict__ a,
+        const double sigma)
+{
+    const double prefactor = sigma/2;
+    this->CLOOP_K2(
+            [&](ptrdiff_t cindex,
+                ptrdiff_t xindex,
+                ptrdiff_t yindex,
+                ptrdiff_t zindex,
+                double k2){
+                if (k2 > 0)
+                {
+                    double argument = sqrt(k2)*prefactor;
+                    for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= sin(argument) / argument;
+                }
+                });
+}
+
 /** \brief Filter a field using a Gaussian kernel.
  *
  *  Filter's mathematical expression in Fourier space is as follows:
@@ -274,7 +305,6 @@ void kspace<be, dt>::Gauss_filter(
                 ptrdiff_t yindex,
                 ptrdiff_t zindex,
                 double k2){
-                if (k2 <= this->kM2)
                 {
                     for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
                         ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= exp(prefactor*k2);
@@ -284,8 +314,8 @@ void kspace<be, dt>::Gauss_filter(
 
 /** \brief Filter a field.
  *
- *  This is a wrapper that can choose between a sharp Fourier spherical filter
- *  and a Gaussian filter.
+ *  This is a wrapper that can choose between a sharp Fourier spherical filter,
+ *  a Gaussian filter and a sharp real space spherical filter.
  *  The cutoff wavenumber \f$k_c\f$ is a parameter, so the low pass Fourier
  *  operation is straightforward.
  *
@@ -315,6 +345,12 @@ int kspace<be, dt>::filter(
     else if (filter_type == std::string("Gauss"))
     {
         this->template Gauss_filter<rnumber, fc>(
+                a,
+                2*acos(0.)/wavenumber);
+    }
+    else if (filter_type == std::string("ball"))
+    {
+        this->template ball_filter<rnumber, fc>(
                 a,
                 2*acos(0.)/wavenumber);
     }
