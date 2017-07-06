@@ -30,6 +30,7 @@ void sample_from_particles_system(const field<rnumber, be, fc>& in_field, // a p
 
     const partsize_t nb_particles = ps->getLocalNbParticles();
     std::unique_ptr<particles_rnumber[]> sample_rhs(new particles_rnumber[size_particle_rhs*nb_particles]);
+    std::fill_n(sample_rhs.get(), size_particle_rhs*nb_particles, 0);
 
     ps->sample_compute_field(in_field, sample_rhs.get());
 
