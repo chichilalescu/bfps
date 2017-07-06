@@ -265,9 +265,9 @@ template <typename rnumber,
           field_components fc>
 void kspace<be, dt>::ball_filter(
         typename fftw_interface<rnumber>::complex *__restrict__ a,
-        const double sigma)
+        const double ell)
 {
-    const double prefactor = sigma/2;
+    const double weird_number = double(3) / (pow(ell, 3));
     this->CLOOP_K2(
             [&](ptrdiff_t cindex,
                 ptrdiff_t xindex,
@@ -276,10 +276,19 @@ void kspace<be, dt>::ball_filter(
                 double k2){
                 if (k2 > 0)
                 {
-                    double argument = sqrt(k2)*prefactor;
+                    double argument = sqrt(k2)*ell;
+                    double prefactor = weird_number / pow(k2, 1.5);
                     for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
-                        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= sin(argument) / argument;
+                        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= (
+                            prefactor *
+                            (sin(argument) - argument * cos(argument)));
                 }
+                //else
+                //{
+                //    double prefactor = pow(ell, 3) * weird_number / 3;
+                //    for (unsigned int tcounter=0; tcounter<2*ncomp(fc); tcounter++)
+                //        ((rnumber*)a)[2*ncomp(fc)*cindex + tcounter] *= prefactor;
+                //}
                 });
 }
 
@@ -352,7 +361,7 @@ int kspace<be, dt>::filter(
     {
         this->template ball_filter<rnumber, fc>(
                 a,
-                2*acos(0.)/wavenumber);
+                4*acos(0.)/wavenumber);
     }
     return EXIT_SUCCESS;
 }

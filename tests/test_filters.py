@@ -37,6 +37,10 @@ def filter_comparison(
     b = dd.df['ball/real/{0}'.format(dim)].value
     g = dd.df['Gauss/real/{0}'.format(dim)].value
     s = dd.df['sharp_Fourier_sphere/real/{0}'.format(dim)].value
+    d3V = dd.grid_spacing['x']*dd.grid_spacing['y']*dd.grid_spacing['z']
+    print(np.sum(b)*d3V)
+    print(np.sum(g)*d3V)
+    print(np.sum(s)*d3V)
     levels = np.linspace(
             min(b.min(), g.min(), s.min()),
             max(b.max(), g.max(), s.max()),
@@ -96,6 +100,9 @@ class sim_data:
         self.parameters = {}
         for kk in pfile['parameters'].keys():
             self.parameters[kk] = pfile['parameters/' + kk].value
+        self.grid_spacing = {}
+        for kk in ['x', 'y', 'z']:
+            self.grid_spacing[kk] = 2*np.pi / (self.parameters['dk' + kk] * self.parameters['n' + kk])
         return None
     def get_coordinate(
             self,
@@ -117,10 +124,10 @@ def main():
     #            [d32, d48, d64, d128],
     #            dim = 2,
     #            filter_type = ff)
-    dd = sim_data(simname = 'N128')
+    dd = sim_data(simname = 'test')
     filter_comparison(
             dd,
-            dim = 1)
+            dim = 0)
     return None
 
 if __name__ == '__main__':

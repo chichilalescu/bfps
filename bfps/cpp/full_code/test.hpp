@@ -24,58 +24,40 @@
 
 
 
-#ifndef FILTER_TEST_HPP
-#define FILTER_TEST_HPP
-
-
+#ifndef TEST_HPP
+#define TEST_HPP
 
 #include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <vector>
 #include "base.hpp"
-#include "kspace.hpp"
-#include "field.hpp"
-#include "full_code/test.hpp"
+#include "full_code/code_base.hpp"
 
-/** \brief A class for testing filters.
+/** \brief base class for miscellaneous tests.
  *
- *  This class applies available filters to three Dirac distributions:
- *      - nonzero at the origin
- *      - nonzero on the `x` axis
- *      - nonzero on the `(x, y)` plane.
- *  All three distributions are normalized, so simple sanity checks can
- *  be performed afterwards in a Python script.
- *
- *  While the convolutions can obviously be implemented in Python directly,
- *  it's better if the functionality is available here directly for easy
- *  reference.
+ *  Children of this class can basically do more or less anything inside their
+ *  `do_work` method, which will be executed only once.
  */
 
-template <typename rnumber>
-class filter_test: public test
+class test: public code_base
 {
     public:
-
-        /* parameters that are read in read_parameters */
-        double filter_length;
-
-        /* other stuff */
-        kspace<FFTW, SMOOTH> *kk;
-        field<rnumber, FFTW, ONE> *scal_field;
-
-        filter_test(
+        test(
                 const MPI_Comm COMMUNICATOR,
                 const std::string &simulation_name):
-            test(
+            code_base(
                     COMMUNICATOR,
                     simulation_name){}
-        ~filter_test(){}
+        virtual ~test(){}
 
-        int initialize(void);
-        int do_work(void);
-        int finalize(void);
-        int read_parameters(void);
+        virtual int initialize(void) = 0;
+        virtual int do_work(void) = 0;
+        virtual int finalize(void) = 0;
 
-        int reset_field(int dimension);
+        int main_loop(void);
+        virtual int read_parameters(void);
 };
 
-#endif//FILTER_TEST_HPP
+#endif//TEST_HPP
 

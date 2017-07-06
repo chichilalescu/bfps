@@ -88,7 +88,8 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['full_code/filter_test',
+src_file_list = ['full_code/test',
+                 'full_code/filter_test',
                  'hdf5_tools',
                  'full_code/get_rfields',
                  'full_code/NSVE_field_stats',
@@ -97,7 +98,6 @@ src_file_list = ['full_code/filter_test',
                  'full_code/code_base',
                  'full_code/direct_numerical_simulation',
                  'full_code/NSVE',
-                 'full_code/NSVEparticles',
                  'field_binary_IO',
                  'vorticity_equation',
                  'field',
@@ -125,7 +125,8 @@ src_file_list = ['full_code/filter_test',
                  'spline_n9',
                  'spline_n10',
                  'Lagrange_polys',
-                 'scope_timer']
+                 'scope_timer',
+                 'full_code/NSVEparticles']
 
 particle_headers = [
         'cpp/particles/particles_distr_mpi.hpp',
