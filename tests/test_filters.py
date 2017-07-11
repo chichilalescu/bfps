@@ -37,6 +37,12 @@ def phi_b(
     phi[bindices] = 0
     return phi
 
+def hat_phi_b(
+        k, ell):
+    arg = k * ell / 2
+    phi = (3. / arg**3) * (np.sin(arg) - arg*np.cos(arg))
+    return phi
+
 def phi_s(
         x,
         ell,
@@ -46,6 +52,14 @@ def phi_s(
     phi = (np.sin(arg) - arg*np.cos(arg)) / (2 * x**3 * np.pi**2)
     return phi
 
+def hat_phi_s(
+        k, ell, prefactor = 2*np.pi):
+    kc = prefactor / ell
+    bindices = np.where(np.abs(k) > kc)
+    phi = np.ones(k.shape, k.dtype)
+    phi[bindices] = 0
+    return phi
+
 def phi_g(
         x,
         ell,
@@ -53,6 +67,13 @@ def phi_g(
     sigma = prefactor * ell
     phi = np.exp(- 0.5 * (x / sigma)**2) / (sigma**3 * (2*np.pi)**1.5)
     return phi
+
+def hat_phi_g(
+        k, ell,
+        prefactor = 1):
+    sigma = prefactor * ell
+    return np.exp(-0.5 * (k * sigma)**2)
+
 
 def filter_comparison(
         dd = None,
