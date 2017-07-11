@@ -101,7 +101,7 @@ int filter_test<rnumber>::do_work(void)
         this->reset_field(dimension);
         this->kk->template filter<rnumber, ONE>(
                 this->scal_field->get_cdata(),
-                4*acos(0) / (this->filter_length),
+                4*acos(0) / this->filter_length,
                 "sharp_Fourier_sphere");
         this->scal_field->ift();
         this->scal_field->normalize();
@@ -113,7 +113,7 @@ int filter_test<rnumber>::do_work(void)
         this->reset_field(dimension);
         this->kk->template filter<rnumber, ONE>(
                 this->scal_field->get_cdata(),
-                4*acos(0) / (this->filter_length / sqrt(log(2))),
+                4*acos(0) / this->filter_length,
                 "Gauss");
         this->scal_field->ift();
         this->scal_field->normalize();
@@ -125,7 +125,7 @@ int filter_test<rnumber>::do_work(void)
         this->reset_field(dimension);
         this->kk->template filter<rnumber, ONE>(
                 this->scal_field->get_cdata(),
-                4*acos(0) / (this->filter_length),
+                4*acos(0) / this->filter_length,
                 "ball");
         this->scal_field->ift();
         this->scal_field->normalize();

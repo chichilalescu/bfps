@@ -30,6 +30,30 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
+def phi_b(
+        x, ell):
+    phi = (6. / (np.pi * ell**3)) * np.ones(x.shape, x.dtype)
+    bindices = np.where(np.abs(x) > ell/2)
+    phi[bindices] = 0
+    return phi
+
+def phi_s(
+        x,
+        ell,
+        prefactor = 2*np.pi):
+    kc = prefactor / ell
+    arg = kc*x
+    phi = (np.sin(arg) - arg*np.cos(arg)) / (2 * x**3 * np.pi**2)
+    return phi
+
+def phi_g(
+        x,
+        ell,
+        prefactor = 1):
+    sigma = prefactor * ell
+    phi = np.exp(- 0.5 * (x / sigma)**2) / (sigma**3 * (2*np.pi)**1.5)
+    return phi
+
 def filter_comparison(
         dd = None,
         base_name = 'filter_test_',
@@ -45,6 +69,7 @@ def filter_comparison(
             min(b.min(), g.min(), s.min()),
             max(b.max(), g.max(), s.max()),
             64)
+    #levels = None
     f = plt.figure(figsize = (12, 6))
     a = f.add_subplot(131)
     v = np.roll(b[..., 0], b.shape[0]//2, axis = 0)
@@ -65,9 +90,45 @@ def filter_comparison(
     f.savefig(base_name + '2D.pdf')
     f = plt.figure(figsize = (6, 5))
     a = f.add_subplot(111)
-    a.plot(dd.get_coordinate('z'), b[:, 0, 0], label = 'ball')
-    a.plot(dd.get_coordinate('z'), g[:, 0, 0], label = 'Gauss', dashes = (3, 3))
-    a.plot(dd.get_coordinate('z'), s[:, 0, 0], label = 'sinc', dashes = (1, 1))
+    zz = dd.get_coordinate('z')
+    # ball filter
+    a.plot(
+            zz,
+            b[:, 0, 0],
+            label = '$\\phi^b$ numeric',
+            color = 'red',
+            dashes = (4, 4))
+    a.plot(
+            zz,
+            phi_b(zz, dd.parameters['filter_length']),
+            label = '$\\phi^b$ exact',
+            color = 'red',
+            dashes = (1, 1))
+    a.plot(
+            zz,
+            g[:, 0, 0],
+            label = '$\\phi^g$',
+            color = 'magenta',
+            dashes = (4, 4))
+    a.plot(
+            zz,
+            phi_g(zz, dd.parameters['filter_length'], prefactor = 0.5),
+            label = '$\\phi^g$ exact',
+            color = 'magenta',
+            dashes = (1, 1))
+    a.plot(
+            zz,
+            s[:, 0, 0],
+            label = '$\\phi^s$ numeric',
+            color = 'blue',
+            dashes = (4, 4))
+    a.plot(
+            zz,
+            phi_s(zz, dd.parameters['filter_length'], prefactor = 2*np.pi),
+            label = '$\\phi^s$ exact',
+            color = 'blue',
+            dashes = (1, 1))
+    a.set_xlim(0, np.pi)
     a.legend(loc = 'best')
     f.tight_layout()
     f.savefig(base_name + '1D.pdf')
