@@ -441,13 +441,13 @@ int kspace<be, dt>::filter_calibrated_ell(
     {
         this->template low_pass<rnumber, fc>(
                 a,
-                5.5 / ell);
+                2.8 / ell);
     }
     else if (filter_type == std::string("Gauss"))
     {
         this->template Gauss_filter<rnumber, fc>(
                 a,
-                0.257*ell);
+                0.23*ell);
     }
     else if (filter_type == std::string("ball"))
     {

@@ -38,7 +38,8 @@ def phi_b(
     return phi
 
 def hat_phi_b(
-        k, ell):
+        k, ell,
+        prefactor = 1.0):
     arg = k * ell / 2
     phi = (3. / arg**3) * (np.sin(arg) - arg*np.cos(arg))
     return phi
@@ -53,7 +54,7 @@ def phi_s(
     return phi
 
 def hat_phi_s(
-        k, ell, prefactor = 5.5):
+        k, ell, prefactor = 2.8):
     kc = prefactor / ell
     bindices = np.where(np.abs(k) > kc)
     phi = np.ones(k.shape, k.dtype)
@@ -70,7 +71,7 @@ def phi_g(
 
 def hat_phi_g(
         k, ell,
-        prefactor = 0.257):
+        prefactor = 0.23):
     sigma = prefactor * ell
     return np.exp(-0.5 * (k * sigma)**2)
 
