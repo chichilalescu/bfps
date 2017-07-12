@@ -254,9 +254,16 @@ void kspace<be, dt>::low_pass(
 
 /** \brief Filter a field using a ball shaped top hat filter.
  *
- *  Filter's mathematical expression in Fourier space is as follows:
+ *  Filter's mathematical expression in real space is as follows:
  *  \f[
- *      \hat{b}_\ell(\mathbf{k}) = \sin(k \ell / 2) / (k \ell / 2)
+ *       \phi^b_\ell(r) =
+ *           \frac{1}{\ell^3}\frac{6}{\pi} H(\ell/2 - r)
+ *  \f]
+ *  with the corresponding Fourier space expression:
+ *  \f[
+ *       \hat{\phi^b_\ell}(k) =
+ *       \frac{3}{2(k\ell/2)^3}
+ *       \left(2\sin (k \ell/2) - k \ell \cos (k \ell/2)\right)
  *  \f]
  */
 template <field_backend be,
@@ -319,16 +326,38 @@ void kspace<be, dt>::Gauss_filter(
  *
  *  This is a wrapper that can choose between a sharp Fourier spherical filter,
  *  a Gaussian filter and a sharp real space spherical filter.
- *  The cutoff wavenumber \f$k_c\f$ is a parameter, so the low pass Fourier
- *  operation is straightforward.
  *
- *  For the Gaussian filter, it's mathematical expression in Fourier space is
- *  as follows:
+ *  Filter expressions in real space are as follows:
+ *  \f{eqnarray*}{
+ *       \phi^b_\ell(r) &=&
+ *           \frac{1}{\ell^3}\frac{6}{\pi} H(\ell/2 - r) \\
+ *       \phi^g_\ell(r) &=&
+ *           \frac{1}{\sigma_\ell^3}\frac{1}{(2\pi)^{3/2}}
+ *           \exp\left(-\frac{1}{2}\left(\frac{r}{\sigma_\ell}\right)^2\right) \\
+ *       \phi^s_\ell(r) &=&
+ *           \frac{1}{2 \pi^2 r^3}
+ *           \left(\sin k_\ell r - k_\ell r \cos k_\ell r\right)
+ *  \f}
+ *  and the corresponding expressions in Fourier space are:
+ *  \f{eqnarray*}{
+ *       \hat{\phi^b_\ell}(k) &=&
+ *       \frac{3}{2(k\ell/2)^3}
+ *       \left(2\sin (k \ell/2) - k \ell \cos (k \ell/2)\right) \\
+ *       \hat{\phi^g_\ell}(k) &=&
+ *       \exp\left(-\frac{1}{2}k^2 \sigma_\ell^2\right) \\
+ *       \hat{\phi^s_\ell}(k) &=& H(k_\ell - k)
+ *  \f}
+ *
+ *  \f$ k_\ell \f$ is given as a parameter, and then we use
  *  \f[
- *      \hat{g}_\ell(\mathbf{k}) = \exp(-k^2 \ell^2 / 2)
+ *      \ell = \pi / k_\ell,
+ *      \sigma_\ell = \pi / k_\ell
  *  \f]
- *  And we choose the convention \f$\ell = \frac{\pi}{k_c}\f$.
- *  This is the same convention used in \cite Buzzicotti2017 .
+ *
+ *  For the Gaussian filter this is the same convention used in
+ *  \cite Buzzicotti2017 .
+ *
+ *  See also `filter_calibrated_ell`.
  */
 template <field_backend be,
           kspace_dealias_type dt>
@@ -355,7 +384,76 @@ int kspace<be, dt>::filter(
     {
         this->template ball_filter<rnumber, fc>(
                 a,
-                4*acos(0.)/wavenumber);
+                2*acos(0.)/wavenumber);
+    }
+    return EXIT_SUCCESS;
+}
+
+/** \brief Filter a field.
+ *
+ *  This is a wrapper that can choose between a sharp Fourier spherical filter,
+ *  a Gaussian filter and a sharp real space spherical filter.
+ *
+ *  Filter expressions in real space are as follows:
+ *  \f{eqnarray*}{
+ *      \phi^b_\ell(r) &=&
+ *          \frac{1}{\ell^3}\frac{6}{\pi} H(\ell/2 - r) \\
+ *      \phi^g_\ell(r) &=&
+ *          \frac{1}{\sigma_\ell^3}\frac{1}{(2\pi)^{3/2}}
+ *          \exp\left(-\frac{1}{2}\left(\frac{r}{\sigma_\ell}\right)^2\right) \\
+ *      \phi^s_\ell(r) &=&
+ *          \frac{1}{2 \pi^2 r^3}
+ *          \left(\sin k_\ell r - k_\ell r \cos k_\ell r\right)
+ *  \f}
+ *  and the corresponding expressions in Fourier space are:
+ *  \f{eqnarray*}{
+ *      \hat{\phi^b_\ell}(k) &=&
+ *      \frac{3}{2(k\ell/2)^3}
+ *      \left(2\sin (k \ell/2) - k \ell \cos (k \ell/2)\right) \\
+ *      \hat{\phi^g_\ell}(k) &=&
+ *      \exp\left(-\frac{1}{2}k^2 \sigma_\ell^2\right) \\
+ *      \hat{\phi^s_\ell}(k) &=& H(k_\ell - k)
+ *  \f}
+ *
+ *  \f$\sigma_\ell\f$ and \f$k_\ell\f$ are calibrated such that the energy of
+ *  the fluctuations is approximately the same (within the inertial range)
+ *  independently of the shape of the filter.
+ *
+ *  This was done by hand, see [INSERT CITATION HERE] for details, with the
+ *  results:
+ *
+ *  \f[
+ *      \sigma_\ell = 0.257 \ell,
+ *      k_\ell = 5.5 / \ell
+ *  \f]
+ *
+ */
+template <field_backend be,
+          kspace_dealias_type dt>
+template <typename rnumber,
+          field_components fc>
+int kspace<be, dt>::filter_calibrated_ell(
+        typename fftw_interface<rnumber>::complex *__restrict__ a,
+        const double ell,
+        std::string filter_type)
+{
+    if (filter_type == std::string("sharp_Fourier_sphere"))
+    {
+        this->template low_pass<rnumber, fc>(
+                a,
+                5.5 / ell);
+    }
+    else if (filter_type == std::string("Gauss"))
+    {
+        this->template Gauss_filter<rnumber, fc>(
+                a,
+                0.257*ell);
+    }
+    else if (filter_type == std::string("ball"))
+    {
+        this->template ball_filter<rnumber, fc>(
+                a,
+                ell);
     }
     return EXIT_SUCCESS;
 }
@@ -585,6 +683,32 @@ template int kspace<FFTW, SMOOTH>::filter<double, THREE>(
         const double kmax,
         std::string filter_type);
 template int kspace<FFTW, SMOOTH>::filter<double, THREExTHREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<float, ONE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<float, THREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<float, THREExTHREE>(
+        typename fftw_interface<float>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<double, ONE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<double, THREE>(
+        typename fftw_interface<double>::complex *__restrict__ a,
+        const double kmax,
+        std::string filter_type);
+template int kspace<FFTW, SMOOTH>::filter_calibrated_ell<double, THREExTHREE>(
         typename fftw_interface<double>::complex *__restrict__ a,
         const double kmax,
         std::string filter_type);
