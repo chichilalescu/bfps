@@ -130,7 +130,8 @@ class FluidConvert(_fluid_particle_base):
         self.rewrite_par(
                 group = 'conversion_parameters',
                 parameters = self.spec_parameters)
-        self.run(ncpu = opt.ncpu,
+        self.run(opt.nb_processes,
+		 1,
                  hours = opt.minutes // 60,
                  minutes = opt.minutes % 60,
                  err_file = 'err_convert',
