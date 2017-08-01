@@ -416,15 +416,15 @@ int kspace<be, dt>::filter(
  *  \f}
  *
  *  \f$\sigma_\ell\f$ and \f$k_\ell\f$ are calibrated such that the energy of
- *  the fluctuations is approximately the same (within the inertial range)
+ *  the large scales is approximately the same (within the inertial range)
  *  independently of the shape of the filter.
  *
  *  This was done by hand, see [INSERT CITATION HERE] for details, with the
  *  results:
  *
  *  \f[
- *      \sigma_\ell = 0.257 \ell,
- *      k_\ell = 5.5 / \ell
+ *      \sigma_\ell = 0.23 \ell,
+ *      k_\ell = 2.8 / \ell
  *  \f]
  *
  */
