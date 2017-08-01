@@ -123,10 +123,6 @@ class TEST(_code):
         self.parameters['dky'] = float(1.0)
         self.parameters['dkz'] = float(1.0)
         self.parameters['filter_length'] = float(1.0)
-        self.parameters['niter_todo'] = int(1)
-        self.parameters['niter_stat'] = int(1)
-        self.parameters['niter_out'] = int(1)
-        self.parameters['checkpoints_per_file'] = int(1)
         return None
     def get_kspace(self):
         kspace = {}
@@ -162,9 +158,6 @@ class TEST(_code):
             self,
             iter0 = 0,
             particle_ic = None):
-        assert (self.parameters['niter_todo'] == 1)
-        assert (self.parameters['niter_out'] == 1)
-        assert (self.parameters['niter_stat'] == 1)
         assert (iter0 == 0)
         _code.write_par(self, iter0 = iter0)
         with h5py.File(self.get_data_file_name(), 'r+') as ofile:

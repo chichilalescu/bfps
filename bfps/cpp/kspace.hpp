@@ -97,6 +97,13 @@ class kspace
 
         template <typename rnumber,
                   field_components fc>
+        int filter_calibrated_ell(
+                typename fftw_interface<rnumber>::complex *__restrict__ a,
+                const double wavenumber,
+                std::string filter_type = std::string("Gauss"));
+
+        template <typename rnumber,
+                  field_components fc>
         void dealias(typename fftw_interface<rnumber>::complex *__restrict__ a);
 
         template <typename rnumber,
