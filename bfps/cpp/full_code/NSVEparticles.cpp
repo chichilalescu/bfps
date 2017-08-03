@@ -84,7 +84,6 @@ int NSVEparticles<rnumber>::do_stats()
                                  "tracers0",                        // hdf5 parent group
                                  "velocity"                         // dataset basename TODO
                                  );
-    DEBUG_MSG("hello after sampling velocity\n");
 
     /// compute acceleration and sample it
     this->fs->compute_Lagrangian_acceleration(this->tmp_vec_field);
@@ -94,7 +93,6 @@ int NSVEparticles<rnumber>::do_stats()
                                  (this->simname + "_particles.h5"),
                                  "tracers0",
                                  "acceleration");
-    DEBUG_MSG("hello after sampling acceleration\n");
 
     return EXIT_SUCCESS;
 }
