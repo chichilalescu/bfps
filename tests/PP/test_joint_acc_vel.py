@@ -11,10 +11,25 @@ def main():
     df.close()
 
     f = plt.figure()
-    a = f.add_subplot(111)
+    a = f.add_subplot(211)
     a.plot(acc_hist[0, :, :3])
     a.plot(np.sum(acc_vel_histc[0, :, :, :, 0], axis = 1), dashes = (1, 1))
-    f.savefig('sanity_test.pdf')
+    a = f.add_subplot(212)
+    a.plot(acc_hist[0, :, 3])
+    a.plot(np.sum(acc_vel_histm[0, :, :], axis = 1), dashes = (1, 1))
+    f.tight_layout()
+    f.savefig('sanity_test_acceleration.pdf')
+    plt.close(f)
+
+    f = plt.figure()
+    a = f.add_subplot(211)
+    a.plot(vel_hist[0, :, :3])
+    a.plot(np.sum(acc_vel_histc[0, :, :, 0, :], axis = 0), dashes = (1, 1))
+    a = f.add_subplot(212)
+    a.plot(vel_hist[0, :, 3])
+    a.plot(np.sum(acc_vel_histm[0, :, :], axis = 0), dashes = (1, 1))
+    f.tight_layout()
+    f.savefig('sanity_test_velocity.pdf')
     plt.close(f)
     return None
 

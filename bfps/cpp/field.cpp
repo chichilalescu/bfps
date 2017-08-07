@@ -1223,19 +1223,19 @@ int joint_rspace_PDF(
             ptrdiff_t *local_histm = local_histm_threaded.getMine();
 
             double mag1, mag2;
-            mag1 = 0;
-            mag2 = 0;
-
+            mag1 = 0.0;
+            mag2 = 0.0;
             for (unsigned int i=0; i<3; i++)
             {
                 double val1 = f1->rval(rindex, i);
                 mag1 += val1*val1;
                 int bin1 = int(floor((val1 + max_f1_estimate[i])/bin1size[i]));
+                mag2 = 0.0;
                 for (unsigned int j=0; j<3; j++)
                 {
-                    double val2 = f2->rval(rindex, i);
+                    double val2 = f2->rval(rindex, j);
                     mag2 += val2*val2;
-                    int bin2 = int(floor((val2 + max_f2_estimate[i])/bin2size[i]));
+                    int bin2 = int(floor((val2 + max_f2_estimate[j])/bin2size[j]));
                     if ((bin1 >= 0 && bin1 < nbins) &&
                         (bin2 >= 0 && bin2 < nbins))
                         local_histc[(bin1*nbins + bin2)*9 + i*3 + j]++;
