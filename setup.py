@@ -88,7 +88,8 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['full_code/test',
+src_file_list = ['full_code/joint_acc_vel_stats',
+                 'full_code/test',
                  'full_code/filter_test',
                  'hdf5_tools',
                  'full_code/get_rfields',

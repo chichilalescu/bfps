@@ -58,7 +58,7 @@ class vorticity_equation
 
         /* fields */
         field<rnumber, be, THREE> *cvorticity, *cvelocity;
-        field<rnumber, be, THREE> *rvorticity, *rvelocity;
+        field<rnumber, be, THREE> *rvorticity;
         kspace<be, SMOOTH> *kk;
 
 

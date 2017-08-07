@@ -1135,6 +1135,183 @@ int invert_curl(
     return EXIT_SUCCESS;
 }
 
+template <typename rnumber,
+          field_backend be>
+int joint_rspace_PDF(
+        field<rnumber, be, THREE> *f1,
+        field<rnumber, be, THREE> *f2,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset,
+        const std::vector<double> max_f1_estimate,
+        const std::vector<double> max_f2_estimate)
+{
+    TIMEZONE("joint_rspace_PDF");
+    assert(f1->real_space_representation);
+    assert(f2->real_space_representation);
+    assert(max_f1_estimate.size() == 4);
+    assert(max_f2_estimate.size() == 4);
+    int nbins;
+    if (f1->myrank == 0)
+    {
+        hid_t dset, wspace;
+        hsize_t dims[5];
+        int ndims;
+        dset = H5Dopen(
+                group,
+                ("histograms/" + dset_name + "_components").c_str(),
+                H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+        DEBUG_MSG("number of dimensions is %d\n", ndims);
+        assert(ndims == 5);
+        assert(dims[3] == 3);
+        assert(dims[4] == 3);
+        H5Sclose(wspace);
+        H5Dclose(dset);
+        dset = H5Dopen(
+                group,
+                ("histograms/" + dset_name + "_magnitudes").c_str(),
+                H5P_DEFAULT);
+        wspace = H5Dget_space(dset);
+        ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
+        assert(ndims == 3);
+        H5Sclose(wspace);
+        H5Dclose(dset);
+        nbins = dims[1];
+    }
+    {
+        TIMEZONE("MPI_Bcast");
+        MPI_Bcast(&nbins, 1, MPI_INT, 0, f1->comm);
+    }
+
+    /// histogram components
+    shared_array<ptrdiff_t> local_histc_threaded(
+            nbins*nbins*9,
+            [&](ptrdiff_t* local_hist){
+                std::fill_n(local_hist, nbins*nbins*9, 0);
+                });
+
+    /// histogram magnitudes
+    shared_array<ptrdiff_t> local_histm_threaded(
+            nbins*nbins,
+            [&](ptrdiff_t* local_hist){
+                std::fill_n(local_hist, nbins*nbins, 0);
+                });
+
+    /// set up bin sizes
+    std::vector<double> bin1size, bin2size;
+    bin1size.resize(4);
+    bin2size.resize(4);
+    for (unsigned int i=0; i<3; i++)
+    {
+        bin1size[i] = 2*max_f1_estimate[i] / nbins;
+        bin2size[i] = 2*max_f2_estimate[i] / nbins;
+    }
+    bin1size[3] = max_f1_estimate[3] / nbins;
+    bin2size[3] = max_f2_estimate[3] / nbins;
+
+
+    {
+        TIMEZONE("field::RLOOP");
+        f1->RLOOP(
+                [&](ptrdiff_t rindex,
+                    ptrdiff_t xindex,
+                    ptrdiff_t yindex,
+                    ptrdiff_t zindex){
+            ptrdiff_t *local_histc = local_histc_threaded.getMine();
+            ptrdiff_t *local_histm = local_histm_threaded.getMine();
+
+            double mag1, mag2;
+            mag1 = 0;
+            mag2 = 0;
+
+            for (unsigned int i=0; i<3; i++)
+            {
+                double val1 = f1->rval(rindex, i);
+                mag1 += val1*val1;
+                int bin1 = int(floor((val1 + max_f1_estimate[i])/bin1size[i]));
+                for (unsigned int j=0; j<3; j++)
+                {
+                    double val2 = f2->rval(rindex, i);
+                    mag2 += val2*val2;
+                    int bin2 = int(floor((val2 + max_f2_estimate[i])/bin2size[i]));
+                    if ((bin1 >= 0 && bin1 < nbins) &&
+                        (bin2 >= 0 && bin2 < nbins))
+                        local_histc[(bin1*nbins + bin2)*9 + i*3 + j]++;
+                }
+            }
+            int bin1 = int(floor(sqrt(mag1)/bin1size[3]));
+            int bin2 = int(floor(sqrt(mag2)/bin2size[3]));
+            if ((bin1 >= 0 && bin1 < nbins) &&
+                (bin2 >= 0 && bin2 < nbins))
+                local_histm[bin1*nbins + bin2]++;
+            });
+    }
+    local_histm_threaded.mergeParallel();
+    local_histc_threaded.mergeParallel();
+    ptrdiff_t *histm = new ptrdiff_t[nbins*nbins];
+    ptrdiff_t *histc = new ptrdiff_t[nbins*nbins*9];
+    {
+        MPI_Allreduce(
+                (void*)local_histm_threaded.getMasterData(),
+                (void*)histm,
+                nbins*nbins,
+                MPI_INT64_T, MPI_SUM, f1->comm);
+        MPI_Allreduce(
+                (void*)local_histc_threaded.getMasterData(),
+                (void*)histc,
+                nbins*nbins*9,
+                MPI_INT64_T, MPI_SUM, f1->comm);
+    }
+
+    if (f1->myrank == 0)
+    {
+        TIMEZONE("root-work");
+        hid_t dset, wspace, mspace;
+        hsize_t count[5], offset[5];
+        dset = H5Dopen(group, ("histograms/" + dset_name + "_components").c_str(), H5P_DEFAULT);
+        assert(dset > 0);
+        wspace = H5Dget_space(dset);
+        offset[0] = toffset;
+        offset[1] = 0;
+        offset[2] = 0;
+        offset[3] = 0;
+        offset[4] = 0;
+        count[0] = 1;
+        count[1] = nbins;
+        count[2] = nbins;
+        count[3] = 3;
+        count[4] = 3;
+        mspace = H5Screate_simple(5, count, NULL);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_INT64, mspace, wspace, H5P_DEFAULT, histc);
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+        dset = H5Dopen(group, ("histograms/" + dset_name + "_magnitudes").c_str(), H5P_DEFAULT);
+        assert(dset > 0);
+        offset[0] = toffset;
+        offset[1] = 0;
+        offset[2] = 0;
+        count[0] = 1;
+        count[1] = nbins;
+        count[2] = nbins;
+        mspace = H5Screate_simple(3, count, NULL);
+        wspace = H5Dget_space(dset);
+        H5Sselect_hyperslab(wspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dwrite(dset, H5T_NATIVE_INT64, mspace, wspace, H5P_DEFAULT, histm);
+        H5Sclose(wspace);
+        H5Sclose(mspace);
+        H5Dclose(dset);
+    }
+
+    delete[] histm;
+    delete[] histc;
+
+    return EXIT_SUCCESS;
+}
+
 template class field<float, FFTW, ONE>;
 template class field<float, FFTW, THREE>;
 template class field<float, FFTW, THREExTHREE>;
@@ -1208,4 +1385,21 @@ template int invert_curl<double, FFTW, SMOOTH>(
         kspace<FFTW, SMOOTH> *,
         field<double, FFTW, THREE> *,
         field<double, FFTW, THREE> *);
+
+template int joint_rspace_PDF<float, FFTW>(
+        field<float, FFTW, THREE> *,
+        field<float, FFTW, THREE> *,
+        const hid_t,
+        const std::string,
+        const hsize_t,
+        const std::vector<double>,
+        const std::vector<double>);
+template int joint_rspace_PDF<double, FFTW>(
+        field<double, FFTW, THREE> *,
+        field<double, FFTW, THREE> *,
+        const hid_t,
+        const std::string,
+        const hsize_t,
+        const std::vector<double>,
+        const std::vector<double>);
 

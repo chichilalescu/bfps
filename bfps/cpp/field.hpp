@@ -306,5 +306,16 @@ int invert_curl(
         field<rnumber, be, THREE> *source,
         field<rnumber, be, THREE> *destination);
 
+template <typename rnumber,
+          field_backend be>
+int joint_rspace_PDF(
+        field<rnumber, be, THREE> *f1,
+        field<rnumber, be, THREE> *f2,
+        const hid_t group,
+        const std::string dset_name,
+        const hsize_t toffset,
+        const std::vector<double> max_f1_estimate,
+        const std::vector<double> max_f2_estimate);
+
 #endif//FIELD_HPP
 
