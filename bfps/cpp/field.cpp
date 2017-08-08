@@ -1235,8 +1235,8 @@ int joint_rspace_PDF(
     {
         for (unsigned int i=0; i<4; i++)
         {
-            bin1size[i] = max_f1_estimate[0] / nbins;
-            bin2size[i] = max_f2_estimate[0] / nbins;
+            bin1size[i] = 2*max_f1_estimate[0] / nbins;
+            bin2size[i] = 2*max_f2_estimate[0] / nbins;
         }
     }
 
@@ -1279,8 +1279,8 @@ int joint_rspace_PDF(
             }
             else if (fc == ONE)
             {
-                bin1 = int(floor(f1->rval(rindex)/bin1size[3]));
-                bin2 = int(floor(f2->rval(rindex)/bin2size[3]));
+                bin1 = int(floor((f1->rval(rindex) + max_f1_estimate[0])/bin1size[3]));
+                bin2 = int(floor((f2->rval(rindex) + max_f2_estimate[0])/bin2size[3]));
             }
             if ((bin1 >= 0 && bin1 < nbins) &&
                 (bin2 >= 0 && bin2 < nbins))
