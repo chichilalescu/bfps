@@ -246,7 +246,7 @@ class _code(_base):
             need_to_compile = (datetime.fromtimestamp(os.path.getctime(os.path.join(self.work_dir, self.name))) <
                                bfps.install_info['install_date'])
         if need_to_compile:
-            assert(self.compile_code() == 0)
+            assert self.compile_code() == 0
             if self.work_dir != os.path.realpath(os.getcwd()):
                 shutil.copy(self.name, self.work_dir)
         if 'niter_todo' not in self.parameters.keys():
@@ -386,13 +386,14 @@ class _code(_base):
         script_file.write('# @ notify_user = $(user)@rzg.mpg.de\n')
 
         nb_cpus_per_node = self.host_info['deltanprocs']
-        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1,
-                'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
+        assert isinstance(nb_cpus_per_node, int) and \
+               nb_cpus_per_node >= 1, \
+               'nb_cpus_per_node is {}'.format(nb_cpus_per_node)
 
         # No more threads than the number of cores
-        assert(nb_threads_per_process <= nb_cpus_per_node,
+        assert nb_threads_per_process <= nb_cpus_per_node, \
                "Cannot use more threads ({} asked) than the number of cores ({})".format(
-                   nb_threads_per_process, nb_cpus_per_node))
+                   nb_threads_per_process, nb_cpus_per_node)
         # Warn if some core will not be ued
         if nb_cpus_per_node%nb_threads_per_process != 0:
             warnings.warn("The number of threads is smaller than the number of cores (machine will be underused)",
@@ -479,12 +480,14 @@ class _code(_base):
         script_file.write('#\n')
 
         nb_cpus_per_node = self.host_info['deltanprocs']
-        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1, 'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
+        assert isinstance(nb_cpus_per_node, int) and \
+               nb_cpus_per_node >= 1, \
+               'nb_cpus_per_node is {}'.format(nb_cpus_per_node)
 
         # No more threads than the number of cores
-        assert(nb_threads_per_process <= nb_cpus_per_node,
+        assert nb_threads_per_process <= nb_cpus_per_node, \
                "Cannot use more threads ({} asked) than the number of cores ({})".format(
-                   nb_threads_per_process, nb_cpus_per_node))
+                   nb_threads_per_process, nb_cpus_per_node)
         # Warn if some core will not be ued
         if nb_cpus_per_node%nb_threads_per_process != 0:
             warnings.warn("The number of threads is smaller than the number of cores (machine will be underused)",
@@ -507,7 +510,7 @@ class _code(_base):
             script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_threads_per_process))
             script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
             script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
-            assert(type(self.host_info['environment']) != type(None))
+            assert type(self.host_info['environment']) != type(None)
             script_file.write('# @ node = {0}\n'.format(nb_nodes))
             script_file.write('# @ tasks_per_node = {0}\n'.format(nb_processes_per_node))
             if (first_node_tasks > 0):
@@ -611,13 +614,14 @@ class _code(_base):
                 self.host_info['environment']))
 
         nb_cpus_per_node = self.host_info['deltanprocs']
-        assert(isinstance(nb_cpus_per_node, int) and nb_cpus_per_node >= 1,
-               'nb_cpus_per_node is {}'.format(nb_cpus_per_node))
+        assert isinstance(nb_cpus_per_node, int) \
+               and nb_cpus_per_node >= 1, \
+               'nb_cpus_per_node is {}'.format(nb_cpus_per_node)
 
         # No more threads than the number of cores
-        assert(nb_threads_per_process <= nb_cpus_per_node,
+        assert nb_threads_per_process <= nb_cpus_per_node, \
                "Cannot use more threads ({} asked) than the number of cores ({})".format(
-                   nb_threads_per_process, nb_cpus_per_node))
+                   nb_threads_per_process, nb_cpus_per_node)
         # Warn if some core will not be ued
         if nb_cpus_per_node%nb_threads_per_process != 0:
             warnings.warn(
