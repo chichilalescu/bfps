@@ -117,7 +117,7 @@ class PP(_code):
             outfile.write(self.main + '\n')
         return None
     def generate_default_parameters(self):
-        # these parameters are relevant for all DNS classes
+        # these parameters are relevant for all PP classes
         self.parameters['dealias_type'] = int(1)
         self.parameters['dkx'] = float(1.0)
         self.parameters['dky'] = float(1.0)
@@ -131,6 +131,15 @@ class PP(_code):
         self.pp_parameters = {}
         self.pp_parameters['iteration_list'] = np.zeros(1).astype(np.int)
         return None
+    def extra_postprocessing_parameters(
+            self,
+            dns_type = 'joint_acc_vel_stats'):
+        pars = {}
+        if dns_type == 'joint_acc_vel_stats':
+            pars['max_acceleration_estimate'] = float(10)
+            pars['max_velocity_estimate'] = float(1)
+            pars['histogram_bins'] = int(129)
+        return pars
     def get_data_file_name(self):
         return os.path.join(self.work_dir, self.simname + '.h5')
     def get_data_file(self):
@@ -426,6 +435,15 @@ class PP(_code):
         self.simulation_parser_arguments(parser_get_rfields)
         self.job_parser_arguments(parser_get_rfields)
         self.parameters_to_parser_arguments(parser_get_rfields)
+        parser_joint_acc_vel_stats = subparsers.add_parser(
+                'joint_acc_vel_stats',
+                help = 'get joint acceleration and velocity statistics')
+        self.simulation_parser_arguments(parser_joint_acc_vel_stats)
+        self.job_parser_arguments(parser_joint_acc_vel_stats)
+        self.parameters_to_parser_arguments(parser_joint_acc_vel_stats)
+        self.parameters_to_parser_arguments(
+                parser_joint_acc_vel_stats,
+                parameters = self.extra_postprocessing_parameters('joint_acc_vel_stats'))
         return None
     def prepare_launch(
             self,
@@ -463,7 +481,8 @@ class PP(_code):
         for k in self.pp_parameters.keys():
              self.parameters[k] = self.pp_parameters[k]
         self.pars_from_namespace(opt)
-        niter_out = self.get_data_file()['parameters/niter_todo'].value
+        niter_out = self.get_data_file()['parameters/niter_out'].value
+        assert(opt.iter0 % niter_out == 0)
         self.pp_parameters['iteration_list'] = np.arange(
                 opt.iter0, opt.iter1+niter_out, niter_out, dtype = np.int)
         return opt
@@ -622,13 +641,170 @@ class PP(_code):
                 dst_file[dst_dset_name][kz,:min_shape[1], :min_shape[2]] = \
                         src_file[src_dset_name][kz, :min_shape[1], :min_shape[2]]
         return None
+    def prepare_post_file(
+            self,
+            opt = None):
+        self.pp_parameters.update(
+                self.extra_postprocessing_parameters(self.dns_type))
+        self.pars_from_namespace(
+                opt,
+                parameters = self.pp_parameters,
+                get_sim_info = False)
+        for kk in ['nx', 'ny', 'nz']:
+            self.parameters[kk] = self.get_data_file()['parameters/' + kk].value
+        n = self.parameters['nx']
+        if self.dns_type in ['filtered_slices',
+                             'filtered_acceleration']:
+            if type(opt.klist_kmax) == type(None):
+                opt.klist_kmax = n / 3.
+            if type(opt.klist_kmin) == type(None):
+                opt.klist_kmin = 6.
+            kvals = bfps_addons.tools.power_space_array(
+                    power = opt.klist_power,
+                    size = opt.klist_size,
+                    vmin = opt.klist_kmin,
+                    vmax = opt.klist_kmax)
+            if opt.test_klist:
+                for i in range(opt.klist_size):
+                    print('kcut{0} = {1}, ell{0} = {2:.3e}'.format(
+                        i, kvals[i], 2*np.pi / kvals[i]))
+                opt.no_submit = True
+            self.pp_parameters['kcut'] = kvals
+        self.rewrite_par(
+                group = self.dns_type + '/parameters',
+                parameters = self.pp_parameters,
+                file_name = os.path.join(self.work_dir, self.simname + '_post.h5'))
+        histogram_bins = opt.histogram_bins
+        if (type(histogram_bins) == type(None) and
+            'histogram_bins' in self.pp_parameters.keys()):
+            histogram_bins = self.pp_parameters['histogram_bins']
+        with h5py.File(os.path.join(self.work_dir, self.simname + '_post.h5'), 'r+') as ofile:
+            group = ofile[self.dns_type]
+            group.require_group('histograms')
+            group.require_group('moments')
+            group.require_group('spectra')
+            vec_spectra_stats = []
+            vec4_rspace_stats = []
+            scal_rspace_stats = []
+            if self.dns_type == 'joint_acc_vel_stats':
+                vec_spectra_stats.append('velocity')
+                vec4_rspace_stats.append('velocity')
+                vec_spectra_stats.append('acceleration')
+                vec4_rspace_stats.append('acceleration')
+            for quantity in scal_rspace_stats:
+                if quantity not in group['histograms'].keys():
+                    time_chunk = 2**20 // (8*histogram_bins)
+                    time_chunk = max(time_chunk, 1)
+                    group['histograms'].create_dataset(
+                            quantity,
+                            (1, histogram_bins),
+                            chunks = (time_chunk, histogram_bins),
+                            maxshape = (None, histogram_bins),
+                            dtype = np.int64)
+                else:
+                    assert(histogram_bins ==
+                           group['histograms/' + quantity].shape[1])
+                if quantity not in group['moments'].keys():
+                    time_chunk = 2**20 // (8*10)
+                    time_chunk = max(time_chunk, 1)
+                    group['moments'].create_dataset(
+                            quantity,
+                            (1, 10),
+                            chunks = (time_chunk, 10),
+                            maxshape = (None, 10),
+                            dtype = np.float64)
+            if self.dns_type == 'joint_acc_vel_stats':
+                quantity = 'acceleration_and_velocity_components'
+                if quantity not in group['histograms'].keys():
+                    time_chunk = 2**20 // (8*9*histogram_bins**2)
+                    time_chunk = max(time_chunk, 1)
+                    group['histograms'].create_dataset(
+                            quantity,
+                            (1, histogram_bins, histogram_bins, 3, 3),
+                            chunks = (time_chunk, histogram_bins, histogram_bins, 3, 3),
+                            maxshape = (None, histogram_bins, histogram_bins, 3, 3),
+                            dtype = np.int64)
+                quantity = 'acceleration_and_velocity_magnitudes'
+                if quantity not in group['histograms'].keys():
+                    time_chunk = 2**20 // (8*histogram_bins**2)
+                    time_chunk = max(time_chunk, 1)
+                    group['histograms'].create_dataset(
+                            quantity,
+                            (1, histogram_bins, histogram_bins),
+                            chunks = (time_chunk, histogram_bins, histogram_bins),
+                            maxshape = (None, histogram_bins, histogram_bins),
+                            dtype = np.int64)
+            ncomps = 4
+            for quantity in vec4_rspace_stats:
+                if quantity not in group['histograms'].keys():
+                    time_chunk = 2**20 // (8*histogram_bins*ncomps)
+                    time_chunk = max(time_chunk, 1)
+                    group['histograms'].create_dataset(
+                            quantity,
+                            (1, histogram_bins, ncomps),
+                            chunks = (time_chunk, histogram_bins, ncomps),
+                            maxshape = (None, histogram_bins, ncomps),
+                            dtype = np.int64)
+                if quantity not in group['moments'].keys():
+                    time_chunk = 2**20 // (8*10*ncomps)
+                    time_chunk = max(time_chunk, 1)
+                    group['moments'].create_dataset(
+                            quantity,
+                            (1, 10, ncomps),
+                            chunks = (time_chunk, 10, ncomps),
+                            maxshape = (None, 10, ncomps),
+                            dtype = np.float64)
+                time_chunk = 2**20 // (
+                        4*3*
+                        self.parameters['nx']*self.parameters['ny'])
+                time_chunk = max(time_chunk, 1)
+            for quantity in vec_spectra_stats:
+                df = self.get_data_file()
+                if quantity + '_' + quantity not in group['spectra'].keys():
+                    spec_chunks = df['statistics/spectra/velocity_velocity'].chunks
+                    spec_shape = df['statistics/spectra/velocity_velocity'].shape
+                    spec_maxshape = df['statistics/spectra/velocity_velocity'].maxshape
+                    group['spectra'].create_dataset(
+                            quantity + '_' + quantity,
+                            spec_shape,
+                            chunks = spec_chunks,
+                            maxshape = spec_maxshape,
+                            dtype = np.float64)
+                df.close()
+        return None
+    def prepare_field_file(self):
+        df = self.get_data_file()
+        if 'field_dtype' in df.keys():
+            # we don't need to do anything, raw binary files are used
+            return None
+        last_iteration = df['iteration'].value
+        cppf = df['parameters/checkpoints_per_file'].value
+        niter_out = df['parameters/niter_out'].value
+        with h5py.File(os.path.join(self.work_dir, self.simname + '_fields.h5'), 'a') as ff:
+            ff.require_group('vorticity')
+            ff.require_group('vorticity/complex')
+            checkpoint = 0
+            while True:
+                cpf_name = os.path.join(
+                        self.work_dir,
+                        self.simname + '_checkpoint_{0}.h5'.format(checkpoint))
+                if os.path.exists(cpf_name):
+                    cpf = h5py.File(cpf_name, 'r')
+                    for iter_name in cpf['vorticity/complex'].keys():
+                        if iter_name not in ff['vorticity/complex'].keys():
+                            ff['vorticity/complex/' + iter_name] = h5py.ExternalLink(
+                                    cpf_name,
+                                    'vorticity/complex/' + iter_name)
+                    checkpoint += 1
+                else:
+                    break
+        return None
     def launch_jobs(
             self,
             opt = None,
             particle_initial_condition = None):
-        self.rewrite_par(
-                group = self.dns_type,
-                parameters = self.pp_parameters)
+        self.prepare_post_file(opt)
+        self.prepare_field_file()
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,

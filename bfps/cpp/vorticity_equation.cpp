@@ -140,8 +140,6 @@ vorticity_equation<rnumber, be>::vorticity_equation(
 
     this->cvelocity = new field<rnumber, be, THREE>(
             nx, ny, nz, MPI_COMM_WORLD, FFTW_PLAN_RIGOR);
-    this->rvelocity = new field<rnumber, be, THREE>(
-            nx, ny, nz, MPI_COMM_WORLD, FFTW_PLAN_RIGOR);
     this->u = this->cvelocity;
 
     /* initialize kspace */
@@ -168,7 +166,6 @@ vorticity_equation<rnumber, be>::~vorticity_equation()
     delete this->v[1];
     delete this->v[2];
     delete this->cvelocity;
-    delete this->rvelocity;
 }
 
 template <class rnumber,
