@@ -123,8 +123,10 @@ int joint_acc_vel_stats<rnumber>::work_on_current_iteration(void)
     std::vector<double> max_acc_estimate;
     std::vector<double> max_vel_estimate;
 
-    max_acc_estimate.resize(4, max_acceleration_estimate);
-    max_vel_estimate.resize(4, max_velocity_estimate);
+    max_acc_estimate.resize(4, max_acceleration_estimate / sqrt(3));
+    max_vel_estimate.resize(4, max_velocity_estimate / sqrt(3));
+    max_acc_estimate[3] = max_acceleration_estimate;
+    max_vel_estimate[3] = max_velocity_estimate;
 
     acc->compute_rspace_stats(
             stat_group,
