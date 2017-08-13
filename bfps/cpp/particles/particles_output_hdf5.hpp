@@ -21,7 +21,7 @@ class particles_output_hdf5 : public abstract_particles_output<partsize_t,
                                              size_particle_positions,
                                              size_particle_rhs>;
 
-    const std::string particle_species_name;
+    std::string particle_species_name;
 
     hid_t file_id;
     const partsize_t total_nb_particles;
@@ -89,6 +89,12 @@ public:
     }
 
     ~particles_output_hdf5(){}
+
+    void update_particle_species_name(
+            const std::string new_name)
+    {
+        this->particle_species_name.assign(new_name);
+    }
 
     int close_file(void){
         if(Parent::isInvolved()){
