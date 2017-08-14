@@ -58,9 +58,9 @@ int NSVEparticles<rnumber>::write_checkpoint(void)
 template <typename rnumber>
 int NSVEparticles<rnumber>::finalize(void)
 {
-    this->NSVE<rnumber>::finalize();
     this->ps.release();
     delete this->particles_output_writer_mpi;
+    this->NSVE<rnumber>::finalize();
     return EXIT_SUCCESS;
 }
 
