@@ -154,7 +154,7 @@ class field
 
         inline const rnumber& rval(ptrdiff_t rindex, unsigned int component = 0) const
         {
-            assert(fc == ONE || fc == THREE);
+            //assert(fc == ONE || fc == THREE);
             assert(component >= 0 && component < ncomp(fc));
             return *(this->data + rindex*ncomp(fc) + component);
         }
