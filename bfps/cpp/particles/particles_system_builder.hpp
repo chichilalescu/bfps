@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include <cmath>
 #include "abstract_particles_system.hpp"
 #include "particles_system.hpp"
 #include "particles_input_hdf5.hpp"
