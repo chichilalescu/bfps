@@ -36,6 +36,8 @@ void beta_Lagrange_n5(const int deriv, const double x, double *__restrict__ poly
 void beta_Lagrange_n6(const int deriv, const double x, double *__restrict__ poly_val);
 void beta_Lagrange_n7(const int deriv, const double x, double *__restrict__ poly_val);
 void beta_Lagrange_n8(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_Lagrange_n9(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_Lagrange_n10(const int deriv, const double x, double *__restrict__ poly_val);
 
 #endif//LAGRANGE_POLYS
 

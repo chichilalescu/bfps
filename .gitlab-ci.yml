@@ -1,0 +1,10 @@
+
+simple_test:
+  script:
+    - source tests/ci-scripts/test.sh
+  tags:
+    - fftw3
+    - hdf5
+    - mpi
+    - python3
+

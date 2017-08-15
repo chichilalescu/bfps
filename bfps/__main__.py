@@ -28,7 +28,11 @@ import sys
 import argparse
 
 import bfps
+from .DNS import DNS
+from .PP import PP
+from .TEST import TEST
 from .NavierStokes import NavierStokes
+from .NSVorticityEquation import NSVorticityEquation
 from .FluidResize import FluidResize
 from .FluidConvert import FluidConvert
 from .NSManyParticles import NSManyParticles
@@ -45,6 +49,12 @@ def main():
                  'NS',
                  'NS-single',
                  'NS-double']
+    NSVEoptions = ['NSVorticityEquation',
+                 'NSVorticityEquation-single',
+                 'NSVorticityEquation-double',
+                 'NSVE',
+                 'NSVE-single',
+                 'NSVE-double']
     FRoptions = ['FluidResize',
                  'FluidResize-single',
                  'FluidResize-double',
@@ -57,19 +67,38 @@ def main():
                'NSManyParticles-double']
     parser.add_argument(
             'base_class',
-            choices = NSoptions + FRoptions + FCoptions + NSMPopt,
+            choices = ['DNS', 'PP', 'TEST'] +
+                      NSoptions +
+                      NSVEoptions +
+                      FRoptions +
+                      FCoptions +
+                      NSMPopt,
             type = str)
     # first option is the choice of base class or -h or -v
     # all other options are passed on to the base_class instance
     opt = parser.parse_args(sys.argv[1:2])
     # error is thrown if first option is not a base class, so launch
     # cannot be executed by mistake.
+    if opt.base_class == 'DNS':
+        c = DNS()
+        c.launch(args = sys.argv[2:])
+        return None
+    if opt.base_class == 'PP':
+        c = PP()
+        c.launch(args = sys.argv[2:])
+        return None
+    if opt.base_class == 'TEST':
+        c = TEST()
+        c.launch(args = sys.argv[2:])
+        return None
     if 'double' in opt.base_class:
         precision = 'double'
     else:
         precision = 'single'
     if opt.base_class in NSoptions:
         base_class = NavierStokes
+    if opt.base_class in NSVEoptions:
+        base_class = NSVorticityEquation
     elif opt.base_class in FRoptions:
         base_class = FluidResize
     elif opt.base_class in FCoptions:

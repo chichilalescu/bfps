@@ -43,7 +43,7 @@ class FluidConvert(_fluid_particle_base):
             work_dir = './',
             simname = 'test',
             fluid_precision = 'single',
-            use_fftw_wisdom = True):
+            use_fftw_wisdom = False):
         _fluid_particle_base.__init__(
                 self,
                 name = name + '-' + fluid_precision,
@@ -98,7 +98,7 @@ class FluidConvert(_fluid_particle_base):
                         nx, ny, nz,
                         dkx, dky, dkz,
                         dealias_type,
-                        FFTW_ESTIMATE);
+                        DEFAULT_FFTW_FLAG);
                 //endcpp
                 """.format(self.C_dtype)
         self.fluid_loop += """
@@ -109,11 +109,13 @@ class FluidConvert(_fluid_particle_base):
                 """
         self.fluid_end += 'delete fs;\n'
         return None
-    def add_parser_arguments(
+    def specific_parser_arguments(
             self,
             parser):
-        _fluid_particle_base.add_parser_arguments(self, parser)
-        self.parameters_to_parser_arguments(parser, parameters = self.spec_parameters)
+        _fluid_particle_base.specific_parser_arguments(self, parser)
+        self.parameters_to_parser_arguments(
+                parser,
+                parameters = self.spec_parameters)
         return None
     def launch(
             self,
@@ -125,13 +127,14 @@ class FluidConvert(_fluid_particle_base):
         self.pars_from_namespace(
                 opt,
                 parameters = self.spec_parameters)
-        self.set_host_info(bfps.host_info)
         self.rewrite_par(
                 group = 'conversion_parameters',
                 parameters = self.spec_parameters)
-        self.run(
-                ncpu = opt.ncpu,
-                err_file = 'err_convert',
-                out_file = 'out_convert')
+        self.run(opt.nb_processes,
+		 1,
+                 hours = opt.minutes // 60,
+                 minutes = opt.minutes % 60,
+                 err_file = 'err_convert',
+                 out_file = 'out_convert')
         return None
 

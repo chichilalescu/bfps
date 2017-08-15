@@ -44,11 +44,24 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 class rFFTW_distributed_particles: public particles_io_base<particle_type>
 {
     private:
-        std::unordered_map<int, single_particle_state<particle_type>> state;
-        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
+        // a "domain" corresponds to a region in 3D real space where a fixed set
+        // of MPI processes are required to participate in the interpolation
+        // formula (i.e. they all contain required information).
+        // we need to know how many processes there are for each of the domains
+        // to which the local process belongs.
         std::unordered_map<int, int> domain_nprocs;
+        // each domain has an associated communicator, and we keep a list of the
+        // communicators to which the local process belongs
         std::unordered_map<int, MPI_Comm> domain_comm;
+        // for each domain, we need a list of the IDs of the particles located
+        // in that domain
         std::unordered_map<int, std::unordered_set<int>> domain_particles;
+
+        // for each domain, we need the state of each particle
+        std::unordered_map<int, single_particle_state<particle_type>> state;
+        // for each domain, we also need the last few values of the right hand
+        // side of the ODE, since we use Adams-Bashforth integration
+        std::vector<std::unordered_map<int, single_particle_state<particle_type>>> rhs;
 
     public:
         int integration_steps;
@@ -87,9 +100,24 @@ class rFFTW_distributed_particles: public particles_io_base<particle_type>
                 std::unordered_map<int, single_particle_state<particle_type>> &y);
 
 
+        /* given a list of particle positions,
+         * figure out which go into what local domain, and construct the relevant
+         * map of ID lists "dp" (for domain particles).
+         * */
         void sort_into_domains(
                 const std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::unordered_map<int, std::unordered_set<int>> &dp);
+        /* suppose the particles are currently badly distributed, and some
+         * arbitrary quantities (stored in "vals") are associated to the particles,
+         * and we need to properly distribute them among processes.
+         * that's what this function does.
+         * In practice it's only used to redistribute the rhs values (and it
+         * automatically redistributes the state x being passed).
+         * Some more comments are present in the .cpp file, but, in brief: the
+         * particles are simply moved from one domain to another.
+         * If it turns out that the new domain contains a process which does not
+         * know about a particle, that information is sent from the closest process.
+         * */
         void redistribute(
                 std::unordered_map<int, single_particle_state<particle_type>> &x,
                 std::vector<std::unordered_map<int, single_particle_state<particle_type>>> &vals,

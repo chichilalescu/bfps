@@ -29,6 +29,7 @@
 #include <algorithm>
 #include <cassert>
 #include "particles_base.hpp"
+#include "scope_timer.hpp"
 
 template <particle_types particle_type>
 single_particle_state<particle_type>::single_particle_state()
@@ -88,6 +89,7 @@ int get_chunk_offsets(
         std::vector<hsize_t> chnk_dims,
         std::vector<std::vector<hsize_t>> &co)
 {
+    TIMEZONE("get_chunk_offsets");
     std::vector<hsize_t> nchunks(data_dims);
     int total_number_of_chunks = 1;
     for (unsigned i=0; i<nchunks.size(); i++)
@@ -121,6 +123,7 @@ particles_io_base<particle_type>::particles_io_base(
         const hid_t data_file_id,
         MPI_Comm COMM)
 {
+    TIMEZONE("particles_io_base::particles_io_base");
     this->name = std::string(NAME);
     this->traj_skip = TRAJ_SKIP;
     this->comm = COMM;
@@ -233,6 +236,7 @@ void particles_io_base<particle_type>::read_state_chunk(
         const int cindex,
         double *data)
 {
+    TIMEZONE("particles_io_base::read_state_chunk");
     DEBUG_MSG("entered read_state_chunk\n");
     hid_t dset = H5Dopen(this->hdf5_group_id, "state", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
@@ -267,6 +271,7 @@ void particles_io_base<particle_type>::write_state_chunk(
         const int cindex,
         const double *data)
 {
+    TIMEZONE("particles_io_base::write_state_chunk");
     hid_t dset = H5Dopen(this->hdf5_group_id, "state", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_state_chunks);
@@ -300,6 +305,7 @@ void particles_io_base<particle_type>::read_rhs_chunk(
         const int rhsindex,
         double *data)
 {
+    TIMEZONE("particles_io_base::read_rhs_chunk");
     //DEBUG_MSG("entered read_rhs_chunk\n");
     hid_t dset = H5Dopen(this->hdf5_group_id, "rhs", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
@@ -342,6 +348,7 @@ void particles_io_base<particle_type>::write_rhs_chunk(
         const int rhsindex,
         const double *data)
 {
+    TIMEZONE("particles_io_base::write_rhs_chunk");
     hid_t dset = H5Dopen(this->hdf5_group_id, "rhs", H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_rhs_chunks);
@@ -379,6 +386,7 @@ void particles_io_base<particle_type>::write_point3D_chunk(
         const int cindex,
         const double *data)
 {
+    TIMEZONE("particles_io_base::write_point3D_chunk");
     hid_t dset = H5Dopen(this->hdf5_group_id, dset_name.c_str(), H5P_DEFAULT);
     hid_t rspace = H5Dget_space(dset);
     std::vector<hsize_t> mem_dims(this->hdf5_state_chunks);

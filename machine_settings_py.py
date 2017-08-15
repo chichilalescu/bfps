@@ -37,6 +37,7 @@ import os
 
 hostname = os.getenv('HOSTNAME')
 
+compiler = 'g++'
 extra_compile_args = ['-Wall', '-O2', '-g', '-mtune=native', '-ffast-math', '-std=c++11']
 extra_libraries = ['hdf5']
 include_dirs = []

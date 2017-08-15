@@ -56,7 +56,9 @@ class _base(object):
         key = sorted(list(parameters.keys()))
         src_txt = ''
         for i in range(len(key)):
-            if type(parameters[key[i]]) == int:
+            if (type(parameters[key[i]]) == int  and parameters[key[i]] >= 1<<30):
+                src_txt += 'long long int ' + key[i] + ';\n'
+            elif type(parameters[key[i]]) == int:
                 src_txt += 'int ' + key[i] + ';\n'
             elif type(parameters[key[i]]) == str:
                 src_txt += 'char ' + key[i] + '[{0}];\n'.format(self.string_length)
@@ -74,31 +76,46 @@ class _base(object):
             self,
             parameters = None,
             function_suffix = '',
-            file_group = 'parameters'):
+            template_class = '',
+            template_prefix = '',
+            file_group = 'parameters',
+            just_declaration = False,
+            simname_variable = 'simname',
+            prepend_this = False):
         if type(parameters) == type(None):
             parameters = self.parameters
         key = sorted(list(parameters.keys()))
-        src_txt = ('int read_parameters' + function_suffix + '()\n{\n' +
-                   'hid_t parameter_file;\n' +
-                   'hid_t dset, memtype, space;\n' +
-                   'char fname[256];\n' +
-                   'hsize_t dims[1];\n' +
-                   'char *string_data;\n' +
-                   'sprintf(fname, "%s.h5", simname);\n' +
-                   'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
+        src_txt = (template_prefix +
+                   'int ' +
+                   template_class +
+                   'read_parameters' + function_suffix + '()')
+        if just_declaration:
+            return src_txt + ';\n'
+        src_txt += ('\n{\n' +
+                    'hid_t parameter_file;\n' +
+                    'hid_t dset, memtype, space;\n' +
+                    'char fname[256];\n' +
+                    'hsize_t dims[1];\n' +
+                    'char *string_data;\n' +
+                    'sprintf(fname, "%s.h5", {0});\n'.format(simname_variable) +
+                    'parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);\n')
+        key_prefix = ''
+        if prepend_this:
+            key_prefix = 'this->'
         for i in range(len(key)):
             src_txt += 'dset = H5Dopen(parameter_file, "/{0}/{1}", H5P_DEFAULT);\n'.format(
                     file_group, key[i])
-            if type(parameters[key[i]]) == int:
-                src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+            if (type(parameters[key[i]]) == int and parameters[key[i]] >= 1<<30):
+                src_txt += 'H5Dread(dset, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
+            elif type(parameters[key[i]]) == int:
+                src_txt += 'H5Dread(dset, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
             elif type(parameters[key[i]]) == str:
                 src_txt += ('space = H5Dget_space(dset);\n' +
                             'memtype = H5Dget_type(dset);\n' +
-                            'H5Sget_simple_extent_dims(space, dims, NULL);\n' +
-                            'string_data = (char*)malloc(dims[0]*sizeof(char));\n' +
+                            'string_data = (char*)malloc(256);\n' +
                             'H5Dread(dset, memtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &string_data);\n' +
-                            'sprintf({0}, "%s", string_data);\n'.format(key[i]) +
-                            'free(string_data);\n' +
+                            'sprintf({0}, "%s", string_data);\n'.format(key_prefix + key[i]) +
+                            'free(string_data);\n'
                             'H5Sclose(space);\n' +
                             'H5Tclose(memtype);\n')
             elif type(parameters[key[i]]) == np.ndarray:
@@ -106,10 +123,10 @@ class _base(object):
                     template_par = 'int'
                 elif parameters[key[i]].dtype == np.float64:
                     template_par = 'double'
-                src_txt += '{0} = read_vector<{1}>(parameter_file, "/{2}/{0}");\n'.format(
-                        key[i], template_par, file_group)
+                src_txt += '{0} = hdf5_tools::read_vector<{1}>(parameter_file, "/{2}/{0}");\n'.format(
+                        key_prefix + key[i], template_par, file_group)
             else:
-                src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key[i])
+                src_txt += 'H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &{0});\n'.format(key_prefix + key[i])
             src_txt += 'H5Dclose(dset);\n'
         src_txt += 'H5Fclose(parameter_file);\n'
         src_txt += 'return 0;\n}\n' # finishing read_parameters
@@ -123,7 +140,7 @@ class _base(object):
             elif type(self.parameters[key[i]]) == str:
                 src_txt += 'DEBUG_MSG("'+ key[i] + ' = %s\\n", ' + key[i] + ');\n'
             elif type(self.parameters[key[i]]) == np.ndarray:
-                src_txt += ('for (int array_counter=0; array_counter<' +
+                src_txt += ('for (unsigned int array_counter=0; array_counter<' +
                             key[i] +
                             '.size(); array_counter++)\n' +
                             '{\n' +
@@ -158,9 +175,12 @@ class _base(object):
     def rewrite_par(
             self,
             group = None,
-            parameters = None):
+            parameters = None,
+            file_name = None):
         assert(group != 'parameters')
-        ofile = h5py.File(os.path.join(self.work_dir, self.simname + '.h5'), 'r+')
+        if type(file_name) == type(None):
+            file_name = os.path.join(self.work_dir, self.simname + '.h5')
+        ofile = h5py.File(file_name, 'a')
         for k in parameters.keys():
             if group not in ofile.keys():
                 ofile.create_group(group)
@@ -214,9 +234,10 @@ class _base(object):
         if type(parameters) == type(None):
             parameters = self.parameters
         cmd_line_pars = vars(opt)
-        for k in ['nx', 'ny', 'nz']:
-            if type(cmd_line_pars[k]) == type(None):
-                cmd_line_pars[k] = opt.n
+        if 'n' in cmd_line_pars.keys():
+            for k in ['nx', 'ny', 'nz']:
+                if type(cmd_line_pars[k]) == type(None):
+                    cmd_line_pars[k] = opt.n
         for k in parameters.keys():
             if k in cmd_line_pars.keys():
                 if not type(cmd_line_pars[k]) == type(None):
@@ -250,8 +271,27 @@ class _base(object):
                help = 'code is run by default in a grid of NxNxN')
         parser.add_argument(
                 '--ncpu',
-                type = int, dest = 'ncpu',
-                default = 2)
+                type = int,
+                dest = 'ncpu',
+                default = -1)
+        parser.add_argument(
+                '--np', '--nprocesses',
+                metavar = 'NPROCESSES',
+                help = 'number of mpi processes to use',
+                type = int,
+                dest = 'nb_processes',
+                default = 4)
+        parser.add_argument(
+                '--ntpp', '--nthreads-per-process',
+                type = int,
+                dest = 'nb_threads_per_process',
+                metavar = 'NTHREADS_PER_PROCESS',
+                help = 'number of threads to use per MPI process',
+                default = 1)
+        parser.add_argument(
+                '--no-submit',
+                action = 'store_true',
+                dest = 'no_submit')
         parser.add_argument(
                 '--simname',
                 type = str, dest = 'simname',
@@ -265,6 +305,13 @@ class _base(object):
                 '--wd',
                 type = str, dest = 'work_dir',
                 default = './')
+        parser.add_argument(
+                '--minutes',
+                type = int,
+                dest = 'minutes',
+                default = 5,
+                help = 'If environment supports it, this is the requested wall-clock-limit.')
+
         return None
     def parameters_to_parser_arguments(
             self,

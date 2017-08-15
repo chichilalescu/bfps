@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2015 Max Planck Institute                                *
+*  Copyright 2017 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -24,18 +24,15 @@
 
 
 
-#include <hdf5.h>
-#include <vector>
-#include <string>
+#ifndef SPLINE_N7
 
-#ifndef IO_TOOLS
+#define SPLINE_N7
 
-#define IO_TOOLS
+void beta_n7_m0(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m1(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m2(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m3(const int deriv, const double x, double *__restrict__ poly_val);
+void beta_n7_m4(const int deriv, const double x, double *__restrict__ poly_val);
 
-template <typename number>
-std::vector<number> read_vector(
-        hid_t group,
-        std::string dset_name);
-
-#endif//IO_TOOLS
+#endif//SPLINE_N7
 

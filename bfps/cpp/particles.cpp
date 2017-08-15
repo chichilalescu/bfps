@@ -43,17 +43,17 @@ template <particle_types particle_type, class rnumber, int interp_neighbours>
 particles<particle_type, rnumber, interp_neighbours>::particles(
         const char *NAME,
         const hid_t data_file_id,
-        interpolator_base<rnumber, interp_neighbours> *FIELD,
+        interpolator_base<rnumber, interp_neighbours> *VEL,
         const int TRAJ_SKIP,
         const int INTEGRATION_STEPS) : particles_io_base<particle_type>(
             NAME,
             TRAJ_SKIP,
             data_file_id,
-            FIELD->descriptor->comm)
+            VEL->descriptor->comm)
 {
     assert((INTEGRATION_STEPS <= 6) &&
            (INTEGRATION_STEPS >= 1));
-    this->vel = FIELD;
+    this->vel = VEL;
     this->integration_steps = INTEGRATION_STEPS;
     this->array_size = this->nparticles * state_dimension(particle_type);
     this->state = new double[this->array_size];

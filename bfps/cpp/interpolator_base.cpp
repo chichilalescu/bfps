@@ -44,6 +44,20 @@ interpolator_base<rnumber, interp_neighbours>::interpolator_base(
 }
 
 template <class rnumber, int interp_neighbours>
+interpolator_base<rnumber, interp_neighbours>::interpolator_base(
+        vorticity_equation<rnumber, FFTW> *fs,
+        base_polynomial_values BETA_POLYS)
+{
+//    this->descriptor = fs->rd;
+//    this->compute_beta = BETA_POLYS;
+//
+//    // compute dx, dy, dz;
+//    this->dx = 4*acos(0) / (fs->kk->dkx*this->descriptor->sizes[2]);
+//    this->dy = 4*acos(0) / (fs->kk->dky*this->descriptor->sizes[1]);
+//    this->dz = 4*acos(0) / (fs->kk->dkz*this->descriptor->sizes[0]);
+}
+
+template <class rnumber, int interp_neighbours>
 void interpolator_base<rnumber, interp_neighbours>::get_grid_coordinates(
         const int nparticles,
         const int pdimension,
@@ -82,10 +96,18 @@ template class interpolator_base<float, 3>;
 template class interpolator_base<float, 4>;
 template class interpolator_base<float, 5>;
 template class interpolator_base<float, 6>;
+template class interpolator_base<float, 7>;
+template class interpolator_base<float, 8>;
+template class interpolator_base<float, 9>;
+template class interpolator_base<float, 10>;
 template class interpolator_base<double, 1>;
 template class interpolator_base<double, 2>;
 template class interpolator_base<double, 3>;
 template class interpolator_base<double, 4>;
 template class interpolator_base<double, 5>;
 template class interpolator_base<double, 6>;
+template class interpolator_base<double, 7>;
+template class interpolator_base<double, 8>;
+template class interpolator_base<double, 9>;
+template class interpolator_base<double, 10>;
 

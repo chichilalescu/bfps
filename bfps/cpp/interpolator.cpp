@@ -150,7 +150,7 @@ template <class rnumber, int interp_neighbours>
 void interpolator<rnumber, interp_neighbours>::operator()(
         const int *xg,
         const double *xx,
-        double *dest,
+        double *__restrict__ dest,
         const int *deriv)
 {
     double bx[interp_neighbours*2+2], by[interp_neighbours*2+2], bz[interp_neighbours*2+2];
@@ -197,10 +197,18 @@ template class interpolator<float, 3>;
 template class interpolator<float, 4>;
 template class interpolator<float, 5>;
 template class interpolator<float, 6>;
+template class interpolator<float, 7>;
+template class interpolator<float, 8>;
+template class interpolator<float, 9>;
+template class interpolator<float, 10>;
 template class interpolator<double, 1>;
 template class interpolator<double, 2>;
 template class interpolator<double, 3>;
 template class interpolator<double, 4>;
 template class interpolator<double, 5>;
 template class interpolator<double, 6>;
+template class interpolator<double, 7>;
+template class interpolator<double, 8>;
+template class interpolator<double, 9>;
+template class interpolator<double, 10>;
 

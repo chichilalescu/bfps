@@ -88,6 +88,7 @@ class _fluid_particle_base(_code):
         self.particle_definitions = ''
         self.particle_start = ''
         self.particle_loop = ''
+        self.particle_output = ''
         self.particle_end  = ''
         self.particle_stat_src = ''
         self.file_datasets_grow   = ''
@@ -95,6 +96,7 @@ class _fluid_particle_base(_code):
                 //begincpp
                 if (myrank == 0 && iteration == 0)
                 {
+                    TIMEZONE("fuild_base::store_kspace");
                     hsize_t dims[4];
                     hid_t space, dset;
                     // store kspace information
@@ -141,8 +143,7 @@ class _fluid_particle_base(_code):
             postprocess_mode = False):
         self.includes   += self.fluid_includes
         self.includes   += '#include <ctime>\n'
-        self.variables  += (self.fluid_variables +
-                            'hid_t particle_file;\n')
+        self.variables  += self.fluid_variables
         self.definitions += ('int grow_single_dataset(hid_t dset, int tincrement)\n{\n' +
                              'int ndims;\n' +
                              'hsize_t space;\n' +
@@ -215,22 +216,6 @@ class _fluid_particle_base(_code):
                         }}
                         //endcpp
                         """.format(fftw_prefix) + self.main_end
-        if self.particle_species > 0:
-            self.main_start += """
-                if (myrank == 0)
-                {
-                    // set caching parameters
-                    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-                    herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
-                    DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
-                    sprintf(fname, "%s_particles.h5", simname);
-                    particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
-                }
-                """
-            self.main_end = ('if (myrank == 0)\n' +
-                             '{\n' +
-                             'H5Fclose(particle_file);\n' +
-                             '}\n') + self.main_end
         self.main        = """
                            //begincpp
                            int data_file_problem;
@@ -263,8 +248,15 @@ class _fluid_particle_base(_code):
                                       '<< time_difference/nprocs << " seconds" << std::endl;\n' +
                                   'time0 = time1;\n')
         if not postprocess_mode:
-            self.main       += 'for (int max_iter = iteration+niter_todo; iteration < max_iter; iteration++)\n'
+            self.main       += 'for (int max_iter = iteration+niter_todo-iteration%niter_todo; iteration < max_iter; iteration++)\n'
             self.main       += '{\n'
+
+            self.main       += """
+                                #ifdef USE_TIMINGOUTPUT
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(iteration);
+                                TIMEZONE(loopLabel.c_str());
+                                #endif
+                                """
             self.main       += 'if (iteration % niter_stat == 0) do_stats();\n'
             if self.particle_species > 0:
                 self.main       += 'if (iteration % niter_part == 0) do_particle_stats();\n'
@@ -278,20 +270,29 @@ class _fluid_particle_base(_code):
         else:
             self.main       += 'for (int frame_index = iter0; frame_index <= iter1; frame_index += niter_out)\n'
             self.main       += '{\n'
+            self.main       += """
+                                #ifdef USE_TIMINGOUTPUT
+                                const std::string loopLabel = "code::main_start::loop-" + std::to_string(frame_index);
+                                TIMEZONE(loopLabel.c_str());
+                                #endif
+                                """
             if self.particle_species > 0:
                 self.main   += self.particle_loop
             self.main       += self.fluid_loop
             self.main       += output_time_difference.format('frame_index')
             self.main       += '}\n'
+        self.main       += self.fluid_end
         if self.particle_species > 0:
             self.main   += self.particle_end
-        self.main       += self.fluid_end
         return None
     def read_rfield(
             self,
             field = 'velocity',
             iteration = 0,
             filename = None):
+        """
+            :note: assumes field is a vector field
+        """
         if type(filename) == type(None):
             filename = os.path.join(
                     self.work_dir,
@@ -299,6 +300,7 @@ class _fluid_particle_base(_code):
         return np.memmap(
                 filename,
                 dtype = self.dtype,
+                mode = 'r',
                 shape = (self.parameters['nz'],
                          self.parameters['ny'],
                          self.parameters['nx'], 3))

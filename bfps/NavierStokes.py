@@ -31,6 +31,7 @@ import h5py
 import argparse
 
 import bfps
+import bfps.tools
 from ._code import _code
 from ._fluid_base import _fluid_particle_base
 
@@ -262,20 +263,6 @@ class NavierStokes(_fluid_particle_base):
             field_H5T = 'H5T_NATIVE_FLOAT'
         elif self.dtype == np.float64:
             field_H5T = 'H5T_NATIVE_DOUBLE'
-        self.stat_src += self.create_stat_output(
-                '/statistics/xlines/velocity',
-                'fs->rvelocity',
-                data_type = field_H5T,
-                size_setup = """
-                    count[0] = 1;
-                    count[1] = nx;
-                    count[2] = 3;
-                    """,
-                close_spaces = False)
-        self.stat_src += self.create_stat_output(
-                '/statistics/xlines/vorticity',
-                'fs->rvorticity',
-                data_type = field_H5T)
         if self.QR_stats_on:
             self.stat_src += self.create_stat_output(
                     '/statistics/moments/trS2_Q_R',
@@ -572,8 +559,12 @@ class NavierStokes(_fluid_particle_base):
         self.particle_stat_src += '}\n'
         self.particle_species += nspecies
         return None
+    def get_cache_file_name(self):
+        return os.path.join(self.work_dir, self.simname + '_cache.h5')
+    def get_cache_file(self):
+        return h5py.File(self.get_postprocess_file_name(), 'r')
     def get_postprocess_file_name(self):
-        return os.path.join(self.work_dir, self.simname + '_postprocess.h5')
+        return self.get_cache_file_name()
     def get_postprocess_file(self):
         return h5py.File(self.get_postprocess_file_name(), 'r')
     def compute_statistics(self, iter0 = 0, iter1 = None):
@@ -589,7 +580,7 @@ class NavierStokes(_fluid_particle_base):
         tensors, and the enstrophy spectrum is also used to
         compute the dissipation :math:`\\varepsilon(t)`.
         These basic quantities are stored in a newly created HDF5 file,
-        ``simname_postprocess.h5``.
+        ``simname_cache.h5``.
         """
         if len(list(self.statistics.keys())) > 0:
             return None
@@ -615,7 +606,9 @@ class NavierStokes(_fluid_particle_base):
                 computation_needed =  not (ii0 == pp_file['ii0'].value and
                                            ii1 == pp_file['ii1'].value)
                 if computation_needed:
-                    for k in pp_file.keys():
+                    for k in ['t', 'vel_max(t)', 'renergy(t)',
+                              'energy(t, k)', 'enstrophy(t, k)',
+                              'ii0', 'ii1', 'iter0', 'iter1']:
                         del pp_file[k]
             if computation_needed:
                 pp_file['iter0'] = iter0
@@ -651,7 +644,7 @@ class NavierStokes(_fluid_particle_base):
         """Compute easy stats.
 
         Further computation of statistics based on the contents of
-        ``simname_postprocess.h5``.
+        ``simname_cache.h5``.
         Standard quantities are as follows
         (consistent with [Ishihara]_):
 
@@ -751,12 +744,14 @@ class NavierStokes(_fluid_particle_base):
             vec_stat_datasets = ['velocity', 'vorticity']
             scal_stat_datasets = []
             for k in vec_stat_datasets:
-                time_chunk = 2**20//(8*3*self.parameters['nx']) # FIXME: use proper size of self.dtype
+                time_chunk = 2**20 // (
+                        self.dtype.itemsize*3*
+                        self.parameters['nx']*self.parameters['ny'])
                 time_chunk = max(time_chunk, 1)
-                ofile.create_dataset('statistics/xlines/' + k,
-                                     (1, self.parameters['nx'], 3),
-                                     chunks = (time_chunk, self.parameters['nx'], 3),
-                                     maxshape = (None, self.parameters['nx'], 3),
+                ofile.create_dataset('statistics/0slices/' + k + '/real',
+                                     (1, self.parameters['ny'], self.parameters['nx'], 3),
+                                     chunks = (time_chunk, self.parameters['ny'], self.parameters['nx'], 3),
+                                     maxshape = (None, self.parameters['ny'], self.parameters['nx'], 3),
                                      dtype = self.dtype)
             if self.Lag_acc_stats_on:
                 vec_stat_datasets += ['Lagrangian_acceleration']
@@ -873,33 +868,6 @@ class NavierStokes(_fluid_particle_base):
                                      dtype = np.int64)
         if self.particle_species == 0:
             return None
-        def create_particle_dataset(
-                data_file,
-                dset_name,
-                dset_shape,
-                dset_maxshape,
-                dset_chunks,
-                # maybe something more general can be used here
-                dset_dtype = h5py.h5t.IEEE_F64LE):
-            # create the dataspace.
-            space_id = h5py.h5s.create_simple(
-                    dset_shape,
-                    dset_maxshape)
-            # create the dataset creation property list.
-            dcpl = h5py.h5p.create(h5py.h5p.DATASET_CREATE)
-            # set the allocation time to "early".
-            dcpl.set_alloc_time(h5py.h5d.ALLOC_TIME_EARLY)
-            dcpl.set_chunk(dset_chunks)
-            # and now create dataset
-            if sys.version_info[0] == 3:
-                dset_name = dset_name.encode()
-            return h5py.h5d.create(
-                    data_file.id,
-                    dset_name,
-                    dset_dtype,
-                    space_id,
-                    dcpl,
-                    h5py.h5p.DEFAULT)
 
         if type(particle_ic) == type(None):
             pbase_shape = (self.parameters['nparticles'],)
@@ -907,9 +875,12 @@ class NavierStokes(_fluid_particle_base):
         else:
             pbase_shape = particle_ic.shape[:-1]
             assert(particle_ic.shape[-1] == 3)
-            number_of_particles = 1
-            for val in pbase_shape[1:]:
-                number_of_particles *= val
+            if len(pbase_shape) == 1:
+                number_of_particles = pbase_shape[0]
+            else:
+                number_of_particles = 1
+                for val in pbase_shape[1:]:
+                    number_of_particles *= val
 
         with h5py.File(self.get_particle_file_name(), 'a') as ofile:
             for s in range(self.particle_species):
@@ -924,7 +895,7 @@ class NavierStokes(_fluid_particle_base):
                     chunks = (time_chunk, 1, 1) + dims[3:]
                 else:
                     chunks = (time_chunk, 1) + dims[2:]
-                create_particle_dataset(
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/rhs'.format(s),
                         dims, maxshape, chunks)
@@ -932,25 +903,29 @@ class NavierStokes(_fluid_particle_base):
                     chunks = (time_chunk, 1) + pbase_shape[1:] + (3,)
                 else:
                     chunks = (time_chunk, pbase_shape[0], 3)
-                create_particle_dataset(
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/state'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
                         chunks)
-                create_particle_dataset(
+                # "velocity" is sampled, single precision is enough
+                # for the results we are interested in.
+                bfps.tools.create_alloc_early_dataset(
                         ofile,
                         '/tracers{0}/velocity'.format(s),
                         (1,) + pbase_shape + (3,),
                         (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                        chunks)
+                        chunks,
+                        dset_dtype = h5py.h5t.IEEE_F32LE)
                 if self.parameters['tracers{0}_acc_on'.format(s)]:
-                    create_particle_dataset(
+                    bfps.tools.create_alloc_early_dataset(
                             ofile,
                             '/tracers{0}/acceleration'.format(s),
                             (1,) + pbase_shape + (3,),
                             (h5py.h5s.UNLIMITED,) + pbase_shape + (3,),
-                            chunks)
+                            chunks,
+                            dset_dtype = h5py.h5t.IEEE_F32LE)
         return None
     def add_particle_fields(
             self,
@@ -1065,6 +1040,16 @@ class NavierStokes(_fluid_particle_base):
                type = float,
                dest = 'particle_cloud_size',
                default = 2*np.pi)
+        parser.add_argument(
+                '--neighbours',
+                type = int,
+                dest = 'neighbours',
+                default = 1)
+        parser.add_argument(
+                '--smoothness',
+                type = int,
+                dest = 'smoothness',
+                default = 1)
         return None
     def prepare_launch(
             self,
@@ -1135,26 +1120,43 @@ class NavierStokes(_fluid_particle_base):
             opt.nparticles = 0
         elif type(opt.nparticles) == int:
             if opt.nparticles > 0:
+                self.name += '-particles'
                 self.add_3D_rFFTW_field(
                         name = 'rFFTW_acc')
                 self.add_interpolator(
                         name = 'cubic_spline',
-                        neighbours = 1,
-                        smoothness = 1,
+                        neighbours = opt.neighbours,
+                        smoothness = opt.smoothness,
                         class_name = 'rFFTW_interpolator')
                 self.add_particles(
                         integration_steps = [4],
                         interpolator = 'cubic_spline',
                         acc_name = 'rFFTW_acc',
                         class_name = 'rFFTW_distributed_particles')
+                self.variables += 'hid_t particle_file;\n'
+                self.main_start += """
+                    if (myrank == 0)
+                    {
+                        // set caching parameters
+                        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+                        herr_t cache_err = H5Pset_cache(fapl, 0, 521, 134217728, 1.0);
+                        DEBUG_MSG("when setting cache for particles I got %d\\n", cache_err);
+                        sprintf(fname, "%s_particles.h5", simname);
+                        particle_file = H5Fopen(fname, H5F_ACC_RDWR, fapl);
+                    }
+                    """
+                self.main_end = ('if (myrank == 0)\n' +
+                                 '{\n' +
+                                 'H5Fclose(particle_file);\n' +
+                                 '}\n') + self.main_end
         self.finalize_code()
-        self.launch_jobs(opt = opt)
+        self.launch_jobs(opt = opt, **kwargs)
         return None
     def launch_jobs(
             self,
-            opt = None):
+            opt = None,
+            particle_initial_condition = None):
         if not os.path.exists(os.path.join(self.work_dir, self.simname + '.h5')):
-            particle_initial_condition = None
             if opt.pclouds > 1:
                 np.random.seed(opt.particle_rand_seed)
                 if opt.pcloud_type == 'random-cube':
@@ -1201,7 +1203,11 @@ class NavierStokes(_fluid_particle_base):
                            spectra_slope = 2.0,
                            amplitude = 0.05)
         self.run(
-                ncpu = opt.ncpu,
-                njobs = opt.njobs)
+                nb_processes = opt.nb_processes,
+                nb_threads_per_process = opt.nb_threads_per_process,
+                njobs = opt.njobs,
+                hours = opt.minutes // 60,
+                minutes = opt.minutes % 60,
+                no_submit = opt.no_submit)
         return None
 

@@ -54,6 +54,6 @@ if __name__ == '__main__':
     c = test_io(work_dir = opt.work_dir + '/io')
     c.write_src()
     c.write_par()
-    c.set_host_info({'type' : 'pc'})
-    c.run(ncpu = opt.ncpu)
+    c.set_host_info(bfps.host_info)
+    c.run(opt.ncpu, 1)
 

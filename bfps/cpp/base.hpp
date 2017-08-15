@@ -24,11 +24,12 @@
 
 
 
+#include <cassert>
 #include <mpi.h>
 #include <stdarg.h>
 #include <iostream>
 #include <typeinfo>
-#include "io_tools.hpp"
+#include "hdf5_tools.hpp"
 
 #ifndef BASE
 
@@ -42,6 +43,9 @@ inline int MOD(int a, int n)
     return ((a%n) + n) % n;
 }
 
+/////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////
+
 #ifdef OMPI_MPI_H
 
 #define BFPS_MPICXX_DOUBLE_COMPLEX MPI_DOUBLE_COMPLEX
@@ -52,6 +56,37 @@ inline int MOD(int a, int n)
 
 #endif//OMPI_MPI_H
 
+template <class realtype>
+class mpi_real_type;
+
+template <>
+class mpi_real_type<float>
+{
+public:
+    static constexpr MPI_Datatype real(){
+        return MPI_FLOAT;
+    }
+
+    static constexpr MPI_Datatype complex(){
+        return MPI_COMPLEX;
+    }
+};
+
+template <>
+class mpi_real_type<double>
+{
+public:
+    static constexpr MPI_Datatype real(){
+        return MPI_DOUBLE;
+    }
+
+    static constexpr MPI_Datatype complex(){
+        return BFPS_MPICXX_DOUBLE_COMPLEX;
+    }
+};
+
+/////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////
 
 #ifndef NDEBUG
 
@@ -98,6 +133,8 @@ inline void DEBUG_MSG_WAIT(MPI_Comm communicator, const char * format, ...)
 #define DEBUG_MSG_WAIT(...)
 
 #endif//NDEBUG
+
+#define variable_used_only_in_assert(x) ((void)(x))
 
 #endif//BASE
 

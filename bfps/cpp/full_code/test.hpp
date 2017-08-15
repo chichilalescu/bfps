@@ -1,6 +1,6 @@
 /**********************************************************************
 *                                                                     *
-*  Copyright 2015 Max Planck Institute                                *
+*  Copyright 2017 Max Planck Institute                                *
 *                 for Dynamics and Self-Organization                  *
 *                                                                     *
 *  This file is part of bfps.                                         *
@@ -24,39 +24,40 @@
 
 
 
-#include <typeinfo>
-#include <cassert>
-#include "io_tools.hpp"
+#ifndef TEST_HPP
+#define TEST_HPP
 
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <vector>
+#include "base.hpp"
+#include "full_code/code_base.hpp"
 
-template <typename number>
-std::vector<number> read_vector(
-        hid_t group,
-        std::string dset_name)
+/** \brief base class for miscellaneous tests.
+ *
+ *  Children of this class can basically do more or less anything inside their
+ *  `do_work` method, which will be executed only once.
+ */
+
+class test: public code_base
 {
-    std::vector<number> result;
-    hsize_t vector_length;
-    // first, read size of array
-    hid_t dset, dspace;
-    hid_t mem_dtype;
-    if (typeid(number) == typeid(int))
-        mem_dtype = H5Tcopy(H5T_NATIVE_INT);
-    else if (typeid(number) == typeid(double))
-        mem_dtype = H5Tcopy(H5T_NATIVE_DOUBLE);
-    dset = H5Dopen(group, dset_name.c_str(), H5P_DEFAULT);
-    dspace = H5Dget_space(dset);
-    assert(H5Sget_simple_extent_ndims(dspace) == 1);
-    H5Sget_simple_extent_dims(dspace, &vector_length, NULL);
-    result.resize(vector_length);
-    H5Dread(dset, mem_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &result.front());
-    H5Sclose(dspace);
-    H5Dclose(dset);
-    H5Tclose(mem_dtype);
-    return result;
-}
+    public:
+        test(
+                const MPI_Comm COMMUNICATOR,
+                const std::string &simulation_name):
+            code_base(
+                    COMMUNICATOR,
+                    simulation_name){}
+        virtual ~test(){}
 
-template std::vector<int> read_vector(
-        hid_t, std::string);
-template std::vector<double> read_vector(
-        hid_t, std::string);
+        virtual int initialize(void) = 0;
+        virtual int do_work(void) = 0;
+        virtual int finalize(void) = 0;
+
+        int main_loop(void);
+        virtual int read_parameters(void);
+};
+
+#endif//TEST_HPP
 
