@@ -77,6 +77,14 @@ int NSVEparticles<rnumber>::do_stats()
     if (!(this->iteration % this->niter_part == 0))
         return EXIT_SUCCESS;
 
+    /// sample position
+    sample_particles_system_position(
+                                 this->ps,
+                                 (this->simname + "_particles.h5"), // filename
+                                 "tracers0",                        // hdf5 parent group
+                                 "position"                         // dataset basename TODO
+                                 );
+
     /// sample velocity
     sample_from_particles_system(*this->tmp_vec_field,              // field to save
                                  this->ps,

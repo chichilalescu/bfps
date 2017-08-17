@@ -865,6 +865,7 @@ class DNS(_code):
                     rseed = opt.particle_rand_seed)
             if not os.path.exists(self.get_particle_file_name()):
                 with h5py.File(self.get_particle_file_name(), 'w') as particle_file:
+                    particle_file.create_group('tracers0/position')
                     particle_file.create_group('tracers0/velocity')
                     particle_file.create_group('tracers0/acceleration')
         return None
