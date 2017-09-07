@@ -852,9 +852,24 @@ class DNS(_code):
                     shape = dst_shape,
                     dtype = np.dtype(self.ctype),
                     fillvalue = complex(0))
-            for kz in range(min_shape[0]):
-                dst_file[dst_dset_name][kz,:min_shape[1], :min_shape[2]] = \
-                        src_file[src_dset_name][kz, :min_shape[1], :min_shape[2]]
+            for kz in range(min_shape[0]//2):
+                dst_file[dst_dset_name][kz,:min_shape[1]//2, :min_shape[2]] = \
+                        src_file[src_dset_name][kz, :min_shape[1]//2, :min_shape[2]]
+                dst_file[dst_dset_name][kz,
+                                        dst_shape[1] - min_shape[1]//2+1:,
+                                        :min_shape[2]] = \
+                        src_file[src_dset_name][kz,
+                                                src_shape[1] - min_shape[1]//2+1,
+                                                :min_shape[2]]
+                if kz > 0:
+                    dst_file[dst_dset_name][-kz,:min_shape[1]//2, :min_shape[2]] = \
+                            src_file[src_dset_name][-kz, :min_shape[1]//2, :min_shape[2]]
+                    dst_file[dst_dset_name][-kz,
+                                            dst_shape[1] - min_shape[1]//2+1:,
+                                            :min_shape[2]] = \
+                            src_file[src_dset_name][-kz,
+                                                    src_shape[1] - min_shape[1]//2+1,
+                                                    :min_shape[2]]
         return None
     def generate_particle_data(
             self,
