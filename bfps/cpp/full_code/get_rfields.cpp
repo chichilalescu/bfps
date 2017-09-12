@@ -8,6 +8,7 @@ template <typename rnumber>
 int get_rfields<rnumber>::initialize(void)
 {
     this->NSVE_field_stats<rnumber>::initialize();
+    DEBUG_MSG("after NSVE_field_stats::initialize\n");
     this->kk = new kspace<FFTW, SMOOTH>(
             this->vorticity->clayout, this->dkx, this->dky, this->dkz);
     hid_t parameter_file = H5Fopen(
@@ -25,9 +26,15 @@ int get_rfields<rnumber>::initialize(void)
     }
     else
         this->checkpoints_per_file = 1;
+    H5Fclose(parameter_file);
+    parameter_file = H5Fopen(
+            (this->simname + std::string("_post.h5")).c_str(),
+            H5F_ACC_RDONLY,
+            H5P_DEFAULT);
+    DEBUG_MSG("before read_vector\n");
     this->iteration_list = hdf5_tools::read_vector<int>(
             parameter_file,
-            "/get_rfields/iteration_list");
+            "/get_rfields/parameters/iteration_list");
     H5Fclose(parameter_file);
     return EXIT_SUCCESS;
 }

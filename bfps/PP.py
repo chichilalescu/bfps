@@ -674,10 +674,11 @@ class PP(_code):
                 group = self.dns_type + '/parameters',
                 parameters = self.pp_parameters,
                 file_name = os.path.join(self.work_dir, self.simname + '_post.h5'))
-        histogram_bins = opt.histogram_bins
-        if (type(histogram_bins) == type(None) and
-            'histogram_bins' in self.pp_parameters.keys()):
-            histogram_bins = self.pp_parameters['histogram_bins']
+        if 'histogram_bins' in opt.__dict__.keys():
+            histogram_bins = opt.histogram_bins
+            if (type(histogram_bins) == type(None) and
+                'histogram_bins' in self.pp_parameters.keys()):
+                histogram_bins = self.pp_parameters['histogram_bins']
         with h5py.File(os.path.join(self.work_dir, self.simname + '_post.h5'), 'r+') as ofile:
             group = ofile[self.dns_type]
             group.require_group('histograms')
