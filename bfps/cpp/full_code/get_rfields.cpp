@@ -84,6 +84,13 @@ int get_rfields<rnumber>::work_on_current_iteration(void)
             false);
 
     delete vel;
+
+    this->vorticity->ift();
+    this->vorticity->io(
+            fname,
+            "vorticity",
+            this->iteration,
+            false);
     return EXIT_SUCCESS;
 }
 
