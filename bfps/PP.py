@@ -773,7 +773,7 @@ class PP(_code):
                             dtype = np.float64)
                 df.close()
         return None
-    def prepare_field_file(self):
+    def prepare_field_file(self, iter0 = 0):
         df = self.get_data_file()
         if 'field_dtype' in df.keys():
             # we don't need to do anything, raw binary files are used
@@ -784,7 +784,7 @@ class PP(_code):
         with h5py.File(os.path.join(self.work_dir, self.simname + '_fields.h5'), 'a') as ff:
             ff.require_group('vorticity')
             ff.require_group('vorticity/complex')
-            checkpoint = 0
+            checkpoint = (iter0 // niter_out) // cppf
             while True:
                 cpf_name = os.path.join(
                         self.work_dir,
@@ -805,7 +805,7 @@ class PP(_code):
             opt = None,
             particle_initial_condition = None):
         self.prepare_post_file(opt)
-        self.prepare_field_file()
+        self.prepare_field_file(iter0 = opt.iter0)
         self.run(
                 nb_processes = opt.nb_processes,
                 nb_threads_per_process = opt.nb_threads_per_process,
