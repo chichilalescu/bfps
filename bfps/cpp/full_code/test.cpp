@@ -14,7 +14,7 @@ int test::main_loop(void)
     this->start_simple_timer();
     this->do_work();
     this->print_simple_timer(
-            "do_work required " + std::to_string(this->iteration));
+            "do_work required ");
     return EXIT_SUCCESS;
 }
 

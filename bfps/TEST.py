@@ -257,6 +257,12 @@ class TEST(_code):
         self.simulation_parser_arguments(parser_filter_test)
         self.job_parser_arguments(parser_filter_test)
         self.parameters_to_parser_arguments(parser_filter_test)
+        parser_field_test = subparsers.add_parser(
+                'field_test',
+                help = 'plain field test')
+        self.simulation_parser_arguments(parser_field_test)
+        self.job_parser_arguments(parser_field_test)
+        self.parameters_to_parser_arguments(parser_field_test)
         return None
     def prepare_launch(
             self,

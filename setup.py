@@ -91,6 +91,7 @@ print('This is bfps version ' + VERSION)
 src_file_list = ['full_code/joint_acc_vel_stats',
                  'full_code/test',
                  'full_code/filter_test',
+                 'full_code/field_test',
                  'hdf5_tools',
                  'full_code/get_rfields',
                  'full_code/NSVE_field_stats',
