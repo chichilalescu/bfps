@@ -77,7 +77,7 @@ field<rnumber, be, fc>::field(
             ptrdiff_t local_n0, local_0_start;
             ptrdiff_t local_n1, local_1_start;
             //tmp_local_size = fftw_mpi_local_size_many_transposed(
-            fftw_mpi_local_size_many_transposed(
+            fftw_interface<rnumber>::mpi_local_size_many_transposed(
                     3, nfftw, ncomp(fc),
                     FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, this->comm,
                     &local_n0, &local_0_start,

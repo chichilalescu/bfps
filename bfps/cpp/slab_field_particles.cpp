@@ -69,11 +69,11 @@ slab_field_particles<rnumber>::slab_field_particles(
     this->buffer_width = this->interp_neighbours+1;
     this->buffer_size = this->buffer_width*this->fs->rd->slice_size;
     this->array_size = this->nparticles * this->ncomponents;
-    this->state = fftw_alloc_real(this->array_size);
+    this->state = fftw_interface<rnumber>::alloc_real(this->array_size);
     std::fill_n(this->state, this->array_size, 0.0);
     for (int i=0; i < this->integration_steps; i++)
     {
-        this->rhs[i] = fftw_alloc_real(this->array_size);
+        this->rhs[i] = fftw_interface<rnumber>::alloc_real(this->array_size);
         std::fill_n(this->rhs[i], this->array_size, 0.0);
     }
     this->watching = new bool[this->fs->rd->nprocs*nparticles];
@@ -131,10 +131,10 @@ slab_field_particles<rnumber>::~slab_field_particles()
 {
     delete[] this->computing;
     delete[] this->watching;
-    fftw_free(this->state);
+    fftw_interface<rnumber>::free(this->state);
     for (int i=0; i < this->integration_steps; i++)
     {
-        fftw_free(this->rhs[i]);
+        fftw_interface<rnumber>::free(this->rhs[i]);
     }
     delete[] this->lbound;
     delete[] this->ubound;
@@ -193,7 +193,7 @@ void slab_field_particles<rnumber>::synchronize_single_particle_state(int p, dou
 template <class rnumber>
 void slab_field_particles<rnumber>::synchronize()
 {
-    double *tstate = fftw_alloc_real(this->array_size);
+    double *tstate = fftw_interface<double>::alloc_real(this->array_size);
     // first, synchronize state and jump across CPUs
     std::fill_n(tstate, this->array_size, 0.0);
     for (int p=0; p<this->nparticles; p++)
@@ -236,14 +236,14 @@ void slab_field_particles<rnumber>::synchronize()
                     this->fs->rd->comm);
         }
     }
-    fftw_free(tstate);
+    fftw_interface<double>::free(tstate);
     // assignment of particles
     for (int p=0; p<this->nparticles; p++)
     {
         this->computing[p] = this->get_rank(this->state[p*this->ncomponents + 2]);
         //DEBUG_MSG("synchronizing particles, particle %d computing is %d\n", p, this->computing[p]);
     }
-    double *jump = fftw_alloc_real(this->nparticles);
+    double *jump = fftw_interface<double>::alloc_real(this->nparticles);
     this->jump_estimate(jump);
     // now, see who needs to watch
     bool *local_watching = new bool[this->fs->rd->nprocs*this->nparticles];
@@ -255,7 +255,7 @@ void slab_field_particles<rnumber>::synchronize()
             local_watching[this->get_rank(this->state[this->ncomponents*p+2]-jump[p])*this->nparticles+p] = true;
             local_watching[this->get_rank(this->state[this->ncomponents*p+2]+jump[p])*this->nparticles+p] = true;
         }
-    fftw_free(jump);
+    fftw_interface<double>::free(jump);
     MPI_Allreduce(
             local_watching,
             this->watching,
@@ -389,7 +389,7 @@ void slab_field_particles<rnumber>::step()
 template <class rnumber>
 void slab_field_particles<rnumber>::Euler()
 {
-    double *y = fftw_alloc_real(this->array_size);
+    double *y = fftw_interface<double>::alloc_real(this->array_size);
     this->get_rhs(this->state, y);
     for (int p=0; p<this->nparticles; p++) if (this->fs->rd->myrank == this->computing[p])
     {
@@ -399,7 +399,7 @@ void slab_field_particles<rnumber>::Euler()
         //        "particle %d state is %lg %lg %lg\n",
         //        p, this->state[p*this->ncomponents], this->state[p*this->ncomponents+1], this->state[p*this->ncomponents+2]);
     }
-    fftw_free(y);
+    fftw_interface<double>::free(y);
 }
 
 
