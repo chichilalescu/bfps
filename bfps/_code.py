@@ -380,6 +380,8 @@ class _code(_base):
 
         # If Ibm is used should be : script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ job_type = MPICH\n')
+        assert(type(self.host_info['environment']) != type(None))
+        script_file.write('# @ class = {0}\n'.format(self.host_info['environment']))
 
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('# @ notification = complete\n')
@@ -414,7 +416,6 @@ class _code(_base):
         script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_threads_per_process))
         script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
         script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
-        assert(type(self.host_info['environment']) != type(None))
         script_file.write('# @ node = {0}\n'.format(nb_nodes))
         script_file.write('# @ tasks_per_node = {0}\n'.format(nb_processes_per_node))
         if (first_node_tasks > 0):
