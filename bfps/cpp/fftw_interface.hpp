@@ -41,6 +41,7 @@
 #include <memory>
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #endif
 
 template <class realtype>
@@ -171,6 +172,7 @@ public:
         sizeBuffer *= n[rnk-1]+2;
 
         c2r_plan.buffer.reset(alloc_real(sizeBuffer));
+        memset(c2r_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
         // Init the plan
         c2r_plan.plan_to_use = mpi_plan_dft_c2r(rnk, n,
                                          (complex*)c2r_plan.buffer.get(),
@@ -178,7 +180,7 @@ public:
                                          comm, flags);
 
         c2r_plan.nb_real_to_copy = c2r_plan.local_n0/howmany;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n0/howmany;
+        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1/howmany;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             c2r_plan.nb_real_to_copy *= n[idxrnk];
             c2r_plan.nb_complex_to_copy *= n[idxrnk];
@@ -229,6 +231,7 @@ public:
         sizeBuffer *= n[rnk-1]+2;
 
         r2c_plan.buffer.reset(alloc_real(sizeBuffer));
+        memset(r2c_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
         // Init the plan
         r2c_plan.plan_to_use = mpi_plan_dft_r2c(rnk, n,
                                          r2c_plan.buffer.get(),
@@ -237,7 +240,7 @@ public:
 
 
         r2c_plan.nb_real_to_copy = r2c_plan.local_n0/howmany;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n0/howmany;
+        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1/howmany;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             r2c_plan.nb_real_to_copy *= n[idxrnk];
             r2c_plan.nb_complex_to_copy *= n[idxrnk];
@@ -452,6 +455,7 @@ public:
         sizeBuffer *= n[rnk-1]+2;
 
         c2r_plan.buffer.reset(alloc_real(sizeBuffer));
+        memset(c2r_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
         // Init the plan
         c2r_plan.plan_to_use = mpi_plan_dft_c2r(rnk, n,
                                          (complex*)c2r_plan.buffer.get(),
@@ -459,7 +463,7 @@ public:
                                          comm, flags);
 
         c2r_plan.nb_real_to_copy = c2r_plan.local_n0/howmany;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n0/howmany;
+        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1/howmany;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             c2r_plan.nb_real_to_copy *= n[idxrnk];
             c2r_plan.nb_complex_to_copy *= n[idxrnk];
@@ -510,6 +514,7 @@ public:
         sizeBuffer *= n[rnk-1]+2;
 
         r2c_plan.buffer.reset(alloc_real(sizeBuffer));
+        memset(r2c_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
         // Init the plan
         r2c_plan.plan_to_use = mpi_plan_dft_r2c(rnk, n,
                                          r2c_plan.buffer.get(),
@@ -518,7 +523,7 @@ public:
 
 
         r2c_plan.nb_real_to_copy = r2c_plan.local_n0/howmany;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n0/howmany;
+        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1/howmany;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             r2c_plan.nb_real_to_copy *= n[idxrnk];
             r2c_plan.nb_complex_to_copy *= n[idxrnk];
