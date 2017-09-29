@@ -165,7 +165,7 @@ public:
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
 
-        ptrdiff_t sizeBuffer = c2r_plan.local_n0/howmany;
+        ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             sizeBuffer *= n[idxrnk];
         }
@@ -179,8 +179,8 @@ public:
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0/howmany;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1/howmany;
+        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
+        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             c2r_plan.nb_real_to_copy *= n[idxrnk];
             c2r_plan.nb_complex_to_copy *= n[idxrnk];
@@ -224,7 +224,7 @@ public:
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
 
-        ptrdiff_t sizeBuffer = r2c_plan.local_n0/howmany;
+        ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             sizeBuffer *= n[idxrnk];
         }
@@ -239,8 +239,8 @@ public:
                                          comm, flags);
 
 
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0/howmany;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1/howmany;
+        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
+        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             r2c_plan.nb_real_to_copy *= n[idxrnk];
             r2c_plan.nb_complex_to_copy *= n[idxrnk];
@@ -448,7 +448,7 @@ public:
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
 
-        ptrdiff_t sizeBuffer = c2r_plan.local_n0/howmany;
+        ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             sizeBuffer *= n[idxrnk];
         }
@@ -462,8 +462,8 @@ public:
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0/howmany;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1/howmany;
+        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
+        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             c2r_plan.nb_real_to_copy *= n[idxrnk];
             c2r_plan.nb_complex_to_copy *= n[idxrnk];
@@ -507,7 +507,7 @@ public:
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
 
-        ptrdiff_t sizeBuffer = r2c_plan.local_n0/howmany;
+        ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             sizeBuffer *= n[idxrnk];
         }
@@ -522,8 +522,8 @@ public:
                                          comm, flags);
 
 
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0/howmany;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1/howmany;
+        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
+        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
             r2c_plan.nb_real_to_copy *= n[idxrnk];
             r2c_plan.nb_complex_to_copy *= n[idxrnk];
