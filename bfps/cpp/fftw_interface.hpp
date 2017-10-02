@@ -42,6 +42,16 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <type_traits>
+
+// To mix unique ptr with allocation from fftw
+struct fftw_free_deleter{
+    template <typename T>
+    void operator()(T *p) const {
+        fftwf_free(const_cast<typename std::remove_const<T>::type*>(p));
+    }
+};
+
 #endif
 
 template <class realtype>
@@ -62,7 +72,7 @@ public:
         int howmany;
         ptrdiff_t iblock;
         ptrdiff_t oblock;
-        std::shared_ptr<real> buffer;
+        std::unique_ptr<real[], fftw_free_deleter> buffer;
         plan plan_to_use;
 
         ptrdiff_t local_n0, local_0_start;
@@ -424,7 +434,7 @@ public:
         int howmany;
         ptrdiff_t iblock;
         ptrdiff_t oblock;
-        std::shared_ptr<real> buffer;
+        std::unique_ptr<real[], fftw_free_deleter> buffer;
         plan plan_to_use;
 
         ptrdiff_t local_n0, local_0_start;
