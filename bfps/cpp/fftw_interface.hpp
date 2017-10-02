@@ -116,11 +116,6 @@ public:
     }
 
     template <class ... Params>
-    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
-        return fftwf_mpi_local_size_many_transposed(params...);
-    }
-
-    template <class ... Params>
     static ptrdiff_t mpi_local_size_many(Params ... params){
         return fftwf_mpi_local_size_many(params...);
     }
@@ -145,7 +140,23 @@ public:
         return fftwf_plan_guru_dft(params...);
     }
 
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_transposed(Params ... params){
+        return fftwf_mpi_local_size_transposed(params...);
+    }
+
 #ifdef SPLIT_FFTW_MANY
+    static ptrdiff_t mpi_local_size_many_transposed(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
+                                                    ptrdiff_t block0, ptrdiff_t block1, MPI_Comm comm,
+                                                    ptrdiff_t *local_n0, ptrdiff_t *local_0_start,
+                                                    ptrdiff_t *local_n1, ptrdiff_t *local_1_start){
+        assert(block0 == FFTW_MPI_DEFAULT_BLOCK);
+        assert(block1 == FFTW_MPI_DEFAULT_BLOCK);
+        return howmany*mpi_local_size_transposed(rnk, n, comm,
+                                                   local_n0, local_0_start,
+                                                   local_n1, local_1_start);
+    }
+
     static many_plan mpi_plan_many_dft_c2r(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
                                                          ptrdiff_t iblock, ptrdiff_t oblock,
                                                          complex *in, real *out,
@@ -174,21 +185,10 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
-        if(rnk == 3){
-            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
-            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
-                                              &local_n0, &local_0_start,
-                                              &local_n1, &local_1_start);
-            assert(c2r_plan.local_n0 == local_n0);
-            assert(c2r_plan.local_0_start == local_0_start);
-            assert(c2r_plan.local_n1 == local_n1);
-            assert(c2r_plan.local_1_start == local_1_start);
-        }
 
         ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -254,21 +254,10 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
-        if(rnk == 3){
-            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
-            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
-                                              &local_n0, &local_0_start,
-                                              &local_n1, &local_1_start);
-            assert(r2c_plan.local_n0 == local_n0);
-            assert(r2c_plan.local_0_start == local_0_start);
-            assert(r2c_plan.local_n1 == local_n1);
-            assert(r2c_plan.local_1_start == local_1_start);
-        }
 
         ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -392,6 +381,12 @@ public:
         destroy_plan(in_plan.plan_to_use);
     }
 #else
+
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
+        return fftwf_mpi_local_size_many_transposed(params...);
+    }
+
     template <class ... Params>
     static plan mpi_plan_many_dft_c2r(Params ... params){
         return fftwf_mpi_plan_many_dft_c2r(params...);
@@ -478,11 +473,6 @@ public:
     }
 
     template <class ... Params>
-    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
-        return fftw_mpi_local_size_many_transposed(params...);
-    }
-
-    template <class ... Params>
     static ptrdiff_t mpi_local_size_many(Params ... params){
         return fftw_mpi_local_size_many(params...);
     }
@@ -507,8 +497,23 @@ public:
         return fftw_plan_guru_dft(params...);
     }
 
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_transposed(Params ... params){
+        return fftw_mpi_local_size_transposed(params...);
+    }
 
-#ifdef SPLIT_FFTW_MANY    
+#ifdef SPLIT_FFTW_MANY
+    static ptrdiff_t mpi_local_size_many_transposed(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
+                                                    ptrdiff_t block0, ptrdiff_t block1, MPI_Comm comm,
+                                                    ptrdiff_t *local_n0, ptrdiff_t *local_0_start,
+                                                    ptrdiff_t *local_n1, ptrdiff_t *local_1_start){
+        assert(block0 == FFTW_MPI_DEFAULT_BLOCK);
+        assert(block1 == FFTW_MPI_DEFAULT_BLOCK);
+        return howmany*mpi_local_size_transposed(rnk, n, comm,
+                                                           local_n0, local_0_start,
+                                                           local_n1, local_1_start);
+    }
+
     static many_plan mpi_plan_many_dft_c2r(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
                                                          ptrdiff_t iblock, ptrdiff_t oblock,
                                                          complex *in, real *out,
@@ -537,21 +542,10 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
-        if(rnk == 3){
-            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
-            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
-                                              &local_n0, &local_0_start,
-                                              &local_n1, &local_1_start);
-            assert(c2r_plan.local_n0 == local_n0);
-            assert(c2r_plan.local_0_start == local_0_start);
-            assert(c2r_plan.local_n1 == local_n1);
-            assert(c2r_plan.local_1_start == local_1_start);
-        }
 
         ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -617,21 +611,10 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
-        if(rnk == 3){
-            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
-            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
-                                              &local_n0, &local_0_start,
-                                              &local_n1, &local_1_start);
-            assert(r2c_plan.local_n0 == local_n0);
-            assert(r2c_plan.local_0_start == local_0_start);
-            assert(r2c_plan.local_n1 == local_n1);
-            assert(r2c_plan.local_1_start == local_1_start);
-        }
 
         ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -754,7 +737,12 @@ public:
     static void destroy_plan(many_plan& in_plan){
         destroy_plan(in_plan.plan_to_use);
     }
-#else
+#else    
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
+        return fftw_mpi_local_size_many_transposed(params...);
+    }
+
     template <class ... Params>
     static plan mpi_plan_many_dft_c2r(Params ... params){
         return fftw_mpi_plan_many_dft_c2r(params...);
