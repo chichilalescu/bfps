@@ -72,8 +72,10 @@ public:
         void* in;
         void* out;
 
-        ptrdiff_t nb_real_to_copy;
-        ptrdiff_t nb_complex_to_copy;
+        ptrdiff_t nb_sections_real;
+        ptrdiff_t size_real_section;
+        ptrdiff_t nb_sections_complex;
+        ptrdiff_t size_complex_section;
 
         ptrdiff_t sizeBuffer;
     };
@@ -167,6 +169,16 @@ public:
                 FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
+        if(rnk == 3){
+            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
+            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
+                                              &local_n0, &local_0_start,
+                                              &local_n1, &local_1_start);
+            assert(c2r_plan.local_n0 == local_n0);
+            assert(c2r_plan.local_0_start == local_0_start);
+            assert(c2r_plan.local_n1 == local_n1);
+            assert(c2r_plan.local_1_start == local_1_start);
+        }
 
         ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -183,16 +195,23 @@ public:
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
+        c2r_plan.nb_sections_real = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            c2r_plan.nb_real_to_copy *= n[idxrnk];
-            c2r_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            c2r_plan.nb_sections_real *= n[idxrnk];
+            c2r_plan.nb_sections_complex *= n[idxrnk];
         }
-        c2r_plan.nb_real_to_copy *= n[rnk-1] + 2;
-        c2r_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(c2r_plan.nb_real_to_copy == sizeBuffer);
-        assert(c2r_plan.nb_complex_to_copy <= sizeBuffer/2);
+        c2r_plan.size_real_section = (n[rnk-1] + 2);
+
+        c2r_plan.nb_sections_complex = c2r_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                c2r_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                c2r_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        c2r_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return c2r_plan;
     }
@@ -230,6 +249,16 @@ public:
                 FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
+        if(rnk == 3){
+            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
+            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
+                                              &local_n0, &local_0_start,
+                                              &local_n1, &local_1_start);
+            assert(r2c_plan.local_n0 == local_n0);
+            assert(r2c_plan.local_0_start == local_0_start);
+            assert(r2c_plan.local_n1 == local_n1);
+            assert(r2c_plan.local_1_start == local_1_start);
+        }
 
         ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -246,17 +275,23 @@ public:
                                          (complex*)r2c_plan.buffer.get(),
                                          comm, flags);
 
-
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
+        r2c_plan.nb_sections_real = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            r2c_plan.nb_real_to_copy *= n[idxrnk];
-            r2c_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            r2c_plan.nb_sections_real *= n[idxrnk];
+            r2c_plan.nb_sections_complex *= n[idxrnk];
         }
-        r2c_plan.nb_real_to_copy *= n[rnk-1] + 2;
-        r2c_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(r2c_plan.nb_real_to_copy == sizeBuffer);
-        assert(r2c_plan.nb_complex_to_copy <= sizeBuffer/2);
+        r2c_plan.size_real_section = (n[rnk-1] + 2);
+
+        r2c_plan.nb_sections_complex = r2c_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                r2c_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                r2c_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        r2c_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return r2c_plan;
     }
@@ -267,42 +302,77 @@ public:
             return;
         }
 
-        const ptrdiff_t nb_to_copy_to_buffer = (in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
-        const ptrdiff_t nb_to_copy_from_buffer = (!in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
+        std::unique_ptr<real[]> in_copy;
+        if(in_plan.is_r2c){
+            in_copy.reset(new real[in_plan.nb_sections_real * in_plan.size_real_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        in_copy[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany] =
+                                ((const real*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany];
+                    }
+                }
+            }
+        }
+        else{
+            in_copy.reset((real*)new complex[in_plan.nb_sections_complex * in_plan.size_complex_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0];
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1];
+                    }
+                }
+            }
+        }
 
         for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
             // Copy to buffer
             if(in_plan.is_r2c){
-                real* dest = in_plan.buffer.get();
-                const real* src = ((const real*)in_plan.in)+idx_howmany;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    dest[idx_copy] = src[idx_copy*in_plan.howmany];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+                    const real* src = in_copy.get()+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy] = src[idx_copy*in_plan.howmany];
+                    }
                 }
             }
             else{
-                complex* dest = (complex*)in_plan.buffer.get();
-                const complex* src = ((const complex*)in_plan.in)+idx_howmany;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
-                    dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    const complex* src = ((const complex*)in_copy.get()) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
+                        dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
+                    }
                 }
             }
 
             execute(in_plan.plan_to_use);
             // Copy result from buffer
             if(in_plan.is_r2c){
-                complex* dest = ((complex*)in_plan.in)+idx_howmany;
-                const complex* src = (const complex*)in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
-                    dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.out) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    const complex* src = ((const complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
+                        dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
+                    }
                 }
             }
             else{
-                real* dest = ((real*)in_plan.in)+idx_howmany;
-                const real* src = in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    dest[idx_copy*in_plan.howmany] = src[idx_copy];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = ((real*)in_plan.out)+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+                    const real* src = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany] = src[idx_copy];
+                    }
                 }
             }
         }
@@ -364,8 +434,10 @@ public:
         void* in;
         void* out;
 
-        ptrdiff_t nb_real_to_copy;
-        ptrdiff_t nb_complex_to_copy;
+        ptrdiff_t nb_sections_real;
+        ptrdiff_t size_real_section;
+        ptrdiff_t nb_sections_complex;
+        ptrdiff_t size_complex_section;
 
         ptrdiff_t sizeBuffer;
     };
@@ -426,7 +498,7 @@ public:
     }
 
 
-#ifdef SPLIT_FFTW_MANY
+#ifdef SPLIT_FFTW_MANY    
     static many_plan mpi_plan_many_dft_c2r(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
                                                          ptrdiff_t iblock, ptrdiff_t oblock,
                                                          complex *in, real *out,
@@ -460,6 +532,16 @@ public:
                 FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
+        if(rnk == 3){
+            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
+            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
+                                              &local_n0, &local_0_start,
+                                              &local_n1, &local_1_start);
+            assert(c2r_plan.local_n0 == local_n0);
+            assert(c2r_plan.local_0_start == local_0_start);
+            assert(c2r_plan.local_n1 == local_n1);
+            assert(c2r_plan.local_1_start == local_1_start);
+        }
 
         ptrdiff_t sizeBuffer = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -476,16 +558,23 @@ public:
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
+        c2r_plan.nb_sections_real = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            c2r_plan.nb_real_to_copy *= n[idxrnk];
-            c2r_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            c2r_plan.nb_sections_real *= n[idxrnk];
+            c2r_plan.nb_sections_complex *= n[idxrnk];
         }
-        c2r_plan.nb_real_to_copy *= n[rnk-1] + 2;
-        c2r_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(c2r_plan.nb_real_to_copy == sizeBuffer);
-        assert(c2r_plan.nb_complex_to_copy <= sizeBuffer/2);
+        c2r_plan.size_real_section = (n[rnk-1] + 2);
+
+        c2r_plan.nb_sections_complex = c2r_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                c2r_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                c2r_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        c2r_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return c2r_plan;
     }
@@ -523,6 +612,16 @@ public:
                 FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
+        if(rnk == 3){
+            ptrdiff_t local_n0, local_0_start, local_n1, local_1_start;
+            fftw_mpi_local_size_3d_transposed(n[0], n[1], n[2], comm,
+                                              &local_n0, &local_0_start,
+                                              &local_n1, &local_1_start);
+            assert(r2c_plan.local_n0 == local_n0);
+            assert(r2c_plan.local_0_start == local_0_start);
+            assert(r2c_plan.local_n1 == local_n1);
+            assert(r2c_plan.local_1_start == local_1_start);
+        }
 
         ptrdiff_t sizeBuffer = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
@@ -539,17 +638,23 @@ public:
                                          (complex*)r2c_plan.buffer.get(),
                                          comm, flags);
 
-
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
+        r2c_plan.nb_sections_real = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            r2c_plan.nb_real_to_copy *= n[idxrnk];
-            r2c_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            r2c_plan.nb_sections_real *= n[idxrnk];
+            r2c_plan.nb_sections_complex *= n[idxrnk];
         }
-        r2c_plan.nb_real_to_copy *= n[rnk-1] + 2;
-        r2c_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(r2c_plan.nb_real_to_copy == sizeBuffer);
-        assert(r2c_plan.nb_complex_to_copy <= sizeBuffer/2);
+        r2c_plan.size_real_section = (n[rnk-1] + 2);
+
+        r2c_plan.nb_sections_complex = r2c_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                r2c_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                r2c_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        r2c_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return r2c_plan;
     }
@@ -560,42 +665,77 @@ public:
             return;
         }
 
-        const ptrdiff_t nb_to_copy_to_buffer = (in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
-        const ptrdiff_t nb_to_copy_from_buffer = (!in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
+        std::unique_ptr<real[]> in_copy;
+        if(in_plan.is_r2c){
+            in_copy.reset(new real[in_plan.nb_sections_real * in_plan.size_real_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        in_copy[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany] =
+                                ((const real*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany];
+                    }
+                }
+            }
+        }
+        else{
+            in_copy.reset((real*)new complex[in_plan.nb_sections_complex * in_plan.size_complex_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0];
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1];
+                    }
+                }
+            }
+        }
 
         for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
             // Copy to buffer
             if(in_plan.is_r2c){
-                real* dest = in_plan.buffer.get();
-                const real* src = ((const real*)in_plan.in)+idx_howmany;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    dest[idx_copy] = src[idx_copy*in_plan.howmany];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+                    const real* src = in_copy.get()+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy] = src[idx_copy*in_plan.howmany];
+                    }
                 }
             }
             else{
-                complex* dest = (complex*)in_plan.buffer.get();
-                const complex* src = ((const complex*)in_plan.in)+idx_howmany;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
-                    dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    const complex* src = ((const complex*)in_copy.get()) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
+                        dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
+                    }
                 }
             }
 
             execute(in_plan.plan_to_use);
             // Copy result from buffer
             if(in_plan.is_r2c){
-                complex* dest = ((complex*)in_plan.in)+idx_howmany;
-                const complex* src = (const complex*)in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
-                    dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.out) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    const complex* src = ((const complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
+                        dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
+                    }
                 }
             }
             else{
-                real* dest = ((real*)in_plan.in)+idx_howmany;
-                const real* src = in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    dest[idx_copy*in_plan.howmany] = src[idx_copy];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = ((real*)in_plan.out)+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+                    const real* src = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany] = src[idx_copy];
+                    }
                 }
             }
         }
