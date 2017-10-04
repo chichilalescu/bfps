@@ -29,7 +29,7 @@ class particles_system : public abstract_particles_system<partsize_t, real_numbe
     using computer_class = particles_field_computer<partsize_t, real_number, interpolator_class, interp_neighbours>;
     computer_class computer;
 
-    field_class default_field;
+    const field_class& default_field;
 
     std::unique_ptr<partsize_t[]> current_my_nb_particles_per_partition;
     std::unique_ptr<partsize_t[]> current_offset_particles_for_partition;

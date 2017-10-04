@@ -42,6 +42,16 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <type_traits>
+
+// To mix unique ptr with allocation from fftw
+struct fftw_free_deleter{
+    template <typename T>
+    void operator()(T *p) const {
+        fftwf_free(const_cast<typename std::remove_const<T>::type*>(p));
+    }
+};
+
 #endif
 
 template <class realtype>
@@ -62,7 +72,7 @@ public:
         int howmany;
         ptrdiff_t iblock;
         ptrdiff_t oblock;
-        std::shared_ptr<real> buffer;
+        std::unique_ptr<real[], fftw_free_deleter> buffer;
         plan plan_to_use;
 
         ptrdiff_t local_n0, local_0_start;
@@ -72,8 +82,12 @@ public:
         void* in;
         void* out;
 
-        ptrdiff_t nb_real_to_copy;
-        ptrdiff_t nb_complex_to_copy;
+        ptrdiff_t nb_sections_real;
+        ptrdiff_t size_real_section;
+        ptrdiff_t nb_sections_complex;
+        ptrdiff_t size_complex_section;
+
+        ptrdiff_t sizeBuffer;
     };
 
     using many_plan = many_plan_container;
@@ -102,11 +116,6 @@ public:
     }
 
     template <class ... Params>
-    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
-        return fftwf_mpi_local_size_many_transposed(params...);
-    }
-
-    template <class ... Params>
     static ptrdiff_t mpi_local_size_many(Params ... params){
         return fftwf_mpi_local_size_many(params...);
     }
@@ -131,7 +140,23 @@ public:
         return fftwf_plan_guru_dft(params...);
     }
 
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_transposed(Params ... params){
+        return fftwf_mpi_local_size_transposed(params...);
+    }
+
 #ifdef SPLIT_FFTW_MANY
+    static ptrdiff_t mpi_local_size_many_transposed(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
+                                                    ptrdiff_t block0, ptrdiff_t block1, MPI_Comm comm,
+                                                    ptrdiff_t *local_n0, ptrdiff_t *local_0_start,
+                                                    ptrdiff_t *local_n1, ptrdiff_t *local_1_start){
+        assert(block0 == FFTW_MPI_DEFAULT_BLOCK);
+        assert(block1 == FFTW_MPI_DEFAULT_BLOCK);
+        return howmany*mpi_local_size_transposed(rnk, n, comm,
+                                                   local_n0, local_0_start,
+                                                   local_n1, local_1_start);
+    }
+
     static many_plan mpi_plan_many_dft_c2r(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
                                                          ptrdiff_t iblock, ptrdiff_t oblock,
                                                          complex *in, real *out,
@@ -148,6 +173,7 @@ public:
         c2r_plan.is_r2c = false;
         c2r_plan.in = in;
         c2r_plan.out = out;
+        c2r_plan.sizeBuffer = 0;
 
         // If 1 then use default without copy
         if(howmany == 1){
@@ -159,9 +185,8 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
 
@@ -170,25 +195,33 @@ public:
             sizeBuffer *= n[idxrnk];
         }
         sizeBuffer *= n[rnk-1]+2;
-        sizeBuffer *= rnk;
 
         c2r_plan.buffer.reset(alloc_real(sizeBuffer));
         memset(c2r_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
+        c2r_plan.sizeBuffer = sizeBuffer;
         // Init the plan
         c2r_plan.plan_to_use = mpi_plan_dft_c2r(rnk, n,
                                          (complex*)c2r_plan.buffer.get(),
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
+        c2r_plan.nb_sections_real = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            c2r_plan.nb_real_to_copy *= n[idxrnk];
-            c2r_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            c2r_plan.nb_sections_real *= n[idxrnk];
+            c2r_plan.nb_sections_complex *= n[idxrnk];
         }
-        c2r_plan.nb_real_to_copy *= n[rnk-1];
-        c2r_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(c2r_plan.nb_real_to_copy*rnk <= sizeBuffer);
+        c2r_plan.size_real_section = (n[rnk-1] + 2);
+
+        c2r_plan.nb_sections_complex = c2r_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                c2r_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                c2r_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        c2r_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return c2r_plan;
     }
@@ -209,6 +242,7 @@ public:
         r2c_plan.is_r2c = true;
         r2c_plan.in = in;
         r2c_plan.out = out;
+        r2c_plan.sizeBuffer = 0;
 
         // If 1 then use default without copy
         if(howmany == 1){
@@ -220,9 +254,8 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
 
@@ -231,26 +264,33 @@ public:
             sizeBuffer *= n[idxrnk];
         }
         sizeBuffer *= n[rnk-1]+2;
-        sizeBuffer *= rnk;
 
         r2c_plan.buffer.reset(alloc_real(sizeBuffer));
         memset(r2c_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
+        r2c_plan.sizeBuffer = sizeBuffer;
         // Init the plan
         r2c_plan.plan_to_use = mpi_plan_dft_r2c(rnk, n,
                                          r2c_plan.buffer.get(),
                                          (complex*)r2c_plan.buffer.get(),
                                          comm, flags);
 
-
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
+        r2c_plan.nb_sections_real = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            r2c_plan.nb_real_to_copy *= n[idxrnk];
-            r2c_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            r2c_plan.nb_sections_real *= n[idxrnk];
+            r2c_plan.nb_sections_complex *= n[idxrnk];
         }
-        r2c_plan.nb_real_to_copy *= n[rnk-1];
-        r2c_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
-        assert(r2c_plan.nb_real_to_copy*rnk <= sizeBuffer);
+        r2c_plan.size_real_section = (n[rnk-1] + 2);
+
+        r2c_plan.nb_sections_complex = r2c_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                r2c_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                r2c_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        r2c_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return r2c_plan;
     }
@@ -261,30 +301,53 @@ public:
             return;
         }
 
-        const ptrdiff_t nb_to_copy_to_buffer = (in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
-        const ptrdiff_t nb_to_copy_from_buffer = (!in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
+        std::unique_ptr<real[]> in_copy;
+        if(in_plan.is_r2c){
+            in_copy.reset(new real[in_plan.nb_sections_real * in_plan.size_real_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        in_copy[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany] =
+                                ((const real*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany];
+                    }
+                }
+            }
+        }
+        else{
+            in_copy.reset((real*)new complex[in_plan.nb_sections_complex * in_plan.size_complex_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0];
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1];
+                    }
+                }
+            }
+        }
 
         for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
             // Copy to buffer
             if(in_plan.is_r2c){
-                real* dest = in_plan.buffer.get();
-                const real* src = ((const real*)in_plan.in)+idx_howmany*in_plan.rnk;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.rnk + idx_n] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                               +idx_howmany*in_plan.rnk + idx_n];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+                    const real* src = in_copy.get()+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy] = src[idx_copy*in_plan.howmany];
                     }
                 }
             }
             else{
-                complex* dest = (complex*)in_plan.buffer.get();
-                const complex* src = ((const complex*)in_plan.in)+idx_howmany*in_plan.rnk;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.rnk + idx_n][0] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                +idx_howmany*in_plan.rnk + idx_n][0];
-                        dest[idx_copy*in_plan.rnk + idx_n][1] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                +idx_howmany*in_plan.rnk + idx_n][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    const complex* src = ((const complex*)in_copy.get()) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
+                        dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
                     }
                 }
             }
@@ -292,24 +355,22 @@ public:
             execute(in_plan.plan_to_use);
             // Copy result from buffer
             if(in_plan.is_r2c){
-                complex* dest = ((complex*)in_plan.in)+idx_howmany*in_plan.rnk;
-                const complex* src = (const complex*)in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                                +idx_howmany*in_plan.rnk + idx_n][0] = src[idx_copy*in_plan.rnk + idx_n][0];
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                                +idx_howmany*in_plan.rnk + idx_n][1] = src[idx_copy*in_plan.rnk + idx_n][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.out) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    const complex* src = ((const complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
+                        dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
                     }
                 }
             }
             else{
-                real* dest = ((real*)in_plan.in)+idx_howmany*in_plan.rnk;
-                const real* src = in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                            +idx_howmany*in_plan.rnk + idx_n] = src[idx_copy*in_plan.rnk + idx_n];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = ((real*)in_plan.out)+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+                    const real* src = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany] = src[idx_copy];
                     }
                 }
             }
@@ -320,6 +381,12 @@ public:
         destroy_plan(in_plan.plan_to_use);
     }
 #else
+
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
+        return fftwf_mpi_local_size_many_transposed(params...);
+    }
+
     template <class ... Params>
     static plan mpi_plan_many_dft_c2r(Params ... params){
         return fftwf_mpi_plan_many_dft_c2r(params...);
@@ -362,7 +429,7 @@ public:
         int howmany;
         ptrdiff_t iblock;
         ptrdiff_t oblock;
-        std::shared_ptr<real> buffer;
+        std::unique_ptr<real[], fftw_free_deleter> buffer;
         plan plan_to_use;
 
         ptrdiff_t local_n0, local_0_start;
@@ -372,8 +439,12 @@ public:
         void* in;
         void* out;
 
-        ptrdiff_t nb_real_to_copy;
-        ptrdiff_t nb_complex_to_copy;
+        ptrdiff_t nb_sections_real;
+        ptrdiff_t size_real_section;
+        ptrdiff_t nb_sections_complex;
+        ptrdiff_t size_complex_section;
+
+        ptrdiff_t sizeBuffer;
     };
 
     using many_plan = many_plan_container;
@@ -402,11 +473,6 @@ public:
     }
 
     template <class ... Params>
-    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
-        return fftw_mpi_local_size_many_transposed(params...);
-    }
-
-    template <class ... Params>
     static ptrdiff_t mpi_local_size_many(Params ... params){
         return fftw_mpi_local_size_many(params...);
     }
@@ -431,8 +497,23 @@ public:
         return fftw_plan_guru_dft(params...);
     }
 
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_transposed(Params ... params){
+        return fftw_mpi_local_size_transposed(params...);
+    }
 
 #ifdef SPLIT_FFTW_MANY
+    static ptrdiff_t mpi_local_size_many_transposed(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
+                                                    ptrdiff_t block0, ptrdiff_t block1, MPI_Comm comm,
+                                                    ptrdiff_t *local_n0, ptrdiff_t *local_0_start,
+                                                    ptrdiff_t *local_n1, ptrdiff_t *local_1_start){
+        assert(block0 == FFTW_MPI_DEFAULT_BLOCK);
+        assert(block1 == FFTW_MPI_DEFAULT_BLOCK);
+        return howmany*mpi_local_size_transposed(rnk, n, comm,
+                                                           local_n0, local_0_start,
+                                                           local_n1, local_1_start);
+    }
+
     static many_plan mpi_plan_many_dft_c2r(int rnk, const ptrdiff_t *n, ptrdiff_t howmany,
                                                          ptrdiff_t iblock, ptrdiff_t oblock,
                                                          complex *in, real *out,
@@ -449,6 +530,7 @@ public:
         c2r_plan.is_r2c = false;
         c2r_plan.in = in;
         c2r_plan.out = out;
+        c2r_plan.sizeBuffer = 0;
 
         // If 1 then use default without copy
         if(howmany == 1){
@@ -460,9 +542,8 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &c2r_plan.local_n0, &c2r_plan.local_0_start,
                 &c2r_plan.local_n1, &c2r_plan.local_1_start);
 
@@ -471,24 +552,33 @@ public:
             sizeBuffer *= n[idxrnk];
         }
         sizeBuffer *= n[rnk-1]+2;
-        sizeBuffer *= rnk;
 
         c2r_plan.buffer.reset(alloc_real(sizeBuffer));
         memset(c2r_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
+        c2r_plan.sizeBuffer = sizeBuffer;
         // Init the plan
         c2r_plan.plan_to_use = mpi_plan_dft_c2r(rnk, n,
                                          (complex*)c2r_plan.buffer.get(),
                                          c2r_plan.buffer.get(),
                                          comm, flags);
 
-        c2r_plan.nb_real_to_copy = c2r_plan.local_n0;
-        c2r_plan.nb_complex_to_copy = c2r_plan.local_n1;
+        c2r_plan.nb_sections_real = c2r_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            c2r_plan.nb_real_to_copy *= n[idxrnk];
-            c2r_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            c2r_plan.nb_sections_real *= n[idxrnk];
+            c2r_plan.nb_sections_complex *= n[idxrnk];
         }
-        c2r_plan.nb_real_to_copy *= n[rnk-1];
-        c2r_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
+        c2r_plan.size_real_section = (n[rnk-1] + 2);
+
+        c2r_plan.nb_sections_complex = c2r_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                c2r_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                c2r_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        c2r_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return c2r_plan;
     }
@@ -509,6 +599,7 @@ public:
         r2c_plan.is_r2c = true;
         r2c_plan.in = in;
         r2c_plan.out = out;
+        r2c_plan.sizeBuffer = 0;
 
         // If 1 then use default without copy
         if(howmany == 1){
@@ -520,9 +611,8 @@ public:
         }
 
         // We need to find out the size of the buffer to allocate
-        mpi_local_size_many_transposed(
-                rnk, n, howmany,
-                FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK, comm,
+        mpi_local_size_transposed(
+                rnk, n, comm,
                 &r2c_plan.local_n0, &r2c_plan.local_0_start,
                 &r2c_plan.local_n1, &r2c_plan.local_1_start);
 
@@ -531,25 +621,33 @@ public:
             sizeBuffer *= n[idxrnk];
         }
         sizeBuffer *= n[rnk-1]+2;
-        sizeBuffer *= rnk;
 
         r2c_plan.buffer.reset(alloc_real(sizeBuffer));
         memset(r2c_plan.buffer.get(), 0, sizeof(real)*sizeBuffer);
+        r2c_plan.sizeBuffer = sizeBuffer;
         // Init the plan
         r2c_plan.plan_to_use = mpi_plan_dft_r2c(rnk, n,
                                          r2c_plan.buffer.get(),
                                          (complex*)r2c_plan.buffer.get(),
                                          comm, flags);
 
-
-        r2c_plan.nb_real_to_copy = r2c_plan.local_n0;
-        r2c_plan.nb_complex_to_copy = r2c_plan.local_n1;
+        r2c_plan.nb_sections_real = r2c_plan.local_n0;
         for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
-            r2c_plan.nb_real_to_copy *= n[idxrnk];
-            r2c_plan.nb_complex_to_copy *= n[(idxrnk==1)?0:idxrnk];
+            r2c_plan.nb_sections_real *= n[idxrnk];
+            r2c_plan.nb_sections_complex *= n[idxrnk];
         }
-        r2c_plan.nb_real_to_copy *= n[rnk-1];
-        r2c_plan.nb_complex_to_copy *= n[rnk-1]/2 + 1;
+        r2c_plan.size_real_section = (n[rnk-1] + 2);
+
+        r2c_plan.nb_sections_complex = r2c_plan.local_n1;
+        for(int idxrnk = 1 ; idxrnk < rnk-1 ; ++idxrnk){
+            if(idxrnk == 1){
+                r2c_plan.nb_sections_complex *= n[0];
+            }
+            else{
+                r2c_plan.nb_sections_complex *= n[idxrnk];
+            }
+        }
+        r2c_plan.size_complex_section = (n[rnk-1]/2 + 1);
 
         return r2c_plan;
     }
@@ -560,30 +658,53 @@ public:
             return;
         }
 
-        const ptrdiff_t nb_to_copy_to_buffer = (in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
-        const ptrdiff_t nb_to_copy_from_buffer = (!in_plan.is_r2c?in_plan.nb_real_to_copy:in_plan.nb_complex_to_copy);
+        std::unique_ptr<real[]> in_copy;
+        if(in_plan.is_r2c){
+            in_copy.reset(new real[in_plan.nb_sections_real * in_plan.size_real_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        in_copy[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany] =
+                                ((const real*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_real_section*in_plan.howmany];
+                    }
+                }
+            }
+        }
+        else{
+            in_copy.reset((real*)new complex[in_plan.nb_sections_complex * in_plan.size_complex_section * in_plan.howmany]);
+
+            for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                    for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][0];
+                        ((complex*)in_copy.get())[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1] =
+                                ((const complex*)in_plan.in)[idx_howmany + idx_copy*in_plan.howmany + idx_section*in_plan.size_complex_section*in_plan.howmany][1];
+                    }
+                }
+            }
+        }
 
         for(int idx_howmany = 0 ; idx_howmany < in_plan.howmany ; ++idx_howmany){
             // Copy to buffer
             if(in_plan.is_r2c){
-                real* dest = in_plan.buffer.get();
-                const real* src = ((const real*)in_plan.in)+idx_howmany*in_plan.rnk;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.rnk + idx_n] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                               +idx_howmany*in_plan.rnk + idx_n];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+                    const real* src = in_copy.get()+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy] = src[idx_copy*in_plan.howmany];
                     }
                 }
             }
             else{
-                complex* dest = (complex*)in_plan.buffer.get();
-                const complex* src = ((const complex*)in_plan.in)+idx_howmany*in_plan.rnk;
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_to_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.rnk + idx_n][0] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                +idx_howmany*in_plan.rnk + idx_n][0];
-                        dest[idx_copy*in_plan.rnk + idx_n][1] = src[idx_copy*in_plan.howmany*in_plan.rnk
-                                                +idx_howmany*in_plan.rnk + idx_n][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    const complex* src = ((const complex*)in_copy.get()) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy][0] = src[idx_copy*in_plan.howmany][0];
+                        dest[idx_copy][1] = src[idx_copy*in_plan.howmany][1];
                     }
                 }
             }
@@ -591,24 +712,22 @@ public:
             execute(in_plan.plan_to_use);
             // Copy result from buffer
             if(in_plan.is_r2c){
-                complex* dest = ((complex*)in_plan.in)+idx_howmany*in_plan.rnk;
-                const complex* src = (const complex*)in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                                +idx_howmany*in_plan.rnk + idx_n][0] = src[idx_copy*in_plan.rnk + idx_n][0];
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                                +idx_howmany*in_plan.rnk + idx_n][1] = src[idx_copy*in_plan.rnk + idx_n][1];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_complex ; ++idx_section){
+                    complex* dest = ((complex*)in_plan.out) + idx_howmany + idx_section*in_plan.size_complex_section*in_plan.howmany;
+                    const complex* src = ((const complex*)in_plan.buffer.get()) + idx_section*in_plan.size_complex_section;
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1]/2+1 ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany][0] = src[idx_copy][0];
+                        dest[idx_copy*in_plan.howmany][1] = src[idx_copy][1];
                     }
                 }
             }
             else{
-                real* dest = ((real*)in_plan.in)+idx_howmany*in_plan.rnk;
-                const real* src = in_plan.buffer.get();
-                for(ptrdiff_t idx_copy = 0 ; idx_copy < nb_to_copy_from_buffer ; ++idx_copy){
-                    for(int idx_n = 0 ; idx_n < in_plan.rnk ; ++idx_n){
-                        dest[idx_copy*in_plan.howmany*in_plan.rnk
-                            +idx_howmany*in_plan.rnk + idx_n] = src[idx_copy*in_plan.rnk + idx_n];
+                for(int idx_section = 0 ; idx_section < in_plan.nb_sections_real ; ++idx_section){
+                    real* dest = ((real*)in_plan.out)+idx_howmany + idx_section*in_plan.size_real_section*in_plan.howmany;
+                    const real* src = in_plan.buffer.get() + idx_section*in_plan.size_real_section;
+
+                    for(ptrdiff_t idx_copy = 0 ; idx_copy < in_plan.n[in_plan.rnk-1] ; ++idx_copy){
+                        dest[idx_copy*in_plan.howmany] = src[idx_copy];
                     }
                 }
             }
@@ -618,7 +737,12 @@ public:
     static void destroy_plan(many_plan& in_plan){
         destroy_plan(in_plan.plan_to_use);
     }
-#else
+#else    
+    template <class ... Params>
+    static ptrdiff_t mpi_local_size_many_transposed(Params ... params){
+        return fftw_mpi_local_size_many_transposed(params...);
+    }
+
     template <class ... Params>
     static plan mpi_plan_many_dft_c2r(Params ... params){
         return fftw_mpi_plan_many_dft_c2r(params...);

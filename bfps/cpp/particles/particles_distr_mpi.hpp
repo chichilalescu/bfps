@@ -136,7 +136,7 @@ public:
 
     template <class computer_class, class field_class, int size_particle_positions, int size_particle_rhs>
     void compute_distr(computer_class& in_computer,
-                       field_class& in_field,
+                       const field_class& in_field,
                        const partsize_t current_my_nb_particles_per_partition[],
                        const real_number particles_positions[],
                        real_number particles_current_rhs[],
