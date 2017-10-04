@@ -52,7 +52,7 @@ void fluid_solver_base<rnumber>::clean_up_real_space(rnumber *a, int howmany)
 template <class rnumber>
 double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
 {
-    double *spec = fftw_alloc_real(this->nshells*9);
+    double *spec = fftw_interface<double>::alloc_real(this->nshells*9);
     double sum_local;
     this->cospectrum(a, a, spec);
     sum_local = 0.0;
@@ -60,7 +60,7 @@ double fluid_solver_base<rnumber>::autocorrel(cnumber *a)
     {
         sum_local += spec[n*9] + spec[n*9 + 4] + spec[n*9 + 8];
     }
-    fftw_free(spec);
+    fftw_interface<double>::free(spec);
     return sum_local;
 }
 
@@ -427,7 +427,7 @@ template <class rnumber>
 void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, const double k2exponent)
 {
     TIMEZONE("fluid_solver_base::write_spectrum");
-    double *spec = fftw_alloc_real(this->nshells);
+    double *spec = fftw_interface<double>::alloc_real(this->nshells);
     this->cospectrum(a, a, spec, k2exponent);
     if (this->cd->myrank == 0)
     {
@@ -439,7 +439,7 @@ void fluid_solver_base<rnumber>::write_spectrum(const char *fname, cnumber *a, c
         fwrite((void*)spec, sizeof(double), this->nshells, spec_file);
         fclose(spec_file);
     }
-    fftw_free(spec);
+    fftw_interface<double>::free(spec);
 }
 
 /*****************************************************************************/

@@ -72,8 +72,8 @@ class field
         field_layout<fc> *clayout, *rlayout, *rmemlayout;
 
         /* FFT plans */
-        typename fftw_interface<rnumber>::plan c2r_plan;
-        typename fftw_interface<rnumber>::plan r2c_plan;
+        typename fftw_interface<rnumber>::many_plan c2r_plan;
+        typename fftw_interface<rnumber>::many_plan r2c_plan;
         unsigned fftw_plan_rigor;
 
         /* HDF5 data types for arrays */

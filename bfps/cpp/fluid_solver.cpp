@@ -86,10 +86,10 @@ fluid_solver<rnumber>::fluid_solver(
     this->rv[1] = fftw_interface<rnumber>::alloc_real(this->cd->local_size*2);
     this->rv[2] = this->rv[1];
 
-    this->c2r_vorticity = new typename fftw_interface<rnumber>::plan;
-    this->r2c_vorticity = new typename fftw_interface<rnumber>::plan;
-    this->c2r_velocity  = new typename fftw_interface<rnumber>::plan;
-    this->r2c_velocity  = new typename fftw_interface<rnumber>::plan;
+    this->c2r_vorticity = new typename fftw_interface<rnumber>::many_plan;
+    this->r2c_vorticity = new typename fftw_interface<rnumber>::many_plan;
+    this->c2r_velocity  = new typename fftw_interface<rnumber>::many_plan;
+    this->r2c_velocity  = new typename fftw_interface<rnumber>::many_plan;
 
     ptrdiff_t sizes[] = {nz,
                          ny,
@@ -120,10 +120,10 @@ fluid_solver<rnumber>::fluid_solver(
     this->vc2r[0] = this->c2r_vorticity;
     this->vr2c[0] = this->r2c_vorticity;
 
-    this->vc2r[1] = new typename fftw_interface<rnumber>::plan;
-    this->vr2c[1] = new typename fftw_interface<rnumber>::plan;
-    this->vc2r[2] = new typename fftw_interface<rnumber>::plan;
-    this->vr2c[2] = new typename fftw_interface<rnumber>::plan;
+    this->vc2r[1] = new typename fftw_interface<rnumber>::many_plan;
+    this->vr2c[1] = new typename fftw_interface<rnumber>::many_plan;
+    this->vc2r[2] = new typename fftw_interface<rnumber>::many_plan;
+    this->vr2c[2] = new typename fftw_interface<rnumber>::many_plan;
 
     *(this->vc2r[1]) = fftw_interface<rnumber>::mpi_plan_many_dft_c2r(
                 3, sizes, 3, FFTW_MPI_DEFAULT_BLOCK, FFTW_MPI_DEFAULT_BLOCK,

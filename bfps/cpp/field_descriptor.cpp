@@ -62,7 +62,7 @@ field_descriptor<rnumber>::field_descriptor(
     ptrdiff_t local_n0, local_0_start;
     for (int i = 0; i < this->ndims; i++)
         nfftw[i] = n[i];
-    this->local_size = fftw_mpi_local_size_many(
+    this->local_size = fftw_interface<rnumber>::mpi_local_size_many(
                 this->ndims,
                 &nfftw.front(),
                 1,
