@@ -477,6 +477,8 @@ class _code(_base):
         script_file.write('# @ output = ' + os.path.join(self.work_dir, out_file) + '\n')
         # If Ibm is used should be : script_file.write('# @ job_type = parallel\n')
         script_file.write('# @ job_type = MPICH\n')
+        assert(type(self.host_info['environment']) != type(None))
+        script_file.write('# @ class = {0}\n'.format(self.host_info['environment']))
         script_file.write('# @ node_usage = not_shared\n')
         script_file.write('#\n')
 
