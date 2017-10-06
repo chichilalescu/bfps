@@ -214,7 +214,10 @@ class _code(_base):
         command_strings.append('-Wl,-rpath=' + bfps.lib_dir)
 
         for libname in libraries:
-            command_strings += ['-l' + libname]
+            if libname[0] not in ['-', '/']:
+                command_strings += ['-l' + libname]
+            else:
+                command_strings += [libname]
 
         command_strings += ['-fopenmp']
 
