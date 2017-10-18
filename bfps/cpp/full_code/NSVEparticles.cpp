@@ -88,11 +88,11 @@ int NSVEparticles<rnumber>::do_stats()
     std::unique_ptr<double[]> pdata(new double[3*this->ps->getLocalNbParticles()]);
 
     // copy position data
-    std::copy(this->ps->getParticlesPositions(),
-              this->ps->getParticlesPositions()+this->ps->getLocalNbParticles(),
-              pdata.get());
 
     /// sample position
+    std::copy(this->ps->getParticlesPositions(),
+              this->ps->getParticlesPositions()+3*this->ps->getLocalNbParticles(),
+              pdata.get());
     this->particles_sample_writer_mpi->save_dataset(
             "tracers0",
             "position",
@@ -100,14 +100,7 @@ int NSVEparticles<rnumber>::do_stats()
             &pdata,
             this->ps->getParticlesIndexes(),
             this->ps->getLocalNbParticles(),
-            this->ps->get_step_idx());
-
-    ////sample_particles_system_position(
-    ////                             this->ps,
-    ////                             (this->simname + "_particles.h5"), // filename
-    ////                             "tracers0",                        // hdf5 parent group
-    ////                             "position"                         // dataset basename TODO
-    ////                             );
+            this->ps->get_step_idx()-1);
 
     /// sample velocity
     this->ps->sample_compute_field(*this->tmp_vec_field, pdata.get());
@@ -118,13 +111,7 @@ int NSVEparticles<rnumber>::do_stats()
             &pdata,
             this->ps->getParticlesIndexes(),
             this->ps->getLocalNbParticles(),
-            this->ps->get_step_idx());
-    //sample_from_particles_system(*this->tmp_vec_field,              // field to save
-    //                             this->ps,
-    //                             (this->simname + "_particles.h5"), // filename
-    //                             "tracers0",                        // hdf5 parent group
-    //                             "velocity"                         // dataset basename TODO
-    //                             );
+            this->ps->get_step_idx()-1);
 
     /// compute acceleration and sample it
     this->fs->compute_Lagrangian_acceleration(this->tmp_vec_field);
@@ -137,12 +124,10 @@ int NSVEparticles<rnumber>::do_stats()
             &pdata,
             this->ps->getParticlesIndexes(),
             this->ps->getLocalNbParticles(),
-            this->ps->get_step_idx());
-    //sample_from_particles_system(*this->tmp_vec_field,
-    //                             this->ps,
-    //                             (this->simname + "_particles.h5"),
-    //                             "tracers0",
-    //                             "acceleration");
+            this->ps->get_step_idx()-1);
+
+    // deallocate temporary data array
+    pdata.release();
 
     return EXIT_SUCCESS;
 }
