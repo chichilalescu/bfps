@@ -35,6 +35,7 @@
 #include "full_code/NSVE.hpp"
 #include "particles/particles_system_builder.hpp"
 #include "particles/particles_output_hdf5.hpp"
+#include "particles/particles_sampling.hpp"
 
 /** \brief Navier-Stokes solver that includes simple Lagrangian tracers.
  *
@@ -58,6 +59,7 @@ class NSVEparticles: public NSVE<rnumber>
         /* other stuff */
         std::unique_ptr<abstract_particles_system<long long int, double>> ps;
         particles_output_hdf5<long long int, double,3,3> *particles_output_writer_mpi;
+        particles_output_sampling_hdf5<long long int, double, 3, 3> *particles_sample_writer_mpi;
 
 
         NSVEparticles(

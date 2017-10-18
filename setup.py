@@ -88,7 +88,8 @@ print('This is bfps version ' + VERSION)
 
 
 ### lists of files and MANIFEST.in
-src_file_list = ['full_code/joint_acc_vel_stats',
+src_file_list = ['full_code/NSVEparticles',
+                 'full_code/joint_acc_vel_stats',
                  'full_code/test',
                  'full_code/filter_test',
                  'full_code/field_test',
@@ -127,8 +128,7 @@ src_file_list = ['full_code/joint_acc_vel_stats',
                  'spline_n9',
                  'spline_n10',
                  'Lagrange_polys',
-                 'scope_timer',
-                 'full_code/NSVEparticles']
+                 'scope_timer']
 
 particle_headers = [
         'cpp/particles/particles_distr_mpi.hpp',

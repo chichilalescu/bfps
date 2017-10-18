@@ -22,9 +22,8 @@ int test::main_loop(void)
 int test::read_parameters()
 {
     hid_t parameter_file;
-    hid_t dset, memtype, space;
+    hid_t dset;
     char fname[256];
-    char *string_data;
     sprintf(fname, "%s.h5", this->simname.c_str());
     parameter_file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT);
     dset = H5Dopen(parameter_file, "/parameters/dealias_type", H5P_DEFAULT);
