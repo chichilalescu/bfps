@@ -41,6 +41,10 @@ class abstract_particles_output {
     partsize_t particles_chunk_current_offset;
 
 protected:
+    MPI_Comm& getCom(){
+        return mpi_com;
+    }
+
     MPI_Comm& getComWriter(){
         return mpi_com_writer;
     }

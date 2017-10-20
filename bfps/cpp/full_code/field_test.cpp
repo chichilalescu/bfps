@@ -24,7 +24,7 @@ int field_test<rnumber>::read_parameters()
     this->test::read_parameters();
     // in case any parameters are needed, this is where they should be read
     hid_t parameter_file;
-    hid_t dset, memtype, space;
+    hid_t dset;
     parameter_file = H5Fopen(
             (this->simname + std::string(".h5")).c_str(),
             H5F_ACC_RDONLY,
