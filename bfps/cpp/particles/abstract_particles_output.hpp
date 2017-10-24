@@ -133,14 +133,20 @@ public:
     }
 
     void releaseMemory(){
+        delete[] buffer_indexes_send.get();
         buffer_indexes_send.release();
+        delete[] buffer_particles_positions_send.get();
         buffer_particles_positions_send.release();
         size_buffers_send = -1;
+        delete[] buffer_indexes_recv.get();
         buffer_indexes_recv.release();
+        delete[] buffer_particles_positions_recv.get();
         buffer_particles_positions_recv.release();
         size_buffers_recv = -1;
         for(int idx_rhs = 0 ; idx_rhs < nb_rhs ; ++idx_rhs){
+            delete[] buffer_particles_rhs_send.get();
             buffer_particles_rhs_send[idx_rhs].release();
+            delete[] buffer_particles_rhs_recv.get();
             buffer_particles_rhs_recv[idx_rhs].release();
         }
     }

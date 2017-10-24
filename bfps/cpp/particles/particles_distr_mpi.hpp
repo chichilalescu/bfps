@@ -282,7 +282,7 @@ public:
 
                 if(descriptor.nbParticlesToSend){
                     whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                    mpiRequests.emplace_back();                    
+                    mpiRequests.emplace_back();
                     assert(descriptor.nbParticlesToSend*size_particle_positions < std::numeric_limits<int>::max());
                     AssertMpi(MPI_Isend(const_cast<real_number*>(&particles_positions[(current_offset_particles_for_partition[current_partition_size-descriptor.nbPartitionsToSend])*size_particle_positions]),
                                         int(descriptor.nbParticlesToSend*size_particle_positions), particles_utils::GetMpiType(real_number()),
@@ -406,7 +406,7 @@ public:
                         const int destProc = descriptor.destProc;
                         whatNext.emplace_back(std::pair<Action,int>{RELEASE_BUFFER_PARTICLES, releasedAction.second});
                         mpiRequests.emplace_back();
-                        const int tag = descriptor.isLower? TAG_LOW_UP_RESULTS : TAG_UP_LOW_RESULTS;                        
+                        const int tag = descriptor.isLower? TAG_LOW_UP_RESULTS : TAG_UP_LOW_RESULTS;
                         assert(NbParticlesToReceive*size_particle_rhs < std::numeric_limits<int>::max());
                         AssertMpi(MPI_Isend(descriptor.results.get(), int(NbParticlesToReceive*size_particle_rhs), particles_utils::GetMpiType(real_number()), destProc, tag,
                                   current_com, &mpiRequests.back()));
@@ -430,6 +430,7 @@ public:
                             TIMEZONE("reduce");
                             assert(descriptor.toRecvAndMerge != nullptr);
                             in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[0], descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                            delete[] descriptor.toRecvAndMerge.get();
                             descriptor.toRecvAndMerge.release();
                         }
                         else {
@@ -437,6 +438,7 @@ public:
                             assert(descriptor.toRecvAndMerge != nullptr);
                             in_computer.template reduce_particles_rhs<size_particle_rhs>(&particles_current_rhs[(current_offset_particles_for_partition[current_partition_size]-descriptor.nbParticlesToSend)*size_particle_rhs],
                                              descriptor.toRecvAndMerge.get(), descriptor.nbParticlesToSend);
+                            delete[] descriptor.toRecvAndMerge.get();
                             descriptor.toRecvAndMerge.release();
                         }
                     }
@@ -604,7 +606,7 @@ public:
 
             if(nbOutLower){
                 whatNext.emplace_back(std::pair<Action,int>{NOTHING_TODO, -1});
-                mpiRequests.emplace_back();                
+                mpiRequests.emplace_back();
                 assert(nbOutLower*size_particle_positions < std::numeric_limits<int>::max());
                 AssertMpi(MPI_Isend(&(*inout_positions_particles)[0], int(nbOutLower*size_particle_positions), particles_utils::GetMpiType(real_number()), (my_rank-1+nb_processes_involved)%nb_processes_involved, TAG_LOW_UP_MOVED_PARTICLES,
                           MPI_COMM_WORLD, &mpiRequests.back()));
@@ -794,6 +796,11 @@ public:
             }
 
             myTotalNbParticles = myTotalNewNbParticles;
+            // clean up
+            for(int idx_rhs = 0 ; idx_rhs < in_nb_rhs ; ++idx_rhs){
+                delete[] newArrayRhs[idx_rhs].get();
+                newArrayRhs[idx_rhs].release();
+            }
         }
 
         // Partitions all particles
