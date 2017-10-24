@@ -417,6 +417,7 @@ public:
                     if(releasedAction.first == RELEASE_BUFFER_PARTICLES){
                         NeighborDescriptor& descriptor = neigDescriptors[releasedAction.second];
                         assert(descriptor.toCompute != nullptr);
+                        delete[] descriptor.toCompute.get();
                         descriptor.toCompute.release();
                     }
                     //////////////////////////////////////////////////////////////////////
