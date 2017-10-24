@@ -127,7 +127,6 @@ int NSVEparticles<rnumber>::do_stats()
             this->ps->get_step_idx()-1);
 
     // deallocate temporary data array
-    delete[] pdata.get();
     pdata.release();
 
     return EXIT_SUCCESS;
