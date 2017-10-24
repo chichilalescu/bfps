@@ -127,7 +127,8 @@ int NSVEparticles<rnumber>::do_stats()
             this->ps->get_step_idx()-1);
 
     // deallocate temporary data array
-    pdata.release();
+    // TODO: is it required/safe to call the release method here?
+    //pdata.release();
 
     return EXIT_SUCCESS;
 }
