@@ -256,12 +256,10 @@ public:
 
             my_particles_positions.reset(new real_number[exchanger.getTotalToRecv()*size_particle_positions]);
             exchanger.alltoallv<real_number>(split_particles_positions.get(), my_particles_positions.get(), size_particle_positions);
-            delete[] split_particles_positions.get();
             split_particles_positions.release();
 
             my_particles_indexes.reset(new partsize_t[exchanger.getTotalToRecv()]);
             exchanger.alltoallv<partsize_t>(split_particles_indexes.get(), my_particles_indexes.get());
-            delete[] split_particles_indexes.get();
             split_particles_indexes.release();
 
             my_particles_rhs.resize(nb_rhs);

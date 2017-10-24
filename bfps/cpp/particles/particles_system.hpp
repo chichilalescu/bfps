@@ -76,10 +76,6 @@ public:
     }
 
     ~particles_system(){
-        delete[] current_my_nb_particles_per_partition.get();
-        current_my_nb_particles_per_partition.release();
-        delete[] current_offset_particles_for_partition.get();
-        current_offset_particles_for_partition.release();
     }
 
     void init(abstract_particles_input<partsize_t, real_number>& particles_input) {
