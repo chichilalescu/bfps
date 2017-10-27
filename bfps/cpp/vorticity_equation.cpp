@@ -443,6 +443,7 @@ template <class rnumber,
 void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *pressure)
 {
     TIMEZONE("vorticity_equation::compute_pressure");
+    pressure->real_space_representation = false;
     /* assume velocity is already in real space representation */
 
     this->v[1]->real_space_representation = true;
