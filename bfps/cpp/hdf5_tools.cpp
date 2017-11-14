@@ -1,4 +1,6 @@
 #include "hdf5_tools.hpp"
+#include <cfloat>
+#include <climits>
 
 int hdf5_tools::require_size_single_dataset(hid_t dset, int tsize)
 {
@@ -132,6 +134,37 @@ std::vector<number> hdf5_tools::read_vector(
     H5Dread(dset, mem_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &result.front());
     H5Sclose(dspace);
     H5Dclose(dset);
+    H5Tclose(mem_dtype);
+    return result;
+}
+
+template <typename number>
+std::vector<number> hdf5_tools::read_value(
+        const hid_t group,
+        const std::string dset_name)
+{
+    number result;
+    hid_t dset;
+    hid_t mem_dtype;
+    if (typeid(number) == typeid(int))
+        mem_dtype = H5Tcopy(H5T_NATIVE_INT);
+    else if (typeid(number) == typeid(double))
+        mem_dtype = H5Tcopy(H5T_NATIVE_DOUBLE);
+    if (H5Lexists(group, dset_name.c_str(), H5P_DEFAULT))
+    {
+        dset = H5Dopen(group, dset_name.c_str(), H5P_DEFAULT);
+        H5Dread(dset, mem_dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &result);
+        H5Dclose(dset);
+    }
+    else
+    {
+        DEBUG_MSG("attempted to read dataset %s which does not exist.\n",
+                dset_name.c_str());
+        if (typeid(number) == typeid(int))
+            result = INT_MAX;
+        else if (typeid(number) == typeid(double))
+            result = DBL_MAX;
+    }
     H5Tclose(mem_dtype);
     return result;
 }

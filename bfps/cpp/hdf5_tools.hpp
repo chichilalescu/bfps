@@ -79,6 +79,11 @@ namespace hdf5_tools
     std::string read_string(
             const hid_t group,
             const std::string dset_name);
+
+    template <typename number>
+    number read_value(
+            const hid_t group,
+            const std::string dset_name);
 }
 
 #endif//HDF5_TOOLS_HPP
