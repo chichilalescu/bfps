@@ -129,6 +129,20 @@ class field
                 const hsize_t toffset,
                 const std::vector<double> max_estimate);
 
+        /* access sizes */
+        inline int get_nx() const
+        {
+            return this->rlayout->sizes[2];
+        }
+        inline int get_ny() const
+        {
+            return this->rlayout->sizes[1];
+        }
+        inline int get_nz() const
+        {
+            return this->rlayout->sizes[0];
+        }
+
         /* acess data */
         inline rnumber *__restrict__ get_rdata()
         {
@@ -141,6 +155,11 @@ class field
         }
 
         inline typename fftw_interface<rnumber>::complex *__restrict__ get_cdata()
+        {
+            return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;
+        }
+
+        inline typename fftw_interface<rnumber>::complex *__restrict__ get_cdata() const
         {
             return (typename fftw_interface<rnumber>::complex*__restrict__)this->data;
         }
@@ -215,6 +234,8 @@ class field
                         value);
             return *this;
         }
+
+        field<rnumber, be, fc>& operator=(const field<rnumber, be, fc> &src);
 
         template <kspace_dealias_type dt>
         void compute_stats(
