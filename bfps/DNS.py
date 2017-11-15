@@ -151,9 +151,11 @@ class DNS(_code):
         self.parameters['nu'] = float(0.1)
         self.parameters['fmode'] = int(1)
         self.parameters['famplitude'] = float(0.5)
+        self.parameters['energy'] = float(0.5)
+        self.parameters['injection_rate'] = float(0.4)
         self.parameters['fk0'] = float(2.0)
         self.parameters['fk1'] = float(4.0)
-        self.parameters['forcing_type'] = 'linear'
+        self.parameters['forcing_type'] = 'fixed_energy_injection_rate'
         self.parameters['histogram_bins'] = int(256)
         self.parameters['max_velocity_estimate'] = float(1)
         self.parameters['max_vorticity_estimate'] = float(1)

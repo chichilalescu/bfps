@@ -18,6 +18,7 @@ def main():
             ['NSVEparticles',
              '-n', '32',
              '--src-simname', 'B32p1e4',
+             '--forcing_type', 'linear',
              '--src-wd', bfps.lib_dir + '/test',
              '--src-iteration', '0',
              '--simname', 'dns_nsveparticles',

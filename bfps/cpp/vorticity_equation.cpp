@@ -228,8 +228,7 @@ template <class rnumber,
           field_backend be>
 void vorticity_equation<rnumber, be>::add_forcing(
         field<rnumber, be, THREE> *dst,
-        field<rnumber, be, THREE> *vort_field,
-        rnumber factor)
+        field<rnumber, be, THREE> *vort_field)
 {
     TIMEZONE("vorticity_equation::add_forcing");
     if (strcmp(this->forcing_type, "none") == 0)
@@ -239,13 +238,13 @@ void vorticity_equation<rnumber, be>::add_forcing(
         ptrdiff_t cindex;
         if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->fmode])
         {
-            cindex = ((this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
-            dst->cval(cindex,2, 0) -= this->famplitude*factor/2;
+            cindex = dst->get_cindex(0, (this->fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex,2, 0) -= this->famplitude/2;
         }
         if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->cvorticity->clayout->sizes[0] - this->fmode])
         {
-            cindex = ((this->cvorticity->clayout->sizes[0] - this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
-            dst->cval(cindex, 2, 0) -= this->famplitude*factor/2;
+            cindex = dst->get_cindex(0, (this->cvorticity->clayout->sizes[0] - this->fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex, 2, 0) -= this->famplitude/2;
         }
         return;
     }
@@ -260,10 +259,99 @@ void vorticity_equation<rnumber, be>::add_forcing(
                                 this->kk->ky[yindex]*this->kk->ky[yindex] +
                                 this->kk->kz[zindex]*this->kk->kz[zindex]);
             if ((this->fk0 <= knorm) &&
-                    (this->fk1 >= knorm))
+                (this->fk1 >= knorm))
                 for (int c=0; c<3; c++)
                     for (int i=0; i<2; i++)
-                        dst->cval(cindex,c,i) += this->famplitude*vort_field->cval(cindex,c,i)*factor;
+                        dst->cval(cindex,c,i) += this->famplitude*vort_field->cval(cindex,c,i);
+        }
+        );
+        return;
+    }
+    if (strcmp(this->forcing_type, "fixed_energy_injection_rate") == 0)
+    {
+        // first, compute energy in shell
+        double energy_in_shell = 0;
+        this->kk->CLOOP_K2(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2){
+            double knorm = sqrt(k2);
+            if ((k2 > 0) &&
+                (this->fk0 <= knorm) &&
+                (this->fk1 >= knorm))
+                    energy_in_shell += (
+                            vort_field->cval(cindex, 0, 0)*vort_field->cval(cindex, 0, 0) + vort_field->cval(cindex, 0, 1)*vort_field->cval(cindex, 0, 1) +
+                            vort_field->cval(cindex, 1, 0)*vort_field->cval(cindex, 1, 0) + vort_field->cval(cindex, 1, 1)*vort_field->cval(cindex, 1, 1) +
+                            vort_field->cval(cindex, 2, 0)*vort_field->cval(cindex, 2, 0) + vort_field->cval(cindex, 2, 1)*vort_field->cval(cindex, 2, 1)
+                            ) / k2;
+        }
+        );
+        // divide by 2, because we want energy
+        energy_in_shell /= 2;
+        // now, add forcing term
+        double temp_famplitude = this->injection_rate / energy_in_shell;
+        this->kk->CLOOP_K2(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2){
+            double knorm = sqrt(k2);
+            if ((this->fk0 <= knorm) &&
+                (this->fk1 >= knorm))
+                for (int c=0; c<3; c++)
+                    for (int i=0; i<2; i++)
+                        dst->cval(cindex,c,i) += temp_famplitude*vort_field->cval(cindex,c,i);
+        }
+        );
+        return;
+    }
+    if (strcmp(this->forcing_type, "fixed_energy") == 0)
+    {
+        // first, compute energy in shell
+        double energy_in_shell = 0;
+        double total_energy = 0;
+        this->kk->CLOOP_K2(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2){
+            if (k2 > 0)
+            {
+                double local_energy = (
+                            vort_field->cval(cindex, 0, 0)*vort_field->cval(cindex, 0, 0) + vort_field->cval(cindex, 0, 1)*vort_field->cval(cindex, 0, 1) +
+                            vort_field->cval(cindex, 1, 0)*vort_field->cval(cindex, 1, 0) + vort_field->cval(cindex, 1, 1)*vort_field->cval(cindex, 1, 1) +
+                            vort_field->cval(cindex, 2, 0)*vort_field->cval(cindex, 2, 0) + vort_field->cval(cindex, 2, 1)*vort_field->cval(cindex, 2, 1)
+                            ) / k2;
+                total_energy += local_energy;
+                double knorm = sqrt(k2);
+                if ((this->fk0 <= knorm) &&
+                    (this->fk1 >= knorm))
+                    energy_in_shell += local_energy;
+            }
+        }
+        );
+        // divide by 2, because we want energy
+        total_energy /= 2;
+        energy_in_shell /= 2;
+        // now, add forcing term
+        // see Michael's thesis, page 38
+        double temp_famplitude = sqrt((this->energy - total_energy + energy_in_shell) / energy_in_shell);
+        this->kk->CLOOP_K2(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2){
+            double knorm = sqrt(k2);
+            if ((this->fk0 <= knorm) &&
+                (this->fk1 >= knorm))
+                for (int c=0; c<3; c++)
+                    for (int i=0; i<2; i++)
+                        dst->cval(cindex,c,i) += temp_famplitude*vort_field->cval(cindex,c,i);
         }
         );
         return;
@@ -320,7 +408,7 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
             this->u->cval(cindex, cc, i) = tmp[cc][i];
     }
     );
-    this->add_forcing(this->u, this->v[src], 1.0);
+    this->add_forcing(this->u, this->v[src]);
     this->kk->template force_divfree<rnumber>(this->u->get_cdata());
 }
 

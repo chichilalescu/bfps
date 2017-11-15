@@ -67,9 +67,11 @@ class vorticity_equation
 
         /* physical parameters */
         double nu;
-        int fmode;         // for Kolmogorov flow
-        double famplitude; // both for Kflow and band forcing
-        double fk0, fk1;   // for band forcing
+        int fmode;             // for Kolmogorov flow
+        double famplitude;     // both for Kflow and band forcing
+        double fk0, fk1;       // for band forcing
+        double injection_rate; // for fixed energy injection rate
+        double energy;         // for fixed energy
         char forcing_type[128];
 
         /* constructor, destructor */
@@ -89,8 +91,7 @@ class vorticity_equation
         void step(double dt);
         void impose_zero_modes(void);
         void add_forcing(field<rnumber, be, THREE> *dst,
-                         field<rnumber, be, THREE> *src_vorticity,
-                         rnumber factor);
+                         field<rnumber, be, THREE> *src_vorticity);
         void compute_vorticity(void);
         void compute_velocity(field<rnumber, be, THREE> *vorticity);
 
