@@ -188,13 +188,6 @@ void vorticity_equation<rnumber, be>::compute_vorticity()
             this->cvorticity->cval(cindex,1,1) =  (this->kk->kz[zindex]*this->u->cval(cindex,0,0) - this->kk->kx[xindex]*this->u->cval(cindex,2,0));
             this->cvorticity->cval(cindex,2,0) = -(this->kk->kx[xindex]*this->u->cval(cindex,1,1) - this->kk->ky[yindex]*this->u->cval(cindex,0,1));
             this->cvorticity->cval(cindex,2,1) =  (this->kk->kx[xindex]*this->u->cval(cindex,1,0) - this->kk->ky[yindex]*this->u->cval(cindex,0,0));
-            //ptrdiff_t tindex = 3*cindex;
-            //this->cvorticity->get_cdata()[tindex+0][0] = -(this->kk->ky[yindex]*this->u->get_cdata()[tindex+2][1] - this->kk->kz[zindex]*this->u->get_cdata()[tindex+1][1]);
-            //this->cvorticity->get_cdata()[tindex+1][0] = -(this->kk->kz[zindex]*this->u->get_cdata()[tindex+0][1] - this->kk->kx[xindex]*this->u->get_cdata()[tindex+2][1]);
-            //this->cvorticity->get_cdata()[tindex+2][0] = -(this->kk->kx[xindex]*this->u->get_cdata()[tindex+1][1] - this->kk->ky[yindex]*this->u->get_cdata()[tindex+0][1]);
-            //this->cvorticity->get_cdata()[tindex+0][1] =  (this->kk->ky[yindex]*this->u->get_cdata()[tindex+2][0] - this->kk->kz[zindex]*this->u->get_cdata()[tindex+1][0]);
-            //this->cvorticity->get_cdata()[tindex+1][1] =  (this->kk->kz[zindex]*this->u->get_cdata()[tindex+0][0] - this->kk->kx[xindex]*this->u->get_cdata()[tindex+2][0]);
-            //this->cvorticity->get_cdata()[tindex+2][1] =  (this->kk->kx[xindex]*this->u->get_cdata()[tindex+1][0] - this->kk->ky[yindex]*this->u->get_cdata()[tindex+0][0]);
         }
         else
             std::fill_n((rnumber*)(this->cvorticity->get_cdata()+3*cindex), 6, 0.0);
@@ -223,13 +216,6 @@ void vorticity_equation<rnumber, be>::compute_velocity(field<rnumber, be, THREE>
             this->u->cval(cindex,1,1) =  (this->kk->kz[zindex]*vorticity->cval(cindex,0,0) - this->kk->kx[xindex]*vorticity->cval(cindex,2,0)) / k2;
             this->u->cval(cindex,2,0) = -(this->kk->kx[xindex]*vorticity->cval(cindex,1,1) - this->kk->ky[yindex]*vorticity->cval(cindex,0,1)) / k2;
             this->u->cval(cindex,2,1) =  (this->kk->kx[xindex]*vorticity->cval(cindex,1,0) - this->kk->ky[yindex]*vorticity->cval(cindex,0,0)) / k2;
-            //ptrdiff_t tindex = 3*cindex;
-            //this->u->get_cdata()[tindex+0][0] = -(this->kk->ky[yindex]*vorticity->get_cdata()[tindex+2][1] - this->kk->kz[zindex]*vorticity->get_cdata()[tindex+1][1]) / k2;
-            //this->u->get_cdata()[tindex+0][1] =  (this->kk->ky[yindex]*vorticity->get_cdata()[tindex+2][0] - this->kk->kz[zindex]*vorticity->get_cdata()[tindex+1][0]) / k2;
-            //this->u->get_cdata()[tindex+1][0] = -(this->kk->kz[zindex]*vorticity->get_cdata()[tindex+0][1] - this->kk->kx[xindex]*vorticity->get_cdata()[tindex+2][1]) / k2;
-            //this->u->get_cdata()[tindex+1][1] =  (this->kk->kz[zindex]*vorticity->get_cdata()[tindex+0][0] - this->kk->kx[xindex]*vorticity->get_cdata()[tindex+2][0]) / k2;
-            //this->u->get_cdata()[tindex+2][0] = -(this->kk->kx[xindex]*vorticity->get_cdata()[tindex+1][1] - this->kk->ky[yindex]*vorticity->get_cdata()[tindex+0][1]) / k2;
-            //this->u->get_cdata()[tindex+2][1] =  (this->kk->kx[xindex]*vorticity->get_cdata()[tindex+1][0] - this->kk->ky[yindex]*vorticity->get_cdata()[tindex+0][0]) / k2;
         }
         else
             std::fill_n((rnumber*)(this->u->get_cdata()+3*cindex), 6, 0.0);
@@ -255,13 +241,11 @@ void vorticity_equation<rnumber, be>::add_forcing(
         {
             cindex = ((this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
             dst->cval(cindex,2, 0) -= this->famplitude*factor/2;
-            //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
         if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->cvorticity->clayout->sizes[0] - this->fmode])
         {
             cindex = ((this->cvorticity->clayout->sizes[0] - this->fmode - this->cvorticity->clayout->starts[0]) * this->cvorticity->clayout->sizes[1])*this->cvorticity->clayout->sizes[2];
             dst->cval(cindex, 2, 0) -= this->famplitude*factor/2;
-            //dst->get_cdata()[cindex*3+2][0] -= this->famplitude*factor/2;
         }
         return;
     }
@@ -280,7 +264,6 @@ void vorticity_equation<rnumber, be>::add_forcing(
                 for (int c=0; c<3; c++)
                     for (int i=0; i<2; i++)
                         dst->cval(cindex,c,i) += this->famplitude*vort_field->cval(cindex,c,i)*factor;
-                        //dst->get_cdata()[cindex*3+c][i] += this->famplitude*vort_field->get_cdata()[cindex*3+c][i]*factor;
         }
         );
         return;
@@ -306,16 +289,12 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
                     ptrdiff_t xindex,
                     ptrdiff_t yindex,
                     ptrdiff_t zindex){
-        //ptrdiff_t tindex = 3*rindex;
         rnumber tmp[3];
         for (int cc=0; cc<3; cc++)
             tmp[cc] = (this->u->rval(rindex,(cc+1)%3)*this->rvorticity->rval(rindex,(cc+2)%3) -
                        this->u->rval(rindex,(cc+2)%3)*this->rvorticity->rval(rindex,(cc+1)%3));
-            //tmp[cc][0] = (this->u->get_rdata()[tindex+(cc+1)%3]*this->rvorticity->get_rdata()[tindex+(cc+2)%3] -
-            //              this->u->get_rdata()[tindex+(cc+2)%3]*this->rvorticity->get_rdata()[tindex+(cc+1)%3]);
         for (int cc=0; cc<3; cc++)
             this->u->rval(rindex,cc) = tmp[cc] / this->u->npoints;
-            //this->u->get_rdata()[(3*rindex)+cc] = tmp[cc][0] / this->u->npoints;
     }
     );
     /* go back to Fourier space */
@@ -337,18 +316,8 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
             tmp[1][1] =  (this->kk->kz[zindex]*this->u->cval(cindex,0,0) - this->kk->kx[xindex]*this->u->cval(cindex,2,0));
             tmp[2][1] =  (this->kk->kx[xindex]*this->u->cval(cindex,1,0) - this->kk->ky[yindex]*this->u->cval(cindex,0,0));
         }
-        //ptrdiff_t tindex = 3*cindex;
-        //{
-        //    tmp[0][0] = -(this->kk->ky[yindex]*this->u->get_cdata()[tindex+2][1] - this->kk->kz[zindex]*this->u->get_cdata()[tindex+1][1]);
-        //    tmp[1][0] = -(this->kk->kz[zindex]*this->u->get_cdata()[tindex+0][1] - this->kk->kx[xindex]*this->u->get_cdata()[tindex+2][1]);
-        //    tmp[2][0] = -(this->kk->kx[xindex]*this->u->get_cdata()[tindex+1][1] - this->kk->ky[yindex]*this->u->get_cdata()[tindex+0][1]);
-        //    tmp[0][1] =  (this->kk->ky[yindex]*this->u->get_cdata()[tindex+2][0] - this->kk->kz[zindex]*this->u->get_cdata()[tindex+1][0]);
-        //    tmp[1][1] =  (this->kk->kz[zindex]*this->u->get_cdata()[tindex+0][0] - this->kk->kx[xindex]*this->u->get_cdata()[tindex+2][0]);
-        //    tmp[2][1] =  (this->kk->kx[xindex]*this->u->get_cdata()[tindex+1][0] - this->kk->ky[yindex]*this->u->get_cdata()[tindex+0][0]);
-        //}
         for (int cc=0; cc<3; cc++) for (int i=0; i<2; i++)
             this->u->cval(cindex, cc, i) = tmp[cc][i];
-            //this->u->get_cdata()[3*cindex+cc][i] = tmp[cc][i];
     }
     );
     this->add_forcing(this->u, this->v[src], 1.0);
@@ -377,9 +346,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
                 this->v[1]->cval(cindex,cc,i) = (
                         this->v[0]->cval(cindex,cc,i) +
                         dt*this->u->cval(cindex,cc,i))*factor0;
-                //this->v[1]->get_cdata()[3*cindex+cc][i] = (
-                //        this->v[0]->get_cdata()[3*cindex+cc][i] +
-                //        dt*this->u->get_cdata()[3*cindex+cc][i])*factor0;
         }
     }
     );
@@ -401,10 +367,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
                         3*this->v[0]->cval(cindex,cc,i)*factor0 +
                         ( this->v[1]->cval(cindex,cc,i) +
                          dt*this->u->cval(cindex,cc,i))*factor1)*0.25;
-                //this->v[2]->get_cdata()[3*cindex+cc][i] = (
-                //        3*this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
-                //        (this->v[1]->get_cdata()[3*cindex+cc][i] +
-                //         dt*this->u->get_cdata()[3*cindex+cc][i])*factor1)*0.25;
         }
     }
     );
@@ -425,10 +387,6 @@ void vorticity_equation<rnumber, be>::step(double dt)
                         this->v[0]->cval(cindex,cc,i)*factor0 +
                         2*(this->v[2]->cval(cindex,cc,i) +
                            dt*this->u->cval(cindex,cc,i)))*factor0/3;
-                //this->v[3]->get_cdata()[3*cindex+cc][i] = (
-                //        this->v[0]->get_cdata()[3*cindex+cc][i]*factor0 +
-                //        2*(this->v[2]->get_cdata()[3*cindex+cc][i] +
-                //           dt*this->u->get_cdata()[3*cindex+cc][i]))*factor0/3;
         }
     }
     );
@@ -456,7 +414,6 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
         //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->v[1]->rval(rindex,cc) = this->u->rval(rindex,cc)*this->u->rval(rindex,cc);
-            //this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+cc];
         }
         );
     //this->clean_up_real_space(this->rv[1], 3);
@@ -493,7 +450,6 @@ void vorticity_equation<rnumber, be>::compute_pressure(field<rnumber, be, ONE> *
         //ptrdiff_t tindex = 3*rindex;
         for (int cc=0; cc<3; cc++)
             this->v[1]->rval(rindex,cc) = this->u->rval(rindex,cc)*this->u->rval(rindex,(cc+1)%3);
-            //this->v[1]->get_rdata()[tindex+cc] = this->u->get_rdata()[tindex+cc]*this->u->get_rdata()[tindex+(cc+1)%3];
     }
     );
     //this->clean_up_real_space(this->rv[1], 3);
@@ -626,7 +582,6 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
         for (int cc=0; cc<3; cc++)
             this->v[1]->rval(rindex,cc) = \
                 this->cvelocity->rval(rindex,cc)*this->cvelocity->rval(rindex,cc) / this->cvelocity->npoints;
-            //this->v[1]->get_rdata()[tindex+cc] = this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+cc] / this->cvelocity->npoints;
     }
     );
     this->v[1]->dft();
@@ -666,7 +621,6 @@ void vorticity_equation<rnumber, be>::compute_Eulerian_acceleration(
         for (int cc=0; cc<3; cc++)
             this->v[1]->rval(rindex,cc) = \
                 this->cvelocity->rval(rindex,cc)*this->cvelocity->rval(rindex,(cc+1)%3) / this->cvelocity->npoints;
-            //this->v[1]->get_rdata()[tindex+cc] = this->cvelocity->get_rdata()[tindex+cc]*this->cvelocity->get_rdata()[tindex+(cc+1)%3] / this->cvelocity->npoints;
     }
     );
     this->v[1]->dft();
