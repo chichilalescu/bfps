@@ -33,7 +33,6 @@ from .PP import PP
 from .TEST import TEST
 from .NavierStokes import NavierStokes
 from .NSVorticityEquation import NSVorticityEquation
-from .FluidResize import FluidResize
 from .FluidConvert import FluidConvert
 from .NSManyParticles import NSManyParticles
 
@@ -55,12 +54,6 @@ def main():
                  'NSVE',
                  'NSVE-single',
                  'NSVE-double']
-    FRoptions = ['FluidResize',
-                 'FluidResize-single',
-                 'FluidResize-double',
-                 'FR',
-                 'FR-single',
-                 'FR-double']
     FCoptions = ['FluidConvert']
     NSMPopt = ['NSManyParticles',
                'NSManyParticles-single',
@@ -99,8 +92,6 @@ def main():
         base_class = NavierStokes
     if opt.base_class in NSVEoptions:
         base_class = NSVorticityEquation
-    elif opt.base_class in FRoptions:
-        base_class = FluidResize
     elif opt.base_class in FCoptions:
         base_class = FluidConvert
     elif opt.base_class in NSMPopt:

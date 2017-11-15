@@ -49,7 +49,6 @@ from host_information import host_info
 from .DNS import DNS
 from .PP import PP
 from .FluidConvert import FluidConvert
-from .FluidResize import FluidResize
 from .NavierStokes import NavierStokes
 from .NSVorticityEquation import NSVorticityEquation
 
