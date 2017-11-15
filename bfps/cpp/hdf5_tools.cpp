@@ -139,7 +139,7 @@ std::vector<number> hdf5_tools::read_vector(
 }
 
 template <typename number>
-std::vector<number> hdf5_tools::read_value(
+number hdf5_tools::read_value(
         const hid_t group,
         const std::string dset_name)
 {
@@ -163,7 +163,7 @@ std::vector<number> hdf5_tools::read_value(
         if (typeid(number) == typeid(int))
             result = INT_MAX;
         else if (typeid(number) == typeid(double))
-            result = DBL_MAX;
+            result = number(DBL_MAX);
     }
     H5Tclose(mem_dtype);
     return result;
@@ -246,4 +246,14 @@ std::vector<double> hdf5_tools::read_vector_with_single_rank<double>(
         const MPI_Comm COMM,
         const hid_t file_id,
         const std::string dset_name);
+
+template
+int hdf5_tools::read_value<int>(
+        const hid_t,
+        const std::string);
+
+template
+double hdf5_tools::read_value<double>(
+        const hid_t,
+        const std::string);
 
