@@ -1360,6 +1360,144 @@ int joint_rspace_PDF(
     return EXIT_SUCCESS;
 }
 
+template <typename rnumber,
+          field_backend be,
+          field_components fc>
+field<rnumber, be, fc> &field<rnumber, be, fc>::operator=(
+        const field<rnumber, be, fc> &src)
+{
+    TIMEZONE("field::operator=");
+    if (src.real_space_representation)
+    {
+        assert(this->get_nx() == src.get_nx());
+        assert(this->get_ny() == src.get_ny());
+        assert(this->get_nz() == src.get_nz());
+        this->real_space_representation = true;
+        std::copy(src.data,
+                  src.data + this->rmemlayout->local_size,
+                  this->data);
+    }
+    else
+    {
+        this->real_space_representation = false;
+        // simple copy
+        if (this->get_nx() == src.get_nx() &&
+            this->get_ny() == src.get_ny() &&
+            this->get_nz() == src.get_nz())
+        {
+            DEBUG_MSG("in operator=, doing simple copy\n");
+            std::copy(src.data,
+                      src.data + this->rmemlayout->local_size,
+                      this->data);
+        }
+        // complicated resize
+        else
+        {
+            DEBUG_MSG("in operator=, doing complicated resize\n");
+            int64_t slice_size = src.clayout->local_size / src.clayout->subsizes[0];
+            // clean up
+            std::fill_n(this->data,
+                        this->rmemlayout->local_size,
+                        0.0);
+            typename fftw_interface<rnumber>::complex *buffer;
+            buffer = fftw_interface<rnumber>::alloc_complex(slice_size*ncomp(fc));
+
+            int min_fast_dim =
+                    (src.clayout->sizes[2] > this->clayout->sizes[2]) ?
+                        this->clayout->sizes[2] : src.clayout->sizes[2];
+
+            int64_t ii0, ii1;
+            int64_t oi0, oi1;
+            int64_t delta1, delta0;
+            int irank, orank;
+            delta0 = (this->clayout->sizes[0] - src.clayout->sizes[0]);
+            delta1 = (this->clayout->sizes[1] - src.clayout->sizes[1]);
+            for (ii0=0; ii0 < int64_t(src.clayout->sizes[0]); ii0++)
+            {
+                if (ii0 <= int64_t(src.clayout->sizes[0]/2))
+                {
+                    oi0 = ii0;
+                    if (oi0 > int64_t(this->clayout->sizes[0]/2))
+                        continue;
+                }
+                else
+                {
+                    oi0 = ii0 + delta0;
+                    if ((oi0 < 0) || ((int64_t(this->clayout->sizes[0]) - oi0) >= int64_t(this->clayout->sizes[0]/2)))
+                        continue;
+                }
+                if (be == FFTW)
+                {
+                    irank = src.clayout->rank[0][ii0];
+                    orank = this->clayout->rank[0][oi0];
+                }
+                else
+                {// TODO: handle 2D layout here
+                }
+                if ((irank == orank) &&
+                        (irank == src.clayout->myrank))
+                {
+                    std::copy(
+                            (rnumber*)(src.get_cdata() + (ii0 - src.clayout->starts[0]    )*slice_size),
+                            (rnumber*)(src.get_cdata() + (ii0 - src.clayout->starts[0] + 1)*slice_size),
+                            (rnumber*)buffer);
+                }
+                else
+                {
+                    if (src.clayout->myrank == irank)
+                    {
+                        MPI_Send(
+                                (void*)(src.get_cdata() + (ii0-src.clayout->starts[0])*slice_size),
+                                slice_size,
+                                mpi_real_type<rnumber>::complex(),
+                                orank,
+                                ii0,
+                                src.clayout->comm);
+                    }
+                    if (src.clayout->myrank == orank)
+                    {
+                        MPI_Recv(
+                                    (void*)(buffer),
+                                    slice_size,
+                                    mpi_real_type<rnumber>::complex(),
+                                    irank,
+                                    ii0,
+                                    src.clayout->comm,
+                                    MPI_STATUS_IGNORE);
+                    }
+                }
+                if (src.clayout->myrank == orank)
+                {
+                    for (ii1 = 0; ii1 < int64_t(src.clayout->sizes[1]); ii1++)
+                    {
+                        if (ii1 <= int64_t(src.clayout->sizes[1]/2))
+                        {
+                            oi1 = ii1;
+                            if (oi1 > int64_t(this->clayout->sizes[1]/2))
+                                continue;
+                        }
+                        else
+                        {
+                            oi1 = ii1 + delta1;
+                            if ((oi1 < 0) || ((int64_t(this->clayout->sizes[1]) - oi1) >= int64_t(this->clayout->sizes[1]/2)))
+                                continue;
+                        }
+                        std::copy(
+                                    (rnumber*)(buffer + (ii1*src.clayout->sizes[2]*ncomp(fc))),
+                                (rnumber*)(buffer + (ii1*src.clayout->sizes[2] + min_fast_dim)*ncomp(fc)),
+                                (rnumber*)(this->get_cdata() +
+                                           ((oi0 - this->clayout->starts[0])*this->clayout->sizes[1] +
+                                oi1)*this->clayout->sizes[2]*ncomp(fc)));
+                    }
+                }
+            }
+            fftw_interface<rnumber>::free(buffer);
+            MPI_Barrier(src.clayout->comm);
+        }
+    }
+    return *this;
+}
+
 template class field<float, FFTW, ONE>;
 template class field<float, FFTW, THREE>;
 template class field<float, FFTW, THREExTHREE>;
