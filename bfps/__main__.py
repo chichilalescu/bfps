@@ -63,7 +63,6 @@ def main():
             choices = ['DNS', 'PP', 'TEST'] +
                       NSoptions +
                       NSVEoptions +
-                      FRoptions +
                       FCoptions +
                       NSMPopt,
             type = str)
