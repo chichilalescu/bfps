@@ -52,7 +52,7 @@ int resize<rnumber>::work_on_current_iteration(void)
     std::string fname = (
             this->new_simname +
             std::string("_fields.h5"));
-    this->new_field = this->vorticity;
+    *this->new_field = *this->vorticity;
     this->new_field->io(
             fname,
             "vorticity",

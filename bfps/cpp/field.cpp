@@ -1385,13 +1385,15 @@ field<rnumber, be, fc> &field<rnumber, be, fc>::operator=(
             this->get_ny() == src.get_ny() &&
             this->get_nz() == src.get_nz())
         {
+            DEBUG_MSG("in operator=, doing simple copy\n");
             std::copy(src.data,
-                      src.data + 2*this->clayout->local_size,
+                      src.data + this->rmemlayout->local_size,
                       this->data);
         }
         // complicated resize
         else
         {
+            DEBUG_MSG("in operator=, doing complicated resize\n");
             int64_t slice_size = src.clayout->local_size / src.clayout->subsizes[0];
             // clean up
             std::fill_n(this->data,
