@@ -44,6 +44,8 @@ class NSVE: public direct_numerical_simulation
         double famplitude;
         double fk0;
         double fk1;
+        double energy;
+        double injection_rate;
         int fmode;
         char forcing_type[512];
         int histogram_bins;

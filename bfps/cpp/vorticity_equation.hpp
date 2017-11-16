@@ -67,9 +67,11 @@ class vorticity_equation
 
         /* physical parameters */
         double nu;
-        int fmode;         // for Kolmogorov flow
-        double famplitude; // both for Kflow and band forcing
-        double fk0, fk1;   // for band forcing
+        int fmode;             // for Kolmogorov flow
+        double famplitude;     // both for Kflow and band forcing
+        double fk0, fk1;       // for band forcing
+        double injection_rate; // for fixed energy injection rate
+        double energy;         // for fixed energy
         char forcing_type[128];
 
         /* constructor, destructor */
@@ -88,9 +90,27 @@ class vorticity_equation
         void omega_nonlin(int src);
         void step(double dt);
         void impose_zero_modes(void);
+
+        /** \brief Method that computes force and adds it to the right hand side of the NS equations.
+         *
+         *   If the force has an explicit expression, as for instance in the case of Kolmogorov forcing,
+         *   the term should be added to the nonlinear term for the purposes of time-stepping, since
+         *   otherwise a custom time-stepping scheme would need to be implemented for each forcing type.
+         *
+         */
         void add_forcing(field<rnumber, be, THREE> *dst,
-                         field<rnumber, be, THREE> *src_vorticity,
-                         rnumber factor);
+                         field<rnumber, be, THREE> *src_vorticity);
+
+        /** \brief Method that imposes action of forcing on new vorticity field.
+         *
+         *   If the force is implicit, in the sense that kinetic energy must be
+         *   preserved or something similar, then the action must be imposed
+         *   after the non-linear term has been added.
+         *
+         */
+        void impose_forcing(
+                field<rnumber, be, THREE> *omega_new,
+                field<rnumber, be, THREE> *omega_old);
         void compute_vorticity(void);
         void compute_velocity(field<rnumber, be, THREE> *vorticity);
 

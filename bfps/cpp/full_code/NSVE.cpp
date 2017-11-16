@@ -47,6 +47,8 @@ int NSVE<rnumber>::initialize(void)
     this->fs->nu = nu;
     this->fs->fmode = fmode;
     this->fs->famplitude = famplitude;
+    this->fs->energy = energy;
+    this->fs->injection_rate = injection_rate;
     this->fs->fk0 = fk0;
     this->fs->fk1 = fk1;
     strncpy(this->fs->forcing_type, forcing_type, 128);
