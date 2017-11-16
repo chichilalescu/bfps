@@ -665,13 +665,7 @@ class DNS(_code):
             if self.dns_type in extra_parameters.keys():
                 for k in extra_parameters[self.dns_type].keys():
                     self.parameters[k] = extra_parameters[self.dns_type][k]
-        self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         self.parameters['dt'] = (opt.dtfactor / opt.n)
-        # custom famplitude for 288 and 576
-        if opt.n == 288:
-            self.parameters['famplitude'] = 0.45
-        elif opt.n == 576:
-            self.parameters['famplitude'] = 0.47
         if ((self.parameters['niter_todo'] % self.parameters['niter_out']) != 0):
             self.parameters['niter_out'] = self.parameters['niter_todo']
         if len(opt.src_work_dir) == 0:
@@ -688,6 +682,21 @@ class DNS(_code):
             opt.ny = opt.n
         if type(opt.nz) == type(None):
             opt.nz = opt.n
+        self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
+        if self.parameters['forcing_type'] == 'linear':
+            # custom famplitude for 288 and 576
+            if opt.n == 288:
+                self.parameters['famplitude'] = 0.45
+            elif opt.n == 576:
+                self.parameters['famplitude'] = 0.47
+        if self.parameters['forcing_type'] == 'fixed_energy_injection_rate':
+            kM = opt.n * 0.5
+            if self.parameters['dealias_type'] == 1:
+                kM *= 0.8
+            # use the fact that mean dissipation rate is equal to injection rate
+            self.parameters['nu'] = (
+                    self.parameters['injection_rate'] *
+                    (opt.kMeta / kM)**4)**(1./3)
         if type(opt.checkpoints_per_file) == type(None):
             # hardcoded FFTW complex representation size
             field_size = 3*(opt.nx+2)*opt.ny*opt.nz*self.fluid_dtype.itemsize
