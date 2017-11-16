@@ -683,13 +683,13 @@ class DNS(_code):
         if type(opt.nz) == type(None):
             opt.nz = opt.n
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
-        if self.parameters['forcing_type'] == 'linear':
+        if opt.forcing_type == 'linear':
             # custom famplitude for 288 and 576
             if opt.n == 288:
                 self.parameters['famplitude'] = 0.45
             elif opt.n == 576:
                 self.parameters['famplitude'] = 0.47
-        if self.parameters['forcing_type'] == 'fixed_energy_injection_rate':
+        elif opt.forcing_type == 'fixed_energy_injection_rate':
             kM = opt.n * 0.5
             if self.parameters['dealias_type'] == 1:
                 kM *= 0.8
