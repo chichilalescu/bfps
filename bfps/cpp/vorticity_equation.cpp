@@ -268,8 +268,28 @@ void vorticity_equation<rnumber, be>::add_forcing(
         return;
     }
     if (strcmp(this->forcing_type, "fixed_energy_injection_rate") == 0)
+        return;
+    if (strcmp(this->forcing_type, "fixed_energy") == 0)
+        return;
+}
+
+template <class rnumber,
+          field_backend be>
+void vorticity_equation<rnumber, be>::impose_forcing(
+        field<rnumber, be, THREE> *onew,
+        field<rnumber, be, THREE> *oold)
+{
+    TIMEZONE("vorticity_equation::impose_forcing");
+    if (strcmp(this->forcing_type, "none") == 0)
+        return;
+    if (strcmp(this->forcing_type, "Kolmogorov") == 0)
+        return;
+    if (strcmp(this->forcing_type, "linear") == 0)
+        return;
+    if (strcmp(this->forcing_type, "fixed_energy_injection_rate") == 0)
     {
         // first, compute energy in shell
+        double local_energy_in_shell = 0;
         double energy_in_shell = 0;
         this->kk->CLOOP_K2(
                     [&](ptrdiff_t cindex,
@@ -282,15 +302,15 @@ void vorticity_equation<rnumber, be>::add_forcing(
                 (this->fk0 <= knorm) &&
                 (this->fk1 >= knorm))
                     energy_in_shell += (
-                            vort_field->cval(cindex, 0, 0)*vort_field->cval(cindex, 0, 0) + vort_field->cval(cindex, 0, 1)*vort_field->cval(cindex, 0, 1) +
-                            vort_field->cval(cindex, 1, 0)*vort_field->cval(cindex, 1, 0) + vort_field->cval(cindex, 1, 1)*vort_field->cval(cindex, 1, 1) +
-                            vort_field->cval(cindex, 2, 0)*vort_field->cval(cindex, 2, 0) + vort_field->cval(cindex, 2, 1)*vort_field->cval(cindex, 2, 1)
+                            onew->cval(cindex, 0, 0)*onew->cval(cindex, 0, 0) + onew->cval(cindex, 0, 1)*onew->cval(cindex, 0, 1) +
+                            onew->cval(cindex, 1, 0)*onew->cval(cindex, 1, 0) + onew->cval(cindex, 1, 1)*onew->cval(cindex, 1, 1) +
+                            onew->cval(cindex, 2, 0)*onew->cval(cindex, 2, 0) + onew->cval(cindex, 2, 1)*onew->cval(cindex, 2, 1)
                             ) / k2;
         }
         );
         // divide by 2, because we want energy
         energy_in_shell /= 2;
-        // now, add forcing term
+        // now, modify amplitudes
         double temp_famplitude = this->injection_rate / energy_in_shell;
         this->kk->CLOOP_K2(
                     [&](ptrdiff_t cindex,
@@ -303,7 +323,7 @@ void vorticity_equation<rnumber, be>::add_forcing(
                 (this->fk1 >= knorm))
                 for (int c=0; c<3; c++)
                     for (int i=0; i<2; i++)
-                        dst->cval(cindex,c,i) += temp_famplitude*vort_field->cval(cindex,c,i);
+                        onew->cval(cindex,c,i) *= temp_famplitude;
         }
         );
         return;
@@ -313,23 +333,23 @@ void vorticity_equation<rnumber, be>::add_forcing(
         // first, compute energy in shell
         double energy_in_shell = 0;
         double total_energy = 0;
-        this->kk->CLOOP_K2(
+        this->kk->CLOOP_K2_NXMODES(
                     [&](ptrdiff_t cindex,
                         ptrdiff_t xindex,
                         ptrdiff_t yindex,
                         ptrdiff_t zindex,
-                        double k2){
+                        double k2,
+                        int nxmodes){
             if (k2 > 0)
             {
-                double local_energy = (
-                            vort_field->cval(cindex, 0, 0)*vort_field->cval(cindex, 0, 0) + vort_field->cval(cindex, 0, 1)*vort_field->cval(cindex, 0, 1) +
-                            vort_field->cval(cindex, 1, 0)*vort_field->cval(cindex, 1, 0) + vort_field->cval(cindex, 1, 1)*vort_field->cval(cindex, 1, 1) +
-                            vort_field->cval(cindex, 2, 0)*vort_field->cval(cindex, 2, 0) + vort_field->cval(cindex, 2, 1)*vort_field->cval(cindex, 2, 1)
+                double local_energy = nxmodes*(
+                            onew->cval(cindex, 0, 0)*onew->cval(cindex, 0, 0) + onew->cval(cindex, 0, 1)*onew->cval(cindex, 0, 1) +
+                            onew->cval(cindex, 1, 0)*onew->cval(cindex, 1, 0) + onew->cval(cindex, 1, 1)*onew->cval(cindex, 1, 1) +
+                            onew->cval(cindex, 2, 0)*onew->cval(cindex, 2, 0) + onew->cval(cindex, 2, 1)*onew->cval(cindex, 2, 1)
                             ) / k2;
                 total_energy += local_energy;
                 double knorm = sqrt(k2);
-                if ((this->fk0 <= knorm) &&
-                    (this->fk1 >= knorm))
+                if ((this->fk0 <= knorm) && (this->fk1 >= knorm))
                     energy_in_shell += local_energy;
             }
         }
@@ -351,7 +371,7 @@ void vorticity_equation<rnumber, be>::add_forcing(
                 (this->fk1 >= knorm))
                 for (int c=0; c<3; c++)
                     for (int i=0; i<2; i++)
-                        dst->cval(cindex,c,i) += temp_famplitude*vort_field->cval(cindex,c,i);
+                        onew->cval(cindex,c,i) *= temp_famplitude;
         }
         );
         return;
@@ -410,6 +430,7 @@ void vorticity_equation<rnumber, be>::omega_nonlin(
     );
     this->add_forcing(this->u, this->v[src]);
     this->kk->template force_divfree<rnumber>(this->u->get_cdata());
+    this->u->symmetrize();
 }
 
 template <class rnumber,
@@ -437,6 +458,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
         }
     }
     );
+    this->impose_forcing(this->v[1], this->v[0]);
 
     this->omega_nonlin(1);
     this->kk->CLOOP_K2(
@@ -458,8 +480,11 @@ void vorticity_equation<rnumber, be>::step(double dt)
         }
     }
     );
+    this->impose_forcing(this->v[2], this->v[0]);
 
     this->omega_nonlin(2);
+    // store old vorticity
+    *this->v[1] = *this->v[0];
     this->kk->CLOOP_K2(
                 [&](ptrdiff_t cindex,
                     ptrdiff_t xindex,
@@ -478,6 +503,7 @@ void vorticity_equation<rnumber, be>::step(double dt)
         }
     }
     );
+    this->impose_forcing(this->v[0], this->v[1]);
 
     this->kk->template force_divfree<rnumber>(this->cvorticity->get_cdata());
     this->cvorticity->symmetrize();
