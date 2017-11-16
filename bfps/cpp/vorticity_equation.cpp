@@ -299,8 +299,11 @@ void vorticity_equation<rnumber, be>::add_forcing(
                 MPI_DOUBLE,
                 MPI_SUM,
                 vort_field->comm);
-        // divide by 2, because we want energy
-        energy_in_shell /= 2;
+        // we should divide by 2, if we wanted energy;
+        // but then we would need to multiply the amplitude by 2 anyway,
+        // because what we really care about is force dotted into velocity,
+        // without the division by 2.
+
         // now, modify amplitudes
         double temp_famplitude = this->injection_rate / energy_in_shell;
         this->kk->CLOOP_K2(
