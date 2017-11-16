@@ -35,7 +35,8 @@
 #endif
 
 // To have multiple calls to c2r/r2c
-#define SPLIT_FFTW_MANY
+// you must define SPLIT_FFTW_MANY
+// by calling setup.py --split-fftw-many
 #ifdef SPLIT_FFTW_MANY
 #include <vector>
 #include <memory>

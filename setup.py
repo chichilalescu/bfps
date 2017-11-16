@@ -183,15 +183,18 @@ class CompileLibCommand(distutils.cmd.Command):
     user_options = [
             ('timing-output=', None, 'Toggle timing output.'),
             ('fftw-estimate=', None, 'Use FFTW ESTIMATE.'),
+            ('split-fftw-many=', None, 'Turn on SPLIT_FFTW_MANY.'),
             ('disable-fftw-omp=', None, 'Turn Off FFTW OpenMP.'),
             ]
     def initialize_options(self):
         self.timing_output = 0
         self.fftw_estimate = 0
         self.disable_fftw_omp = 0
+        self.split_fftw_many = 0
         return None
     def finalize_options(self):
         self.timing_output = (int(self.timing_output) == 1)
+        self.split_fftw_many = (int(self.split_fftw_many) == 1)
         self.fftw_estimate = (int(self.fftw_estimate) == 1)
         self.disable_fftw_omp = (int(self.disable_fftw_omp) == 1)
         return None
@@ -216,6 +219,8 @@ class CompileLibCommand(distutils.cmd.Command):
         eca += ['-fPIC']
         if self.timing_output:
             eca += ['-DUSE_TIMINGOUTPUT']
+        if self.split_fftw_many:
+            eca += ['-DSPLIT_FFTW_MANY']
         if self.fftw_estimate:
             eca += ['-DUSE_FFTWESTIMATE']
         if self.disable_fftw_omp:
