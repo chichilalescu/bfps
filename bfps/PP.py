@@ -139,6 +139,11 @@ class PP(_code):
             pars['max_acceleration_estimate'] = float(10)
             pars['max_velocity_estimate'] = float(1)
             pars['histogram_bins'] = int(129)
+        elif dns_type == 'resize':
+            pars['new_nx'] = int(32)
+            pars['new_ny'] = int(32)
+            pars['new_nz'] = int(32)
+            pars['new_simname'] = 'test_resized'
         return pars
     def get_data_file_name(self):
         return os.path.join(self.work_dir, self.simname + '.h5')
@@ -444,6 +449,15 @@ class PP(_code):
         self.parameters_to_parser_arguments(
                 parser_joint_acc_vel_stats,
                 parameters = self.extra_postprocessing_parameters('joint_acc_vel_stats'))
+        parser_resize = subparsers.add_parser(
+                'resize',
+                help = 'get joint acceleration and velocity statistics')
+        self.simulation_parser_arguments(parser_resize)
+        self.job_parser_arguments(parser_resize)
+        self.parameters_to_parser_arguments(parser_resize)
+        self.parameters_to_parser_arguments(
+                parser_resize,
+                parameters = self.extra_postprocessing_parameters('resize'))
         return None
     def prepare_launch(
             self,

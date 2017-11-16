@@ -24,67 +24,44 @@
 
 
 
-#ifndef HDF5_TOOLS_HPP
-#define HDF5_TOOLS_HPP
+#ifndef RESIZE_HPP
+#define RESIZE_HPP
 
+#include <cstdlib>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <vector>
-#include <hdf5.h>
 #include "base.hpp"
+#include "field.hpp"
+#include "field_binary_IO.hpp"
+#include "full_code/NSVE_field_stats.hpp"
 
-namespace hdf5_tools
+template <typename rnumber>
+class resize: public NSVE_field_stats<rnumber>
 {
-    int grow_single_dataset(
-            hid_t dset,
-            int tincrement);
+    public:
+        std::string new_simname;
 
-    herr_t grow_dataset_visitor(
-        hid_t o_id,
-        const char *name,
-        const H5O_info_t *info,
-        void *op_data);
+        int new_nx;
+        int new_ny;
+        int new_nz;
 
-    int grow_file_datasets(
-            const hid_t stat_file,
-            const std::string group_name,
-            int tincrement);
+        int niter_out;
 
-    int require_size_single_dataset(
-            hid_t dset,
-            int tincrement);
+        field<rnumber, FFTW, THREE> *new_field;
 
-    herr_t require_size_dataset_visitor(
-        hid_t o_id,
-        const char *name,
-        const H5O_info_t *info,
-        void *op_data);
+        resize(
+                const MPI_Comm COMMUNICATOR,
+                const std::string &simulation_name):
+            NSVE_field_stats<rnumber>(
+                    COMMUNICATOR,
+                    simulation_name){}
+        virtual ~resize(){}
 
-    int require_size_file_datasets(
-            const hid_t stat_file,
-            const std::string group_name,
-            int tincrement);
+        int initialize(void);
+        int work_on_current_iteration(void);
+        int finalize(void);
+};
 
-    template <typename number>
-    std::vector<number> read_vector(
-            const hid_t group,
-            const std::string dset_name);
-
-    template <typename number>
-    std::vector<number> read_vector_with_single_rank(
-            const int myrank,
-            const int rank_to_use,
-            const MPI_Comm COMM,
-            const hid_t group,
-            const std::string dset_name);
-
-    std::string read_string(
-            const hid_t group,
-            const std::string dset_name);
-
-    template <typename number>
-    number read_value(
-            const hid_t group,
-            const std::string dset_name);
-}
-
-#endif//HDF5_TOOLS_HPP
+#endif//RESIZE_HPP
 
