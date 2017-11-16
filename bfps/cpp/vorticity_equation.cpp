@@ -32,6 +32,7 @@
 #include "fftw_tools.hpp"
 #include "vorticity_equation.hpp"
 #include "scope_timer.hpp"
+#include "shared_array.hpp"
 
 
 
@@ -268,7 +269,56 @@ void vorticity_equation<rnumber, be>::add_forcing(
         return;
     }
     if (strcmp(this->forcing_type, "fixed_energy_injection_rate") == 0)
+    {
+        // first, compute energy in shell
+        shared_array<double> local_energy_in_shell(1);
+        double energy_in_shell = 0;
+        this->kk->CLOOP_K2_NXMODES(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2,
+                        int nxmodes){
+            double knorm = sqrt(k2);
+            if ((k2 > 0) &&
+                (this->fk0 <= knorm) &&
+                (this->fk1 >= knorm))
+                    *local_energy_in_shell.getMine() += nxmodes*(
+                            vort_field->cval(cindex, 0, 0)*vort_field->cval(cindex, 0, 0) + vort_field->cval(cindex, 0, 1)*vort_field->cval(cindex, 0, 1) +
+                            vort_field->cval(cindex, 1, 0)*vort_field->cval(cindex, 1, 0) + vort_field->cval(cindex, 1, 1)*vort_field->cval(cindex, 1, 1) +
+                            vort_field->cval(cindex, 2, 0)*vort_field->cval(cindex, 2, 0) + vort_field->cval(cindex, 2, 1)*vort_field->cval(cindex, 2, 1)
+                            ) / k2;
+        }
+        );
+        local_energy_in_shell.mergeParallel();
+        MPI_Allreduce(
+                local_energy_in_shell.getMasterData(),
+                &energy_in_shell,
+                1,
+                MPI_DOUBLE,
+                MPI_SUM,
+                vort_field->comm);
+        // divide by 2, because we want energy
+        energy_in_shell /= 2;
+        // now, modify amplitudes
+        double temp_famplitude = this->injection_rate / energy_in_shell;
+        this->kk->CLOOP_K2(
+                    [&](ptrdiff_t cindex,
+                        ptrdiff_t xindex,
+                        ptrdiff_t yindex,
+                        ptrdiff_t zindex,
+                        double k2){
+            double knorm = sqrt(k2);
+            if ((this->fk0 <= knorm) &&
+                (this->fk1 >= knorm))
+                for (int c=0; c<3; c++)
+                    for (int i=0; i<2; i++)
+                        dst->cval(cindex,c,i) += temp_famplitude*vort_field->cval(cindex, c, i);
+        }
+        );
         return;
+    }
     if (strcmp(this->forcing_type, "fixed_energy") == 0)
         return;
 }
@@ -287,52 +337,13 @@ void vorticity_equation<rnumber, be>::impose_forcing(
     if (strcmp(this->forcing_type, "linear") == 0)
         return;
     if (strcmp(this->forcing_type, "fixed_energy_injection_rate") == 0)
-    {
-        // first, compute energy in shell
-        double local_energy_in_shell = 0;
-        double energy_in_shell = 0;
-        this->kk->CLOOP_K2(
-                    [&](ptrdiff_t cindex,
-                        ptrdiff_t xindex,
-                        ptrdiff_t yindex,
-                        ptrdiff_t zindex,
-                        double k2){
-            double knorm = sqrt(k2);
-            if ((k2 > 0) &&
-                (this->fk0 <= knorm) &&
-                (this->fk1 >= knorm))
-                    energy_in_shell += (
-                            onew->cval(cindex, 0, 0)*onew->cval(cindex, 0, 0) + onew->cval(cindex, 0, 1)*onew->cval(cindex, 0, 1) +
-                            onew->cval(cindex, 1, 0)*onew->cval(cindex, 1, 0) + onew->cval(cindex, 1, 1)*onew->cval(cindex, 1, 1) +
-                            onew->cval(cindex, 2, 0)*onew->cval(cindex, 2, 0) + onew->cval(cindex, 2, 1)*onew->cval(cindex, 2, 1)
-                            ) / k2;
-        }
-        );
-        // divide by 2, because we want energy
-        energy_in_shell /= 2;
-        // now, modify amplitudes
-        double temp_famplitude = this->injection_rate / energy_in_shell;
-        this->kk->CLOOP_K2(
-                    [&](ptrdiff_t cindex,
-                        ptrdiff_t xindex,
-                        ptrdiff_t yindex,
-                        ptrdiff_t zindex,
-                        double k2){
-            double knorm = sqrt(k2);
-            if ((this->fk0 <= knorm) &&
-                (this->fk1 >= knorm))
-                for (int c=0; c<3; c++)
-                    for (int i=0; i<2; i++)
-                        onew->cval(cindex,c,i) *= temp_famplitude;
-        }
-        );
         return;
-    }
     if (strcmp(this->forcing_type, "fixed_energy") == 0)
     {
         // first, compute energy in shell
-        double energy_in_shell = 0;
-        double total_energy = 0;
+        shared_array<double> local_energy_in_shell(1);
+        shared_array<double> local_total_energy(1);
+        double energy_in_shell, total_energy;
         this->kk->CLOOP_K2_NXMODES(
                     [&](ptrdiff_t cindex,
                         ptrdiff_t xindex,
@@ -342,18 +353,34 @@ void vorticity_equation<rnumber, be>::impose_forcing(
                         int nxmodes){
             if (k2 > 0)
             {
-                double local_energy = nxmodes*(
+                double mode_energy = nxmodes*(
                             onew->cval(cindex, 0, 0)*onew->cval(cindex, 0, 0) + onew->cval(cindex, 0, 1)*onew->cval(cindex, 0, 1) +
                             onew->cval(cindex, 1, 0)*onew->cval(cindex, 1, 0) + onew->cval(cindex, 1, 1)*onew->cval(cindex, 1, 1) +
                             onew->cval(cindex, 2, 0)*onew->cval(cindex, 2, 0) + onew->cval(cindex, 2, 1)*onew->cval(cindex, 2, 1)
                             ) / k2;
-                total_energy += local_energy;
+                *local_total_energy.getMine() += mode_energy;
                 double knorm = sqrt(k2);
                 if ((this->fk0 <= knorm) && (this->fk1 >= knorm))
-                    energy_in_shell += local_energy;
+                    *local_energy_in_shell.getMine() += mode_energy;
             }
         }
         );
+        local_total_energy.mergeParallel();
+        local_energy_in_shell.mergeParallel();
+        MPI_Allreduce(
+                local_energy_in_shell.getMasterData(),
+                &energy_in_shell,
+                1,
+                MPI_DOUBLE,
+                MPI_SUM,
+                onew->comm);
+        MPI_Allreduce(
+                local_total_energy.getMasterData(),
+                &total_energy,
+                1,
+                MPI_DOUBLE,
+                MPI_SUM,
+                onew->comm);
         // divide by 2, because we want energy
         total_energy /= 2;
         energy_in_shell /= 2;
