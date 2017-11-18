@@ -236,6 +236,9 @@ class DNS(_code):
             ii0 = iter0 // self.parameters['niter_stat']
             ii1 = iter1 // self.parameters['niter_stat']
             self.statistics['kshell'] = data_file['kspace/kshell'].value
+            for kk in [-1, -2]:
+                if (self.statistics['kshell'][kk] == 0):
+                    self.statistics['kshell'][kk] = np.nan
             self.statistics['kM'] = data_file['kspace/kM'].value
             self.statistics['dk'] = data_file['kspace/dk'].value
             computation_needed = True
