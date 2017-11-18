@@ -1180,7 +1180,6 @@ int joint_rspace_PDF(
                     H5P_DEFAULT);
             wspace = H5Dget_space(dset);
             ndims = H5Sget_simple_extent_dims(wspace, dims, NULL);
-            DEBUG_MSG("number of dimensions is %d\n", ndims);
             assert(ndims == 5);
             assert(dims[3] == 3);
             assert(dims[4] == 3);
@@ -1385,7 +1384,6 @@ field<rnumber, be, fc> &field<rnumber, be, fc>::operator=(
             this->get_ny() == src.get_ny() &&
             this->get_nz() == src.get_nz())
         {
-            DEBUG_MSG("in operator=, doing simple copy\n");
             std::copy(src.data,
                       src.data + this->rmemlayout->local_size,
                       this->data);
@@ -1393,7 +1391,6 @@ field<rnumber, be, fc> &field<rnumber, be, fc>::operator=(
         // complicated resize
         else
         {
-            DEBUG_MSG("in operator=, doing complicated resize\n");
             int64_t slice_size = src.clayout->local_size / src.clayout->subsizes[0];
             // clean up
             std::fill_n(this->data,
