@@ -512,7 +512,9 @@ class _code(_base):
             first_node_tasks = int(nb_mpi_processes - (nb_nodes-1)*nb_processes_per_node)
 
         for job in range(njobs):
-            script_file.write('# @ step_name = {0}.$(stepid)\n'.format(self.simname))
+            script_file.write('# @ step_name = {0}.{1}\n'.format(self.simname, job))
+            if job > 0:
+                script_file.write('# @ dependency = {0}.{1} == 0\n'.format(self.simname, job - 1))
             script_file.write('# @ resources = ConsumableCpus({})\n'.format(nb_threads_per_process))
             script_file.write('# @ network.MPI = sn_all,not_shared,us\n')
             script_file.write('# @ wall_clock_limit = {0}:{1:0>2d}:00\n'.format(hours, minutes))
