@@ -685,6 +685,12 @@ class DNS(_code):
             opt.ny = opt.n
         if type(opt.nz) == type(None):
             opt.nz = opt.n
+        if type(opt.fk0) == type(None):
+            opt.fk0 = self.parameters['fk0']
+        if type(opt.fk1) == type(None):
+            opt.fk1 = self.parameters['fk1']
+        if type(opt.injection_rate) == type(None):
+            opt.injection_rate = self.parameters['injection_rate']
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         if opt.forcing_type == 'linear':
             # custom famplitude for 288 and 576
@@ -700,6 +706,16 @@ class DNS(_code):
             self.parameters['nu'] = (
                     self.parameters['injection_rate'] *
                     (opt.kMeta / kM)**4)**(1./3)
+        elif opt.forcing_type == 'fixed_energy':
+            kM = opt.n * 0.5
+            if self.parameters['dealias_type'] == 1:
+                kM *= 0.8
+            kf = 1. / (1./self.parameters['fk0'] +
+                       1./self.parameters['fk1'])
+            self.parameters['nu'] = (
+                    (opt.kMeta / kM)**(4./3) *
+                    (np.pi / kf)**(1./3) *
+                    (2*self.parameters['energy'] / 3)**0.5)
         if type(opt.checkpoints_per_file) == type(None):
             # hardcoded FFTW complex representation size
             field_size = 3*(opt.nx+2)*opt.ny*opt.nz*self.fluid_dtype.itemsize
