@@ -692,7 +692,7 @@ class DNS(_code):
         if type(opt.injection_rate) == type(None):
             opt.injection_rate = self.parameters['injection_rate']
         if type(opt.dealias_type) == type(None):
-            opt.fk1 = self.parameters['dealias_type']
+            opt.dealias_type = self.parameters['dealias_type']
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
         if opt.forcing_type == 'linear':
             # custom famplitude for 288 and 576
