@@ -694,15 +694,17 @@ class DNS(_code):
         if type(opt.dealias_type) == type(None):
             opt.dealias_type = self.parameters['dealias_type']
         self.parameters['nu'] = (opt.kMeta * 2 / opt.n)**(4./3)
+        # check value of kMax
+        kM = opt.n * 0.5
+        if opt.dealias_type == 1:
+            kM *= 0.8
+        # tweak forcing/viscosity based on forcint type
         if opt.forcing_type == 'linear':
             # custom famplitude for 288 and 576
             if opt.n == 288:
                 self.parameters['famplitude'] = 0.45
             elif opt.n == 576:
                 self.parameters['famplitude'] = 0.47
-        kM = opt.n * 0.5
-        if opt.dealias_type == 1:
-            kM *= 0.8
         elif opt.forcing_type == 'fixed_energy_injection_rate':
             # use the fact that mean dissipation rate is equal to injection rate
             self.parameters['nu'] = (
