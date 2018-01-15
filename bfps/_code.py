@@ -223,7 +223,7 @@ class _code(_base):
 
         self.write_src()
         print('compiling code with command\n' + ' '.join(command_strings))
-        return subprocess.call(command_strings)
+        return subprocess.check_call(command_strings)
     def set_host_info(
             self,
             host_info = {}):
@@ -282,7 +282,7 @@ class _code(_base):
                 qsub_atoms = ['qsub']
                 if len(job_name_list) >= 1:
                     qsub_atoms += ['-hold_jid', job_name_list[-1]]
-                subprocess.call(qsub_atoms + [qsub_script_name])
+                subprocess.check_call(qsub_atoms + [qsub_script_name])
                 os.chdir(current_dir)
                 job_name_list.append(suffix)
         if self.host_info['type'] == 'SLURM':
@@ -342,7 +342,7 @@ class _code(_base):
             submit_atoms = ['llsubmit']
 
             if not no_submit:
-                subprocess.call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
+                subprocess.check_call(submit_atoms + [os.path.join(self.work_dir, job_script_name)])
 
         elif self.host_info['type'] == 'pc':
             os.chdir(self.work_dir)
@@ -352,7 +352,7 @@ class _code(_base):
             for j in range(njobs):
                 suffix = self.simname + '_{0}'.format(iter0 + j*self.parameters['niter_todo'])
                 print('running code with command\n' + ' '.join(command_atoms))
-                subprocess.call(command_atoms,
+                subprocess.check_call(command_atoms,
                                 stdout = open(out_file + '_' + suffix, 'w'),
                                 stderr = open(err_file + '_' + suffix, 'w'))
             os.chdir(current_dir)
