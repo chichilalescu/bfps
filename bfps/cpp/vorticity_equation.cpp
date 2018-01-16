@@ -249,6 +249,39 @@ void vorticity_equation<rnumber, be>::add_forcing(
         }
         return;
     }
+    if (strcmp(this->forcing_type, "2Kolmogorov") == 0)
+    {
+        // 2 Kolmogorov forces
+        // first one wavenumber fk0, amplitude 1 - A
+        DEBUG_MSG("famplitude = %g\n", this->famplitude);
+        ptrdiff_t cindex;
+        double amplitude = 1 - this->famplitude;
+        int fmode = int(this->fk0 / this->kk->dky);
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][fmode])
+        {
+            cindex = dst->get_cindex(0, (fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex,2, 0) -= amplitude/2;
+        }
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->cvorticity->clayout->sizes[0] - fmode])
+        {
+            cindex = dst->get_cindex(0, (this->cvorticity->clayout->sizes[0] - fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex, 2, 0) -= amplitude/2;
+        }
+        // second one wavenumber fk1, amplitude A
+        amplitude = this->famplitude * pow(int(this->fk1) / double(int(this->fk0)), 3);
+        fmode = int(this->fk1 / this->kk->dky);
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][fmode])
+        {
+            cindex = dst->get_cindex(0, (fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex,2, 0) -= amplitude/2;
+        }
+        if (this->cvorticity->clayout->myrank == this->cvorticity->clayout->rank[0][this->cvorticity->clayout->sizes[0] - fmode])
+        {
+            cindex = dst->get_cindex(0, (this->cvorticity->clayout->sizes[0] - fmode - this->cvorticity->clayout->starts[0]), 0);
+            dst->cval(cindex, 2, 0) -= amplitude/2;
+        }
+        return;
+    }
     if (strcmp(this->forcing_type, "linear") == 0)
     {
         this->kk->CLOOP(
@@ -336,6 +369,8 @@ void vorticity_equation<rnumber, be>::impose_forcing(
     if (strcmp(this->forcing_type, "none") == 0)
         return;
     if (strcmp(this->forcing_type, "Kolmogorov") == 0)
+        return;
+    if (strcmp(this->forcing_type, "2Kolmogorov") == 0)
         return;
     if (strcmp(this->forcing_type, "linear") == 0)
         return;
